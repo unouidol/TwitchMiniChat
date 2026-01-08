@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 rootProject.name = "TwitchMiniChat"
 include(":app")
 include(":app_v2")
+include(":app_v3")
