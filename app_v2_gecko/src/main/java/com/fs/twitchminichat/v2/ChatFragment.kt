@@ -27,6 +27,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import kotlin.concurrent.thread
+import android.util.Log
+
 
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
@@ -34,7 +36,7 @@ private val HISTORY_SECRET_KEY = BuildConfig.HISTORY_SECRET_KEY // <-- metti la 
 
 class ChatFragment : Fragment(R.layout.fragment_chat) {
 
-    private val CACHED_CHANNEL = "unouidol"
+    //private val CACHED_CHANNEL = "unouidol"
 
     private var cfg: AccountConfig? = null
     private var accountId: String = ""
@@ -101,6 +103,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         btnStartPcg.setOnClickListener {
             PcgActivity.start(requireContext(), accountId)
         }
+        Log.d("CHAT", "ChatFragment opened with accountId=$accountId")
 
         textStatus.text = cfg?.let { "Loading @${it.username} on #${it.channel}..." } ?: "Account not found"
 
@@ -117,8 +120,26 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
     override fun onStart() {
         super.onStart()
+
+        // ricarica config sempre
+        val newCfg = AccountRepository(requireContext()).getById(accountId) ?: return
+
+        val oldChannel = cfg?.channel
+        cfg = newCfg
+
+        // se è cambiato canale o account, resetta lo stato e riconnetti pulito
+        if (oldChannel != null && !oldChannel.equals(newCfg.channel, ignoreCase = true)) {
+            readClient?.disconnect()
+            sendClient?.disconnect()
+            readClient = null
+            sendClient = null
+            sendReady = false
+            historyLoaded = false
+        }
+
         connectIfNeeded()
     }
+
 
     override fun onPause() {
         super.onPause()
@@ -130,7 +151,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         // Se torni da PCG (o sei stato fuori), recupera i messaggi mancanti via history
         val c = cfg ?: return
-        if (!c.channel.equals(CACHED_CHANNEL, ignoreCase = true)) return
+        //if (!c.channel.equals(CACHED_CHANNEL, ignoreCase = true)) return
 
         val pausedAt = lastPausedAtMs
         if (pausedAt == 0L) return
@@ -163,20 +184,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             return
         }
 
-        // history solo 1 volta per tab (il "refresh" al rientro lo facciamo in onResume)
         if (!historyLoaded) {
             historyLoaded = true
-            if (c.channel.equals(CACHED_CHANNEL, ignoreCase = true)) {
-                loadHistoryFromBot(c, seconds = HISTORY_SECONDS)
-            } else {
-                appendSystemLine("Storico disponibile solo per #$CACHED_CHANNEL")
-            }
+            loadHistoryFromBot(c, seconds = HISTORY_SECONDS)
         }
 
-        textStatus.text = "Connecting as @${c.username} on #${c.channel}..."
+        val ch = c.channel.trim().removePrefix("#").lowercase()
 
-        val rc = TwitchChatClient(c.username, c.accessToken, c.channel)
-        val sc = TwitchChatClient(c.username, c.accessToken, c.channel)
+        textStatus.text = "Connecting as @${c.username} on #$ch..."
+
+        val rc = TwitchChatClient(c.username, c.accessToken, ch)
+        val sc = TwitchChatClient(c.username, c.accessToken, ch)
+
+        Log.d("CHAT", "accountId=$accountId cfgChannel=${c.channel}")
         readClient = rc
         sendClient = sc
         sendReady = false
@@ -205,7 +225,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             onConnected = {
                 sendReady = true
                 activity?.runOnUiThread {
-                    textStatus.text = "Connected as @${c.username} on #${c.channel}"
+                    textStatus.text = "Connected as @${c.username} on #$ch"
                 }
             },
             onMessage = null,
@@ -236,15 +256,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
         if (HISTORY_BASE_URL.isBlank()) return
 
-        val channelNorm = config.channel.trim().removePrefix("#")
-        if (!channelNorm.equals(CACHED_CHANNEL, ignoreCase = true)) return
-
+        val channelNorm = config.channel.trim().removePrefix("#").lowercase()
         val secondsSafe = seconds.coerceIn(30, HISTORY_SECONDS)
 
         thread {
             try {
-                val chan = URLEncoder.encode(channelNorm.lowercase(), "UTF-8")
-
+                val chan = URLEncoder.encode(channelNorm, "UTF-8")
                 val urlString =
                     "$HISTORY_BASE_URL/history" +
                             "?channel=$chan" +

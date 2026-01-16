@@ -17,7 +17,7 @@ class AuthCallbackActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Toast.makeText(this, "Callback (v2_gecko) ✅", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Callback ✅", Toast.LENGTH_SHORT).show()
 
         val data = intent?.data ?: run { finish(); return }
 
@@ -32,12 +32,18 @@ class AuthCallbackActivity : AppCompatActivity() {
 
         val pendingId = extractPendingIdV2g(state)
         if (token.isBlank() || pendingId.isBlank()) {
-            Toast.makeText(this, "Token/state non validi (v2g)", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Token/state not valid", Toast.LENGTH_LONG).show()
             finish()
             return
         }
 
-        val channel = loadPendingChannelV2g(pendingId).ifBlank { "unouidol" }
+        val channel = loadPendingChannelV2g(pendingId).trim().removePrefix("#").lowercase()
+        if (channel.isBlank()) {
+            Toast.makeText(this, "Missing channel for this login. Go back and enter a Twitch channel.", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+
 
         thread {
             val login = fetchLoginFromValidate(token) ?: "unknown"
@@ -71,18 +77,22 @@ class AuthCallbackActivity : AppCompatActivity() {
     }
 
     private fun extractPendingIdV2g(state: String): String {
-        // atteso: "v2g-<pendingId>-<timestamp>"
-        val parts = state.split('-')
-        return if (parts.size >= 3 && parts[0] == "v2g") parts[1] else ""
+        // formato: "v2g-<UUID>-<timestamp>"
+        if (!state.startsWith("v2g-")) return ""
+        val rest = state.removePrefix("v2g-")          // "<UUID>-<timestamp>"
+        val cut = rest.lastIndexOf('-')               // separatore tra UUID e timestamp (ultimo '-')
+        if (cut <= 0) return ""
+        return rest.substring(0, cut)                 // UUID completo (con i suoi '-')
     }
 
+
     private fun loadPendingChannelV2g(pendingId: String): String {
-        val prefs = getSharedPreferences("v2g_pending", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
         return prefs.getString("pending_channel_$pendingId", "") ?: ""
     }
 
     private fun clearPendingChannelV2g(pendingId: String) {
-        val prefs = getSharedPreferences("v2g_pending", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
         prefs.edit().remove("pending_channel_$pendingId").apply()
     }
 

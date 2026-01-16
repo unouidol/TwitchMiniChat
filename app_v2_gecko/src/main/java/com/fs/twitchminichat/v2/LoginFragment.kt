@@ -45,8 +45,13 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
 
         view.findViewById<Button>(R.id.btnLogin).setOnClickListener {
             val channel = normalizeChannel(editChannel.text?.toString().orEmpty())
+            if (channel.isBlank()) {
+                editChannel.error = "Inserisci un canale Twitch"
+                return@setOnClickListener
+            }
             startTwitchLogin(channel)
         }
+
 
         refreshList()
     }
@@ -75,7 +80,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         return raw.trim()
             .removePrefix("#")
             .lowercase()
-            .ifBlank { "unouidol" }
+            .ifBlank { "" }
     }
 
     private fun savePendingChannel(pendingId: String, channel: String) {

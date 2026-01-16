@@ -15,7 +15,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
     private lateinit var geckoView: GeckoView
     private lateinit var session: GeckoSession
 
-    private var channel: String = "unouidol"
+    private var channel: String = ""
 
     private val PCG_EXTENSION_ID = "pm0qkv9g4h87t5y6lg329oam8j7ze9"
     private fun pcgUrl(): String =
