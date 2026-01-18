@@ -12,7 +12,7 @@ The apk are a bit "overweight" because the library required for it to open PCG e
 
 > **How to install**
 
-you have to download the apk, then you need to allow android to install apk outside the PlayStore i.e. "Install unknown apps"
+you have to download the apk (https://github.com/unouidol/TwitchMiniChat_v2/releases/tag/v2.1.0), then you need to allow android to install apk outside the PlayStore i.e. "Install unknown apps"
 Settings > Apps > Special access or Security.
 
 Locate the downloaded apk in the mobile device dowload folder and tap it.
