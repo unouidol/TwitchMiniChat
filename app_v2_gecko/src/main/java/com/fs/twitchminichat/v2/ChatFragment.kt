@@ -204,7 +204,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         rc.connect(
             onConnected = {
                 activity?.runOnUiThread {
-                    textStatus.text = "Connected (read) as @${c.username} on #${c.channel}"
+                    textStatus.text = "Connected as @${c.username} on #$ch"
                 }
             },
             onMessage = { user, msg, emotesRaw, _, msgId ->

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TwitchMiniChat V2_gecko</string>
-    <string name="login_note">Login / Add account\nChat history is available only on #unouidol.</string>
+    <string name="app_name">TwitchMiniChat</string>
+    <string name="login_note">Login / Add Twitch Account</string>
 
 </resources>
