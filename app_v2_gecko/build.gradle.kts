@@ -32,6 +32,41 @@ android {
         compose = false
         buildConfig = true
     }
+    flavorDimensions += "env"
+
+    productFlavors {
+        create("stable") {
+            dimension = "env"
+            // Nome app
+            resValue("string", "app_name", "TwitchMiniChat")
+
+            // Deep link scheme per callback -> app
+            manifestPlaceholders["authScheme"] = "twitchminichat"
+
+            // Redirect usato nel login Twitch
+            buildConfigField(
+                "String",
+                "TWITCH_REDIRECT_URI",
+                "\"https://github.com/unouidol/ircminichat/blob/main/docs/callback.html\""
+            )
+        }
+
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+
+            resValue("string", "app_name", "TwitchMiniChat Dev")
+
+            manifestPlaceholders["authScheme"] = "twitchminichatdev"
+
+            buildConfigField(
+                "String",
+                "TWITCH_REDIRECT_URI",
+                "\"https://github.com/unouidol/ircminichat/blob/main/docs/callback_dev.html\""
+            )
+        }
+    }
 
 
     splits {

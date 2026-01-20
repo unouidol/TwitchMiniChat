@@ -24,10 +24,12 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+
                 <data
-                    android:scheme="ircminichatv2gecko"
+                    android:scheme="${authScheme}"
                     android:host="auth" />
             </intent-filter>
+
         </activity>
 
         <activity

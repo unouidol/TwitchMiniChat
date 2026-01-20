@@ -165,8 +165,8 @@ class MainActivity : AppCompatActivity() {
 
         val uri = Uri.parse("https://id.twitch.tv/oauth2/authorize")
             .buildUpon()
-            .appendQueryParameter("client_id", clientId)
-            .appendQueryParameter("redirect_uri", redirectUri)
+            .appendQueryParameter("client_id", TWITCH_CLIENT_ID)
+            .appendQueryParameter("redirect_uri", BuildConfig.TWITCH_REDIRECT_URI)
             .appendQueryParameter("response_type", "token")
             .appendQueryParameter("scope", "chat:read chat:edit")
             .appendQueryParameter("state", state)
