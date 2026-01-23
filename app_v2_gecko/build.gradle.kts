@@ -44,10 +44,11 @@ android {
             manifestPlaceholders["authScheme"] = "twitchminichat"
 
             // Redirect usato nel login Twitch
+            buildConfigField("String", "TWITCH_CLIENT_ID", "\"7tvgt6i65b58k3e8lhxxv1p0b2vrib\"")
             buildConfigField(
                 "String",
                 "TWITCH_REDIRECT_URI",
-                "\"https://github.com/unouidol/ircminichat/blob/main/docs/callback.html\""
+                "\"https://unouidol.github.io/ircminichat/callback.html\""
             )
         }
 
@@ -59,11 +60,11 @@ android {
             resValue("string", "app_name", "TwitchMiniChat Dev")
 
             manifestPlaceholders["authScheme"] = "twitchminichatdev"
-
+            buildConfigField("String", "TWITCH_CLIENT_ID", "\"7tvgt6i65b58k3e8lhxxv1p0b2vrib\"")
             buildConfigField(
                 "String",
                 "TWITCH_REDIRECT_URI",
-                "\"https://github.com/unouidol/ircminichat/blob/main/docs/callback_dev.html\""
+                "\"https://unouidol.github.io/ircminichat/callback_dev.html\""
             )
         }
     }

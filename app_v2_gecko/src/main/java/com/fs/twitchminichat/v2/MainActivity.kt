@@ -12,6 +12,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
+import androidx.activity.OnBackPressedCallback
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,6 +24,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val vp = getViewPager()
+        if (vp == null) {
+            // così vedi subito in logcat dov'è il problema
+            android.util.Log.e("MAIN", "ViewPager2 con id R.id.pager NON trovato in activity_main.xml")
+        }
+
         repo = AccountRepository(this)
 
         pager = findViewById(R.id.pager)
@@ -32,6 +39,12 @@ class MainActivity : AppCompatActivity() {
         pager.adapter = adapter
 
         handleIntent(intent)
+    }
+    private fun getViewPager(): androidx.viewpager2.widget.ViewPager2? {
+        return findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.pager)
+    }
+    fun goToLoginPage() {
+        pager.currentItem = 0
     }
 
     override fun onNewIntent(intent: Intent) {

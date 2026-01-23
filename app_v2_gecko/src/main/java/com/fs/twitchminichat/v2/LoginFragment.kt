@@ -11,6 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.util.UUID
+import com.fs.twitchminichat.v2.BuildConfig
 
 class LoginFragment : Fragment(R.layout.fragment_login) {
 
@@ -100,8 +101,8 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
 
         val uri = Uri.parse("https://id.twitch.tv/oauth2/authorize")
             .buildUpon()
-            .appendQueryParameter("client_id", clientId)
-            .appendQueryParameter("redirect_uri", redirectUri)
+            .appendQueryParameter("client_id", BuildConfig.TWITCH_CLIENT_ID) // oppure BuildConfig se lo sposti lì
+            .appendQueryParameter("redirect_uri", BuildConfig.TWITCH_REDIRECT_URI)
             .appendQueryParameter("response_type", "token")
             .appendQueryParameter("scope", "chat:read chat:edit")
             .appendQueryParameter("state", state)

@@ -48,4 +48,20 @@ class AccountRepository(ctx: Context) {
     }
 
     fun getById(id: String): AccountConfig? = loadAccounts().firstOrNull { it.id == id }
+
+    fun updateChannel(accountId: String, newChannel: String) {
+        val ch = newChannel.trim().removePrefix("#")
+        if (ch.isBlank()) return
+
+        val list = loadAccounts().toMutableList()
+        val idx = list.indexOfFirst { it.id == accountId }
+        if (idx == -1) return
+
+        val old = list[idx]
+        val updated = old.copy(channel = ch)
+        list[idx] = updated
+
+        saveAll(list)
+    }
+
 }
