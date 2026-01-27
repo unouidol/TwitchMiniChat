@@ -39,12 +39,6 @@
 
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/savedChannelsContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingTop="6dp" />
     </LinearLayout>
 
     <Button

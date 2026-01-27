@@ -58,7 +58,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private lateinit var btnSend: Button
     private lateinit var btnStartPcg: Button
     private lateinit var btnJoinChannel: Button
-    private lateinit var savedChannelsContainer: LinearLayout
 
     private lateinit var channelHistory: ChannelHistoryStore
 
@@ -112,10 +111,38 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
     }
 
-    private fun refreshSavedChannelsUi() {
-        if (!this::savedChannelsContainer.isInitialized) return
-        savedChannelsContainer.post { renderSavedChannels() }
+
+
+    private fun refreshChannelsDropdown(keepOpen: Boolean = true) {
+        if (!this::channelsAdapter.isInitialized) return
+        if (!this::channelHistory.isInitialized) return
+        if (accountId.isBlank()) return
+
+        editChannel.post {
+            val list = channelHistory.get(accountId)
+
+            channelsAdapter.clear()
+            channelsAdapter.addAll(list)
+            channelsAdapter.notifyDataSetChanged()
+
+            // refresh della lista filtrata del popup
+            channelsAdapter.filter.filter(editChannel.text)
+
+            if (keepOpen && editChannel.hasFocus()) {
+                editChannel.dismissDropDown()
+                editChannel.showDropDown()
+            }
+        }
     }
+
+
+
+    private fun refreshChannelsUi() {
+        // aggiorna dropdown
+        refreshChannelsDropdown()
+
+    }
+
     private fun buildChannelsAdapter(): ArrayAdapter<String> {
         return object : ArrayAdapter<String>(
             requireContext(),
@@ -143,8 +170,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 // ✅ tap sulla X -> remove
                 btn.setOnClickListener {
                     channelHistory.remove(accountId, ch)
-                    refreshSavedChannelsUi()
-                    editChannel.post { editChannel.showDropDown() }
+                    refreshChannelsDropdown(keepOpen = true)
                 }
 
                 return v
@@ -178,7 +204,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         Log.d("CHAN", "JOIN-> add recent accountId=$accountId ch=$ch")
         channelHistory.add(accountId, ch)
         Log.d("CHAN", "AFTER add recent list=" + channelHistory.get(accountId).joinToString())
-        refreshSavedChannelsUi()
+        refreshChannelsDropdown()
+
 
         // Reset “state” utile
         historyLoaded = false
@@ -197,49 +224,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         connectIfNeeded()
     }
 
-    private fun renderSavedChannels() {
-
-        savedChannelsContainer.removeAllViews()
-        val list = channelHistory.get(accountId)
-        // aggiorna dropdown
-        channelsAdapter.clear()
-        channelsAdapter.addAll(list)
-        channelsAdapter.notifyDataSetChanged()
-
-        if (list.isEmpty()) return
-
-        for (ch in list) {
-            val row = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, 6, 0, 6)
-            }
-
-            val tv = TextView(requireContext()).apply {
-                text = "#$ch"
-                textSize = 14f
-                setTextColor(0xFFCCCCCC.toInt())
-                setPadding(8, 8, 8, 8)
-                setOnClickListener {
-                    editChannel.setText(ch,false)
-                    joinChannelFromChat(ch)
-                }
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-
-            val btnX = Button(requireContext()).apply {
-                text = "X"
-                setOnClickListener {
-                    channelHistory.remove(accountId, ch)
-                    renderSavedChannels()
-                }
-            }
-
-            row.addView(tv)
-            row.addView(btnX)
-            savedChannelsContainer.addView(row)
-        }
-    }
-    private fun sendOrGo() {
+        private fun sendOrGo() {
         val c = cfg ?: return
 
         val ch = editChannel.text?.toString().orEmpty().trim().removePrefix("#").lowercase()
@@ -266,10 +251,29 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
     }
 
+
+    private fun manualRefresh() {
+        val now = System.currentTimeMillis()
+        if (now - lastManualRefreshMs < 1500) return
+        lastManualRefreshMs = now
+
+        val c = cfg ?: return
+        appendSystemLine("Refreshing…")
+        loadHistoryFromBot(c, 120)
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 1) Find views (TUTTE prima di usarle)
+        // 0) Args subito (servono per history/adapter)
+        accountId = requireArguments().getString(ARG_ACCOUNT_ID).orEmpty()
+        if (accountId.isBlank()) return
+
+        // 1) Store + config
+        channelHistory = ChannelHistoryStore(requireContext())
+        cfg = AccountRepository(requireContext()).getById(accountId)
+
+        // 2) Find views
         textStatus = view.findViewById(R.id.textStatus)
         scrollChat = view.findViewById(R.id.scrollChat)
         chatContainer = view.findViewById(R.id.chatContainer)
@@ -277,63 +281,56 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         btnSend = view.findViewById(R.id.btnSend)
         btnStartPcg = view.findViewById(R.id.btnStartPcg)
         btnRefreshChat = view.findViewById(R.id.btnRefreshChat)
-
-        savedChannelsContainer = view.findViewById(R.id.savedChannelsContainer)
-
-        // 2) Init store PRIMA di usarlo
-        channelHistory = ChannelHistoryStore(requireContext())
-
         editChannel = view.findViewById(R.id.editChannel)
-// Tap sulla chat -> chiudi dropdown al primo tap (senza rompere lo scroll)
-        scrollChat.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                closeChannelDropdown()
-                scrollChat.requestFocus() // importante: sposta davvero il focus fuori
-            }
-            false
-        }
 
-// Tap nel box messaggio -> chiudi dropdown AL PRIMO TAP (niente doppio tap)
-        editMessage.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                closeChannelDropdown()
-            }
-            false
-        }
-
+        // 3) Adapter dropdown (custom row con X)
         channelsAdapter = buildChannelsAdapter()
-
         editChannel.setAdapter(channelsAdapter)
-
         editChannel.threshold = 0
 
+        // 4) Seed: aggiungi canale corrente nei recenti + popola dropdown
+        cfg?.channel?.let { channelHistory.add(accountId, it) }
+        refreshChannelsDropdown(keepOpen = false)
+
+        // 5) Status UI
+        textStatus.text = cfg?.let { "Loading @${it.username} on #${it.channel}..." } ?: "Account not found"
+
+        // 6) Dropdown behaviour
         editChannel.setOnFocusChangeListener { _, hasFocus ->
             if (!hasFocus) {
-                editChannel.dismissDropDown()
+                closeChannelDropdown()
             } else {
-                // se entri in focus e il campo è vuoto, mostra subito
                 val t = editChannel.text?.toString().orEmpty().trim()
                 if (t.isEmpty() || t == "#") {
                     editChannel.post { editChannel.showDropDown() }
                 }
             }
         }
-        view.isFocusableInTouchMode = true
-        view.setOnTouchListener { _, _ ->
-            view.requestFocus()            // toglie focus dall’editChannel
-            editChannel.dismissDropDown()
+
+        // tap sul campo -> se vuoto mostra subito
+        editChannel.setOnClickListener {
+            val t = editChannel.text?.toString().orEmpty().trim()
+            if (t.isEmpty() || t == "#") editChannel.showDropDown()
+        }
+
+        // (warning performClick) — mantiene accessibilità
+        editChannel.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                v.performClick()
+                val t = editChannel.text?.toString().orEmpty().trim()
+                if (t.isEmpty() || t == "#") editChannel.showDropDown()
+            }
             false
         }
 
+        // se l’utente svuota il campo -> riapri suggerimenti
         editChannel.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
             override fun afterTextChanged(s: Editable?) {
                 val t = s?.toString().orEmpty().trim()
                 if (editChannel.hasFocus() && (t.isEmpty() || t == "#")) {
                     editChannel.post {
-                        // forza il refresh dei suggerimenti con API pubbliche
                         editChannel.clearListSelection()
                         editChannel.showDropDown()
                     }
@@ -341,6 +338,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             }
         })
 
+        // se il dropdown si chiude "da solo" mentre sei focused e campo vuoto, lo riapre,
+        // MA se lo hai chiuso tu toccando fuori (suppression), non lo riapre.
         editChannel.setOnDismissListener {
             val now = System.currentTimeMillis()
             if (now < suppressDropdownReopenUntilMs) return@setOnDismissListener
@@ -348,7 +347,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             val t = editChannel.text?.toString().orEmpty().trim()
             if (editChannel.hasFocus() && (t.isEmpty() || t == "#")) {
                 editChannel.postDelayed({
-                    // ricontrollo (nel frattempo potresti aver tappato fuori)
                     val now2 = System.currentTimeMillis()
                     val t2 = editChannel.text?.toString().orEmpty().trim()
                     if (now2 >= suppressDropdownReopenUntilMs && editChannel.hasFocus() && (t2.isEmpty() || t2 == "#")) {
@@ -359,101 +357,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             }
         }
 
-
-
-        editChannel.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
-            override fun afterTextChanged(s: Editable?) {
-                // quando svuoti il campo, riapre il dropdown automaticamente
-                if (editChannel.hasFocus() && s?.isEmpty() == true) {
-                    editChannel.post { editChannel.showDropDown() }
-                }
-            }
-        })
-        // se clicchi mentre è già in focus -> riapre
-        editChannel.setOnClickListener {
-            editChannel.showDropDown()
-        }
-
-        // anche su tap (alcune tastiere/skin non triggerano onClick sempre)
-        editChannel.setOnTouchListener { v, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
-                v.performClick()           // ✅ accessibility
-                editChannel.showDropDown()
+        // 7) Tap fuori -> chiudi dropdown al primo tap (senza doppio tap)
+        view.isFocusableInTouchMode = true
+        view.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                v.requestFocus()
+                closeChannelDropdown()
             }
             false
         }
 
-
-        // se svuoti il campo -> mostra subito la lista (se è in focus)
-        editChannel.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                if (editChannel.hasFocus() && (s == null || s.isEmpty())) {
-                    editChannel.post { editChannel.showDropDown() }
-                }
-            }
-        })
-        editChannel.setOnItemClickListener { parent, _, position, _ ->
-            val ch = (parent.getItemAtPosition(position) as? String).orEmpty()
-                .trim()
-                .removePrefix("#")
-
-            if (ch.isNotBlank()) {
-                editChannel.dismissDropDown()
-                joinChannelFromChat(ch)
-            }
-        }
-
-        // 3) Leggi args + carica cfg
-        accountId = requireArguments().getString(ARG_ACCOUNT_ID).orEmpty()
-        if (accountId.isBlank()) return
-
-        cfg = AccountRepository(requireContext()).getById(accountId)
-
-        // 4) Seed: aggiungi subito il canale corrente tra i recenti (se esiste)
-        cfg?.channel?.let { channelHistory.add(accountId, it) }
-        refreshSavedChannelsUi()
-
-        Log.d("CHAT", "ChatFragment opened with accountId=$accountId")
-
-        textStatus.text = cfg?.let { "Loading @${it.username} on #${it.channel}..." } ?: "Account not found"
-
-        // 5) Listener UI
-        btnStartPcg.setOnClickListener {
-            PcgActivity.start(requireContext(), accountId)
-        }
-
-        btnSend.setOnClickListener { sendOrGo() }
-
-        editMessage.setOnEditorActionListener { _, actionId, event ->
-            val isEnter = event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN
-            if (actionId == EditorInfo.IME_ACTION_SEND || isEnter) {
-                sendOrGo()
-                true
-            } else false
-        }
-
-        // 6) Back: quando sei nella chat, back -> login (pagina 0)
-        requireActivity().onBackPressedDispatcher.addCallback(
-            viewLifecycleOwner,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    (activity as? MainActivity)?.goToLoginPage()
-                }
-            }
-        )
-
-        btnRefreshChat.setOnClickListener {
-            val c = cfg ?: return@setOnClickListener
-            appendSystemLine("Refreshing…")
-            loadHistoryFromBot(c, seconds = 120) // o 60 se vuoi leggerissimo
-        }
         scrollChat.isFocusableInTouchMode = true
-
         scrollChat.setOnTouchListener { v, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
                 closeChannelDropdown()
@@ -477,17 +391,34 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             false
         }
 
+        // 8) Buttons / actions
+        btnStartPcg.setOnClickListener {
+            PcgActivity.start(requireContext(), accountId)
+        }
 
-    }
+        btnSend.setOnClickListener { sendOrGo() }
 
-    private fun manualRefresh(seconds: Int = 120) {
-        val now = System.currentTimeMillis()
-        if (now - lastManualRefreshMs < 1500) return
-        lastManualRefreshMs = now
+        editMessage.setOnEditorActionListener { _, actionId, event ->
+            val isEnter = event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN
+            if (actionId == EditorInfo.IME_ACTION_SEND || isEnter) {
+                sendOrGo()
+                true
+            } else false
+        }
 
-        val c = cfg ?: return
-        appendSystemLine("Refreshing…")
-        loadHistoryFromBot(c, seconds)
+        btnRefreshChat.setOnClickListener {
+            manualRefresh()
+        }
+
+        // 9) Back -> torna al login (pagina 0)
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    (activity as? MainActivity)?.goToLoginPage()
+                }
+            }
+        )
     }
 
 
@@ -509,7 +440,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             sendReady = false
             historyLoaded = false
         }
-        refreshSavedChannelsUi()
 
         connectIfNeeded()
     }
@@ -522,6 +452,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
     override fun onResume() {
         super.onResume()
+        closeChannelDropdown()
 
         // Se torni da PCG (o sei stato fuori), recupera i messaggi mancanti via history
         val c = cfg ?: return
@@ -533,7 +464,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         val awaySec = ((System.currentTimeMillis() - pausedAt) / 1000).toInt()
         lastPausedAtMs = 0L
 
-        if (awaySec >= 3) {
+        // ✅ se eri via anche poco, o se i client erano null (perché in onStop li kill), fai catch-up
+        if (awaySec >= 1 || readClient == null) {
             val refreshSec = (awaySec + 10).coerceIn(30, HISTORY_SECONDS)
             loadHistoryFromBot(c, seconds = refreshSec)
         }
@@ -547,11 +479,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         readClient = null
         sendClient = null
         sendReady = false
-
+        historyLoaded = false   // ✅ IMPORTANTISSIMO: al prossimo onStart ricarichi history
         textStatus.text = cfg?.let { "Disconnected (@${it.username})" } ?: "Disconnected"
     }
 
     private fun connectIfNeeded() {
+        if (readClient != null || sendClient != null) return  // ✅ evita doppie connessioni
         val c = cfg ?: return
         if (c.accessToken.isBlank()) {
             textStatus.text = "Missing token for @${c.username} (login again)"
@@ -706,21 +639,31 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     }
 
     private fun appendChatLine(user: String, message: String, emotesRaw: String?, dedupKey: String) {
-        if (rememberKey(dedupKey)) return
+        val now = System.currentTimeMillis()
+
+        // ✅ dedup rapidissimo (stesso key a distanza di pochi ms)
+        if (dedupKey == lastDedupKey && (now - lastDedupAtMs) < dedupWindowMs) return
+        lastDedupKey = dedupKey
+        lastDedupAtMs = now
+
+        // ✅ dedup "forte" SOLO per chiavi stabili (id twitch / db id)
+        val stable = dedupKey.startsWith("id:")
+        if (stable && rememberKey(dedupKey)) return
+
         val tv = createMessageTextView(user, message, emotesRaw)
         chatContainer.addView(tv)
         scrollToBottom()
     }
 
+
     private fun scrollToBottom() {
-        // Se l'utente sta usando il dropdown canali, non autoscrollare (evita che si chiuda)
-        if (this::editChannel.isInitialized && (editChannel.isPopupShowing || editChannel.hasFocus())) return
+        if (this::editChannel.isInitialized && editChannel.isPopupShowing) return
 
         scrollChat.post {
-            // Evita fullScroll(FOCUS_DOWN) perché può giocare col focus
             scrollChat.scrollTo(0, chatContainer.bottom)
         }
     }
+
 
 
     // ---------------- EMOTES (marker-based, robust) ----------------
