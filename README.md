@@ -25,6 +25,9 @@ Once the initial log in is done, you can then press the "start PCG" button. This
 
 Why the double log in? Because the first one serves to grant acces to the IRC chat channel, while the second allows to authenticate yourself into the PCG extension.
 
+> **Curious about the source code?**
+You can find the latest release source code in the dev branch of this git repository :)
+
 > **Contacts**
 
 for any report/suggestion please reach me out on my discord: https://discord.gg/E8yRUp2MBK
