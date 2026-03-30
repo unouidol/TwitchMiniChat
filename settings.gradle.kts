@@ -12,8 +12,11 @@ pluginManagement {
     }
     plugins {
         id("com.android.application") version "8.5.2"
-        id("org.jetbrains.kotlin.android") version "1.9.24"
+        id("org.jetbrains.kotlin.android") version "2.2.10"
     }
+}
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -25,7 +28,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "TwitchMiniChat"
-include(":app")
-include(":app_v2")
+//include(":app")
+//include(":app_v2")
 include(":app_v2_gecko")
 

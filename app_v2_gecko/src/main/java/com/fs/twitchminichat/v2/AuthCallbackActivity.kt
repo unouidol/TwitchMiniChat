@@ -112,7 +112,9 @@ class AuthCallbackActivity : AppCompatActivity() {
             } else {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
-                JSONObject(body).optString("login", null)
+                JSONObject(body).let { json ->
+                    if (json.isNull("login")) null else json.getString("login")
+                }
             }
         } catch (_: Exception) {
             null
