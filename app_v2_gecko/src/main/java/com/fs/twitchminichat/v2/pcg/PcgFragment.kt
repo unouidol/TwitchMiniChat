@@ -9,6 +9,7 @@ import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
+import com.fs.twitchminichat.v2.ProfileIdUtil
 
 class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
@@ -34,13 +35,22 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
         val accountId = requireArguments().getString(ARG_ACCOUNT_ID).orEmpty()
 
-        val cfg = AccountRepository(requireContext()).getById(accountId)
-        channel = cfg?.channel?.trim().orEmpty()
+        val cfg = AccountRepository(requireContext()).getById(accountId) ?: return
+
+        channel = cfg.channel.trim()
             .removePrefix("#")
             .lowercase()
             .ifBlank { "unouidol" }
 
-        session = GeckoSessionManager.getOrCreateSession(requireContext(), accountId)
+        val profileId = ProfileIdUtil.fromUsername(cfg.username)
+        val profileLabel = cfg.username.trim().ifBlank { profileId }
+
+        session = GeckoSessionManager.getOrCreatePcgSession(
+            context = requireContext(),
+            profileId = profileId,
+            profileLabel = profileLabel,
+            accountId = accountId
+        )
         geckoView.setSession(session)
 
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {

@@ -16,6 +16,7 @@ local.properties
 *.jks
 *.keystore
 key.properties
+keystore.properties
 
 # Logs
 *.log
@@ -24,6 +25,17 @@ key.properties
 **/release/
 **/*.apk
 **/*.aab
+
+# Firebase local config
+app_v2_gecko/google-services.json
+
+# Extra local Gradle folders accidentally copied into repo
+android/
+caches/
+daemon/
+native/
+wrapper/
+gradle/gradle-daemon-jvm.properties
 
 # ===== Python (bot) =====
 __pycache__/

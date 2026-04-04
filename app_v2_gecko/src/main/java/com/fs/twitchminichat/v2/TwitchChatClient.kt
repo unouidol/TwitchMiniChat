@@ -21,11 +21,9 @@ class TwitchChatClient(
 
     fun connect(
         onConnected: (() -> Unit)? = null,
-        onMessage: ((String, String, String?, String?, String?) -> Unit)? = null,
+        onMessage: ((String, String, String?, String?, String?, String?) -> Unit)? = null,
         onError: (Throwable) -> Unit = {}
-    )
-
-    {
+    ) {
         if (running) return
         running = true
 
@@ -47,7 +45,10 @@ class TwitchChatClient(
                 out.write("JOIN #$channel\r\n")
                 out.flush()
 
-                try { onConnected?.invoke() } catch (_: Throwable) {}
+                try {
+                    onConnected?.invoke()
+                } catch (_: Throwable) {
+                }
 
                 while (running) {
                     val line = input.readLine() ?: break
@@ -64,9 +65,11 @@ class TwitchChatClient(
                                     parsed.message,
                                     parsed.emotesRaw,
                                     parsed.clientNonce,
-                                    parsed.msgId
+                                    parsed.msgId,
+                                    parsed.replyParentUserLogin
                                 )
-                            } catch (_: Throwable) {}
+                            } catch (_: Throwable) {
+                            }
                         }
                     }
                 }
@@ -74,7 +77,10 @@ class TwitchChatClient(
                 onError(e)
             } finally {
                 running = false
-                try { socket?.close() } catch (_: Throwable) {}
+                try {
+                    socket?.close()
+                } catch (_: Throwable) {
+                }
             }
         }.start()
     }
@@ -85,7 +91,19 @@ class TwitchChatClient(
             try {
                 w.write("PRIVMSG #$channel :$text\r\n")
                 w.flush()
-            } catch (_: Throwable) {}
+            } catch (_: Throwable) {
+            }
+        }.start()
+    }
+
+    fun sendReply(parentMsgId: String, text: String) {
+        val w = writer ?: return
+        Thread {
+            try {
+                w.write("@reply-parent-msg-id=$parentMsgId PRIVMSG #$channel :$text\r\n")
+                w.flush()
+            } catch (_: Throwable) {
+            }
         }.start()
     }
 
@@ -96,14 +114,18 @@ class TwitchChatClient(
             try {
                 w.write("@client-nonce=$nonce PRIVMSG #$channel :$text\r\n")
                 w.flush()
-            } catch (_: Throwable) {}
+            } catch (_: Throwable) {
+            }
         }.start()
         return nonce
     }
 
     fun disconnect() {
         running = false
-        try { socket?.close() } catch (_: Throwable) {}
+        try {
+            socket?.close()
+        } catch (_: Throwable) {
+        }
     }
 
     private data class ParsedPrivMsg(
@@ -111,14 +133,14 @@ class TwitchChatClient(
         val message: String,
         val emotesRaw: String?,
         val clientNonce: String?,
-        val msgId: String?
+        val msgId: String?,
+        val replyParentUserLogin: String?
     )
 
     private fun parsePrivmsg(line: String): ParsedPrivMsg? {
         var tagsPart: String? = null
         var rest = line
 
-        // @tags ... :nick!user@host PRIVMSG #chan :msg
         if (rest.startsWith("@")) {
             val spaceIndex = rest.indexOf(' ')
             if (spaceIndex > 0) {
@@ -131,6 +153,7 @@ class TwitchChatClient(
         var clientNonce: String? = null
         var msgId: String? = null
         var displayName: String? = null
+        var replyParentUserLogin: String? = null
 
         if (!tagsPart.isNullOrBlank()) {
             for (pair in tagsPart.split(';')) {
@@ -143,13 +166,13 @@ class TwitchChatClient(
                 when (key) {
                     "emotes" -> emotesRaw = value
                     "client-nonce" -> clientNonce = value
-                    "id" -> msgId = value            // ✅ Twitch message-id
+                    "id" -> msgId = value
                     "display-name" -> displayName = value
+                    "reply-parent-user-login" -> replyParentUserLogin = value
                 }
             }
         }
 
-        // parse nick/user from "rest"
         val bangIndex = rest.indexOf('!')
         if (bangIndex <= 0 || !rest.startsWith(":")) return null
         val nick = rest.substring(1, bangIndex)
@@ -164,6 +187,13 @@ class TwitchChatClient(
 
         val message = rest.substring(msgColonIndex + 2)
 
-        return ParsedPrivMsg(userOut, message, emotesRaw, clientNonce, msgId)
+        return ParsedPrivMsg(
+            user = userOut,
+            message = message,
+            emotesRaw = emotesRaw,
+            clientNonce = clientNonce,
+            msgId = msgId,
+            replyParentUserLogin = replyParentUserLogin
+        )
     }
 }

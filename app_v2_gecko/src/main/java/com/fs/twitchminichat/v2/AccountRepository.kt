@@ -3,7 +3,7 @@ package com.fs.twitchminichat.v2
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
-
+import androidx.core.content.edit
 class AccountRepository(ctx: Context) {
 
     private val prefs = ctx.getSharedPreferences("v2_accounts", Context.MODE_PRIVATE)
@@ -44,7 +44,9 @@ class AccountRepository(ctx: Context) {
             o.put("accessToken", it.accessToken)
             arr.put(o)
         }
-        prefs.edit().putString(key, arr.toString()).apply()
+        prefs.edit {
+            putString(key, arr.toString())
+        }
     }
 
     fun getById(id: String): AccountConfig? = loadAccounts().firstOrNull { it.id == id }

@@ -12,6 +12,7 @@ import java.net.URL
 import java.util.UUID
 import kotlin.concurrent.thread
 
+
 class AuthCallbackActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

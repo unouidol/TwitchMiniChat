@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
+    id("com.google.gms.google-services")
 }
 
 val localProps = Properties().apply {
@@ -28,6 +29,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "HISTORY_SECRET_KEY", "\"$historyKey\"")
+        resValue("string", "fcm_register_url", "https://api.ircminichat.party/register_fcm")
+        resValue("string", "dex_upload_url", "https://api.ircminichat.party/upload_dex_list")
     }
 
     buildFeatures {
@@ -51,6 +54,7 @@ android {
                 "TWITCH_REDIRECT_URI",
                 "\"https://unouidol.github.io/ircminichat/callback.html\""
             )
+            buildConfigField("String", "FCM_REGISTER_URL", "\"https://api.ircminichat.party/register_fcm\"")
         }
 
         create("dev") {
@@ -149,4 +153,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("org.mozilla.geckoview:geckoview:145.0.20251124145406")
+    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
