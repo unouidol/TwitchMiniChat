@@ -116,7 +116,17 @@ class MyFirebaseBaseMessagingService : FirebaseMessagingService() {
                 return
             }
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val ch = nm.getNotificationChannel("spawn_alerts")
+            Log.d(
+                "FCM",
+                "channel exists=${ch != null} importance=${ch?.importance} canBypassDnd=${ch?.canBypassDnd()}"
+            )
+        }
 
+        val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
+        Log.d("FCM", "notificationsEnabled=$notificationsEnabled")
         NotificationManagerCompat.from(this).notify(
             Random.nextInt(1, Int.MAX_VALUE),
             notification

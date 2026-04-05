@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         pager.adapter = adapter
 
         handleIntent(intent)
+
     }
 
     private fun getViewPager(): ViewPager2? {

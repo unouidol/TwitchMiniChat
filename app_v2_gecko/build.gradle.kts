@@ -15,6 +15,12 @@ val localProps = Properties().apply {
 
 val historyKey: String = localProps.getProperty("historySecretKey", "")
 
+val hasReleaseSigning =
+    !localProps.getProperty("RELEASE_STORE_FILE").isNullOrBlank() &&
+            !localProps.getProperty("RELEASE_STORE_PASSWORD").isNullOrBlank() &&
+            !localProps.getProperty("RELEASE_KEY_ALIAS").isNullOrBlank() &&
+            !localProps.getProperty("RELEASE_KEY_PASSWORD").isNullOrBlank()
+
 android {
     namespace = "com.fs.twitchminichat.v2"
     compileSdk = 36
@@ -75,20 +81,12 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(
-                requireNotNull(localProps.getProperty("RELEASE_STORE_FILE")) {
-                    "Missing RELEASE_STORE_FILE in local.properties"
-                }
-            )
-            storePassword = requireNotNull(localProps.getProperty("RELEASE_STORE_PASSWORD")) {
-                "Missing RELEASE_STORE_PASSWORD in local.properties"
-            }
-            keyAlias = requireNotNull(localProps.getProperty("RELEASE_KEY_ALIAS")) {
-                "Missing RELEASE_KEY_ALIAS in local.properties"
-            }
-            keyPassword = requireNotNull(localProps.getProperty("RELEASE_KEY_PASSWORD")) {
-                "Missing RELEASE_KEY_PASSWORD in local.properties"
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(localProps.getProperty("RELEASE_STORE_FILE"))
+                storePassword = localProps.getProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = localProps.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD")
             }
         }
     }
@@ -106,7 +104,10 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = signingConfigs.getByName("release")
+
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

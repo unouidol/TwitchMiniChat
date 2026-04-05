@@ -51,6 +51,26 @@ object GeckoSessionManager {
         return out
     }
 
+    private fun normalizeExtractedPokemonName(raw: String?): String {
+        return raw
+            ?.replace("🔒", "")
+            ?.trim()
+            .orEmpty()
+    }
+
+    private fun jsonArrayToWantedPokemonList(arr: JSONArray?): List<String> {
+        if (arr == null) return emptyList()
+
+        val out = ArrayList<String>(arr.length())
+        for (i in 0 until arr.length()) {
+            val cleaned = normalizeExtractedPokemonName(arr.optString(i, null))
+            if (cleaned.isNotBlank()) {
+                out.add(cleaned)
+            }
+        }
+        return out.distinct()
+    }
+
     private fun handleMissingSpawnableExtract(
         appContext: Context,
         profileId: String,
@@ -66,8 +86,17 @@ object GeckoSessionManager {
             return
         }
 
-        val wantedPokemon = jsonArrayToStringList(payload.optJSONArray("wantedPokemon"))
-            .distinct()
+        val wantedPokemon = when {
+            payload.has("wantedPokemon") -> {
+                jsonArrayToWantedPokemonList(payload.optJSONArray("wantedPokemon"))
+            }
+            payload.has("names") -> {
+                jsonArrayToWantedPokemonList(payload.optJSONArray("names"))
+            }
+            else -> {
+                emptyList()
+            }
+        }
 
         val payloadCount = payload.optInt("count", -1)
 
