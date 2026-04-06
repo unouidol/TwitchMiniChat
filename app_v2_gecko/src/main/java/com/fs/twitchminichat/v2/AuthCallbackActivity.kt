@@ -1,6 +1,5 @@
 package com.fs.twitchminichat.v2
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
