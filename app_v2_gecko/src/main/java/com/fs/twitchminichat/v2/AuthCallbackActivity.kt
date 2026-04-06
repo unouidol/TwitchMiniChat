@@ -2,12 +2,12 @@ package com.fs.twitchminichat.v2
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import java.util.UUID
 import kotlin.concurrent.thread
+import androidx.core.content.edit
 
 class AuthCallbackActivity : AppCompatActivity() {
 
@@ -108,12 +108,14 @@ class AuthCallbackActivity : AppCompatActivity() {
     }
 
     private fun loadPendingChannelForSlot(slot: Int): String {
-        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("v2_pending", MODE_PRIVATE)
         return prefs.getString("pending_channel_slot_$slot", "") ?: ""
     }
 
     private fun clearPendingChannelForSlot(slot: Int) {
-        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
-        prefs.edit().remove("pending_channel_slot_$slot").apply()
+        val prefs = getSharedPreferences("v2_pending", MODE_PRIVATE)
+        prefs.edit {
+            remove("pending_channel_slot_$slot")
+        }
     }
 }
