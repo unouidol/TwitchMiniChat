@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="sharedpref" path="v2_accounts.xml"/>
+        <exclude domain="sharedpref" path="v2_accounts.xml" />
     </cloud-backup>
 
-    <!-- Opzionale: escludi anche il trasferimento device-to-device -->
     <device-transfer>
-        <exclude domain="sharedpref" path="v2_accounts.xml"/>
+        <exclude domain="sharedpref" path="v2_accounts.xml" />
     </device-transfer>
 </data-extraction-rules>

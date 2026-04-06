@@ -1,3 +1,38 @@
 <resources>
     <string name="app_name">TwitchMiniChat</string>
+    <string name="login_note">Login / Add Twitch Account</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="new_messages">New messages</string>
+    <string name="hint_write_here">Write here…</string>
+    <string name="send">Send</string>
+    <string name="start_pcg">Start PCG</string>
+    <string name="hint_channel_name">Type Channel Name here</string>
+    <string name="refresh_chat">Refresh chat</string>
+    <string name="chat_messages">Chat messages</string>
+    <string name="stream_off">Video ON</string>
+    <string name="stream_on">Video OFF</string>
+    <string name="mute">Mute</string>
+    <string name="unmute">Unmute</string>
+    <string name="stream_player">Stream player</string>
+    <string name="account_not_found">Account not found</string>
+    <string name="status_connecting">Connecting as @%1$s on #%2$s…</string>
+    <string name="status_loading">Loading @%1$s on #%2$s…</string>
+    <string name="status_connected">Connected as @%1$s on #%2$s</string>
+    <string name="status_missing_token">Missing token for @%1$s (login again)</string>
+    <string name="status_read_error">Read error: %1$s</string>
+    <string name="status_send_error">Send error: %1$s</string>
+    <string name="status_disconnected_account">Disconnected (@%1$s)</string>
+
+    <string name="system_bullet">• %1$s</string>
+    <string name="invalid_channel_name">Invalid Channel Name</string>
+    <string name="channel_switch">Channel Switch → #%1$s</string>
+    <string name="refreshing">Refreshing…</string>
+    <string name="connection_not_ready">Connection not ready…</string>
+    <string name="replying_to">Replying to @%1$s: %2$s</string>
+    <string name="reply_cancel">X</string>
+    <string name="replying">Replying…</string>
+    <string name="close">X</string>
+    <string name="fcm_set_push_enabled_url">https://api.ircminichat.party/set_profile_push_enabled</string>
+    <string name="account_notifications">Account Alerts</string>
+    <string name="fcm_get_device_push_state_url">https://api.ircminichat.party/get_device_push_state</string>
 </resources>

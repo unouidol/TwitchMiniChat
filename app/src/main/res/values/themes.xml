@@ -1,8 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.TwitchMiniChat" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <!-- Qui puoi personalizzare il tema se vuoi -->
-    </style>
-
+    <style name="Theme.TwitchMiniChat" parent="Theme.MaterialComponents.DayNight.NoActionBar"/>
 </resources>
