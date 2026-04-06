@@ -6,119 +6,114 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.UUID
 import kotlin.concurrent.thread
-
 
 class AuthCallbackActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Toast.makeText(this, "Callback ✅", Toast.LENGTH_SHORT).show()
-
-        val data = intent?.data ?: run { finish(); return }
-
-        // Deve arrivare come: ircminichatv2gecko://auth#access_token=...&state=v2g-...
-        val scheme = data.scheme.orEmpty()
-        val fragment = data.fragment.orEmpty()
-
-        // Parse robusto dei parametri nel fragment
-        val fake = Uri.parse("${scheme}://auth?$fragment")
-        val token = fake.getQueryParameter("access_token")?.trim().orEmpty()
-        val state = fake.getQueryParameter("state")?.trim().orEmpty()
-
-        val pendingId = extractPendingIdV2g(state)
-        if (token.isBlank() || pendingId.isBlank()) {
-            Toast.makeText(this, "Token/state not valid", Toast.LENGTH_LONG).show()
+        val data = intent?.data ?: run {
             finish()
             return
         }
 
-        val channel = loadPendingChannelV2g(pendingId).trim().removePrefix("#").lowercase()
+        // Nuovo formato atteso:
+        // ircminichatv2gecko://auth?login_token=...&slot=...&profile_id=...
+        val loginToken = data.getQueryParameter("login_token")?.trim().orEmpty()
+        val slot = data.getQueryParameter("slot")?.trim()?.toIntOrNull()
+        val deepLinkProfileId = data.getQueryParameter("profile_id")?.trim().orEmpty()
+
+        if (loginToken.isBlank() || slot == null) {
+            Toast.makeText(this, "Login callback non valido", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+
+        val channel = loadPendingChannelForSlot(slot)
+            .trim()
+            .removePrefix("#")
+            .lowercase()
+
         if (channel.isBlank()) {
-            Toast.makeText(this, "Missing channel for this login. Go back and enter a Twitch channel.", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this,
+                "Canale mancante per questo login. Torna indietro e reinserisci il canale Twitch.",
+                Toast.LENGTH_LONG
+            ).show()
             finish()
             return
         }
 
+        Toast.makeText(this, "Login in corso...", Toast.LENGTH_SHORT).show()
 
         thread {
-            val login = fetchLoginFromValidate(token) ?: "unknown"
+            val result = OAuthBackendApi.finalizeLogin(loginToken)
+
+            if (
+                result == null ||
+                result.username.isBlank() ||
+                result.accessToken.isBlank()
+            ) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        "Finalize login fallito",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    finish()
+                }
+                return@thread
+            }
+
+            val finalProfileId = when {
+                result.profileId.isNotBlank() -> result.profileId
+                deepLinkProfileId.isNotBlank() -> deepLinkProfileId
+                else -> ""
+            }
 
             val repo = AccountRepository(this)
             val accountId = UUID.randomUUID().toString()
-            sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
 
             repo.addAccount(
                 AccountConfig(
                     id = accountId,
-                    username = login,
+                    username = result.username,
                     channel = channel,
-                    accessToken = token
+                    accessToken = result.accessToken,
+                    profileId = finalProfileId
                 )
             )
 
-            clearPendingChannelV2g(pendingId)
+            clearPendingChannelForSlot(slot)
 
             runOnUiThread {
-                Toast.makeText(this, "Added (gecko): @$login (#$channel)", Toast.LENGTH_LONG).show()
-            }
+                sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
 
-            val i = Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                putExtra("new_account_id", accountId)
-            }
-            startActivity(i)
-            finish()
-        }
-    }
+                Toast.makeText(
+                    this,
+                    "Added (gecko): @${result.username} (#$channel)",
+                    Toast.LENGTH_LONG
+                ).show()
 
-    private fun extractPendingIdV2g(state: String): String {
-        // formato: "v2g-<UUID>-<timestamp>"
-        if (!state.startsWith("v2g-")) return ""
-        val rest = state.removePrefix("v2g-")          // "<UUID>-<timestamp>"
-        val cut = rest.lastIndexOf('-')               // separatore tra UUID e timestamp (ultimo '-')
-        if (cut <= 0) return ""
-        return rest.substring(0, cut)                 // UUID completo (con i suoi '-')
-    }
-
-
-    private fun loadPendingChannelV2g(pendingId: String): String {
-        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
-        return prefs.getString("pending_channel_$pendingId", "") ?: ""
-    }
-
-    private fun clearPendingChannelV2g(pendingId: String) {
-        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
-        prefs.edit().remove("pending_channel_$pendingId").apply()
-    }
-
-    private fun fetchLoginFromValidate(token: String): String? {
-        return try {
-            val url = URL("https://id.twitch.tv/oauth2/validate")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 7000
-                readTimeout = 7000
-                requestMethod = "GET"
-                setRequestProperty("Authorization", "OAuth $token")
-            }
-
-            if (conn.responseCode != 200) {
-                conn.disconnect()
-                null
-            } else {
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
-                conn.disconnect()
-                JSONObject(body).let { json ->
-                    if (json.isNull("login")) null else json.getString("login")
+                val i = Intent(this, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    putExtra("new_account_id", accountId)
                 }
+                startActivity(i)
+                finish()
             }
-        } catch (_: Exception) {
-            null
         }
+    }
+
+    private fun loadPendingChannelForSlot(slot: Int): String {
+        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
+        return prefs.getString("pending_channel_slot_$slot", "") ?: ""
+    }
+
+    private fun clearPendingChannelForSlot(slot: Int) {
+        val prefs = getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
+        prefs.edit().remove("pending_channel_slot_$slot").apply()
     }
 }

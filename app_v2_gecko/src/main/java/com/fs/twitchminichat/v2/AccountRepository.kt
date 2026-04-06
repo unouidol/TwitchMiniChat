@@ -1,9 +1,10 @@
 package com.fs.twitchminichat.v2
 
 import android.content.Context
+import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
-import androidx.core.content.edit
+
 class AccountRepository(ctx: Context) {
 
     private val prefs = ctx.getSharedPreferences("v2_accounts", Context.MODE_PRIVATE)
@@ -21,7 +22,8 @@ class AccountRepository(ctx: Context) {
                     id = o.getString("id"),
                     username = o.getString("username"),
                     channel = o.getString("channel"),
-                    accessToken = o.getString("accessToken")
+                    accessToken = o.getString("accessToken"),
+                    profileId = o.optString("profileId", "")
                 )
             )
         }
@@ -42,6 +44,7 @@ class AccountRepository(ctx: Context) {
             o.put("username", it.username)
             o.put("channel", it.channel)
             o.put("accessToken", it.accessToken)
+            o.put("profileId", it.profileId)
             arr.put(o)
         }
         prefs.edit {
@@ -65,5 +68,4 @@ class AccountRepository(ctx: Context) {
 
         saveAll(list)
     }
-
 }

@@ -41,6 +41,10 @@ import kotlin.concurrent.thread
 import android.widget.MultiAutoCompleteTextView
 import android.os.SystemClock
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import android.util.TypedValue
+import androidx.core.content.ContextCompat
 
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
@@ -54,6 +58,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private var readClient: TwitchChatClient? = null
     private var sendClient: TwitchChatClient? = null
     @Volatile private var sendReady = false
+    @Volatile private var connectInProgress = false
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -246,7 +251,29 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         return text.substring(start, cursor)
     }
+    private fun resolveThemeColor(attr: Int, fallback: Int): Int {
+        val typedValue = TypedValue()
+        val ok = requireContext().theme.resolveAttribute(attr, typedValue, true)
+        if (!ok) return fallback
 
+        return if (typedValue.resourceId != 0) {
+            ContextCompat.getColor(requireContext(), typedValue.resourceId)
+        } else {
+            typedValue.data
+        }
+    }
+
+    private fun colorOnSurface(): Int {
+        return resolveThemeColor(android.R.attr.textColorPrimary, Color.WHITE)
+    }
+
+    private fun colorOnSurfaceVariant(): Int {
+        return resolveThemeColor(android.R.attr.textColorSecondary, 0xFFAAAAAA.toInt())
+    }
+
+    private fun colorPrimarySafe(): Int {
+        return resolveThemeColor(android.R.attr.textColorLink, 0xFF00FFAA.toInt())
+    }
     private class MentionTokenizer : MultiAutoCompleteTextView.Tokenizer {
         override fun findTokenStart(text: CharSequence, cursor: Int): Int {
             var i = cursor
@@ -350,6 +377,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         readClient = null
         sendClient = null
         sendReady = false
+        connectInProgress = false
 
         connectIfNeeded()
     }
@@ -676,7 +704,27 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
 
         updateStreamUi()
+        val initialLeft = view.paddingLeft
+        val initialTop = view.paddingTop
+        val initialRight = view.paddingRight
+        val initialBottom = view.paddingBottom
 
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val extraBottom = maxOf(imeBottom, systemBottom)
+
+            v.setPadding(
+                initialLeft,
+                initialTop,
+                initialRight,
+                initialBottom + extraBottom
+            )
+
+            insets
+        }
+
+        ViewCompat.requestApplyInsets(view)
         scrollChat.setOnScrollChangeListener { _, _, _, _, _ ->
             val nearBottom = isNearBottom()
             stickToBottom = nearBottom
@@ -759,33 +807,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         readClient = null
         sendClient = null
         sendReady = false
+        connectInProgress = false
         historyLoaded = false
         textStatus.text = cfg?.let {
             getString(R.string.status_disconnected_account, it.username)
         } ?: getString(R.string.status_disconnected)
     }
 
-    private fun connectIfNeeded() {
-        if (readClient != null || sendClient != null) return
-        val c = cfg ?: return
-        if (c.accessToken.isBlank()) {
-            textStatus.text = getString(R.string.status_missing_token, c.username)
-            return
-        }
+    private fun openIrcClients(chatUsername: String, ircToken: String, ch: String) {
+        val rc = TwitchChatClient(chatUsername, ircToken, ch)
+        val sc = TwitchChatClient(chatUsername, ircToken, ch)
 
-        if (!historyLoaded) {
-            historyLoaded = true
-            loadHistoryFromBot(c, seconds = HISTORY_SECONDS)
-        }
+        Log.d("CHAT", "accountId=$accountId cfgChannel=$ch")
 
-        val ch = c.channel.trim().removePrefix("#").lowercase()
-
-        textStatus.text = getString(R.string.status_connecting, c.username, ch)
-
-        val rc = TwitchChatClient(c.username, c.accessToken, ch)
-        val sc = TwitchChatClient(c.username, c.accessToken, ch)
-
-        Log.d("CHAT", "accountId=$accountId cfgChannel=${c.channel}")
         readClient = rc
         sendClient = sc
         sendReady = false
@@ -793,14 +827,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         rc.connect(
             onConnected = {
                 activity?.runOnUiThread {
-                    textStatus.text = getString(R.string.status_connected, c.username, ch)
+                    textStatus.text = getString(R.string.status_connected, chatUsername, ch)
                 }
             },
             onMessage = { user, msg, emotesRaw, _, msgId, replyParentUserLogin ->
                 val key = msgId?.takeIf { it.isNotBlank() }?.let { "id:$it" }
                     ?: "live:${System.nanoTime()}:${user.lowercase()}:${msg.hashCode()}"
 
-                val forceScroll = user.equals(c.username, ignoreCase = true)
+                val forceScroll = user.equals(chatUsername, ignoreCase = true)
 
                 activity?.runOnUiThread {
                     appendChatLine(
@@ -824,7 +858,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             onConnected = {
                 sendReady = true
                 activity?.runOnUiThread {
-                    textStatus.text = getString(R.string.status_connected, c.username, ch)
+                    textStatus.text = getString(R.string.status_connected, chatUsername, ch)
                 }
             },
             onMessage = null,
@@ -835,6 +869,94 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 }
             }
         )
+    }
+
+    private fun connectIfNeeded() {
+        if (readClient != null || sendClient != null || connectInProgress) return
+
+        val c = cfg ?: return
+
+        if (!historyLoaded) {
+            historyLoaded = true
+            loadHistoryFromBot(c, seconds = HISTORY_SECONDS)
+        }
+
+        val ch = c.channel.trim().removePrefix("#").lowercase()
+        textStatus.text = getString(R.string.status_connecting, c.username, ch)
+
+        val profileId = c.profileId.trim()
+        val localToken = c.accessToken.trim()
+
+        // Compatibilità: se l'account è vecchio e non ha profileId, usa il token salvato
+        if (profileId.isBlank()) {
+            if (localToken.isBlank()) {
+                textStatus.text = getString(R.string.status_missing_token, c.username)
+                return
+            }
+
+            openIrcClients(
+                chatUsername = c.username,
+                ircToken = localToken,
+                ch = ch
+            )
+            return
+        }
+
+        connectInProgress = true
+
+        thread {
+            try {
+                val fresh = OAuthBackendApi.tokenForIrc(profileId)
+
+                val ircToken = when {
+                    fresh?.accessToken?.isNotBlank() == true -> fresh.accessToken
+                    localToken.isNotBlank() -> localToken
+                    else -> ""
+                }
+
+                val chatUsername = when {
+                    fresh?.username?.isNotBlank() == true -> fresh.username
+                    c.username.isNotBlank() -> c.username
+                    else -> ""
+                }
+
+                activity?.runOnUiThread {
+                    connectInProgress = false
+
+                    if (!isAdded) return@runOnUiThread
+                    if (readClient != null || sendClient != null) return@runOnUiThread
+
+                    if (ircToken.isBlank() || chatUsername.isBlank()) {
+                        textStatus.text = getString(R.string.status_missing_token, c.username)
+                        return@runOnUiThread
+                    }
+
+                    openIrcClients(
+                        chatUsername = chatUsername,
+                        ircToken = ircToken,
+                        ch = ch
+                    )
+                }
+            } catch (_: Exception) {
+                activity?.runOnUiThread {
+                    connectInProgress = false
+
+                    if (!isAdded) return@runOnUiThread
+                    if (readClient != null || sendClient != null) return@runOnUiThread
+
+                    if (localToken.isBlank()) {
+                        textStatus.text = getString(R.string.status_missing_token, c.username)
+                        return@runOnUiThread
+                    }
+
+                    openIrcClients(
+                        chatUsername = c.username,
+                        ircToken = localToken,
+                        ch = ch
+                    )
+                }
+            }
+        }
     }
 
     private fun sendCurrentMessage() {
@@ -970,7 +1092,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private fun appendSystemLine(text: String) {
         val tv = TextView(requireContext())
         tv.text = getString(R.string.system_bullet, text)
-        tv.setTextColor(0xFFAAAAAA.toInt())
+        tv.setTextColor(colorOnSurfaceVariant())
         tv.textSize = 12f
 
         appendChatView(tv, forceScroll = false, countAsUnread = false)
@@ -1024,20 +1146,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         replyBar.visibility = View.GONE
     }
 
-    private fun prefillReplyMention(user: String) {
-        if (!this::editMessage.isInitialized) return
+    //private fun prefillReplyMention(user: String) {
+        //if (!this::editMessage.isInitialized) return
 
-        val mention = "@$user "
-        val current = editMessage.text?.toString().orEmpty()
+        //val mention = "@$user "
+        //val current = editMessage.text?.toString().orEmpty()
 
-        val alreadyStartsWithMention = current.startsWith(mention, ignoreCase = true)
-        if (alreadyStartsWithMention) return
+        //val alreadyStartsWithMention = current.startsWith(mention, ignoreCase = true)
+        //if (alreadyStartsWithMention) return
 
-        if (current.isBlank()) {
-            editMessage.setText(mention)
-            editMessage.setSelection(editMessage.text?.length ?: 0)
-        }
-    }
+        //if (current.isBlank()) {
+            //editMessage.setText(mention)
+            //editMessage.setSelection(editMessage.text?.length ?: 0)
+        //}
+    //
 
     private fun updateStreamUi() {
         if (!this::btnToggleStream.isInitialized) return
@@ -1191,7 +1313,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         replyParentUserLogin: String?
     ): TextView {
         val tv = TextView(requireContext()).apply {
-            setTextColor(0xFFFFFFFF.toInt())
+            setTextColor(colorOnSurface())
             textSize = 14f
         }
 
@@ -1200,7 +1322,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         val lowerUser = user.lowercase()
         val lowerSelf = cfg?.username?.lowercase()
-        val nameColor = if (lowerUser == lowerSelf) 0xFF00FFAA.toInt() else colorForUsername(user)
+        val nameColor = if (lowerUser == lowerSelf) colorPrimarySafe() else colorForUsername(user)
 
         val replyHeader = replyParentUserLogin
             ?.takeIf { it.isNotBlank() }
@@ -1215,7 +1337,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
             if (replyHeader.isNotEmpty()) {
                 plain.setSpan(
-                    ForegroundColorSpan(0xFFAAAAAA.toInt()),
+                    ForegroundColorSpan(colorOnSurfaceVariant()),
                     0,
                     replyHeader.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -1255,7 +1377,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         if (replyHeader.isNotEmpty()) {
             builder.setSpan(
-                ForegroundColorSpan(0xFFAAAAAA.toInt()),
+                ForegroundColorSpan(colorOnSurfaceVariant()),
                 0,
                 replyHeader.length,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE

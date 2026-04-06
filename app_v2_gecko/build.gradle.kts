@@ -52,14 +52,9 @@ android {
             dimension = "env"
 
             resValue("string", "app_name", "TwitchMiniChat")
-            manifestPlaceholders["authScheme"] = "twitchminichat"
+            manifestPlaceholders["authScheme"] = "ircminichat"
+            buildConfigField("String", "AUTH_SCHEME", "\"ircminichat\"")
 
-            buildConfigField("String", "TWITCH_CLIENT_ID", "\"7tvgt6i65b58k3e8lhxxv1p0b2vrib\"")
-            buildConfigField(
-                "String",
-                "TWITCH_REDIRECT_URI",
-                "\"https://unouidol.github.io/ircminichat/callback.html\""
-            )
             buildConfigField("String", "FCM_REGISTER_URL", "\"https://api.ircminichat.party/register_fcm\"")
         }
 
@@ -69,25 +64,8 @@ android {
             versionNameSuffix = "-dev"
 
             resValue("string", "app_name", "TwitchMiniChat Dev")
-            manifestPlaceholders["authScheme"] = "twitchminichatdev"
-
-            buildConfigField("String", "TWITCH_CLIENT_ID", "\"7tvgt6i65b58k3e8lhxxv1p0b2vrib\"")
-            buildConfigField(
-                "String",
-                "TWITCH_REDIRECT_URI",
-                "\"https://unouidol.github.io/ircminichat/callback_dev.html\""
-            )
-        }
-    }
-
-    signingConfigs {
-        if (hasReleaseSigning) {
-            create("release") {
-                storeFile = file(localProps.getProperty("RELEASE_STORE_FILE"))
-                storePassword = localProps.getProperty("RELEASE_STORE_PASSWORD")
-                keyAlias = localProps.getProperty("RELEASE_KEY_ALIAS")
-                keyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD")
-            }
+            manifestPlaceholders["authScheme"] = "ircminichatdev"
+            buildConfigField("String", "AUTH_SCHEME", "\"ircminichatdev\"")
         }
     }
 
@@ -105,9 +83,7 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
 
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = signingConfigs.findByName("release")
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
