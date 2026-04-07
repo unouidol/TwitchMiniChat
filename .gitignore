@@ -28,6 +28,8 @@ keystore.properties
 
 # Firebase local config
 app_v2_gecko/google-services.json
+app/src/stable/google-services.json
+app/src/dev/google-services.json
 
 # Extra local Gradle folders accidentally copied into repo
 android/
@@ -59,5 +61,4 @@ Thumbs.db
 
 # Old stuff (optional)
 old_app_v3_not_working/
-app
 app_v2
