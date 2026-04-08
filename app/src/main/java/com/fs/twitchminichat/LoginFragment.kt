@@ -12,8 +12,8 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.fs.twitchminichat.AccountsAdapter
-import com.fs.twitchminichat.v2.BuildConfig
-import com.fs.twitchminichat.v2.R
+import com.fs.twitchminichat.BuildConfig
+import com.fs.twitchminichat.R
 
 class LoginFragment : Fragment(R.layout.fragment_login) {
 

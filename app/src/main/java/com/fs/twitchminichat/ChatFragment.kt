@@ -45,8 +45,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import android.util.TypedValue
 import androidx.core.content.ContextCompat
-import com.fs.twitchminichat.v2.BuildConfig
-import com.fs.twitchminichat.v2.R
+import com.fs.twitchminichat.BuildConfig
+import com.fs.twitchminichat.R
 
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600

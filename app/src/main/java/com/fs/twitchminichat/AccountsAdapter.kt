@@ -7,7 +7,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.fs.twitchminichat.v2.R
+
 
 class AccountsAdapter(
     private val onClick: (AccountConfig) -> Unit,

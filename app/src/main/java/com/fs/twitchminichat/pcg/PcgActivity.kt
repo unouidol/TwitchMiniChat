@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import com.fs.twitchminichat.v2.R
+import com.fs.twitchminichat.R
 
 class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 

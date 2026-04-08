@@ -17,8 +17,8 @@ import kotlin.concurrent.thread
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-import com.fs.twitchminichat.v2.BuildConfig
-import com.fs.twitchminichat.v2.R
+import com.fs.twitchminichat.BuildConfig
+import com.fs.twitchminichat.R
 import com.google.firebase.messaging.FirebaseMessaging
 
 object FcmRegistrationUploader {
