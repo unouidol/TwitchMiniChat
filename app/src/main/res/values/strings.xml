@@ -35,4 +35,6 @@
     <string name="fcm_set_push_enabled_url">https://api.ircminichat.party/set_profile_push_enabled</string>
     <string name="account_notifications">Account Alerts</string>
     <string name="fcm_get_device_push_state_url">https://api.ircminichat.party/get_device_push_state</string>
+    <string name="account_username">User: %1$s</string>
+    <string name="account_channel">Channel: #%1$s</string>
 </resources>

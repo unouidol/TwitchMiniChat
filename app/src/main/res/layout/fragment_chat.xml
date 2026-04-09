@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootChat"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
     <LinearLayout
         android:id="@+id/channelSwitchBox"
@@ -119,6 +123,7 @@
             android:id="@+id/scrollChat"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:clickable="true"
             android:contentDescription="@string/chat_messages">
 
             <LinearLayout

@@ -8,7 +8,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
-
 class AccountsAdapter(
     private val onClick: (AccountConfig) -> Unit,
     private val onDelete: (AccountConfig) -> Unit,
@@ -30,15 +29,20 @@ class AccountsAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-        val v = LayoutInflater.from(parent.context).inflate(R.layout.row_account, parent, false)
-        return VH(v)
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.row_account, parent, false)
+        return VH(view)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = getItem(position)
+        val context = holder.itemView.context
 
-        holder.textUser.text = "@${item.username}"
-        holder.textChannel.text = "#${item.channel}"
+        holder.textUser.text =
+            context.getString(R.string.account_username, item.username)
+
+        holder.textChannel.text =
+            context.getString(R.string.account_channel, item.channel)
 
         holder.itemView.setOnClickListener { onClick(item) }
         holder.btnDelete.setOnClickListener { onDelete(item) }

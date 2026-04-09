@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.os.SystemClock
 import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -11,8 +12,8 @@ import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.text.style.ImageSpan
 import android.util.Log
+import android.util.TypedValue
 import android.view.KeyEvent
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -22,9 +23,14 @@ import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.MultiAutoCompleteTextView
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
@@ -38,19 +44,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import kotlin.concurrent.thread
-import android.widget.MultiAutoCompleteTextView
-import android.os.SystemClock
-import android.widget.Toast
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import android.util.TypedValue
-import androidx.core.content.ContextCompat
-import com.fs.twitchminichat.BuildConfig
-import com.fs.twitchminichat.R
 
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
-
 
 class ChatFragment : Fragment(R.layout.fragment_chat) {
 
@@ -59,8 +55,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
     private var readClient: TwitchChatClient? = null
     private var sendClient: TwitchChatClient? = null
-    @Volatile private var sendReady = false
-    @Volatile private var connectInProgress = false
+    @Volatile
+    private var sendReady = false
+    @Volatile
+    private var connectInProgress = false
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -89,9 +87,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     )
 
     private val mentionUsers = LinkedHashMap<String, MentionUserEntry>()
-
-    private val mentionTimeoutMs = 10 * 60 * 1000L // 10 minuti
-
+    private val mentionTimeoutMs = 10 * 60 * 1000L
 
     private var pendingReplyMessageId: String? = null
     private var pendingReplyUser: String? = null
@@ -103,29 +99,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
     private var lastManualRefreshMs = 0L
 
-    // Smart chat state
     private var stickToBottom = true
     private var unseenMessages = 0
 
     private val bottomThresholdPx: Int
         get() = (72 * resources.displayMetrics.density).toInt()
 
-    // Dedup "immediato"
     private var lastDedupKey: String? = null
     private var lastDedupAtMs: Long = 0L
     private val dedupWindowMs = 1500L
 
-    // Dedup "LRU"
     private val seenKeys = LinkedHashMap<String, Unit>(1024, 0.75f, true)
     private val seenMax = 800
 
-    // Evita reload history completo a ogni tab switch
     private var historyLoaded = false
-
-    // Per capire quanto sei stato via
     private var lastPausedAtMs: Long = 0L
 
-    // Colori bot fissi
     private val botcolors = mapOf(
         "elbierro" to 0xFFFFD700.toInt(),
         "pokemoncommunitygame" to 0xFFFF5555.toInt()
@@ -136,15 +125,54 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private lateinit var editChannel: AutoCompleteTextView
     private lateinit var channelsAdapter: ArrayAdapter<String>
 
-    private var suppressDropdownReopenUntilMs: Long = 0L
+    private fun refreshChannelsDropdown() {
+        if (!this::channelsAdapter.isInitialized) return
+        if (!this::channelHistory.isInitialized) return
+        if (accountId.isBlank()) return
 
-    private fun dismissChannelDropdown(clearFocus: Boolean = false) {
+        val list = channelHistory.get(accountId)
+
+        channelsAdapter.clear()
+        channelsAdapter.addAll(list)
+        channelsAdapter.notifyDataSetChanged()
+    }
+
+    private fun openChannelDropdownIfEmpty() {
         if (!this::editChannel.isInitialized) return
-        suppressDropdownReopenUntilMs = System.currentTimeMillis() + 250
-        editChannel.dismissDropDown()
-        if (clearFocus) {
-            editChannel.clearFocus()
+
+        val text = editChannel.text?.toString().orEmpty().trim()
+        if (text.isNotEmpty() && text != "#") return
+
+        if (!editChannel.hasFocus()) {
+            editChannel.requestFocus()
         }
+
+        refreshChannelsDropdown()
+
+        editChannel.post {
+            if (!editChannel.hasFocus()) return@post
+
+            val currentText = editChannel.text?.toString().orEmpty().trim()
+            if (currentText.isEmpty() || currentText == "#") {
+                editChannel.showDropDown()
+            }
+        }
+    }
+
+    private fun clearChannelFieldUi() {
+        if (!this::editChannel.isInitialized) return
+
+        dismissChannelDropdown()
+        editChannel.clearFocus()
+        view?.requestFocus()
+
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(editChannel.windowToken, 0)
+    }
+
+    private fun dismissChannelDropdown() {
+        if (!this::editChannel.isInitialized) return
+        editChannel.dismissDropDown()
     }
 
     private fun colorForUsername(user: String): Int {
@@ -157,26 +185,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
     }
 
-    private fun refreshChannelsDropdown(keepOpen: Boolean = true) {
-        if (!this::channelsAdapter.isInitialized) return
-        if (!this::channelHistory.isInitialized) return
-        if (accountId.isBlank()) return
-
-        editChannel.post {
-            val list = channelHistory.get(accountId)
-
-            channelsAdapter.clear()
-            channelsAdapter.addAll(list)
-            channelsAdapter.notifyDataSetChanged()
-
-            channelsAdapter.filter.filter(editChannel.text)
-
-            if (keepOpen && editChannel.hasFocus()) {
-                editChannel.dismissDropDown()
-                editChannel.showDropDown()
-            }
-        }
-    }
     private fun addMentionUser(user: String) {
         val trimmed = user.trim()
         if (trimmed.isBlank()) return
@@ -198,6 +206,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         pruneMentionUsers()
         refreshMentionSuggestions()
     }
+
     private fun pruneMentionUsers() {
         val now = SystemClock.elapsedRealtime()
         val selfKey = cfg?.username?.trim()?.lowercase()
@@ -253,6 +262,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         return text.substring(start, cursor)
     }
+
     private fun resolveThemeColor(attr: Int, fallback: Int): Int {
         val typedValue = TypedValue()
         val ok = requireContext().theme.resolveAttribute(attr, typedValue, true)
@@ -276,6 +286,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private fun colorPrimarySafe(): Int {
         return resolveThemeColor(android.R.attr.textColorLink, 0xFF00FFAA.toInt())
     }
+
     private class MentionTokenizer : MultiAutoCompleteTextView.Tokenizer {
         override fun findTokenStart(text: CharSequence, cursor: Int): Int {
             var i = cursor
@@ -305,6 +316,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             return "$text "
         }
     }
+
     private fun buildChannelsAdapter(): ArrayAdapter<String> {
         return object : ArrayAdapter<String>(
             requireContext(),
@@ -313,27 +325,32 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             mutableListOf()
         ) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val v = convertView ?: layoutInflater.inflate(R.layout.row_channel_dropdown, parent, false)
+                val row = convertView ?: layoutInflater.inflate(
+                    R.layout.row_channel_dropdown,
+                    parent,
+                    false
+                )
                 val ch = getItem(position).orEmpty()
 
-                val txt = v.findViewById<TextView>(R.id.txtChannel)
-                val btn = v.findViewById<ImageButton>(R.id.btnRemove)
+                val txt = row.findViewById<TextView>(R.id.txtChannel)
+                val btn = row.findViewById<ImageButton>(R.id.btnRemove)
 
                 txt.text = ch
 
-                v.setOnClickListener {
+                row.setOnClickListener {
                     editChannel.setText(ch, false)
                     editChannel.setSelection(editChannel.text.length)
-                    editChannel.dismissDropDown()
+                    dismissChannelDropdown()
                     joinChannelFromChat(ch)
                 }
 
                 btn.setOnClickListener {
                     channelHistory.remove(accountId, ch)
-                    refreshChannelsDropdown(keepOpen = true)
+                    refreshChannelsDropdown()
+                    openChannelDropdownIfEmpty()
                 }
 
-                return v
+                return row
             }
         }
     }
@@ -408,6 +425,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         appendSystemLine(getString(R.string.refreshing))
         loadHistoryFromBot(c, 120)
     }
+
     private fun currentProfileId(): String {
         val username = cfg?.username?.trim().orEmpty()
         if (username.isBlank()) return ""
@@ -422,6 +440,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             .filter { it.isNotBlank() }
             .distinct()
     }
+
     private fun refreshPushToggleUi() {
         if (!this::btnTogglePush.isInitialized) return
         if (!isAdded) return
@@ -463,7 +482,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         Log.d("PUSH_TOGGLE", "tap profileId=$profileId targetEnabled=$targetEnabled")
 
-        // update ottimistico immediato
         PushSettingsStore.setPushEnabled(ctx, profileId, targetEnabled)
         refreshPushToggleUi()
         btnTogglePush.isEnabled = false
@@ -477,7 +495,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
             Log.d("PUSH_TOGGLE", "toggle response profileId=$profileId ok=$ok")
 
-            // Readback sempre, anche se ok=false
             FcmRegistrationUploader.fetchDevicePushStateWithRetry(
                 context = ctx,
                 knownProfileIds = allProfileIds
@@ -487,8 +504,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 btnTogglePush.isEnabled = true
 
                 if (state == null) {
-                    // NON fare rollback cieco:
-                    // il server potrebbe aver già applicato il cambio davvero
                     refreshPushToggleUi()
 
                     Toast.makeText(
@@ -553,6 +568,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
 
+        view.isFocusable = true
+        view.isFocusableInTouchMode = true
+
         refreshPushToggleUi()
 
         btnTogglePush.setOnClickListener {
@@ -572,9 +590,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         resetMentionUsersForCurrentChannel()
 
         editMessage.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
 
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
             override fun afterTextChanged(s: Editable?) {
                 val query = currentMentionQuery() ?: return
@@ -590,13 +608,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             }
         })
 
-
         channelsAdapter = buildChannelsAdapter()
         editChannel.setAdapter(channelsAdapter)
         editChannel.threshold = 0
 
         cfg?.channel?.let { channelHistory.add(accountId, it) }
-        refreshChannelsDropdown(keepOpen = false)
+        refreshChannelsDropdown()
 
         textStatus.text = cfg?.let {
             getString(R.string.status_loading, it.username, it.channel)
@@ -604,72 +621,28 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         editChannel.setOnFocusChangeListener { _, hasFocus ->
             if (!hasFocus) {
-                //closeChannelDropdown()
-            } else {
-                val t = editChannel.text?.toString().orEmpty().trim()
-                if (t.isEmpty() || t == "#") {
-                    editChannel.post { editChannel.showDropDown() }
-                }
+                dismissChannelDropdown()
             }
         }
 
         editChannel.setOnClickListener {
-            val t = editChannel.text?.toString().orEmpty().trim()
-            if (t.isEmpty() || t == "#") {
-                editChannel.showDropDown()
-            }
+            openChannelDropdownIfEmpty()
         }
 
-        editChannel.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val t = s?.toString().orEmpty().trim()
-                if (editChannel.hasFocus() && (t.isEmpty() || t == "#")) {
-                    editChannel.post {
-                        editChannel.clearListSelection()
-                        editChannel.showDropDown()
-                    }
-                }
-            }
-        })
-
-        editChannel.setOnDismissListener {
-            val now = System.currentTimeMillis()
-            if (now < suppressDropdownReopenUntilMs) return@setOnDismissListener
-
-            val t = editChannel.text?.toString().orEmpty().trim()
-            if (editChannel.hasFocus() && (t.isEmpty() || t == "#")) {
-                editChannel.postDelayed({
-                    val now2 = System.currentTimeMillis()
-                    val t2 = editChannel.text?.toString().orEmpty().trim()
-                    if (now2 >= suppressDropdownReopenUntilMs && editChannel.hasFocus() && (t2.isEmpty() || t2 == "#")) {
-                        editChannel.clearListSelection()
-                        editChannel.showDropDown()
-                    }
-                }, 80)
-            }
+        val clearChannelFocusClickListener = View.OnClickListener {
+            view.requestFocus()
+            clearChannelFieldUi()
         }
 
-        view.isFocusableInTouchMode = true
-        view.setOnTouchListener { v, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.requestFocus()
-                    dismissChannelDropdown(clearFocus = true)
-                }
-                MotionEvent.ACTION_UP -> {
-                    v.performClick()
-                }
-            }
-            false
-        }
-
+        view.setOnClickListener(clearChannelFocusClickListener)
+        scrollChat.setOnClickListener(clearChannelFocusClickListener)
+        chatContainer.setOnClickListener(clearChannelFocusClickListener)
+        textStatus.setOnClickListener(clearChannelFocusClickListener)
+        replyBar.setOnClickListener(clearChannelFocusClickListener)
 
         editMessage.setOnClickListener {
-            dismissChannelDropdown(clearFocus = true)
+            clearChannelFieldUi()
         }
-
 
         btnStartPcg.setOnClickListener {
             PcgActivity.start(requireContext(), accountId)
@@ -678,11 +651,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         btnSend.setOnClickListener { sendOrGo() }
 
         editMessage.setOnEditorActionListener { _, actionId, event ->
-            val isEnter = event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN
+            val isEnter = event?.keyCode == KeyEvent.KEYCODE_ENTER &&
+                    event.action == KeyEvent.ACTION_DOWN
             if (actionId == EditorInfo.IME_ACTION_SEND || isEnter) {
                 sendOrGo()
                 true
-            } else false
+            } else {
+                false
+            }
         }
 
         btnRefreshChat.setOnClickListener {
@@ -706,6 +682,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
 
         updateStreamUi()
+
         val initialLeft = view.paddingLeft
         val initialTop = view.paddingTop
         val initialRight = view.paddingRight
@@ -727,6 +704,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
 
         ViewCompat.requestApplyInsets(view)
+
         scrollChat.setOnScrollChangeListener { _, _, _, _, _ ->
             val nearBottom = isNearBottom()
             stickToBottom = nearBottom
@@ -777,7 +755,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
     override fun onResume() {
         super.onResume()
-        dismissChannelDropdown(clearFocus = false)
+        dismissChannelDropdown()
 
         if (streamEnabled) {
             ensureStreamSession()
@@ -889,7 +867,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         val profileId = c.profileId.trim()
         val localToken = c.accessToken.trim()
 
-        // Compatibilità: se l'account è vecchio e non ha profileId, usa il token salvato
         if (profileId.isBlank()) {
             if (localToken.isBlank()) {
                 textStatus.text = getString(R.string.status_missing_token, c.username)
@@ -997,11 +974,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         thread {
             try {
                 val chan = URLEncoder.encode(channelNorm, "UTF-8")
-                val urlString =
-                    "$HISTORY_BASE_URL/history" +
-                            "?channel=$chan" +
-                            "&seconds=$secondsSafe" +
-                            "&key=${BuildConfig.HISTORY_SECRET_KEY}"
+                val urlString = "$HISTORY_BASE_URL/history" +
+                        "?channel=$chan" +
+                        "&seconds=$secondsSafe" +
+                        "&key=${BuildConfig.HISTORY_SECRET_KEY}"
 
                 val conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 5000
@@ -1120,12 +1096,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             return
         }
 
-        //val sessionKey = "stream:$accountId"
         val s = GeckoSessionManager.getOrCreateStreamSession(requireContext(), accountId)
         streamSession = s
         geckoStreamView.setSession(s)
         s.setActive(false)
     }
+
     private fun setPendingReply(messageId: String, user: String, message: String) {
         pendingReplyMessageId = messageId
         pendingReplyUser = user
@@ -1147,21 +1123,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         pendingReplyBody = null
         replyBar.visibility = View.GONE
     }
-
-    //private fun prefillReplyMention(user: String) {
-        //if (!this::editMessage.isInitialized) return
-
-        //val mention = "@$user "
-        //val current = editMessage.text?.toString().orEmpty()
-
-        //val alreadyStartsWithMention = current.startsWith(mention, ignoreCase = true)
-        //if (alreadyStartsWithMention) return
-
-        //if (current.isBlank()) {
-            //editMessage.setText(mention)
-            //editMessage.setSelection(editMessage.text?.length ?: 0)
-        //}
-    //
 
     private fun updateStreamUi() {
         if (!this::btnToggleStream.isInitialized) return
@@ -1240,9 +1201,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         dedupKey: String,
         replyParentUserLogin: String? = null,
         forceScroll: Boolean = false
-    )
-
-    {
+    ) {
         val now = System.currentTimeMillis()
 
         if (dedupKey == lastDedupKey && (now - lastDedupAtMs) < dedupWindowMs) return
@@ -1254,6 +1213,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
         addMentionUser(user)
+
         val tv = createMessageTextView(
             user = user,
             rawMessage = message,
@@ -1267,6 +1227,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 true
             }
         }
+
         appendChatView(tv, forceScroll = forceScroll, countAsUnread = true)
     }
 
@@ -1367,7 +1328,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             val startInMsg = s.start
             val endExclusiveInMsg = s.endInclusive + 1
 
-            if (startInMsg !in 0 until message.length || endExclusiveInMsg !in (startInMsg + 1)..message.length) continue
+            if (startInMsg !in 0 until message.length || endExclusiveInMsg !in (startInMsg + 1)..message.length) {
+                continue
+            }
 
             val start = fullPrefix.length + startInMsg
             val end = fullPrefix.length + endExclusiveInMsg
@@ -1416,18 +1379,26 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 .asDrawable()
                 .load(url)
                 .into(object : CustomTarget<Drawable>() {
-                    override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
+                    override fun onResourceReady(
+                        resource: Drawable,
+                        transition: Transition<in Drawable>?
+                    ) {
                         val size = (tv.textSize * 1.5f).toInt()
                         resource.setBounds(0, 0, size, size)
 
                         val imageSpan = ImageSpan(resource, ImageSpan.ALIGN_BOTTOM)
                         if (idx >= 0 && idx + 1 <= builder.length) {
-                            builder.setSpan(imageSpan, idx, idx + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            builder.setSpan(
+                                imageSpan,
+                                idx,
+                                idx + 1,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                            )
                             tv.text = builder
                         }
                     }
 
-                    override fun onLoadCleared(placeholder: Drawable?) {}
+                    override fun onLoadCleared(placeholder: Drawable?) = Unit
                 })
         }
 

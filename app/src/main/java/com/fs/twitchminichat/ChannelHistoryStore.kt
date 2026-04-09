@@ -2,6 +2,7 @@ package com.fs.twitchminichat
 
 import android.content.Context
 import org.json.JSONArray
+import androidx.core.content.edit
 
 class ChannelHistoryStore(context: Context) {
     private val prefs = context.getSharedPreferences("channel_history", Context.MODE_PRIVATE)
@@ -30,7 +31,9 @@ class ChannelHistoryStore(context: Context) {
 
         val arr = JSONArray()
         list.forEach { arr.put(it) }
-        prefs.edit().putString(key(accountId), arr.toString()).apply()
+        prefs.edit {
+            putString(key(accountId), arr.toString())
+        }
     }
 
     fun remove(accountId: String, channel: String) {
@@ -40,6 +43,8 @@ class ChannelHistoryStore(context: Context) {
 
         val arr = JSONArray()
         list.forEach { arr.put(it) }
-        prefs.edit().putString(key(accountId), arr.toString()).apply()
+        prefs.edit {
+            putString(key(accountId), arr.toString())
+        }
     }
 }

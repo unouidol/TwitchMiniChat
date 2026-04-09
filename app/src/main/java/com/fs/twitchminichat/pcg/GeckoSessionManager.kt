@@ -28,6 +28,13 @@ object GeckoSessionManager {
 
     private const val PCG_EXT_ID = "pcg-probe@example.com"
     private const val PCG_NATIVE_APP = "pcgprobe"
+    private data class DexUploadCandidate(
+        val signature: String,
+        val wantedPokemon: List<String>,
+        var confirmations: Int
+    )
+    private val pendingDexUploads = ConcurrentHashMap<String, DexUploadCandidate>()
+    private val lastUploadedDexSignatureByProfile = ConcurrentHashMap<String, String>()
 
     private fun messageToJsonObject(message: Any?): JSONObject? {
         return when (message) {
@@ -70,7 +77,46 @@ object GeckoSessionManager {
         }
         return out.distinct()
     }
+    private fun dexSignature(wantedPokemon: List<String>): String {
+        return wantedPokemon
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .sorted()
+            .joinToString("|")
+    }
 
+    private fun shouldRejectAsClearlyBrokenSnapshot(
+        wantedPokemon: List<String>,
+        payloadCount: Int
+    ): Boolean {
+        if (wantedPokemon.isEmpty()) return true
+
+        // Caso fortemente sospetto: "tutti mancanti"
+        if (payloadCount > 0 && wantedPokemon.size == payloadCount) {
+            return true
+        }
+
+        return false
+    }
+
+    private fun requiredDexConfirmations(
+        oldWantedPokemon: List<String>,
+        newWantedPokemon: List<String>
+    ): Int {
+        if (oldWantedPokemon.isEmpty()) {
+            return 2
+        }
+
+        val oldSet = oldWantedPokemon.toSet()
+        val newSet = newWantedPokemon.toSet()
+
+        val removed = oldSet - newSet
+        val added = newSet - oldSet
+        val delta = removed.size + added.size
+
+        // Se il cambiamento è molto grosso, chiediamo una conferma in più.
+        return if (delta >= 100) 3 else 2
+    }
     private fun handleMissingSpawnableExtract(
         appContext: Context,
         profileId: String,
@@ -105,30 +151,81 @@ object GeckoSessionManager {
             "extract success profileId=$profileId profileLabel=$profileLabel wantedCount=${wantedPokemon.size} payloadCount=$payloadCount"
         )
 
-        if (wantedPokemon.isEmpty()) {
+        if (shouldRejectAsClearlyBrokenSnapshot(wantedPokemon, payloadCount)) {
             Log.w(
                 "PCG_PROBE",
-                "extract success but wantedPokemon is empty profileId=$profileId"
+                "reject suspicious snapshot profileId=$profileId wantedCount=${wantedPokemon.size} payloadCount=$payloadCount"
             )
+            pendingDexUploads.remove(profileId)
             return
         }
 
         val oldWantedPokemon = DexListStore.getWantedPokemon(appContext, profileId)
-        if (oldWantedPokemon == wantedPokemon) {
+        val newSignature = dexSignature(wantedPokemon)
+        val oldSignature = dexSignature(oldWantedPokemon)
+
+        if (oldSignature == newSignature) {
             Log.d(
                 "PCG_PROBE",
                 "wanted list unchanged, skip save/upload profileId=$profileId"
             )
+            pendingDexUploads.remove(profileId)
+            lastUploadedDexSignatureByProfile[profileId] = newSignature
             return
         }
 
-        Log.d("PCG_PROBE", "saving dex list locally for profileId=$profileId")
-        DexListStore.saveWantedPokemon(appContext, profileId, wantedPokemon)
+        val alreadyUploadedSignature = lastUploadedDexSignatureByProfile[profileId]
+        if (alreadyUploadedSignature == newSignature) {
+            Log.d(
+                "PCG_PROBE",
+                "same as last uploaded signature, skip profileId=$profileId"
+            )
+            pendingDexUploads.remove(profileId)
+            return
+        }
+
+        val requiredConfirmations = requiredDexConfirmations(
+            oldWantedPokemon = oldWantedPokemon,
+            newWantedPokemon = wantedPokemon
+        )
+
+        val candidate = pendingDexUploads[profileId]
+        if (candidate == null || candidate.signature != newSignature) {
+            pendingDexUploads[profileId] = DexUploadCandidate(
+                signature = newSignature,
+                wantedPokemon = wantedPokemon,
+                confirmations = 1
+            )
+
+            Log.d(
+                "PCG_PROBE",
+                "new dex candidate profileId=$profileId confirmations=1/$requiredConfirmations count=${wantedPokemon.size}"
+            )
+            return
+        }
+
+        candidate.confirmations += 1
 
         Log.d(
             "PCG_PROBE",
-            "uploading dex list to server profileId=$profileId profileLabel=$profileLabel count=${wantedPokemon.size}"
+            "stable dex candidate profileId=$profileId confirmations=${candidate.confirmations}/$requiredConfirmations count=${candidate.wantedPokemon.size}"
         )
+
+        if (candidate.confirmations < requiredConfirmations) {
+            return
+        }
+
+        pendingDexUploads.remove(profileId)
+
+        Log.d("PCG_PROBE", "saving dex list locally for profileId=$profileId")
+        DexListStore.saveWantedPokemon(appContext, profileId, candidate.wantedPokemon)
+        lastUploadedDexSignatureByProfile[profileId] = candidate.signature
+
+        Log.d(
+            "PCG_PROBE",
+            "uploading dex list to server profileId=$profileId profileLabel=$profileLabel count=${candidate.wantedPokemon.size}"
+        )
+
         val pushEnabled = PushSettingsStore.isPushEnabled(appContext, profileId)
 
         if (pushEnabled) {
@@ -144,11 +241,12 @@ object GeckoSessionManager {
         } else {
             Log.d("PCG_PROBE", "Push muted for profileId=$profileId, skip FCM registration")
         }
+
         FcmRegistrationUploader.uploadDexList(
             context = appContext,
             profileId = profileId,
             profileLabel = profileLabel,
-            wantedPokemon = wantedPokemon
+            wantedPokemon = candidate.wantedPokemon
         )
     }
 

@@ -130,7 +130,7 @@ class MainActivity : AppCompatActivity() {
                 LoginFragment()
             } else {
                 val cfg = accounts[position - 1]
-                ChatFragment.Companion.newInstance(cfg.id)
+                ChatFragment.newInstance(cfg.id)
             }
         }
 

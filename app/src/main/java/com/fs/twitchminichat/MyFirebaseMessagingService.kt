@@ -12,7 +12,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import com.fs.twitchminichat.R
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlin.random.Random
@@ -116,14 +115,12 @@ class MyFirebaseBaseMessagingService : FirebaseMessagingService() {
                 return
             }
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            val ch = nm.getNotificationChannel("spawn_alerts")
-            Log.d(
-                "FCM",
-                "channel exists=${ch != null} importance=${ch?.importance} canBypassDnd=${ch?.canBypassDnd()}"
-            )
-        }
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val ch = nm.getNotificationChannel(CHANNEL_ID_SPAWN_ALERTS)
+        Log.d(
+            TAG,
+            "channel exists=${ch != null} importance=${ch?.importance} canBypassDnd=${ch?.canBypassDnd()}"
+        )
 
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
         Log.d("FCM", "notificationsEnabled=$notificationsEnabled")
@@ -139,8 +136,6 @@ class MyFirebaseBaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun ensureNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val existing = manager.getNotificationChannel(CHANNEL_ID_SPAWN_ALERTS)
         if (existing != null) return

@@ -4,7 +4,6 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
-import java.util.UUID
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 
@@ -105,19 +104,6 @@ class TwitchChatClient(
             } catch (_: Throwable) {
             }
         }.start()
-    }
-
-    fun sendMessageWithNonce(text: String): String {
-        val w = writer ?: return ""
-        val nonce = UUID.randomUUID().toString().replace("-", "").take(16)
-        Thread {
-            try {
-                w.write("@client-nonce=$nonce PRIVMSG #$channel :$text\r\n")
-                w.flush()
-            } catch (_: Throwable) {
-            }
-        }.start()
-        return nonce
     }
 
     fun disconnect() {

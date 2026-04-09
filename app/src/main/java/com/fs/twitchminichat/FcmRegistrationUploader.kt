@@ -17,8 +17,8 @@ import kotlin.concurrent.thread
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-import com.fs.twitchminichat.BuildConfig
-import com.fs.twitchminichat.R
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import com.google.firebase.messaging.FirebaseMessaging
 
 object FcmRegistrationUploader {
@@ -211,41 +211,38 @@ object FcmRegistrationUploader {
         onComplete: (DevicePushState?) -> Unit
     ) {
         val appContext = context.applicationContext
+        val safeAttempts = attempts.coerceAtLeast(1)
 
         thread(start = true, name = "push-state-readback-retry") {
             var finalState: DevicePushState? = null
 
-            repeat(attempts) { index ->
-                val lock = Object()
-                var completed = false
+            for (index in 0 until safeAttempts) {
+                val latch = CountDownLatch(1)
                 var resultState: DevicePushState? = null
 
                 fetchDevicePushState(appContext, knownProfileIds) { state ->
-                    synchronized(lock) {
-                        resultState = state
-                        completed = true
-                        lock.notifyAll()
-                    }
+                    resultState = state
+                    latch.countDown()
                 }
 
-                synchronized(lock) {
-                    if (!completed) {
-                        try {
-                            lock.wait(12000L)
-                        } catch (_: InterruptedException) {
-                        }
-                    }
+                try {
+                    latch.await(12, TimeUnit.SECONDS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
                 }
 
                 if (resultState != null) {
                     finalState = resultState
-                    return@repeat
+                    break
                 }
 
-                if (index < attempts - 1) {
+                if (index < safeAttempts - 1) {
                     try {
                         Thread.sleep(delayMs)
                     } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        break
                     }
                 }
             }

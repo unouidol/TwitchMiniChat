@@ -4,12 +4,12 @@ import android.os.Bundle
 import android.view.View
 import androidx.fragment.app.Fragment
 import com.fs.twitchminichat.AccountRepository
+import com.fs.twitchminichat.ProfileIdUtil
 import com.fs.twitchminichat.R
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
-import com.fs.twitchminichat.ProfileIdUtil
 
 class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
@@ -18,11 +18,8 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
     private var channel: String = ""
 
-    private val PCG_EXTENSION_ID = "pm0qkv9g4h87t5y6lg329oam8j7ze9"
     private fun pcgUrl(): String =
         "https://www.twitch.tv/popout/$channel/extensions/$PCG_EXTENSION_ID/panel"
-
-    private val TWITCH_LOGIN_URL = "https://www.twitch.tv/login"
 
     // Stato: stiamo aspettando che il login finisca?
     private var waitingForLogin = true
@@ -34,7 +31,6 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
         geckoView = view.findViewById(R.id.geckoView)
 
         val accountId = requireArguments().getString(ARG_ACCOUNT_ID).orEmpty()
-
         val cfg = AccountRepository(requireContext()).getById(accountId) ?: return
 
         channel = cfg.channel.trim()
@@ -55,15 +51,16 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLoadRequest(
-                p0: GeckoSession,
-                p1: GeckoSession.NavigationDelegate.LoadRequest
-            ): GeckoResult<AllowOrDeny?>? {
-
-                val uri = p1.uri ?: return GeckoResult.fromValue(AllowOrDeny.DENY)
+                session: GeckoSession,
+                request: GeckoSession.NavigationDelegate.LoadRequest
+            ): GeckoResult<AllowOrDeny> {
+                val uri = request.uri
 
                 // resta dentro GeckoView solo per http/https
                 val isWeb = uri.startsWith("http://") || uri.startsWith("https://")
-                if (!isWeb) return GeckoResult.fromValue(AllowOrDeny.DENY)
+                if (!isWeb) {
+                    return GeckoResult.fromValue(AllowOrDeny.DENY)
+                }
 
                 val lower = uri.lowercase()
 
@@ -84,7 +81,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
                         waitingForLogin = false
 
                         // blocca il load della home e vai dritto al pannello PCG
-                        session.loadUri(pcgUrl())
+                        this@PcgFragment.session.loadUri(pcgUrl())
                         return GeckoResult.fromValue(AllowOrDeny.DENY)
                     }
                 }
@@ -93,7 +90,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
             }
         }
 
-        // ✅ apri login; se eri già loggato, Twitch proverà ad andare sulla home -> noi intercettiamo e apriamo PCG
+        // apri login; se eri già loggato, Twitch proverà ad andare sulla home -> noi intercettiamo e apriamo PCG
         waitingForLogin = true
         alreadyJumpedToPcg = false
         session.loadUri(TWITCH_LOGIN_URL)
@@ -101,11 +98,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
     companion object {
         private const val ARG_ACCOUNT_ID = "account_id"
-
-        fun newInstance(accountId: String): PcgFragment {
-            return PcgFragment().apply {
-                arguments = Bundle().apply { putString(ARG_ACCOUNT_ID, accountId) }
-            }
-        }
+        private const val PCG_EXTENSION_ID = "pm0qkv9g4h87t5y6lg329oam8j7ze9"
+        private const val TWITCH_LOGIN_URL = "https://www.twitch.tv/login"
     }
 }
