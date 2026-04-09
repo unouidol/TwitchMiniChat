@@ -4,8 +4,8 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.fs.twitchminichat.DexListStore
 import com.fs.twitchminichat.FcmRegistrationUploader
+import com.fs.twitchminichat.PushSettingsStore
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.geckoview.ContentBlocking
@@ -16,7 +16,6 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.WebExtension
 import java.util.concurrent.ConcurrentHashMap
-import com.fs.twitchminichat.PushSettingsStore
 
 @Suppress("unused")
 object GeckoSessionManager {
@@ -28,13 +27,6 @@ object GeckoSessionManager {
 
     private const val PCG_EXT_ID = "pcg-probe@example.com"
     private const val PCG_NATIVE_APP = "pcgprobe"
-    private data class DexUploadCandidate(
-        val signature: String,
-        val wantedPokemon: List<String>,
-        var confirmations: Int
-    )
-    private val pendingDexUploads = ConcurrentHashMap<String, DexUploadCandidate>()
-    private val lastUploadedDexSignatureByProfile = ConcurrentHashMap<String, String>()
 
     private fun messageToJsonObject(message: Any?): JSONObject? {
         return when (message) {
@@ -43,19 +35,6 @@ object GeckoSessionManager {
             is String -> runCatching { JSONObject(message) }.getOrNull()
             else -> runCatching { JSONObject(message.toString()) }.getOrNull()
         }
-    }
-
-    private fun jsonArrayToStringList(arr: JSONArray?): List<String> {
-        if (arr == null) return emptyList()
-
-        val out = ArrayList<String>(arr.length())
-        for (i in 0 until arr.length()) {
-            val value = arr.optString(i, "").trim()
-            if (value.isNotEmpty()) {
-                out.add(value)
-            }
-        }
-        return out
     }
 
     private fun normalizeExtractedPokemonName(raw: String?): String {
@@ -77,46 +56,35 @@ object GeckoSessionManager {
         }
         return out.distinct()
     }
-    private fun dexSignature(wantedPokemon: List<String>): String {
-        return wantedPokemon
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .sorted()
-            .joinToString("|")
+
+    private fun rawArrayLockedCount(arr: JSONArray?): Int {
+        if (arr == null) return 0
+
+        var count = 0
+        for (i in 0 until arr.length()) {
+            val value = arr.optString(i, "")
+            if (value.contains("🔒")) {
+                count++
+            }
+        }
+        return count
     }
 
     private fun shouldRejectAsClearlyBrokenSnapshot(
-        wantedPokemon: List<String>,
-        payloadCount: Int
+        rawNames: JSONArray?,
+        wantedPokemon: List<String>
     ): Boolean {
-        if (wantedPokemon.isEmpty()) return true
+        if (wantedPokemon.isEmpty()) {
+            return true
+        }
 
-        // Caso fortemente sospetto: "tutti mancanti"
-        if (payloadCount > 0 && wantedPokemon.size == payloadCount) {
+        if (rawArrayLockedCount(rawNames) > 0) {
             return true
         }
 
         return false
     }
 
-    private fun requiredDexConfirmations(
-        oldWantedPokemon: List<String>,
-        newWantedPokemon: List<String>
-    ): Int {
-        if (oldWantedPokemon.isEmpty()) {
-            return 2
-        }
-
-        val oldSet = oldWantedPokemon.toSet()
-        val newSet = newWantedPokemon.toSet()
-
-        val removed = oldSet - newSet
-        val added = newSet - oldSet
-        val delta = removed.size + added.size
-
-        // Se il cambiamento è molto grosso, chiediamo una conferma in più.
-        return if (delta >= 100) 3 else 2
-    }
     private fun handleMissingSpawnableExtract(
         appContext: Context,
         profileId: String,
@@ -132,98 +100,32 @@ object GeckoSessionManager {
             return
         }
 
-        val wantedPokemon = when {
-            payload.has("wantedPokemon") -> {
-                jsonArrayToWantedPokemonList(payload.optJSONArray("wantedPokemon"))
-            }
-            payload.has("names") -> {
-                jsonArrayToWantedPokemonList(payload.optJSONArray("names"))
-            }
-            else -> {
-                emptyList()
-            }
+        val rawNames = when {
+            payload.has("wantedPokemon") -> payload.optJSONArray("wantedPokemon")
+            payload.has("names") -> payload.optJSONArray("names")
+            else -> null
         }
 
+        val wantedPokemon = jsonArrayToWantedPokemonList(rawNames)
         val payloadCount = payload.optInt("count", -1)
+        val lockedCount = rawArrayLockedCount(rawNames)
 
         Log.d(
             "PCG_PROBE",
-            "extract success profileId=$profileId profileLabel=$profileLabel wantedCount=${wantedPokemon.size} payloadCount=$payloadCount"
+            "extract success profileId=$profileId profileLabel=$profileLabel wantedCount=${wantedPokemon.size} payloadCount=$payloadCount lockedCount=$lockedCount"
         )
 
-        if (shouldRejectAsClearlyBrokenSnapshot(wantedPokemon, payloadCount)) {
+        if (shouldRejectAsClearlyBrokenSnapshot(rawNames, wantedPokemon)) {
             Log.w(
                 "PCG_PROBE",
-                "reject suspicious snapshot profileId=$profileId wantedCount=${wantedPokemon.size} payloadCount=$payloadCount"
-            )
-            pendingDexUploads.remove(profileId)
-            return
-        }
-
-        val oldWantedPokemon = DexListStore.getWantedPokemon(appContext, profileId)
-        val newSignature = dexSignature(wantedPokemon)
-        val oldSignature = dexSignature(oldWantedPokemon)
-
-        if (oldSignature == newSignature) {
-            Log.d(
-                "PCG_PROBE",
-                "wanted list unchanged, skip save/upload profileId=$profileId"
-            )
-            pendingDexUploads.remove(profileId)
-            lastUploadedDexSignatureByProfile[profileId] = newSignature
-            return
-        }
-
-        val alreadyUploadedSignature = lastUploadedDexSignatureByProfile[profileId]
-        if (alreadyUploadedSignature == newSignature) {
-            Log.d(
-                "PCG_PROBE",
-                "same as last uploaded signature, skip profileId=$profileId"
-            )
-            pendingDexUploads.remove(profileId)
-            return
-        }
-
-        val requiredConfirmations = requiredDexConfirmations(
-            oldWantedPokemon = oldWantedPokemon,
-            newWantedPokemon = wantedPokemon
-        )
-
-        val candidate = pendingDexUploads[profileId]
-        if (candidate == null || candidate.signature != newSignature) {
-            pendingDexUploads[profileId] = DexUploadCandidate(
-                signature = newSignature,
-                wantedPokemon = wantedPokemon,
-                confirmations = 1
-            )
-
-            Log.d(
-                "PCG_PROBE",
-                "new dex candidate profileId=$profileId confirmations=1/$requiredConfirmations count=${wantedPokemon.size}"
+                "reject suspicious snapshot profileId=$profileId wantedCount=${wantedPokemon.size} payloadCount=$payloadCount lockedCount=$lockedCount"
             )
             return
         }
-
-        candidate.confirmations += 1
 
         Log.d(
             "PCG_PROBE",
-            "stable dex candidate profileId=$profileId confirmations=${candidate.confirmations}/$requiredConfirmations count=${candidate.wantedPokemon.size}"
-        )
-
-        if (candidate.confirmations < requiredConfirmations) {
-            return
-        }
-
-        pendingDexUploads.remove(profileId)
-
-        Log.d("PCG_PROBE", "saving dex list locally for profileId=$profileId")
-        DexListStore.saveWantedPokemon(appContext, profileId, candidate.wantedPokemon)
-        lastUploadedDexSignatureByProfile[profileId] = candidate.signature
-
-        Log.d(
-            "PCG_PROBE",
-            "uploading dex list to server profileId=$profileId profileLabel=$profileLabel count=${candidate.wantedPokemon.size}"
+            "uploading dex list to server profileId=$profileId profileLabel=$profileLabel count=${wantedPokemon.size}"
         )
 
         val pushEnabled = PushSettingsStore.isPushEnabled(appContext, profileId)
@@ -246,7 +148,7 @@ object GeckoSessionManager {
             context = appContext,
             profileId = profileId,
             profileLabel = profileLabel,
-            wantedPokemon = candidate.wantedPokemon
+            wantedPokemon = wantedPokemon
         )
     }
 

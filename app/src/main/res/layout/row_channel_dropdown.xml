@@ -23,7 +23,7 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Remove"
+        android:text="@string/Remove"
         android:src="@android:drawable/ic_menu_close_clear_cancel"
         android:focusable="false"
         android:focusableInTouchMode="false" />

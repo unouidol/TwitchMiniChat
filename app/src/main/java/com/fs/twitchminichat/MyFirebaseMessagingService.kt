@@ -16,11 +16,11 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlin.random.Random
 
-class MyFirebaseBaseMessagingService : FirebaseMessagingService() {
+class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         Log.d(TAG, "Refreshed token: $token")
-        Log.d(TAG, "Token ricevuto, salvataggio locale in attesa di registrazione profili")
+        Log.d(TAG, "Token received, local save before profiles registration")
 
         val prefs = applicationContext.getSharedPreferences(PREFS_FCM_REGISTRATION, MODE_PRIVATE)
         prefs.edit {
@@ -48,7 +48,7 @@ class MyFirebaseBaseMessagingService : FirebaseMessagingService() {
 
             val body = data["body"]
                 ?: remoteMessage.notification?.body
-                ?: "È apparso un Pokémon che ti manca"
+                ?: "A missing Pokèmon spawned"
 
             val pokemon = data["pokemon"].orEmpty()
             val profiles = data["profiles"]
@@ -111,7 +111,7 @@ class MyFirebaseBaseMessagingService : FirebaseMessagingService() {
             ) == PackageManager.PERMISSION_GRANTED
 
             if (!granted) {
-                Log.w(TAG, "POST_NOTIFICATIONS non concesso: notifica non mostrata")
+                Log.w(TAG, "POST_NOTIFICATIONS non allowed: alert not shown")
                 return
             }
         }
@@ -145,7 +145,7 @@ class MyFirebaseBaseMessagingService : FirebaseMessagingService() {
             "Spawn alerts",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Notifiche per Pokémon mancanti da PCG"
+            description = "Alerts for missing Pokémon from PCG"
         }
 
         manager.createNotificationChannel(channel)

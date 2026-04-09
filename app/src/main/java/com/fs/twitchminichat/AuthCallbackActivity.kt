@@ -18,14 +18,13 @@ class AuthCallbackActivity : AppCompatActivity() {
             return
         }
 
-        // Nuovo formato atteso:
-        // ircminichatv2gecko://auth?login_token=...&slot=...&profile_id=...
+
         val loginToken = data.getQueryParameter("login_token")?.trim().orEmpty()
         val slot = data.getQueryParameter("slot")?.trim()?.toIntOrNull()
         val deepLinkProfileId = data.getQueryParameter("profile_id")?.trim().orEmpty()
 
         if (loginToken.isBlank() || slot == null) {
-            Toast.makeText(this, "Login callback non valido", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Login callback invalid", Toast.LENGTH_LONG).show()
             finish()
             return
         }
@@ -38,14 +37,14 @@ class AuthCallbackActivity : AppCompatActivity() {
         if (channel.isBlank()) {
             Toast.makeText(
                 this,
-                "Canale mancante per questo login. Torna indietro e reinserisci il canale Twitch.",
+                "Missing Twitch Channel.",
                 Toast.LENGTH_LONG
             ).show()
             finish()
             return
         }
 
-        Toast.makeText(this, "Login in corso...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Logging-in...", Toast.LENGTH_SHORT).show()
 
         thread {
             val result = OAuthBackendApi.finalizeLogin(loginToken)
@@ -58,7 +57,7 @@ class AuthCallbackActivity : AppCompatActivity() {
                 runOnUiThread {
                     Toast.makeText(
                         this,
-                        "Finalize login fallito",
+                        "Finalize login failed",
                         Toast.LENGTH_LONG
                     ).show()
                     finish()
@@ -92,7 +91,7 @@ class AuthCallbackActivity : AppCompatActivity() {
 
                 Toast.makeText(
                     this,
-                    "Added (gecko): @${result.username} (#$channel)",
+                    "Added account @${result.username} (#$channel)",
                     Toast.LENGTH_LONG
                 ).show()
 
@@ -107,12 +106,12 @@ class AuthCallbackActivity : AppCompatActivity() {
     }
 
     private fun loadPendingChannelForSlot(slot: Int): String {
-        val prefs = getSharedPreferences("v2_pending", MODE_PRIVATE)
+        val prefs = getSharedPreferences("oauth_pending", MODE_PRIVATE)
         return prefs.getString("pending_channel_slot_$slot", "") ?: ""
     }
 
     private fun clearPendingChannelForSlot(slot: Int) {
-        val prefs = getSharedPreferences("v2_pending", MODE_PRIVATE)
+        val prefs = getSharedPreferences("oauth_pending", MODE_PRIVATE)
         prefs.edit {
             remove("pending_channel_slot_$slot")
         }

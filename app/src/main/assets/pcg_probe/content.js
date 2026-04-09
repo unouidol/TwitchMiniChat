@@ -6,6 +6,16 @@
   }
   window.__pcgMissingSpawnableCollectorLoaded = true;
 
+  const INITIAL_SCHEDULE_DELAY_MS = 1200;
+  const SETTLE_BEFORE_READ_MS = 3000;
+  const INVALID_RETRY_DELAY_MS = 1800;
+  const WAIT_FOR_POKEDEX_ATTEMPTS = 60;
+  const WAIT_FOR_POKEDEX_DELAY_MS = 500;
+
+  let extractionScheduled = false;
+  let extractionRunning = false;
+  let extractionRerunRequested = false;
+
   function send(type, payload) {
     try {
       browser.runtime.sendNativeMessage(NATIVE_APP, {
@@ -48,7 +58,6 @@
   function isRealPcgFrame() {
     const host = (location.host || "").toLowerCase();
 
-    // il frame buono è quello tipo pm0....ext-twitch.tv
     if (host.endsWith(".ext-twitch.tv") && !host.startsWith("supervisor.")) {
       return true;
     }
@@ -148,15 +157,17 @@
     };
   }
 
-  function collectVisibleNames() {
+  function collectVisibleEntries() {
     let nodes = Array.from(document.querySelectorAll(".pokedex__entry-name"));
 
     if (nodes.length === 0) {
       nodes = Array.from(document.querySelectorAll(".pokedex__entry"));
     }
 
-    const out = [];
+    const names = [];
+    const lockedNames = [];
     const seen = new Set();
+    const seenLocked = new Set();
 
     for (const el of nodes) {
       const raw = compactText(el.innerText || el.textContent || "", 120);
@@ -166,13 +177,21 @@
       if (!name) continue;
 
       const key = name.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (!seen.has(key)) {
+        seen.add(key);
+        names.push(name);
+      }
 
-      out.push(name);
+      if (raw.includes("🔒") && !seenLocked.has(key)) {
+        seenLocked.add(key);
+        lockedNames.push(name);
+      }
     }
 
-    return out;
+    return {
+      names,
+      lockedNames
+    };
   }
 
   function findScrollableContainer() {
@@ -197,6 +216,7 @@
   async function collectAllNamesByScrolling() {
     const container = findScrollableContainer();
     const names = new Set();
+    const lockedNames = new Set();
 
     let stableRounds = 0;
     let previousCount = -1;
@@ -207,9 +227,14 @@
     }
 
     for (let i = 0; i < 120; i++) {
-      const visible = collectVisibleNames();
-      for (const name of visible) {
+      const visible = collectVisibleEntries();
+
+      for (const name of visible.names) {
         names.add(name);
+      }
+
+      for (const name of visible.lockedNames) {
+        lockedNames.add(name);
       }
 
       const currentCount = names.size;
@@ -243,6 +268,8 @@
 
     return {
       names: Array.from(names).sort((a, b) => a.localeCompare(b)),
+      lockedNames: Array.from(lockedNames).sort((a, b) => a.localeCompare(b)),
+      lockedCount: lockedNames.size,
       scrollInfo: {
         scrollTop: container.scrollTop || 0,
         scrollHeight: container.scrollHeight || 0,
@@ -253,7 +280,7 @@
     };
   }
 
-  async function waitForRealPokedex(maxAttempts = 60, delayMs = 500) {
+  async function waitForRealPokedex(maxAttempts = WAIT_FOR_POKEDEX_ATTEMPTS, delayMs = WAIT_FOR_POKEDEX_DELAY_MS) {
     for (let i = 0; i < maxAttempts; i++) {
       if (isRealPcgFrame() && looksLikePokedex()) {
         return true;
@@ -261,6 +288,49 @@
       await sleep(delayMs);
     }
     return false;
+  }
+
+  function isClearlyBrokenSnapshot(result) {
+    if (!result || !Array.isArray(result.names) || result.names.length === 0) {
+      return true;
+    }
+
+    if ((result.lockedCount || 0) > 0) {
+      return true;
+    }
+
+    return false;
+  }
+
+  async function readSnapshot(triggerReason, phase, filterState) {
+    await sleep(SETTLE_BEFORE_READ_MS);
+
+    const progressLines = parseProgressLines();
+    const result = await collectAllNamesByScrolling();
+
+    const invalidReason =
+      result.names.length === 0
+        ? "empty_snapshot"
+        : result.lockedCount > 0
+          ? "locked_entries_present"
+          : null;
+
+    return {
+      ok: !isClearlyBrokenSnapshot(result),
+      triggerReason,
+      phase,
+      frame: frameInfo(),
+      filterState,
+      progressLines,
+      count: result.names.length,
+      lockedCount: result.lockedCount,
+      lockedNamesPreview: result.lockedNames.slice(0, 30),
+      firstNames: result.names.slice(0, 40),
+      lastNames: result.names.slice(-20),
+      names: result.names,
+      scrollInfo: result.scrollInfo,
+      invalidReason
+    };
   }
 
   async function runExtraction(triggerReason) {
@@ -286,32 +356,72 @@
       return;
     }
 
-    const filterState = await ensureWantedFilters();
-    const progressLines = parseProgressLines();
-    const result = await collectAllNamesByScrolling();
+    let filterState = await ensureWantedFilters();
+    let payload = await readSnapshot(triggerReason, "first_read", filterState);
+
+    if (!payload.ok) {
+      send("pcg_probe_progress", {
+        step: 9991,
+        collected: payload.count,
+        lockedCount: payload.lockedCount,
+        reason: payload.invalidReason,
+        phase: "retry_scheduled_after_invalid_snapshot"
+      });
+
+      await sleep(INVALID_RETRY_DELAY_MS);
+
+      filterState = await ensureWantedFilters();
+      payload = await readSnapshot(triggerReason, "retry_after_invalid_snapshot", filterState);
+
+      if (!payload.ok) {
+        send("pcg_missing_spawnable_extract", {
+          ok: false,
+          reason: payload.invalidReason || "invalid_snapshot_after_retry",
+          triggerReason,
+          frame: frameInfo(),
+          filterState,
+          count: payload.count,
+          lockedCount: payload.lockedCount,
+          lockedNamesPreview: payload.lockedNamesPreview,
+          firstNames: payload.firstNames,
+          lastNames: payload.lastNames,
+          progressLines: payload.progressLines,
+          scrollInfo: payload.scrollInfo
+        });
+        return;
+      }
+    }
 
     send("pcg_missing_spawnable_extract", {
       ok: true,
       triggerReason,
-      frame: frameInfo(),
-      filterState,
-      progressLines,
-      count: result.names.length,
-      firstNames: result.names.slice(0, 40),
-      lastNames: result.names.slice(-20),
-      names: result.names,
-      scrollInfo: result.scrollInfo
+      frame: payload.frame,
+      filterState: payload.filterState,
+      progressLines: payload.progressLines,
+      count: payload.count,
+      lockedCount: payload.lockedCount,
+      firstNames: payload.firstNames,
+      lastNames: payload.lastNames,
+      names: payload.names,
+      scrollInfo: payload.scrollInfo
     });
   }
 
-  let extractionScheduled = false;
-
   function scheduleExtraction(reason) {
-    if (extractionScheduled) return;
+    if (extractionRunning || extractionScheduled) {
+      extractionRerunRequested = true;
+      return;
+    }
+
     extractionScheduled = true;
 
-    setTimeout(() => {
-      runExtraction(reason).catch((e) => {
+    setTimeout(async () => {
+      extractionScheduled = false;
+      extractionRunning = true;
+
+      try {
+        await runExtraction(reason);
+      } catch (e) {
         send("pcg_missing_spawnable_extract", {
           ok: false,
           reason: "exception",
@@ -319,8 +429,15 @@
           error: String(e),
           frame: frameInfo()
         });
-      });
-    }, 1200);
+      } finally {
+        extractionRunning = false;
+
+        if (extractionRerunRequested) {
+          extractionRerunRequested = false;
+          scheduleExtraction("queued_rerun");
+        }
+      }
+    }, INITIAL_SCHEDULE_DELAY_MS);
   }
 
   if (isRealPcgFrame()) {

@@ -22,7 +22,7 @@
     <string name="status_read_error">Read error: %1$s</string>
     <string name="status_send_error">Send error: %1$s</string>
     <string name="status_disconnected_account">Disconnected (@%1$s)</string>
-
+    <string name="delete_account">Delete account</string>
     <string name="system_bullet">• %1$s</string>
     <string name="invalid_channel_name">Invalid Channel Name</string>
     <string name="channel_switch">Channel Switch → #%1$s</string>
@@ -37,4 +37,8 @@
     <string name="fcm_get_device_push_state_url">https://api.ircminichat.party/get_device_push_state</string>
     <string name="account_username">User: %1$s</string>
     <string name="account_channel">Channel: #%1$s</string>
+    <string name="twitch_channel_hint">Twitch channel (e.g. unouidol)</string>
+    <string name="twitch_login_button">Twitch Login</string>
+    <string name="logged_accounts_title">Logged Accounts - press x to delete</string>
+    <string name="Remove">Remove</string>
 </resources>

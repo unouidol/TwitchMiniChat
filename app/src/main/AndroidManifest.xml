@@ -45,7 +45,7 @@
         </activity>
 
         <service
-            android:name="com.fs.twitchminichat.MyFirebaseBaseMessagingService"
+            android:name="com.fs.twitchminichat.MyFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

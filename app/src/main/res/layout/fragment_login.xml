@@ -18,22 +18,23 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:hint="Twitch Channel (es. unouidol)"
+        android:hint="@string/twitch_channel_hint"
         android:inputType="text"
-        android:maxLines="1" />
+        android:maxLines="1"
+        android:importantForAutofill="no" />
 
     <Button
         android:id="@+id/btnLogin"
         android:layout_marginTop="16dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Twitch Login" />
+        android:text="@string/twitch_login_button" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="Logged Accounts - press x to delete"
+        android:text="@string/logged_accounts_title"
         android:textStyle="bold" />
 
     <androidx.recyclerview.widget.RecyclerView

@@ -46,7 +46,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         view.findViewById<Button>(R.id.btnLogin).setOnClickListener {
             val channel = normalizeChannel(editChannel.text?.toString().orEmpty())
             if (channel.isBlank()) {
-                editChannel.error = "Inserisci un canale Twitch"
+                editChannel.error = "Type a Twitch Channel"
                 return@setOnClickListener
             }
             startTwitchLogin(channel)
@@ -70,7 +70,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         if (removed) {
             repo.saveAll(list)
             refreshList()
-            requireContext().sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
+            //requireContext().sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
         }
     }
 
@@ -82,14 +82,14 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     }
 
     private fun savePendingChannelForSlot(slot: Int, channel: String) {
-        val prefs = requireContext().getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
+        val prefs = requireContext().getSharedPreferences("oauth_pending", Context.MODE_PRIVATE)
         prefs.edit {
             putString("pending_channel_slot_$slot", channel)
         }
     }
 
     private fun allocateLoginSlot(): Int {
-        val prefs = requireContext().getSharedPreferences("v2_pending", Context.MODE_PRIVATE)
+        val prefs = requireContext().getSharedPreferences("oauth_pending", Context.MODE_PRIVATE)
 
         for (slot in 0..99) {
             if (!prefs.contains("pending_channel_slot_$slot")) {

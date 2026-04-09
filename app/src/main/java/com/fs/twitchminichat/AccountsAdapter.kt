@@ -3,6 +3,8 @@ package com.fs.twitchminichat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -23,9 +25,10 @@ class AccountsAdapter(
     }
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val accountContent: LinearLayout = v.findViewById(R.id.accountContent)
         val textUser: TextView = v.findViewById(R.id.textUser)
         val textChannel: TextView = v.findViewById(R.id.textChannel)
-        val btnDelete: TextView = v.findViewById(R.id.btnDelete)
+        val btnDelete: ImageButton = v.findViewById(R.id.btnDelete)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -44,9 +47,13 @@ class AccountsAdapter(
         holder.textChannel.text =
             context.getString(R.string.account_channel, item.channel)
 
-        holder.itemView.setOnClickListener { onClick(item) }
+        holder.itemView.setOnClickListener(null)
+        holder.itemView.setOnLongClickListener(null)
+
+        holder.accountContent.setOnClickListener { onClick(item) }
+
         holder.btnDelete.setOnClickListener { onDelete(item) }
-        holder.itemView.setOnLongClickListener {
+        holder.btnDelete.setOnLongClickListener {
             onLongPressDelete(item)
             true
         }

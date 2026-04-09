@@ -308,13 +308,22 @@ object FcmRegistrationUploader {
         }
 
         if (result.responseCode in 200..299) {
-            val count = runCatching {
-                JSONObject(result.responseBody).optInt("count", wantedPokemon.size)
-            }.getOrDefault(wantedPokemon.size)
+            val body = runCatching {
+                JSONObject(result.responseBody)
+            }.getOrNull()
 
-            showToast(context, "Dex list updated for $profileLabel ($count Pokémon)")
+            val count = body?.optInt("count", wantedPokemon.size) ?: wantedPokemon.size
+            val uploadResult = body?.optString("result").orEmpty()
+
+            val message = when (uploadResult) {
+                "created" -> "Dex list created for $profileLabel ($count Pokémon)"
+                "updated" -> "Dex list updated for $profileLabel ($count Pokémon)"
+                else -> "Dex list synced for $profileLabel ($count Pokémon)"
+            }
+
+            showToast(context, message)
         } else {
-            showToast(context, "Error updating dex list per $profileLabel")
+            showToast(context, "Error updating dex list for $profileLabel")
         }
     }
 

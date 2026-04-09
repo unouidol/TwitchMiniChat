@@ -508,7 +508,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
                     Toast.makeText(
                         requireContext(),
-                        "Cambio inviato, ma verifica stato non riuscita",
+                        "Switch sent, but status check failed",
                         Toast.LENGTH_SHORT
                     ).show()
                     return@fetchDevicePushStateWithRetry
@@ -532,9 +532,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 Toast.makeText(
                     requireContext(),
                     if (nowEnabled) {
-                        "Notifiche attivate per ${c.username}"
+                        "Alerts ON for ${c.username}"
                     } else {
-                        "Notifiche disattivate per ${c.username}"
+                        "Alerts OFF for ${c.username}"
                     },
                     Toast.LENGTH_SHORT
                 ).show()
@@ -1101,7 +1101,23 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         geckoStreamView.setSession(s)
         s.setActive(false)
     }
+    private fun beginReply(messageId: String, user: String, message: String) {
+        setPendingReply(messageId, user, message)
 
+        editMessage.postDelayed({
+            if (!isAdded) return@postDelayed
+
+            clearChannelFieldUi()
+
+            editMessage.requestFocus()
+            editMessage.setSelection(editMessage.text?.length ?: 0)
+
+            val imm = requireContext()
+                .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+            imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
+        }, 100)
+    }
     private fun setPendingReply(messageId: String, user: String, message: String) {
         pendingReplyMessageId = messageId
         pendingReplyUser = user
@@ -1223,7 +1239,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         if (!msgId.isNullOrBlank()) {
             tv.setOnLongClickListener {
-                setPendingReply(msgId, user, message)
+                beginReply(msgId, user, message)
                 true
             }
         }
@@ -1268,7 +1284,36 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
         return if (!hasEmotes) raw.replace("\u0001", "") else raw
     }
+    private fun isDarkTheme(): Boolean {
+        val nightMode = resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        return nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+    }
 
+    private fun pickEmoteThemeMode(): String {
+        return if (isDarkTheme()) "dark" else "light"
+    }
+
+    private fun pickEmoteScale(textSizePx: Float): String {
+        return when {
+            textSizePx >= 54f -> "3.0"
+            textSizePx >= 34f -> "2.0"
+            else -> "3.0"
+        }
+    }
+
+    private fun buildTwitchEmoteUrl(
+        emoteId: String,
+        themeMode: String,
+        scale: String,
+        format: String = "static"
+    ): String {
+        return "https://static-cdn.jtvnw.net/emoticons/v2/$emoteId/$format/$themeMode/$scale"
+    }
+
+    private fun targetEmoteRenderSizePx(textSizePx: Float): Int {
+        return (textSizePx * 2.1f).toInt()
+    }
     private fun createMessageTextView(
         user: String,
         rawMessage: String,
@@ -1373,7 +1418,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         for (i in 0 until count) {
             val emoteId = spansInOrder[i].id
             val idx = markerPositions[i]
-            val url = "https://static-cdn.jtvnw.net/emoticons/v2/$emoteId/static/light/1.0"
+            val themeMode = pickEmoteThemeMode()
+            val scale = pickEmoteScale(tv.textSize)
+            val url = buildTwitchEmoteUrl(
+                emoteId = emoteId,
+                themeMode = themeMode,
+                scale = scale,
+                format = "static"
+            )
 
             Glide.with(this)
                 .asDrawable()
@@ -1383,7 +1435,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                         resource: Drawable,
                         transition: Transition<in Drawable>?
                     ) {
-                        val size = (tv.textSize * 1.5f).toInt()
+                        val size = targetEmoteRenderSizePx(tv.textSize)
                         resource.setBounds(0, 0, size, size)
 
                         val imageSpan = ImageSpan(resource, ImageSpan.ALIGN_BOTTOM)

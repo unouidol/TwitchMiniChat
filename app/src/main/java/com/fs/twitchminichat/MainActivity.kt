@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        const val ACTION_ACCOUNTS_CHANGED = "com.fs.twitchminichat.v2.ACCOUNTS_CHANGED"
+        const val ACTION_ACCOUNTS_CHANGED = "com.fs.twitchminichat.ACCOUNTS_CHANGED"
     }
 
     fun openAccount(accountId: String) {
