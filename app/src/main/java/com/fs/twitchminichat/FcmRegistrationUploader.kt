@@ -30,6 +30,19 @@ object FcmRegistrationUploader {
         val enabledProfileIds: Set<String>,
         val pushEnabledByProfile: Map<String, Boolean>
     )
+
+    data class DeleteServerDataResult(
+        val ok: Boolean,
+        val message: String,
+        val removedDevice: Boolean,
+        val deletedDexProfiles: List<String>,
+        val oauthDeletedRows: Int,
+        val oauthDeletedTables: List<String>,
+        val requestId: String?,
+        val auditLogPath: String?,
+        val rawResponse: String
+    )
+
     fun uploadToken(context: Context, token: String, profileId: String) {
         val appContext = context.applicationContext
         val trimmedToken = token.trim()
@@ -261,6 +274,99 @@ object FcmRegistrationUploader {
             prefs.edit { putString("install_id", installId) }
         }
         return installId
+    }
+
+    fun deleteServerData(
+        context: Context,
+        knownProfileIds: Collection<String>,
+        onComplete: (DeleteServerDataResult) -> Unit
+    ) {
+        val appContext = context.applicationContext
+
+        thread(start = true, name = "delete-server-data") {
+            val normalizedProfiles = knownProfileIds
+                .map { normalizeProfileId(it) }
+                .filter { it.isNotBlank() }
+                .distinct()
+
+            val result = postJson(
+                urlString = appContext.getString(R.string.delete_server_data_url),
+                payload = JSONObject().apply {
+                    put("key", BuildConfig.HISTORY_SECRET_KEY)
+                    put("device_id", getInstallId(appContext))
+                    put("known_profile_ids", JSONArray(normalizedProfiles))
+                    put("delete_dex_lists", true)
+                },
+                logLabel = "delete_server_data"
+            )
+
+            val rawBody = result?.responseBody.orEmpty()
+
+            val body = runCatching {
+                if (rawBody.isNotBlank()) JSONObject(rawBody) else null
+            }.getOrNull()
+
+            fun jsonStringList(array: JSONArray?): List<String> {
+                if (array == null) return emptyList()
+                val out = mutableListOf<String>()
+                for (i in 0 until array.length()) {
+                    val v = array.optString(i).trim()
+                    if (v.isNotEmpty()) out += v
+                }
+                return out
+            }
+
+            val removedDevice = body?.optBoolean("removed_device", false) == true
+            val deletedDexProfiles = jsonStringList(body?.optJSONArray("deleted_dex_profiles"))
+            val oauthDeletedRows = body?.optInt("oauth_deleted_rows", 0) ?: 0
+            val oauthDeletedTables = jsonStringList(body?.optJSONArray("oauth_deleted_tables"))
+            val requestId = body?.optString("request_id")?.takeIf { it.isNotBlank() }
+            val auditLogPath = body?.optString("audit_log_path")?.takeIf { it.isNotBlank() }
+
+            val ok = result?.responseCode in 200..299 && (body?.optBoolean("ok", false) == true)
+
+            val message = when {
+                result == null -> "Server deletion failed"
+                ok -> "Server delete ok"
+                else -> {
+                    val errors = body?.optJSONArray("errors")
+                    if (errors != null && errors.length() > 0) {
+                        errors.optString(0).ifBlank { "Server deletion failed" }
+                    } else {
+                        body?.optString("error")?.takeIf { it.isNotBlank() }
+                            ?: "Server deletion failed"
+                    }
+                }
+            }
+
+            Log.d(
+                TAG,
+                "delete_server_data ok=$ok " +
+                        "removedDevice=$removedDevice " +
+                        "deletedDexProfiles=$deletedDexProfiles " +
+                        "oauthDeletedRows=$oauthDeletedRows " +
+                        "oauthDeletedTables=$oauthDeletedTables " +
+                        "requestId=$requestId " +
+                        "auditLogPath=$auditLogPath " +
+                        "raw=$rawBody"
+            )
+
+            Handler(Looper.getMainLooper()).post {
+                onComplete(
+                    DeleteServerDataResult(
+                        ok = ok,
+                        message = message,
+                        removedDevice = removedDevice,
+                        deletedDexProfiles = deletedDexProfiles,
+                        oauthDeletedRows = oauthDeletedRows,
+                        oauthDeletedTables = oauthDeletedTables,
+                        requestId = requestId,
+                        auditLogPath = auditLogPath,
+                        rawResponse = rawBody
+                    )
+                )
+            }
+        }
     }
 
     private fun normalizeProfileId(value: String?): String {

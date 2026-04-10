@@ -44,6 +44,9 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".SafetyPrivacyActivity" />
+        <activity android:name=".BlockedUsersActivity" />
+
         <service
             android:name="com.fs.twitchminichat.MyFirebaseMessagingService"
             android:exported="false">

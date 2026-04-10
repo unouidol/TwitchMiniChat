@@ -41,4 +41,7 @@
     <string name="twitch_login_button">Twitch Login</string>
     <string name="logged_accounts_title">Logged Accounts - press x to delete</string>
     <string name="Remove">Remove</string>
+
+    <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
+
 </resources>

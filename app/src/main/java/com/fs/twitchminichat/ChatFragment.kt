@@ -44,7 +44,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import kotlin.concurrent.thread
-
+import androidx.appcompat.app.AlertDialog
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
 
@@ -85,7 +85,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         var displayName: String,
         var lastSeenAtMs: Long
     )
-
+    private data class ChatViewMeta(
+        val usernameLower: String
+    )
     private val mentionUsers = LinkedHashMap<String, MentionUserEntry>()
     private val mentionTimeoutMs = 10 * 60 * 1000L
 
@@ -183,6 +185,35 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             val h = (key.hashCode() and 0x7fffffff) % 360
             Color.HSVToColor(floatArrayOf(h.toFloat(), 0.75f, 0.95f))
         }
+    }
+
+    private fun normalizeChatUser(user: String?): String {
+        return user?.trim()?.lowercase().orEmpty()
+    }
+
+    private fun isUserHidden(user: String): Boolean {
+        return HiddenUsersStore.isHidden(requireContext(), user)
+    }
+
+    private fun removeMessagesOfHiddenUser(user: String) {
+        val normalized = normalizeChatUser(user)
+        if (normalized.isBlank()) return
+
+        for (i in chatContainer.childCount - 1 downTo 0) {
+            val child = chatContainer.getChildAt(i)
+            val meta = child.tag as? ChatViewMeta ?: continue
+
+            if (meta.usernameLower == normalized) {
+                chatContainer.removeViewAt(i)
+            }
+        }
+
+        val pendingReplyUserNormalized = normalizeChatUser(pendingReplyUser)
+        if (pendingReplyUserNormalized == normalized) {
+            clearPendingReply()
+        }
+
+        updateJumpToBottomButton()
     }
 
     private fun addMentionUser(user: String) {
@@ -665,6 +696,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             manualRefresh()
         }
 
+        btnRefreshChat.setOnLongClickListener {
+            SafetyPrivacyActivity.start(requireContext())
+            true
+        }
+
         btnJumpToBottom.setOnClickListener {
             scrollToBottom()
         }
@@ -1101,6 +1137,97 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         geckoStreamView.setSession(s)
         s.setActive(false)
     }
+
+    private fun onChatMessageLongPressed(
+        messageId: String?,
+        user: String,
+        message: String
+    ) {
+        Log.d(
+            "CHAT_LONG_PRESS",
+            "messageId=$messageId user=$user message=$message"
+        )
+
+        showMessageActions(
+            messageId = messageId,
+            user = user,
+            message = message
+        )
+    }
+
+    private fun showMessageActions(
+        messageId: String?,
+        user: String,
+        message: String
+    ) {
+        val labels = mutableListOf<String>()
+        val actions = mutableListOf<() -> Unit>()
+
+        if (!messageId.isNullOrBlank()) {
+            labels += "Reply"
+            actions += {
+                beginReply(messageId, user, message)
+            }
+        }
+
+        labels += "Hide user in app"
+        actions += {
+            onHideUserRequested(user)
+        }
+
+        labels += "Report message"
+        actions += {
+            onReportMessageRequested(
+                messageId = messageId,
+                user = user,
+                message = message
+            )
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("@$user")
+            .setItems(labels.toTypedArray()) { _, which ->
+                actions.getOrNull(which)?.invoke()
+            }
+            .show()
+    }
+
+    private fun onHideUserRequested(user: String) {
+        val added = HiddenUsersStore.add(requireContext(), user)
+
+        Log.d("CHAT_ACTION", "hide user requested user=$user added=$added")
+
+        removeMessagesOfHiddenUser(user)
+
+        Toast.makeText(
+            requireContext(),
+            if (added) {
+                "User hidden in app: @$user"
+            } else {
+                "User already hidden: @$user"
+            },
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun onReportMessageRequested(
+        messageId: String?,
+        user: String,
+        message: String
+    ) {
+        Log.d(
+            "CHAT_ACTION",
+            "report message requested messageId=$messageId user=$user message=$message"
+        )
+
+        Toast.makeText(
+            requireContext(),
+            "Reporting message by @$user",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+
     private fun beginReply(messageId: String, user: String, message: String) {
         setPendingReply(messageId, user, message)
 
@@ -1230,6 +1357,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
         addMentionUser(user)
 
+        if (isUserHidden(user)) {
+            Log.d("CHAT_HIDE", "skip hidden user=$user")
+            return
+        }
+
         val tv = createMessageTextView(
             user = user,
             rawMessage = message,
@@ -1237,11 +1369,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             replyParentUserLogin = replyParentUserLogin
         )
 
-        if (!msgId.isNullOrBlank()) {
-            tv.setOnLongClickListener {
-                beginReply(msgId, user, message)
-                true
-            }
+        tv.tag = ChatViewMeta(usernameLower = normalizeChatUser(user))
+
+        tv.setOnLongClickListener {
+            onChatMessageLongPressed(
+                messageId = msgId,
+                user = user,
+                message = message
+            )
+            true
         }
 
         appendChatView(tv, forceScroll = forceScroll, countAsUnread = true)
