@@ -57,8 +57,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private var sendClient: TwitchChatClient? = null
     @Volatile
     private var sendReady = false
+
     @Volatile
     private var connectInProgress = false
+
+    private var suppressComposerRestore = false
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -159,15 +162,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
     }
 
-    private fun clearChannelFieldUi() {
+    private fun clearChannelFieldUi(hideKeyboard: Boolean) {
         if (!this::editChannel.isInitialized) return
 
         dismissChannelDropdown()
         editChannel.clearFocus()
-        view?.requestFocus()
 
-        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(editChannel.windowToken, 0)
+        if (hideKeyboard) {
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(editChannel.windowToken, 0)
+        }
     }
 
     private fun dismissChannelDropdown() {
@@ -568,8 +572,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
 
-        view.isFocusable = true
-        view.isFocusableInTouchMode = true
+
+        btnJumpToBottom.isFocusable = false
+        btnJumpToBottom.isFocusableInTouchMode = false
 
         refreshPushToggleUi()
 
@@ -630,8 +635,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
 
         val clearChannelFocusClickListener = View.OnClickListener {
-            view.requestFocus()
-            clearChannelFieldUi()
+            clearChannelFieldUi(hideKeyboard = false)
+            closeComposerKeyboard()
         }
 
         view.setOnClickListener(clearChannelFocusClickListener)
@@ -641,7 +646,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         replyBar.setOnClickListener(clearChannelFocusClickListener)
 
         editMessage.setOnClickListener {
-            clearChannelFieldUi()
+            clearChannelFieldUi(hideKeyboard = false)
         }
 
         btnStartPcg.setOnClickListener {
@@ -806,8 +811,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         rc.connect(
             onConnected = {
-                activity?.runOnUiThread {
-                    textStatus.text = getString(R.string.status_connected, chatUsername, ch)
+                runUiIfAlive {
+                    val ctx = context ?: return@runUiIfAlive
+                    textStatus.text = ctx.getString(R.string.status_connected, chatUsername, ch)
                 }
             },
             onMessage = { user, msg, emotesRaw, _, msgId, replyParentUserLogin ->
@@ -816,7 +822,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
                 val forceScroll = user.equals(chatUsername, ignoreCase = true)
 
-                activity?.runOnUiThread {
+                runUiIfAlive {
                     appendChatLine(
                         user = user,
                         message = msg,
@@ -828,8 +834,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 }
             },
             onError = { err ->
-                activity?.runOnUiThread {
-                    textStatus.text = getString(R.string.status_read_error, err.message ?: "unknown")
+                runUiIfAlive {
+                    val ctx = context ?: return@runUiIfAlive
+                    textStatus.text = ctx.getString(R.string.status_read_error, err.message ?: "unknown")
                 }
             }
         )
@@ -837,15 +844,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         sc.connect(
             onConnected = {
                 sendReady = true
-                activity?.runOnUiThread {
-                    textStatus.text = getString(R.string.status_connected, chatUsername, ch)
+                runUiIfAlive {
+                    val ctx = context ?: return@runUiIfAlive
+                    textStatus.text = ctx.getString(R.string.status_connected, chatUsername, ch)
                 }
             },
             onMessage = null,
             onError = { err ->
                 sendReady = false
-                activity?.runOnUiThread {
-                    textStatus.text = getString(R.string.status_send_error, err.message ?: "unknown")
+                runUiIfAlive {
+                    val ctx = context ?: return@runUiIfAlive
+                    textStatus.text = ctx.getString(R.string.status_send_error, err.message ?: "unknown")
                 }
             }
         )
@@ -899,15 +908,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                     else -> ""
                 }
 
-                activity?.runOnUiThread {
+                runUiIfAlive {
                     connectInProgress = false
 
-                    if (!isAdded) return@runOnUiThread
-                    if (readClient != null || sendClient != null) return@runOnUiThread
+                    if (readClient != null || sendClient != null) return@runUiIfAlive
 
                     if (ircToken.isBlank() || chatUsername.isBlank()) {
-                        textStatus.text = getString(R.string.status_missing_token, c.username)
-                        return@runOnUiThread
+                        val ctx = context ?: return@runUiIfAlive
+                        textStatus.text = ctx.getString(R.string.status_missing_token, c.username)
+                        return@runUiIfAlive
                     }
 
                     openIrcClients(
@@ -916,16 +925,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                         ch = ch
                     )
                 }
+
             } catch (_: Exception) {
-                activity?.runOnUiThread {
+                runUiIfAlive {
                     connectInProgress = false
 
-                    if (!isAdded) return@runOnUiThread
-                    if (readClient != null || sendClient != null) return@runOnUiThread
+                    if (readClient != null || sendClient != null) return@runUiIfAlive
 
                     if (localToken.isBlank()) {
-                        textStatus.text = getString(R.string.status_missing_token, c.username)
-                        return@runOnUiThread
+                        val ctx = context ?: return@runUiIfAlive
+                        textStatus.text = ctx.getString(R.string.status_missing_token, c.username)
+                        return@runUiIfAlive
                     }
 
                     openIrcClients(
@@ -956,13 +966,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             client.sendMessage(text)
         }
 
+        suppressComposerRestore = true
+
         editMessage.text?.clear()
+        editMessage.clearFocus()
 
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
 
         stickToBottom = true
         scrollToBottom()
+
+        editMessage.postDelayed({
+            suppressComposerRestore = false
+        }, 400)
     }
 
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
@@ -1009,7 +1026,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                         "hist:${(ts * 1000).toLong()}:${user.lowercase()}:${text.hashCode()}"
                     }
 
-                    activity?.runOnUiThread {
+                    runUiIfAlive {
                         appendChatLine(
                             user = user,
                             message = text,
@@ -1052,7 +1069,50 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
     }
 
+    private fun closeComposerKeyboard() {
+        if (!this::editMessage.isInitialized) return
+
+        editMessage.clearFocus()
+
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
+    }
+
+    private fun restoreComposerFocusIfNeeded(
+        hadFocus: Boolean,
+        selectionStart: Int,
+        selectionEnd: Int
+    ) {
+        if (!hadFocus) return
+        if (suppressComposerRestore) return
+        if (!this::editMessage.isInitialized) return
+
+        editMessage.post {
+            if (!isAdded) return@post
+            if (suppressComposerRestore) return@post
+
+            // Non riaprire la tastiera e non richiedere focus.
+            // Al massimo preserva la selezione se il campo è già ancora focused.
+            if (!editMessage.hasFocus()) return@post
+
+            val text = editMessage.text
+            val length = text?.length ?: 0
+
+            val safeStart = selectionStart.coerceIn(0, length)
+            val safeEnd = selectionEnd.coerceIn(0, length)
+
+            editMessage.setSelection(
+                minOf(safeStart, safeEnd),
+                maxOf(safeStart, safeEnd)
+            )
+        }
+    }
+
     private fun appendChatView(view: View, forceScroll: Boolean = false, countAsUnread: Boolean = true) {
+        val hadComposerFocus = this::editMessage.isInitialized && editMessage.hasFocus()
+        val oldSelectionStart = if (hadComposerFocus) editMessage.selectionStart else 0
+        val oldSelectionEnd = if (hadComposerFocus) editMessage.selectionEnd else 0
+
         val shouldAutoScroll = forceScroll || stickToBottom || isNearBottom()
 
         chatContainer.addView(view)
@@ -1065,6 +1125,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             }
             updateJumpToBottomButton()
         }
+
+        restoreComposerFocusIfNeeded(
+            hadFocus = hadComposerFocus,
+            selectionStart = oldSelectionStart,
+            selectionEnd = oldSelectionEnd
+        )
     }
 
     private fun appendSystemLine(text: String) {
@@ -1107,7 +1173,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         editMessage.postDelayed({
             if (!isAdded) return@postDelayed
 
-            clearChannelFieldUi()
+            clearChannelFieldUi(hideKeyboard = false)
 
             editMessage.requestFocus()
             editMessage.setSelection(editMessage.text?.length ?: 0)
@@ -1210,6 +1276,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         return false
     }
 
+    private inline fun runUiIfAlive(crossinline action: () -> Unit) {
+        val act = activity ?: return
+        act.runOnUiThread {
+            if (!isAdded) return@runOnUiThread
+            if (view == null) return@runOnUiThread
+            action()
+        }
+    }
+
     private fun appendChatLine(
         user: String,
         message: String,
@@ -1243,7 +1318,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 true
             }
         }
-
+        tv.setOnClickListener {
+            clearChannelFieldUi(hideKeyboard = false)
+            closeComposerKeyboard()
+        }
         appendChatView(tv, forceScroll = forceScroll, countAsUnread = true)
     }
 
@@ -1312,7 +1390,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     }
 
     private fun targetEmoteRenderSizePx(textSizePx: Float): Int {
-        return (textSizePx * 2.1f).toInt()
+        return (textSizePx * 1.5f).toInt()
     }
     private fun createMessageTextView(
         user: String,
@@ -1323,6 +1401,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         val tv = TextView(requireContext()).apply {
             setTextColor(colorOnSurface())
             textSize = 14f
+            isFocusable = false
+            isFocusableInTouchMode = false
         }
 
         val spans = parseEmoteSpans(emotesRaw)

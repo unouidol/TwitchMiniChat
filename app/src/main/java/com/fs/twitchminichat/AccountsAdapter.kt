@@ -6,22 +6,19 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
 class AccountsAdapter(
     private val onClick: (AccountConfig) -> Unit,
     private val onDelete: (AccountConfig) -> Unit,
-    private val onLongPressDelete: (AccountConfig) -> Unit
-) : ListAdapter<AccountConfig, AccountsAdapter.VH>(Diff) {
+    private val onLongPressDelete: (AccountConfig) -> Unit,
+    private val onStartDragRequest: (RecyclerView.ViewHolder) -> Unit
+) : RecyclerView.Adapter<AccountsAdapter.VH>() {
 
-    object Diff : DiffUtil.ItemCallback<AccountConfig>() {
-        override fun areItemsTheSame(oldItem: AccountConfig, newItem: AccountConfig): Boolean =
-            oldItem.id == newItem.id
+    private val items = mutableListOf<AccountConfig>()
 
-        override fun areContentsTheSame(oldItem: AccountConfig, newItem: AccountConfig): Boolean =
-            oldItem == newItem
+    init {
+        setHasStableIds(true)
     }
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
@@ -37,8 +34,14 @@ class AccountsAdapter(
         return VH(view)
     }
 
+    override fun getItemCount(): Int = items.size
+
+    override fun getItemId(position: Int): Long {
+        return items[position].id.hashCode().toLong()
+    }
+
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val item = getItem(position)
+        val item = items[position]
         val context = holder.itemView.context
 
         holder.textUser.text =
@@ -47,15 +50,40 @@ class AccountsAdapter(
         holder.textChannel.text =
             context.getString(R.string.account_channel, item.channel)
 
-        holder.itemView.setOnClickListener(null)
-        holder.itemView.setOnLongClickListener(null)
+        holder.accountContent.setOnClickListener {
+            onClick(item)
+        }
 
-        holder.accountContent.setOnClickListener { onClick(item) }
+        holder.accountContent.setOnLongClickListener {
+            onStartDragRequest(holder)
+            true
+        }
 
-        holder.btnDelete.setOnClickListener { onDelete(item) }
+        holder.btnDelete.setOnClickListener {
+            onDelete(item)
+        }
+
         holder.btnDelete.setOnLongClickListener {
             onLongPressDelete(item)
             true
         }
     }
+
+    fun submitAccounts(list: List<AccountConfig>) {
+        items.clear()
+        items.addAll(list.sortedBy { it.sortOrder })
+        notifyDataSetChanged()
+    }
+
+    fun moveItem(fromPosition: Int, toPosition: Int) {
+        if (fromPosition == toPosition) return
+        if (fromPosition !in items.indices) return
+        if (toPosition !in items.indices) return
+
+        val moved = items.removeAt(fromPosition)
+        items.add(toPosition, moved)
+        notifyItemMoved(fromPosition, toPosition)
+    }
+
+    fun currentAccounts(): List<AccountConfig> = items.toList()
 }

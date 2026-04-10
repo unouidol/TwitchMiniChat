@@ -46,7 +46,6 @@ class MainActivity : AppCompatActivity() {
         pager.adapter = adapter
 
         handleIntent(intent)
-
     }
 
     private fun getViewPager(): ViewPager2? {
@@ -74,12 +73,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun refreshPagerKeepingCurrentAccount() {
+        val currentAccountId = adapter.accountIdForPageIndex(pager.currentItem)
+
+        adapter.reload()
+
+        val targetPage = when {
+            currentAccountId != null -> {
+                adapter.pageIndexForAccountId(currentAccountId).takeIf { it >= 0 } ?: 0
+            }
+            pager.currentItem == 0 -> 0
+            else -> pager.currentItem.coerceAtMost(adapter.itemCount - 1)
+        }
+
+        pager.setCurrentItem(targetPage, false)
+    }
+
     private class AccountsPagerAdapter(
         activity: FragmentActivity,
         private val repo: AccountRepository
     ) : FragmentStateAdapter(activity) {
 
         private var accounts: List<AccountConfig> = repo.loadAccounts()
+
         override fun getItemId(position: Int): Long {
             return if (position == 0) {
                 Long.MIN_VALUE
@@ -92,6 +108,7 @@ class MainActivity : AppCompatActivity() {
             if (itemId == Long.MIN_VALUE) return true
             return accounts.any { it.id.hashCode().toLong() == itemId }
         }
+
         fun reload() {
             val oldAccounts = accounts
             val newAccounts = repo.loadAccounts()
@@ -138,6 +155,11 @@ class MainActivity : AppCompatActivity() {
             val idx = accounts.indexOfFirst { it.id == id }
             return if (idx >= 0) idx + 1 else -1
         }
+
+        fun accountIdForPageIndex(pageIndex: Int): String? {
+            if (pageIndex <= 0) return null
+            return accounts.getOrNull(pageIndex - 1)?.id
+        }
     }
 
     companion object {
@@ -154,11 +176,7 @@ class MainActivity : AppCompatActivity() {
 
     private val accountsChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            adapter.reload()
-            if (pager.currentItem >= adapter.itemCount) {
-                pager.setCurrentItem(0, false)
-            }
-
+            refreshPagerKeepingCurrentAccount()
             fetchFcmToken()
         }
     }

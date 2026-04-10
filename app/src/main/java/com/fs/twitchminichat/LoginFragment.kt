@@ -6,12 +6,12 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
-import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import androidx.core.content.edit
 import androidx.core.net.toUri
-
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class LoginFragment : Fragment(R.layout.fragment_login) {
 
@@ -19,6 +19,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     private lateinit var recycler: RecyclerView
     private lateinit var adapter: AccountsAdapter
     private lateinit var repo: AccountRepository
+    private lateinit var itemTouchHelper: ItemTouchHelper
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -37,11 +38,48 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             },
             onLongPressDelete = { cfg ->
                 deleteAccount(cfg.id)
+            },
+            onStartDragRequest = { holder ->
+                itemTouchHelper.startDrag(holder)
             }
         )
 
         recycler.layoutManager = LinearLayoutManager(requireContext())
         recycler.adapter = adapter
+
+        itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+            0
+        ) {
+            override fun isLongPressDragEnabled(): Boolean = false
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                adapter.moveItem(from, to)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+
+                val orderedIds = adapter.currentAccounts().map { it.id }
+                repo.reorderAccounts(orderedIds)
+
+                recyclerView.post {
+                    if (!isAdded) return@post
+                    requireContext().sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
+                }
+            }
+        })
+
+        itemTouchHelper.attachToRecyclerView(recycler)
 
         view.findViewById<Button>(R.id.btnLogin).setOnClickListener {
             val channel = normalizeChannel(editChannel.text?.toString().orEmpty())
@@ -61,7 +99,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     }
 
     private fun refreshList() {
-        adapter.submitList(repo.loadAccounts())
+        adapter.submitAccounts(repo.loadAccounts())
     }
 
     private fun deleteAccount(accountId: String) {
@@ -70,7 +108,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         if (removed) {
             repo.saveAll(list)
             refreshList()
-            //requireContext().sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
+            requireContext().sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
         }
     }
 

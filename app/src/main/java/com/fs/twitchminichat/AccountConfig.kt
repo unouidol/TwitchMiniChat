@@ -5,5 +5,6 @@ data class AccountConfig(
     val username: String,
     val channel: String,
     val accessToken: String,
-    val profileId: String
+    val profileId: String,
+    val sortOrder: Int = 0
 )
