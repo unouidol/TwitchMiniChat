@@ -18,23 +18,20 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.firebase.messaging.FirebaseMessaging
-import com.fs.twitchminichat.RemoteDeletionChecker
+
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var pager: ViewPager2
     private lateinit var repo: AccountRepository
     private lateinit var adapter: AccountsPagerAdapter
+    private var startupAfterDeletionCheckDone = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        RemoteDeletionChecker.checkOnceOnAppOpen(this)
-
-        askNotificationPermissionIfNeeded()
 
         repo = AccountRepository(this)
-        fetchFcmToken()
 
         val vp = getViewPager()
         if (vp == null) {
@@ -49,6 +46,12 @@ class MainActivity : AppCompatActivity() {
 
         handleIntent(intent)
 
+        RemoteDeletionChecker.checkOnceOnAppOpen(
+            context = this,
+            onNoDeletionDetected = {
+                continueStartupAfterDeletionCheck()
+            }
+        )
     }
 
     private fun getViewPager(): ViewPager2? {
@@ -74,6 +77,14 @@ class MainActivity : AppCompatActivity() {
                 pager.setCurrentItem(index, true)
             }
         }
+    }
+
+    private fun continueStartupAfterDeletionCheck() {
+        if (startupAfterDeletionCheckDone) return
+        startupAfterDeletionCheckDone = true
+
+        askNotificationPermissionIfNeeded()
+        fetchFcmToken()
     }
 
     private class AccountsPagerAdapter(
