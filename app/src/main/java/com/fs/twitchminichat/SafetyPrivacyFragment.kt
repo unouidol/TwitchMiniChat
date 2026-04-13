@@ -10,7 +10,7 @@ import androidx.appcompat.app.AlertDialog
 import android.util.Log
 import android.widget.LinearLayout
 import android.widget.TextView
-
+import com.fs.twitchminichat.pcg.GeckoSessionManager
 
 
 class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
@@ -134,7 +134,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         FcmRegistrationUploader.deleteServerData(
             context = ctx,
             knownProfileIds = profileIds
-        ) { serverResult ->
+        ) { serverResult: FcmRegistrationUploader.DeleteServerDataResult ->
             if (!isAdded) return@deleteServerData
 
             Log.d(
@@ -159,26 +159,44 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                 return@deleteServerData
             }
 
-            val localResult = LocalDataCleaner.clearAllLocalData(requireContext())
-            val prefsAfter = LocalDataCleaner.debugListSharedPrefs(requireContext())
-            val hiddenAfter = HiddenUsersStore.getAll(requireContext())
+            GeckoSessionManager.clearAllWebData(requireContext()) { geckoOk: Boolean, geckoMessage: String ->
+                if (!isAdded) return@clearAllWebData
 
-            Log.d(
-                "TOTAL_DELETE",
-                "local deletedSharedPrefs=${localResult.deletedSharedPrefs} " +
-                        "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
-                        "clearedCacheDirs=${localResult.clearedCacheDirs} " +
-                        "processedPrefNames=${localResult.processedPrefNames} " +
-                        "deletedPrefNames=${localResult.deletedPrefNames} " +
-                        "skippedPrefNames=${localResult.skippedPrefNames}"
-            )
+                Log.d(
+                    "TOTAL_DELETE",
+                    "gecko ok=$geckoOk message=$geckoMessage"
+                )
 
-            Log.d(
-                "TOTAL_DELETE",
-                "after prefsAfter=$prefsAfter hiddenAfter=$hiddenAfter"
-            )
+                if (!geckoOk) {
+                    Toast.makeText(
+                        requireContext(),
+                        "Server delete ok, but Gecko wipe failed: $geckoMessage",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@clearAllWebData
+                }
 
-            restartAppAfterLocalClear()
+                val localResult = LocalDataCleaner.clearAllLocalData(requireContext())
+                val prefsAfter = LocalDataCleaner.debugListSharedPrefs(requireContext())
+                val hiddenAfter = HiddenUsersStore.getAll(requireContext())
+
+                Log.d(
+                    "TOTAL_DELETE",
+                    "local deletedSharedPrefs=${localResult.deletedSharedPrefs} " +
+                            "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
+                            "clearedCacheDirs=${localResult.clearedCacheDirs} " +
+                            "processedPrefNames=${localResult.processedPrefNames} " +
+                            "deletedPrefNames=${localResult.deletedPrefNames} " +
+                            "skippedPrefNames=${localResult.skippedPrefNames}"
+                )
+
+                Log.d(
+                    "TOTAL_DELETE",
+                    "after prefsAfter=$prefsAfter hiddenAfter=$hiddenAfter"
+                )
+
+                restartAppAfterLocalClear()
+            }
         }
     }
     private fun showClearLocalDataDialog() {

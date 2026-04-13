@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.firebase.messaging.FirebaseMessaging
+import com.fs.twitchminichat.RemoteDeletionChecker
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        RemoteDeletionChecker.checkOnceOnAppOpen(this)
 
         askNotificationPermissionIfNeeded()
 

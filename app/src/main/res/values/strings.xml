@@ -43,5 +43,6 @@
     <string name="Remove">Remove</string>
 
     <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
+    <string name="profile_deletion_state_url">https://api.ircminichat.party/get_profile_deletion_state</string>
 
 </resources>

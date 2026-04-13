@@ -43,6 +43,69 @@ object FcmRegistrationUploader {
         val rawResponse: String
     )
 
+    data class ProfileDeletionStateResult(
+        val ok: Boolean,
+        val deletedProfileIds: List<String>,
+        val rawResponse: String
+    )
+
+    fun fetchProfileDeletionState(
+        context: Context,
+        knownProfileIds: Collection<String>,
+        onComplete: (ProfileDeletionStateResult) -> Unit
+    ) {
+        val appContext = context.applicationContext
+
+        thread(start = true, name = "profile-deletion-state") {
+            val normalizedProfiles = knownProfileIds
+                .map { normalizeProfileId(it) }
+                .filter { it.isNotBlank() }
+                .distinct()
+
+            val result = postJson(
+                urlString = appContext.getString(R.string.profile_deletion_state_url),
+                payload = JSONObject().apply {
+                    put("key", BuildConfig.HISTORY_SECRET_KEY)
+                    put("known_profile_ids", JSONArray(normalizedProfiles))
+                },
+                logLabel = "get_profile_deletion_state"
+            )
+
+            val rawBody = result?.responseBody.orEmpty()
+            val body = runCatching {
+                if (rawBody.isNotBlank()) JSONObject(rawBody) else null
+            }.getOrNull()
+
+            val deleted = mutableListOf<String>()
+            val deletedArray = body?.optJSONArray("deleted_profile_ids")
+            if (deletedArray != null) {
+                for (i in 0 until deletedArray.length()) {
+                    val v = deletedArray.optString(i).trim().lowercase()
+                    if (v.isNotEmpty()) {
+                        deleted += v
+                    }
+                }
+            }
+
+            val ok = result?.responseCode in 200..299 && (body?.optBoolean("ok", false) == true)
+
+            Log.d(
+                TAG,
+                "get_profile_deletion_state ok=$ok deleted=$deleted raw=$rawBody"
+            )
+
+            Handler(Looper.getMainLooper()).post {
+                onComplete(
+                    ProfileDeletionStateResult(
+                        ok = ok,
+                        deletedProfileIds = deleted.distinct(),
+                        rawResponse = rawBody
+                    )
+                )
+            }
+        }
+    }
+
     fun uploadToken(context: Context, token: String, profileId: String) {
         val appContext = context.applicationContext
         val trimmedToken = token.trim()

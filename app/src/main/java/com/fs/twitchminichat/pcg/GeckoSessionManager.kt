@@ -16,6 +16,7 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.WebExtension
 import java.util.concurrent.ConcurrentHashMap
+import org.mozilla.geckoview.StorageController
 
 @Suppress("unused")
 object GeckoSessionManager {
@@ -383,5 +384,48 @@ object GeckoSessionManager {
 
     fun destroyAccountSession(accountId: String) {
         destroy("account:$accountId")
+    }
+
+    fun clearAllWebData(
+        context: Context,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        val appContext = context.applicationContext
+
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val sessionsToClose = sessions.values.toList()
+                Log.d("GECKO_CLEAR", "start existingRuntime=${runtime != null} sessionsToClose=${sessionsToClose.size}")
+
+                for (session in sessionsToClose) {
+                    runCatching {
+                        session.setActive(false)
+                    }
+                    runCatching {
+                        session.close()
+                    }
+                }
+
+                sessions.clear()
+
+                val rt = getRuntime(appContext)
+
+                rt.storageController
+                    .clearData(StorageController.ClearFlags.ALL)
+                    .accept(
+                        {
+                            Log.d("GECKO_CLEAR", "clearData(ALL) completed")
+                            onComplete(true, "Gecko web data cleared")
+                        },
+                        { error ->
+                            Log.e("GECKO_CLEAR", "clearData(ALL) failed", error)
+                            onComplete(false, error?.message ?: "Gecko clear failed")
+                        }
+                    )
+            } catch (t: Throwable) {
+                Log.e("GECKO_CLEAR", "unexpected error during Gecko clear", t)
+                onComplete(false, t.message ?: "Unexpected Gecko clear error")
+            }
+        }
     }
 }
