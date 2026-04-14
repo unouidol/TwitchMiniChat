@@ -45,6 +45,11 @@ import java.net.URL
 import java.net.URLEncoder
 import kotlin.concurrent.thread
 import androidx.appcompat.app.AlertDialog
+import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
+import android.view.ViewConfiguration
+import androidx.appcompat.widget.AppCompatTextView
+
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
 
@@ -86,10 +91,179 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         var lastSeenAtMs: Long
     )
     private data class ChatViewMeta(
-        val usernameLower: String
+        val usernameLower: String,
+        val messageId: String?,
+        val messageText: String,
+        val messageTimestampSec: Double
     )
+
+    private inner class SwipeReplyTextView(context: Context) : AppCompatTextView(context) {
+
+        var onSwipeReply: (() -> Unit)? = null
+
+        private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        private val longPressTimeoutMs = ViewConfiguration.getLongPressTimeout().toLong()
+
+        private var downRawX = 0f
+        private var downRawY = 0f
+        private var swiping = false
+        private var replyGestureEnabled = false
+        private var longPressTriggered = false
+
+        private val longPressRunnable = Runnable {
+            if (!swiping && isPressed) {
+                longPressTriggered = performLongClick()
+            }
+        }
+
+        init {
+            isClickable = true
+            isLongClickable = true
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downRawX = event.rawX
+                    downRawY = event.rawY
+                    swiping = false
+                    longPressTriggered = false
+
+                    val startFromRightEdge =
+                        event.x >= (width - swipeReplyActivationEdgePx)
+
+                    replyGestureEnabled =
+                        startFromRightEdge && onSwipeReply != null
+
+                    isPressed = true
+                    removeCallbacks(longPressRunnable)
+                    postDelayed(longPressRunnable, longPressTimeoutMs)
+
+                    return true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downRawX
+                    val dy = event.rawY - downRawY
+
+                    val movedEnoughForCancel =
+                        kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop
+
+                    if (movedEnoughForCancel) {
+                        removeCallbacks(longPressRunnable)
+                    }
+
+                    if (!replyGestureEnabled) {
+                        return super.onTouchEvent(event)
+                    }
+
+                    if (!swiping) {
+                        val horizontalSwipe =
+                            dx < 0 &&
+                                    kotlin.math.abs(dx) > touchSlop &&
+                                    kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f
+
+                        if (horizontalSwipe) {
+                            swiping = true
+                            isPressed = false
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                    }
+
+                    if (swiping) {
+                        val translation = dx
+                            .coerceAtMost(0f)
+                            .coerceAtLeast(-swipeReplyMaxPx)
+
+                        translationX = translation
+                        return true
+                    }
+
+                    return super.onTouchEvent(event)
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    removeCallbacks(longPressRunnable)
+
+                    val wasSwiping = swiping
+                    val shouldReply =
+                        !longPressTriggered &&
+                                swiping &&
+                                translationX <= -swipeReplyTriggerPx &&
+                                onSwipeReply != null
+
+                    animate()
+                        .translationX(0f)
+                        .setDuration(150)
+                        .start()
+
+                    parent?.requestDisallowInterceptTouchEvent(false)
+
+                    swiping = false
+                    replyGestureEnabled = false
+                    isPressed = false
+
+                    if (longPressTriggered) {
+                        return true
+                    }
+
+                    if (shouldReply) {
+                        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        onSwipeReply?.invoke()
+                        return true
+                    }
+
+                    if (wasSwiping) {
+                        return true
+                    }
+
+                    return performClick()
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
+                    removeCallbacks(longPressRunnable)
+
+                    animate()
+                        .translationX(0f)
+                        .setDuration(150)
+                        .start()
+
+                    parent?.requestDisallowInterceptTouchEvent(false)
+
+                    swiping = false
+                    replyGestureEnabled = false
+                    longPressTriggered = false
+                    isPressed = false
+
+                    return true
+                }
+            }
+
+            return super.onTouchEvent(event)
+        }
+
+        override fun performClick(): Boolean {
+            if (translationX != 0f) {
+                animate()
+                    .translationX(0f)
+                    .setDuration(150)
+                    .start()
+            }
+            return super.performClick()
+        }
+    }
+
+
     private val mentionUsers = LinkedHashMap<String, MentionUserEntry>()
     private val mentionTimeoutMs = 10 * 60 * 1000L
+    private val swipeReplyTriggerPx: Float
+        get() = 72f * resources.displayMetrics.density
+
+    private val swipeReplyMaxPx: Float
+        get() = 112f * resources.displayMetrics.density
+
+    private val swipeReplyActivationEdgePx: Float
+        get() = 64f * resources.displayMetrics.density
 
     private var pendingReplyMessageId: String? = null
     private var pendingReplyUser: String? = null
@@ -458,9 +632,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     }
 
     private fun currentProfileId(): String {
+        val explicit = cfg?.profileId?.trim().orEmpty()
+        if (explicit.isNotBlank()) return explicit.lowercase()
+
         val username = cfg?.username?.trim().orEmpty()
         if (username.isBlank()) return ""
-        return ProfileIdUtil.fromUsername(username)
+
+        return ProfileIdUtil.fromUsername(username).trim().lowercase()
     }
 
     private fun knownProfileIdsForDevice(): List<String> {
@@ -859,7 +1037,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                         emotesRaw = emotesRaw,
                         dedupKey = key,
                         replyParentUserLogin = replyParentUserLogin,
-                        forceScroll = forceScroll
+                        forceScroll = forceScroll,
+                        messageTimestampSec = System.currentTimeMillis().toDouble() / 1000.0
                     )
                 }
             },
@@ -1044,21 +1223,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                         val ts = obj.optDouble("timestamp", 0.0)
                         "hist:${(ts * 1000).toLong()}:${user.lowercase()}:${text.hashCode()}"
                     }
-
+                    val timestampSec = obj.optDouble("timestamp", 0.0)
                     activity?.runOnUiThread {
                         appendChatLine(
                             user = user,
                             message = text,
                             emotesRaw = emotesRaw,
                             dedupKey = key,
-                            replyParentUserLogin = null
+                            replyParentUserLogin = null,
+                            messageTimestampSec = if (timestampSec > 0.0) timestampSec else null
                         )
                     }
                 }
             } catch (_: Exception) {
                 // ignore
             }
+
         }
+
     }
 
     private fun isNearBottom(): Boolean {
@@ -1141,34 +1323,30 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private fun onChatMessageLongPressed(
         messageId: String?,
         user: String,
-        message: String
+        message: String,
+        messageTimestampSec: Double
     ) {
         Log.d(
             "CHAT_LONG_PRESS",
-            "messageId=$messageId user=$user message=$message"
+            "messageId=$messageId user=$user message=$message ts=$messageTimestampSec"
         )
 
         showMessageActions(
             messageId = messageId,
             user = user,
-            message = message
+            message = message,
+            messageTimestampSec = messageTimestampSec
         )
     }
 
     private fun showMessageActions(
         messageId: String?,
         user: String,
-        message: String
+        message: String,
+        messageTimestampSec: Double
     ) {
         val labels = mutableListOf<String>()
         val actions = mutableListOf<() -> Unit>()
-
-        if (!messageId.isNullOrBlank()) {
-            labels += "Reply"
-            actions += {
-                beginReply(messageId, user, message)
-            }
-        }
 
         labels += "Hide user in app"
         actions += {
@@ -1180,7 +1358,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             onReportMessageRequested(
                 messageId = messageId,
                 user = user,
-                message = message
+                message = message,
+                messageTimestampSec = messageTimestampSec
             )
         }
 
@@ -1213,18 +1392,41 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private fun onReportMessageRequested(
         messageId: String?,
         user: String,
-        message: String
+        message: String,
+        messageTimestampSec: Double
     ) {
+        val reporterProfileId = currentProfileId()
+        val channel = currentChannelNormalized()
+
         Log.d(
             "CHAT_ACTION",
-            "report message requested messageId=$messageId user=$user message=$message"
+            "report message requested " +
+                    "reporterProfileId=$reporterProfileId " +
+                    "channel=$channel messageId=$messageId user=$user ts=$messageTimestampSec"
         )
 
-        Toast.makeText(
-            requireContext(),
-            "Reporting message by @$user",
-            Toast.LENGTH_SHORT
-        ).show()
+        FcmRegistrationUploader.reportMessage(
+            context = requireContext(),
+            reporterProfileId = reporterProfileId,
+            channel = channel,
+            messageUser = user,
+            messageText = message,
+            messageId = messageId,
+            messageTimestampSec = messageTimestampSec,
+            reason = "user_report"
+        ) { result ->
+            if (!isAdded) return@reportMessage
+
+            Toast.makeText(
+                requireContext(),
+                if (result.ok) {
+                    "Message reported"
+                } else {
+                    "Report failed"
+                },
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
 
@@ -1336,14 +1538,26 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
         return false
     }
-
+    private fun attachSwipeReplyAction(
+        tv: SwipeReplyTextView,
+        messageId: String?,
+        user: String,
+        message: String
+    ) {
+        tv.onSwipeReply = messageId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { replyId ->
+                { beginReply(replyId, user, message) }
+            }
+    }
     private fun appendChatLine(
         user: String,
         message: String,
         emotesRaw: String?,
         dedupKey: String,
         replyParentUserLogin: String? = null,
-        forceScroll: Boolean = false
+        forceScroll: Boolean = false,
+        messageTimestampSec: Double? = null
     ) {
         val now = System.currentTimeMillis()
 
@@ -1356,7 +1570,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
         addMentionUser(user)
-
+        val resolvedMessageTimestampSec = messageTimestampSec
+            ?: (System.currentTimeMillis().toDouble() / 1000.0)
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip hidden user=$user")
             return
@@ -1369,17 +1584,40 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             replyParentUserLogin = replyParentUserLogin
         )
 
-        tv.tag = ChatViewMeta(usernameLower = normalizeChatUser(user))
+        tv.tag = ChatViewMeta(
+            usernameLower = normalizeChatUser(user),
+            messageId = msgId,
+            messageText = message,
+            messageTimestampSec = resolvedMessageTimestampSec
+        )
 
         tv.setOnLongClickListener {
+            val meta = tv.tag as? ChatViewMeta
+
             onChatMessageLongPressed(
-                messageId = msgId,
+                messageId = meta?.messageId ?: msgId,
                 user = user,
-                message = message
+                message = meta?.messageText ?: message,
+                messageTimestampSec = meta?.messageTimestampSec
+                    ?: (System.currentTimeMillis().toDouble() / 1000.0)
             )
             true
         }
 
+        attachSwipeReplyAction(
+            tv = tv,
+            messageId = msgId,
+            user = user,
+            message = message
+        )
+
+        val metaForSwipe = tv.tag as? ChatViewMeta
+        attachSwipeReplyAction(
+            tv = tv,
+            messageId = metaForSwipe?.messageId ?: msgId,
+            user = user,
+            message = metaForSwipe?.messageText ?: message
+        )
         appendChatView(tv, forceScroll = forceScroll, countAsUnread = true)
     }
 
@@ -1441,22 +1679,21 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private fun buildTwitchEmoteUrl(
         emoteId: String,
         themeMode: String,
-        scale: String,
-        format: String = "static"
+        scale: String
     ): String {
-        return "https://static-cdn.jtvnw.net/emoticons/v2/$emoteId/$format/$themeMode/$scale"
+        return "https://static-cdn.jtvnw.net/emoticons/v2/$emoteId/static/$themeMode/$scale"
     }
 
     private fun targetEmoteRenderSizePx(textSizePx: Float): Int {
-        return (textSizePx * 2.1f).toInt()
+        return (textSizePx * 1.5f).toInt()
     }
     private fun createMessageTextView(
         user: String,
         rawMessage: String,
         emotesRaw: String?,
         replyParentUserLogin: String?
-    ): TextView {
-        val tv = TextView(requireContext()).apply {
+    ): SwipeReplyTextView {
+        val tv = SwipeReplyTextView(requireContext()).apply {
             setTextColor(colorOnSurface())
             textSize = 14f
         }
@@ -1559,8 +1796,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             val url = buildTwitchEmoteUrl(
                 emoteId = emoteId,
                 themeMode = themeMode,
-                scale = scale,
-                format = "static"
+                scale = scale
             )
 
             Glide.with(this)

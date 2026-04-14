@@ -44,5 +44,6 @@
 
     <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
     <string name="profile_deletion_state_url">https://api.ircminichat.party/get_profile_deletion_state</string>
+    <string name="report_message_url">https://api.ircminichat.party/report_message</string>
 
 </resources>

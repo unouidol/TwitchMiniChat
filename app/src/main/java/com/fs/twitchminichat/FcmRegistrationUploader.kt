@@ -49,6 +49,12 @@ object FcmRegistrationUploader {
         val rawResponse: String
     )
 
+    data class ReportMessageResult(
+        val ok: Boolean,
+        val rawResponse: String,
+        val error: String?
+    )
+
     fun fetchProfileDeletionState(
         context: Context,
         knownProfileIds: Collection<String>,
@@ -567,6 +573,69 @@ object FcmRegistrationUploader {
     private fun showToast(context: Context, text: String) {
         Handler(Looper.getMainLooper()).post {
             Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
+        }
+    }
+    fun reportMessage(
+        context: Context,
+        reporterProfileId: String,
+        channel: String,
+        messageUser: String,
+        messageText: String,
+        messageId: String?,
+        messageTimestampSec: Double?,
+        reason: String = "user_report",
+        onComplete: (ReportMessageResult) -> Unit
+    ) {
+        val appContext = context.applicationContext
+
+        thread(start = true, name = "report-message") {
+            val normalizedReporterProfileId = normalizeProfileId(reporterProfileId)
+            val normalizedChannel = channel.trim().removePrefix("#").lowercase()
+
+            val result = postJson(
+                urlString = appContext.getString(R.string.report_message_url),
+                payload = JSONObject().apply {
+                    put("key", BuildConfig.HISTORY_SECRET_KEY)
+                    put("reporter_profile_id", normalizedReporterProfileId)
+                    put("channel", normalizedChannel)
+                    put("message_user", messageUser.trim())
+                    put("message_text", messageText)
+                    put("message_id", messageId ?: JSONObject.NULL)
+                    put("message_timestamp", messageTimestampSec ?: JSONObject.NULL)
+                    put("reason", reason)
+                },
+                logLabel = "report_message"
+            )
+
+            val rawBody = result?.responseBody.orEmpty()
+            val body = runCatching {
+                if (rawBody.isNotBlank()) JSONObject(rawBody) else null
+            }.getOrNull()
+
+            val ok = result?.responseCode in 200..299 && (body?.optBoolean("ok", false) == true)
+
+            val error = when {
+                result == null -> "network_error"
+                ok -> null
+                else -> body?.optString("error")?.takeIf { it.isNotBlank() } ?: "report_failed"
+            }
+
+            Log.d(
+                TAG,
+                "report_message ok=$ok reporterProfileId=$normalizedReporterProfileId " +
+                        "channel=$normalizedChannel messageUser=$messageUser messageId=$messageId " +
+                        "raw=$rawBody"
+            )
+
+            Handler(Looper.getMainLooper()).post {
+                onComplete(
+                    ReportMessageResult(
+                        ok = ok,
+                        rawResponse = rawBody,
+                        error = error
+                    )
+                )
+            }
         }
     }
 }
