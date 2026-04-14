@@ -4,6 +4,7 @@
 **/.cxx/
 **/.kotlin/
 **/out/
+kotlin-profile/
 
 # Android Studio / IntelliJ
 .idea/
