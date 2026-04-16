@@ -68,4 +68,20 @@ class AccountRepository(ctx: Context) {
 
         saveAll(list)
     }
+
+    fun reorderAccounts(orderedIds: List<String>) {
+        val current = loadAccounts()
+        if (current.isEmpty()) return
+
+        val byId = current.associateBy { it.id }.toMutableMap()
+        val reordered = mutableListOf<AccountConfig>()
+
+        for (id in orderedIds) {
+            val cfg = byId.remove(id)
+            if (cfg != null) reordered += cfg
+        }
+
+        reordered += byId.values
+        saveAll(reordered)
+    }
 }
