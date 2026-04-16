@@ -13,7 +13,8 @@ import androidx.recyclerview.widget.RecyclerView
 class AccountsAdapter(
     private val onClick: (AccountConfig) -> Unit,
     private val onDelete: (AccountConfig) -> Unit,
-    private val onLongPressDelete: (AccountConfig) -> Unit
+    private val onLongPressDelete: (AccountConfig) -> Unit,
+    private val onStartDragRequest: (RecyclerView.ViewHolder) -> Unit
 ) : ListAdapter<AccountConfig, AccountsAdapter.VH>(Diff) {
 
     object Diff : DiffUtil.ItemCallback<AccountConfig>() {
@@ -49,13 +50,45 @@ class AccountsAdapter(
 
         holder.itemView.setOnClickListener(null)
         holder.itemView.setOnLongClickListener(null)
+        holder.accountContent.setOnClickListener(null)
+        holder.accountContent.setOnLongClickListener(null)
+        holder.btnDelete.setOnClickListener(null)
+        holder.btnDelete.setOnLongClickListener(null)
 
-        holder.accountContent.setOnClickListener { onClick(item) }
+        holder.accountContent.setOnClickListener {
+            onClick(item)
+        }
 
-        holder.btnDelete.setOnClickListener { onDelete(item) }
+        holder.accountContent.setOnLongClickListener {
+            onStartDragRequest(holder)
+            true
+        }
+
+        holder.btnDelete.setOnClickListener {
+            onDelete(item)
+        }
+
         holder.btnDelete.setOnLongClickListener {
             onLongPressDelete(item)
             true
         }
+    }
+
+    fun submitAccounts(accounts: List<AccountConfig>) {
+        submitList(accounts.toList())
+    }
+
+    fun currentAccounts(): List<AccountConfig> {
+        return currentList.toList()
+    }
+
+    fun moveItem(from: Int, to: Int) {
+        if (from == to) return
+        if (from !in currentList.indices || to !in currentList.indices) return
+
+        val mutable = currentList.toMutableList()
+        val moved = mutable.removeAt(from)
+        mutable.add(to, moved)
+        submitList(mutable.toList())
     }
 }
