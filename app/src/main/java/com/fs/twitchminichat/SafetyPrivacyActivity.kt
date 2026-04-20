@@ -3,26 +3,67 @@ package com.fs.twitchminichat
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 
-class SafetyPrivacyActivity : AppCompatActivity() {
+class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_safety_privacy)
 
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.safetyPrivacyContainer, SafetyPrivacyFragment())
-                .commit()
+        findViewById<Button>(R.id.btnReportBlock).setOnClickListener {
+            PolicyPageActivity.open(
+                context = this,
+                title = "Report & Block",
+                asset = "report_block.html",
+                webUrl = WebPolicies.REPORT_BLOCK_URL
+            )
+        }
+
+        findViewById<Button>(R.id.btnPrivacyPolicy).setOnClickListener {
+            PolicyPageActivity.open(
+                context = this,
+                title = "Privacy Policy",
+                asset = "privacy.html",
+                webUrl = WebPolicies.PRIVACY_URL
+            )
+        }
+
+        findViewById<Button>(R.id.btnTerms).setOnClickListener {
+            PolicyPageActivity.open(
+                context = this,
+                title = "Terms of Use",
+                asset = "terms.html",
+                webUrl = WebPolicies.TERMS_URL
+            )
+        }
+
+        findViewById<Button>(R.id.btnBlockedUsers).setOnClickListener {
+            startActivity(Intent(this, BlockedUsersActivity::class.java))
+        }
+
+        findViewById<Button>(R.id.btnDataControl).setOnClickListener {
+            PolicyPageActivity.open(
+                context = this,
+                title = "Data & Account Control",
+                asset = "data_control.html",
+                webUrl = WebPolicies.DATA_DELETION_URL
+            )
+        }
+
+        findViewById<Button>(R.id.btnCredits).setOnClickListener {
+            PolicyPageActivity.open(
+                context = this,
+                title = "Credits",
+                asset = "credits.html",
+                webUrl = WebPolicies.CREDITS_URL
+            )
         }
     }
 
     companion object {
         fun start(context: Context) {
-            context.startActivity(
-                Intent(context, SafetyPrivacyActivity::class.java)
-            )
+            context.startActivity(Intent(context, SafetyPrivacyActivity::class.java))
         }
     }
 }

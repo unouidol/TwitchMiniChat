@@ -1,23 +1,24 @@
 package com.fs.twitchminichat
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
-import android.widget.Toast
-import androidx.fragment.app.Fragment
-import android.content.Intent
-import androidx.appcompat.app.AlertDialog
-import android.util.Log
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.annotation.StringRes
+import androidx.appcompat.app.AlertDialog
+import androidx.fragment.app.Fragment
 import com.fs.twitchminichat.pcg.GeckoSessionManager
-
 
 class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
     private val accountSharedPrefsToKeepForTesting = setOf(
         "v2_accounts"
     )
+
     private lateinit var btnPrivacyPolicy: Button
     private lateinit var btnBlockedUsers: Button
     private lateinit var btnClearLocalData: Button
@@ -34,7 +35,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         btnPrivacyPolicy.setOnClickListener {
             Toast.makeText(
                 requireContext(),
-                "Privacy policy coming soon",
+                getString(R.string.privacy_policy_coming_soon),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -51,6 +52,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
             showTotalDeleteDialog()
         }
     }
+
     private fun knownProfileIdsForServerDeletion(): List<String> {
         return AccountRepository(requireContext())
             .loadAccounts()
@@ -61,74 +63,51 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     }
 
     private fun showTotalDeleteDialog() {
-        val ctx = requireContext()
-        val density = resources.displayMetrics.density
-        val pad = (24 * density).toInt()
-        val space12 = (12 * density).toInt()
-        val space16 = (16 * density).toInt()
+        showStackedActionDialog(
+            titleRes = R.string.delete_account_all_data_title,
+            messageRes = R.string.delete_account_all_data_message,
+            actions = listOf(
+                DialogAction(
+                    textRes = R.string.delete_account_all_data_confirm,
+                    onClick = { performTotalDeleteNow() }
+                ),
+                DialogAction(
+                    textRes = R.string.cancel,
+                    onClick = { }
+                )
+            )
+        )
+    }
 
-        val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-        }
-
-        val messageView = TextView(ctx).apply {
-            text = "This will delete app data on the server for this device and known profiles, including device registrations, dex lists, and stored app OAuth/account records when found, then erase all local app data from this device. You will need to log in again."
-            textSize = 15f
-        }
-
-        val btnDelete = Button(ctx).apply {
-            text = "Delete app account and all data"
-        }
-
-        val btnCancel = Button(ctx).apply {
-            text = "Cancel"
-        }
-
-        val messageLp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            bottomMargin = space16
-        }
-
-        val buttonLp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            topMargin = space12
-        }
-
-        container.addView(messageView, messageLp)
-        container.addView(btnDelete, buttonLp)
-        container.addView(btnCancel, buttonLp)
-
-        val dialog = AlertDialog.Builder(ctx)
-            .setTitle("Delete app account and all data")
-            .setView(container)
-            .create()
-
-        btnDelete.setOnClickListener {
-            dialog.dismiss()
-            performTotalDeleteNow()
-        }
-
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-        }
-
-        dialog.show()
+    private fun showClearLocalDataDialog() {
+        showStackedActionDialog(
+            titleRes = R.string.reset_local_data_title,
+            messageRes = R.string.reset_local_data_message,
+            actions = listOf(
+                DialogAction(
+                    textRes = R.string.reset_local_data_keep_accounts,
+                    onClick = { clearLocalDataKeepingAccounts() }
+                ),
+                DialogAction(
+                    textRes = R.string.reset_local_data_full,
+                    onClick = { clearAllLocalDataNow() }
+                ),
+                DialogAction(
+                    textRes = R.string.cancel,
+                    onClick = { }
+                )
+            )
+        )
     }
 
     private fun performTotalDeleteNow() {
         val ctx = requireContext()
         val profileIds = knownProfileIdsForServerDeletion()
-        val prefsBefore = LocalDataCleaner.debugListSharedPrefs(ctx)
-        val hiddenBefore = HiddenUsersStore.getAll(ctx)
+        logLocalSnapshot("TOTAL_DELETE", ctx, "before")
 
         Log.d(
             "TOTAL_DELETE",
-            "start profileIds=$profileIds prefsBefore=$prefsBefore hiddenBefore=$hiddenBefore"
+            "start profileIds=$profileIds"
         )
 
         FcmRegistrationUploader.deleteServerData(
@@ -170,41 +149,118 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                 if (!geckoOk) {
                     Toast.makeText(
                         requireContext(),
-                        "Server delete ok, but Gecko wipe failed: $geckoMessage",
+                        getString(R.string.server_delete_ok_gecko_failed, geckoMessage),
                         Toast.LENGTH_LONG
                     ).show()
                     return@clearAllWebData
                 }
 
                 val localResult = LocalDataCleaner.clearAllLocalData(requireContext())
-                val prefsAfter = LocalDataCleaner.debugListSharedPrefs(requireContext())
-                val hiddenAfter = HiddenUsersStore.getAll(requireContext())
+                TermsPrefs.clearAcceptance(requireContext())
 
                 Log.d(
                     "TOTAL_DELETE",
                     "local deletedSharedPrefs=${localResult.deletedSharedPrefs} " +
                             "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
+                            "failedSharedPrefs=${localResult.failedSharedPrefs} " +
                             "clearedCacheDirs=${localResult.clearedCacheDirs} " +
+                            "failedCacheDirs=${localResult.failedCacheDirs} " +
                             "processedPrefNames=${localResult.processedPrefNames} " +
                             "deletedPrefNames=${localResult.deletedPrefNames} " +
-                            "skippedPrefNames=${localResult.skippedPrefNames}"
+                            "skippedPrefNames=${localResult.skippedPrefNames} " +
+                            "failedPrefNames=${localResult.failedPrefNames}"
                 )
 
-                Log.d(
-                    "TOTAL_DELETE",
-                    "after prefsAfter=$prefsAfter hiddenAfter=$hiddenAfter"
-                )
-
+                logLocalSnapshot("TOTAL_DELETE", requireContext(), "after")
                 restartAppAfterLocalClear()
             }
         }
     }
-    private fun showClearLocalDataDialog() {
+
+    private fun clearLocalDataKeepingAccounts() {
         val ctx = requireContext()
-        val density = resources.displayMetrics.density
-        val pad = (24 * density).toInt()
-        val space12 = (12 * density).toInt()
-        val space16 = (16 * density).toInt()
+
+        logLocalSnapshot("LOCAL_CLEAR", ctx, "before")
+        Log.d("LOCAL_CLEAR", "keeping account prefs=$accountSharedPrefsToKeepForTesting")
+
+        val result = LocalDataCleaner.clearNonAccountLocalData(
+            context = ctx,
+            accountSharedPrefs = accountSharedPrefsToKeepForTesting
+        )
+
+        TermsPrefs.clearAcceptance(ctx)
+
+        Log.d(
+            "LOCAL_CLEAR",
+            "keep-accounts result " +
+                    "deletedSharedPrefs=${result.deletedSharedPrefs} " +
+                    "skippedSharedPrefs=${result.skippedSharedPrefs} " +
+                    "failedSharedPrefs=${result.failedSharedPrefs} " +
+                    "clearedCacheDirs=${result.clearedCacheDirs} " +
+                    "failedCacheDirs=${result.failedCacheDirs}"
+        )
+
+        logLocalSnapshot("LOCAL_CLEAR", ctx, "after")
+
+        Toast.makeText(
+            ctx,
+            getString(R.string.local_data_cleared_accounts_kept),
+            Toast.LENGTH_SHORT
+        ).show()
+
+        restartAppAfterLocalClear()
+    }
+
+    private fun clearAllLocalDataNow() {
+        val ctx = requireContext()
+
+        logLocalSnapshot("LOCAL_CLEAR", ctx, "before")
+
+        val result = LocalDataCleaner.clearAllLocalData(ctx)
+        TermsPrefs.clearAcceptance(ctx)
+
+        Log.d(
+            "LOCAL_CLEAR",
+            "full result " +
+                    "deletedSharedPrefs=${result.deletedSharedPrefs} " +
+                    "skippedSharedPrefs=${result.skippedSharedPrefs} " +
+                    "failedSharedPrefs=${result.failedSharedPrefs} " +
+                    "clearedCacheDirs=${result.clearedCacheDirs} " +
+                    "failedCacheDirs=${result.failedCacheDirs}"
+        )
+
+        logLocalSnapshot("LOCAL_CLEAR", ctx, "after")
+
+        Toast.makeText(
+            ctx,
+            getString(R.string.all_local_data_cleared),
+            Toast.LENGTH_SHORT
+        ).show()
+
+        restartAppAfterLocalClear()
+    }
+
+    private fun restartAppAfterLocalClear() {
+        val intent = Intent(requireContext(), MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+        startActivity(intent)
+    }
+
+    private fun logLocalSnapshot(tag: String, context: android.content.Context, label: String) {
+        Log.d(tag, "$label prefs=${LocalDataCleaner.debugListSharedPrefs(context)}")
+        Log.d(tag, "$label hidden=${HiddenUsersStore.getAll(context)}")
+    }
+
+    private fun showStackedActionDialog(
+        @StringRes titleRes: Int,
+        @StringRes messageRes: Int,
+        actions: List<DialogAction>
+    ) {
+        val ctx = requireContext()
+        val pad = dpToPx(24)
+        val space12 = dpToPx(12)
+        val space16 = dpToPx(16)
 
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
@@ -212,20 +268,8 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         }
 
         val messageView = TextView(ctx).apply {
-            text = "Choose what local data to reset on this device."
+            setText(messageRes)
             textSize = 15f
-        }
-
-        val btnKeepAccounts = Button(ctx).apply {
-            text = "Reset local data, keep accounts"
-        }
-
-        val btnFullClear = Button(ctx).apply {
-            text = "Erase everything on this device"
-        }
-
-        val btnCancel = Button(ctx).apply {
-            text = "Cancel"
         }
 
         val messageLp = LinearLayout.LayoutParams(
@@ -243,90 +287,32 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         }
 
         container.addView(messageView, messageLp)
-        container.addView(btnKeepAccounts, buttonLp)
-        container.addView(btnFullClear, buttonLp)
-        container.addView(btnCancel, buttonLp)
 
         val dialog = AlertDialog.Builder(ctx)
-            .setTitle("Reset local data")
+            .setTitle(titleRes)
             .setView(container)
             .create()
 
-        btnKeepAccounts.setOnClickListener {
-            dialog.dismiss()
-            clearLocalDataKeepingAccounts()
-        }
-
-        btnFullClear.setOnClickListener {
-            dialog.dismiss()
-            clearAllLocalDataNow()
-        }
-
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
+        actions.forEach { action ->
+            val button = Button(ctx).apply {
+                setText(action.textRes)
+                setOnClickListener {
+                    dialog.dismiss()
+                    action.onClick()
+                }
+            }
+            container.addView(button, buttonLp)
         }
 
         dialog.show()
     }
 
-    private fun clearLocalDataKeepingAccounts() {
-        val ctx = requireContext()
-
-        Log.d("LOCAL_CLEAR", "prefs before=${LocalDataCleaner.debugListSharedPrefs(ctx)}")
-        Log.d("LOCAL_CLEAR", "hidden before=${HiddenUsersStore.getAll(ctx)}")
-        Log.d("LOCAL_CLEAR", "keeping account prefs=$accountSharedPrefsToKeepForTesting")
-
-        val result = LocalDataCleaner.clearNonAccountLocalData(
-            context = ctx,
-            accountSharedPrefs = accountSharedPrefsToKeepForTesting
-        )
-
-        Log.d(
-            "LOCAL_CLEAR",
-            "keep-accounts result deletedSharedPrefs=${result.deletedSharedPrefs} skippedSharedPrefs=${result.skippedSharedPrefs} clearedCacheDirs=${result.clearedCacheDirs}"
-        )
-
-        Log.d("LOCAL_CLEAR", "prefs after=${LocalDataCleaner.debugListSharedPrefs(ctx)}")
-        Log.d("LOCAL_CLEAR", "hidden after=${HiddenUsersStore.getAll(ctx)}")
-
-        Toast.makeText(
-            ctx,
-            "Local data cleared, accounts kept",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        restartAppAfterLocalClear()
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
-    private fun clearAllLocalDataNow() {
-        val ctx = requireContext()
-
-        Log.d("LOCAL_CLEAR", "prefs before=${LocalDataCleaner.debugListSharedPrefs(ctx)}")
-        Log.d("LOCAL_CLEAR", "hidden before=${HiddenUsersStore.getAll(ctx)}")
-
-        val result = LocalDataCleaner.clearAllLocalData(ctx)
-
-        Log.d(
-            "LOCAL_CLEAR",
-            "full result deletedSharedPrefs=${result.deletedSharedPrefs} skippedSharedPrefs=${result.skippedSharedPrefs} clearedCacheDirs=${result.clearedCacheDirs}"
-        )
-
-        Log.d("LOCAL_CLEAR", "prefs after=${LocalDataCleaner.debugListSharedPrefs(ctx)}")
-        Log.d("LOCAL_CLEAR", "hidden after=${HiddenUsersStore.getAll(ctx)}")
-
-        Toast.makeText(
-            ctx,
-            "All local data cleared",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        restartAppAfterLocalClear()
-    }
-
-    private fun restartAppAfterLocalClear() {
-        val intent = Intent(requireContext(), MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        }
-        startActivity(intent)
-    }
+    private data class DialogAction(
+        @field:StringRes val textRes: Int,
+        val onClick: () -> Unit
+    )
 }

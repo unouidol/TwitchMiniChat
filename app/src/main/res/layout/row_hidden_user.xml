@@ -11,12 +11,12 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:text="@username"
+        android:text="@string/hidden_user_placeholder"
         android:textSize="16sp" />
 
     <Button
         android:id="@+id/btnUnhideUser"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Unhide" />
+        android:text="@string/unblock" />
 </LinearLayout>

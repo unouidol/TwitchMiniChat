@@ -49,6 +49,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import kotlin.concurrent.thread
+import android.content.ClipData
+import android.content.ClipboardManager
+import androidx.appcompat.widget.PopupMenu
 
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
@@ -68,6 +71,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private var connectInProgress = false
 
     private var suppressComposerRestore = false
+    private var composerTextVersion = 0L
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -79,6 +83,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
     private lateinit var channelHistory: ChannelHistoryStore
     private lateinit var btnRefreshChat: ImageButton
+    private lateinit var btnSafetyPrivacy: ImageButton
 
     private lateinit var geckoStreamView: GeckoView
     private lateinit var btnToggleStream: Button
@@ -89,6 +94,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private lateinit var btnCancelReply: Button
     private lateinit var mentionAdapter: ArrayAdapter<String>
     private lateinit var btnTogglePush: ImageButton
+    private lateinit var btnCatchPresets: ImageButton
 
     private data class MentionUserEntry(
         var displayName: String,
@@ -776,6 +782,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         btnStartPcg = view.findViewById(R.id.btnStartPcg)
         btnRefreshChat = view.findViewById(R.id.btnRefreshChat)
         btnTogglePush = view.findViewById(R.id.btnTogglePush)
+        btnSafetyPrivacy = view.findViewById(R.id.btnSafetyPrivacy)
         editChannel = view.findViewById(R.id.editChannel)
         btnJumpToBottom = view.findViewById(R.id.btnJumpToBottom)
         geckoStreamView = view.findViewById(R.id.geckoStreamView)
@@ -784,6 +791,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         replyBar = view.findViewById(R.id.replyBar)
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
+        btnCatchPresets = view.findViewById(R.id.btnCatchPresets)
 
         view.isFocusable = true
         view.isFocusableInTouchMode = true
@@ -813,6 +821,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
             override fun afterTextChanged(s: Editable?) {
+
+                composerTextVersion++
+
                 val query = currentMentionQuery() ?: return
 
                 refreshMentionSuggestions()
@@ -884,9 +895,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             manualRefresh()
         }
 
-        btnRefreshChat.setOnLongClickListener {
+
+        btnSafetyPrivacy.setOnClickListener {
             SafetyPrivacyActivity.start(requireContext())
-            true
         }
 
         btnJumpToBottom.setOnClickListener {
@@ -950,6 +961,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
                 }
             }
         )
+
+        btnCatchPresets.setOnClickListener {
+            showCatchPresetsMenu()
+        }
+
+        btnCatchPresets.setOnLongClickListener {
+            CatchPresetSettingsActivity.start(requireContext())
+            true
+        }
     }
 
     override fun onStart() {
@@ -1303,7 +1323,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     private fun restoreComposerFocusIfNeeded(
         hadFocus: Boolean,
         selectionStart: Int,
-        selectionEnd: Int
+        selectionEnd: Int,
+        expectedTextVersion: Long,
+        expectedTextSnapshot: String
     ) {
         if (!hadFocus) return
         if (suppressComposerRestore) return
@@ -1314,9 +1336,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             if (suppressComposerRestore) return@post
             if (!editMessage.hasFocus()) return@post
 
-            val text = editMessage.text
-            val length = text?.length ?: 0
+            val currentText = editMessage.text?.toString().orEmpty()
 
+            // Se l'utente ha digitato nel frattempo, non ripristinare una selezione vecchia.
+            if (composerTextVersion != expectedTextVersion) return@post
+            if (currentText != expectedTextSnapshot) return@post
+
+            val length = currentText.length
             val safeStart = selectionStart.coerceIn(0, length)
             val safeEnd = selectionEnd.coerceIn(0, length)
 
@@ -1331,6 +1357,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         val hadComposerFocus = this::editMessage.isInitialized && editMessage.hasFocus()
         val oldSelectionStart = if (hadComposerFocus) editMessage.selectionStart else 0
         val oldSelectionEnd = if (hadComposerFocus) editMessage.selectionEnd else 0
+        val oldTextSnapshot = if (hadComposerFocus) editMessage.text?.toString().orEmpty() else ""
+        val oldTextVersion = composerTextVersion
 
         val shouldAutoScroll = forceScroll || stickToBottom || isNearBottom()
 
@@ -1348,7 +1376,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         restoreComposerFocusIfNeeded(
             hadFocus = hadComposerFocus,
             selectionStart = oldSelectionStart,
-            selectionEnd = oldSelectionEnd
+            selectionEnd = oldSelectionEnd,
+            expectedTextVersion = oldTextVersion,
+            expectedTextSnapshot = oldTextSnapshot
         )
     }
 
@@ -1374,6 +1404,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         val ch = URLEncoder.encode(channel, "UTF-8")
         return "https://unouidol.github.io/ircminichat/player.html?channel=$ch&muted=$streamMuted"
     }
+
+    private fun onCopyMessageRequested(message: String) {
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Twitch chat message", message)
+        clipboard.setPrimaryClip(clip)
+
+        Toast.makeText(
+            requireContext(),
+            "Message copied",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
 
     private fun ensureStreamSession() {
         if (streamSession != null) {
@@ -1422,7 +1465,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             }
         }
 
-        labels += "Hide user in app"
+        labels += "Copy message"
+        actions += {
+            onCopyMessageRequested(message)
+        }
+
+        labels += "Block user in app"
         actions += {
             onHideUserRequested(user)
         }
@@ -1455,9 +1503,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         Toast.makeText(
             requireContext(),
             if (added) {
-                "User hidden in app: @$user"
+                "User blocked in app: @$user"
             } else {
-                "User already hidden: @$user"
+                "User already blocked: @$user"
             },
             Toast.LENGTH_SHORT
         ).show()
@@ -1773,6 +1821,55 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
 
     private fun targetEmoteRenderSizePx(textSizePx: Float): Int {
         return (textSizePx * 1.5f).toInt()
+    }
+
+    private fun showCatchPresetsMenu() {
+        val presets = CatchPresetStore.loadEnabled(requireContext(), max = 6)
+        if (presets.isEmpty()) {
+            Toast.makeText(requireContext(), "No catch presets enabled", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val popup = PopupMenu(requireContext(), btnCatchPresets)
+
+        presets.forEachIndexed { index, preset ->
+            popup.menu.add(0, index, index, preset.label)
+        }
+
+        popup.setOnMenuItemClickListener { item ->
+            val preset = presets.getOrNull(item.itemId) ?: return@setOnMenuItemClickListener false
+            sendPresetCommand(preset.command)
+            true
+        }
+
+        popup.show()
+    }
+
+    private fun sendPresetCommand(command: String) {
+        val client = sendClient ?: return
+        if (!sendReady) {
+            appendSystemLine(getString(R.string.connection_not_ready))
+            return
+        }
+
+        clearPendingReply()
+        client.sendMessage(command)
+
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
+
+        stickToBottom = true
+        scrollToBottom()
+    }
+
+    private fun insertPresetCommand(command: String) {
+        clearPendingReply()
+        editMessage.setText(command)
+        editMessage.setSelection(editMessage.text?.length ?: 0)
+        editMessage.requestFocus()
+
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun createMessageTextView(

@@ -41,9 +41,30 @@
     <string name="twitch_login_button">Twitch Login</string>
     <string name="logged_accounts_title">Logged Accounts - press x to delete</string>
     <string name="Remove">Remove</string>
+    <string name="catch_presets">Catch presets</string>
 
     <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
     <string name="profile_deletion_state_url">https://api.ircminichat.party/get_profile_deletion_state</string>
     <string name="report_message_url">https://api.ircminichat.party/report_message</string>
+    <string name="safety_privacy">Safety &amp; Privacy</string>
+
+    <string name="privacy_policy_coming_soon">Privacy policy coming soon</string>
+
+    <string name="delete_account_all_data_title">Delete app account and all data</string>
+    <string name="delete_account_all_data_message">This will delete app data on the server for this device and known profiles, including device registrations, dex lists, and stored app OAuth/account records when found, then erase all local app data from this device. You will need to log in again.</string>
+    <string name="delete_account_all_data_confirm">Delete app account and all data</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="server_delete_ok_gecko_failed">Server delete ok, but Gecko wipe failed: %1$s</string>
+
+    <string name="reset_local_data_title">Reset local data</string>
+    <string name="reset_local_data_message">Choose what local data to reset on this device.</string>
+    <string name="reset_local_data_keep_accounts">Reset local data, keep accounts</string>
+    <string name="reset_local_data_full">Erase everything on this device</string>
+
+    <string name="local_data_cleared_accounts_kept">Local data cleared, accounts kept</string>
+    <string name="all_local_data_cleared">All local data cleared</string>
+    <string name="hidden_user_placeholder">\@username</string>
+    <string name="unblock">Unblock</string>
 
 </resources>

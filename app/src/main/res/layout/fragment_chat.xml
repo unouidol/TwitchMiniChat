@@ -51,6 +51,19 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/account_notifications"
             android:src="@android:drawable/ic_lock_silent_mode_off" />
+        <ImageButton
+            android:id="@+id/btnSafetyPrivacy"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/safety_privacy"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:src="@android:drawable/ic_menu_info_details"
+            app:tint="?attr/colorOnSurface" />
 
     </LinearLayout>
 
@@ -200,6 +213,21 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:text="@string/send" />
-    </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btnCatchPresets"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="6dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/catch_presets"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_pokeball"
+            app:tint="@null" />
+
+        </LinearLayout>
 
 </LinearLayout>

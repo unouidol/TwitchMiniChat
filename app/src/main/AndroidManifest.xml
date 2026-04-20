@@ -9,6 +9,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TwitchMiniChat">
@@ -29,13 +30,11 @@
                     android:scheme="${authScheme}"
                     android:host="auth" />
             </intent-filter>
-
         </activity>
 
         <activity
             android:name="com.fs.twitchminichat.MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.TwitchMiniChat"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -44,8 +43,11 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".CatchPresetSettingsActivity" />
+
         <activity android:name=".SafetyPrivacyActivity" />
         <activity android:name=".BlockedUsersActivity" />
+        <activity android:name=".PolicyPageActivity" />
 
         <service
             android:name="com.fs.twitchminichat.MyFirebaseMessagingService"

@@ -1,7 +1,6 @@
 package com.fs.twitchminichat
 
 import android.content.Context
-import android.os.Build
 import java.io.File
 
 object LocalDataCleaner {
@@ -9,10 +8,13 @@ object LocalDataCleaner {
     data class Result(
         val deletedSharedPrefs: Int,
         val skippedSharedPrefs: Int,
+        val failedSharedPrefs: Int,
         val clearedCacheDirs: Int,
+        val failedCacheDirs: Int,
         val processedPrefNames: List<String>,
         val deletedPrefNames: List<String>,
-        val skippedPrefNames: List<String>
+        val skippedPrefNames: List<String>,
+        val failedPrefNames: List<String>
     )
 
     fun clearAllLocalData(context: Context): Result {
@@ -28,7 +30,11 @@ object LocalDataCleaner {
     ): Result {
         return clearInternal(
             context = context,
-            excludedSharedPrefs = accountSharedPrefs.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+            excludedSharedPrefs = accountSharedPrefs
+                .asSequence()
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .toSet()
         )
     }
 
@@ -45,9 +51,11 @@ object LocalDataCleaner {
         val prefNames = listSharedPreferenceNames(appContext)
         var deletedSharedPrefs = 0
         var skippedSharedPrefs = 0
+        var failedSharedPrefs = 0
 
         val deletedPrefNames = mutableListOf<String>()
         val skippedPrefNames = mutableListOf<String>()
+        val failedPrefNames = mutableListOf<String>()
 
         for (name in prefNames) {
             if (name in excludedSharedPrefs) {
@@ -56,38 +64,46 @@ object LocalDataCleaner {
                 continue
             }
 
-            runCatching {
-                appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
-                    .edit()
-                    .clear()
-                    .commit()
+            val deleted = runCatching {
+                appContext.deleteSharedPreferences(name)
+            }.getOrElse {
+                false
+            }
 
-                if (appContext.deleteSharedPreferences(name)) {
-                    deletedSharedPrefs++
-                    deletedPrefNames += name
-                }
+            if (deleted) {
+                deletedSharedPrefs++
+                deletedPrefNames += name
+            } else {
+                failedSharedPrefs++
+                failedPrefNames += name
             }
         }
 
         var clearedCacheDirs = 0
+        var failedCacheDirs = 0
 
-        if (clearDirectoryChildren(appContext.cacheDir)) {
-            clearedCacheDirs++
+        when (clearDirectoryChildren(appContext.cacheDir)) {
+            DirectoryClearResult.CLEARED -> clearedCacheDirs++
+            DirectoryClearResult.FAILED -> failedCacheDirs++
+            DirectoryClearResult.SKIPPED -> Unit
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            if (clearDirectoryChildren(appContext.codeCacheDir)) {
-                clearedCacheDirs++
-            }
+        when (clearDirectoryChildren(appContext.codeCacheDir)) {
+            DirectoryClearResult.CLEARED -> clearedCacheDirs++
+            DirectoryClearResult.FAILED -> failedCacheDirs++
+            DirectoryClearResult.SKIPPED -> Unit
         }
 
         return Result(
             deletedSharedPrefs = deletedSharedPrefs,
             skippedSharedPrefs = skippedSharedPrefs,
+            failedSharedPrefs = failedSharedPrefs,
             clearedCacheDirs = clearedCacheDirs,
+            failedCacheDirs = failedCacheDirs,
             processedPrefNames = prefNames,
             deletedPrefNames = deletedPrefNames,
-            skippedPrefNames = skippedPrefNames
+            skippedPrefNames = skippedPrefNames,
+            failedPrefNames = failedPrefNames
         )
     }
 
@@ -105,15 +121,36 @@ object LocalDataCleaner {
         }.distinct().sorted()
     }
 
-    private fun clearDirectoryChildren(dir: File?): Boolean {
-        if (dir == null || !dir.exists() || !dir.isDirectory) return false
+    private enum class DirectoryClearResult {
+        CLEARED,
+        FAILED,
+        SKIPPED
+    }
+
+    private fun clearDirectoryChildren(dir: File?): DirectoryClearResult {
+        if (dir == null || !dir.exists() || !dir.isDirectory) {
+            return DirectoryClearResult.SKIPPED
+        }
 
         val children = dir.listFiles().orEmpty()
+        var allOk = true
+
         for (child in children) {
-            runCatching {
+            val ok = runCatching {
                 child.deleteRecursively()
+            }.getOrElse {
+                false
+            }
+
+            if (!ok) {
+                allOk = false
             }
         }
-        return true
+
+        return if (allOk) {
+            DirectoryClearResult.CLEARED
+        } else {
+            DirectoryClearResult.FAILED
+        }
     }
 }
