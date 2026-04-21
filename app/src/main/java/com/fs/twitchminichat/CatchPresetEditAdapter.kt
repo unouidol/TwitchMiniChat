@@ -1,0 +1,154 @@
+package com.fs.twitchminichat
+
+import android.text.InputType
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.CheckBox
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.TextView
+import androidx.core.widget.doAfterTextChanged
+import androidx.recyclerview.widget.RecyclerView
+
+class CatchPresetEditAdapter(
+    initialItems: List<CatchPreset>,
+    private val onRemoveClicked: (Int) -> Unit,
+    private val onStartDragRequested: (RecyclerView.ViewHolder) -> Unit
+) : RecyclerView.Adapter<CatchPresetEditAdapter.PresetViewHolder>() {
+
+    private val items = initialItems.toMutableList()
+
+    init {
+        setHasStableIds(true)
+    }
+
+    override fun getItemId(position: Int): Long {
+        return items[position].id.hashCode().toLong()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PresetViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.row_catch_preset_edit, parent, false)
+        return PresetViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: PresetViewHolder, position: Int) {
+        holder.bind(items[position], position)
+    }
+
+    override fun getItemCount(): Int = items.size
+
+    fun currentItems(): List<CatchPreset> = items.map { it.copy() }
+
+    fun addPreset(preset: CatchPreset) {
+        items.add(preset)
+        notifyItemInserted(items.lastIndex)
+    }
+
+    fun removeAt(position: Int) {
+        if (position !in items.indices) return
+        items.removeAt(position)
+        notifyItemRemoved(position)
+        notifyItemRangeChanged(position, itemCount - position)
+    }
+
+    fun moveItem(fromPosition: Int, toPosition: Int) {
+        if (fromPosition == toPosition) return
+        if (fromPosition !in items.indices || toPosition !in items.indices) return
+
+        val moved = items.removeAt(fromPosition)
+        items.add(toPosition, moved)
+
+        notifyItemMoved(fromPosition, toPosition)
+
+        val start = minOf(fromPosition, toPosition)
+        val count = kotlin.math.abs(fromPosition - toPosition) + 1
+        notifyItemRangeChanged(start, count)
+    }
+
+    inner class PresetViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+
+        private val txtPresetIndex: TextView = itemView.findViewById(R.id.txtPresetIndex)
+        private val checkEnabled: CheckBox = itemView.findViewById(R.id.checkPresetEnabled)
+        private val editLabel: EditText = itemView.findViewById(R.id.editPresetLabel)
+        private val editCommand: EditText = itemView.findViewById(R.id.editPresetCommand)
+        private val btnRemove: ImageButton = itemView.findViewById(R.id.btnRemovePreset)
+        private val btnDrag: ImageButton = itemView.findViewById(R.id.btnDragPreset)
+
+        private var bindingNow = false
+
+        init {
+            editLabel.inputType = InputType.TYPE_CLASS_TEXT
+            editCommand.inputType = InputType.TYPE_CLASS_TEXT
+
+            checkEnabled.setOnCheckedChangeListener { _, isChecked ->
+                if (bindingNow) return@setOnCheckedChangeListener
+
+                val position = bindingAdapterPosition
+                if (position == RecyclerView.NO_POSITION) return@setOnCheckedChangeListener
+
+                items[position] = items[position].copy(enabled = isChecked)
+            }
+
+            editLabel.doAfterTextChanged { editable ->
+                if (bindingNow) return@doAfterTextChanged
+
+                val position = bindingAdapterPosition
+                if (position == RecyclerView.NO_POSITION) return@doAfterTextChanged
+
+                items[position] = items[position].copy(
+                    label = editable?.toString().orEmpty()
+                )
+            }
+
+            editCommand.doAfterTextChanged { editable ->
+                if (bindingNow) return@doAfterTextChanged
+
+                val position = bindingAdapterPosition
+                if (position == RecyclerView.NO_POSITION) return@doAfterTextChanged
+
+                items[position] = items[position].copy(
+                    command = editable?.toString().orEmpty()
+                )
+            }
+
+            btnRemove.setOnClickListener {
+                val position = bindingAdapterPosition
+                if (position == RecyclerView.NO_POSITION) return@setOnClickListener
+                onRemoveClicked(position)
+            }
+
+            btnDrag.setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    onStartDragRequested(this)
+                }
+                false
+            }
+        }
+
+        fun bind(item: CatchPreset, position: Int) {
+            bindingNow = true
+
+            txtPresetIndex.text = itemView.context.getString(
+                R.string.catch_preset_title,
+                position + 1
+            )
+
+            if (checkEnabled.isChecked != item.enabled) {
+                checkEnabled.isChecked = item.enabled
+            }
+
+            if (editLabel.text?.toString() != item.label) {
+                editLabel.setText(item.label)
+            }
+
+            if (editCommand.text?.toString() != item.command) {
+                editCommand.setText(item.command)
+            }
+
+            bindingNow = false
+        }
+    }
+}

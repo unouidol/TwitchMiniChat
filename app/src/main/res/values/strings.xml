@@ -43,6 +43,21 @@
     <string name="Remove">Remove</string>
     <string name="catch_presets">Catch presets</string>
 
+    <string name="catch_preset_title">Preset %1$d</string>
+    <string name="catch_preset_enabled">Enabled</string>
+    <string name="catch_preset_label_hint">Label</string>
+    <string name="catch_preset_command_hint">Command</string>
+    <string name="catch_presets_saved">Catch presets saved</string>
+    <string name="catch_presets_title">Catch Presets</string>
+    <string name="catch_presets_subtitle">Tap the Poké Ball to open quick presets. Long-press it to edit the full preset list.</string>
+    <string name="save_presets">Save presets</string>
+    <string name="catch_presets_quick_menu_note">Only the first 6 enabled presets appear in the Poké Ball quick menu.</string>
+    <string name="add_preset">Add preset</string>
+    <string name="remove_preset">Remove preset</string>
+    <string name="drag_to_reorder_preset">Drag to reorder preset</string>
+    <string name="catch_preset_limit_reached">You can save up to %1$d presets.</string>
+    <string name="no_enabled_catch_presets">No catch presets enabled</string>
+
     <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
     <string name="profile_deletion_state_url">https://api.ircminichat.party/get_profile_deletion_state</string>
     <string name="report_message_url">https://api.ircminichat.party/report_message</string>
@@ -55,7 +70,7 @@
     <string name="delete_account_all_data_confirm">Delete app account and all data</string>
     <string name="cancel">Cancel</string>
 
-    <string name="server_delete_ok_gecko_failed">Server delete ok, but Gecko wipe failed: %1$s</string>
+    <string name="server_delete_ok_gecko_failed">Server delete OK, but Gecko wipe failed: %1$s</string>
 
     <string name="reset_local_data_title">Reset local data</string>
     <string name="reset_local_data_message">Choose what local data to reset on this device.</string>
@@ -66,5 +81,34 @@
     <string name="all_local_data_cleared">All local data cleared</string>
     <string name="hidden_user_placeholder">\@username</string>
     <string name="unblock">Unblock</string>
+
+    <string name="policy">Policy</string>
+    <string name="open_web_version">Open web version</string>
+
+    <string name="safety_privacy_title">Safety &amp; Privacy</string>
+    <string name="safety_privacy_subtitle">Manage reporting, blocking, privacy information, and data controls.</string>
+    <string name="report_block">Report &amp; Block</string>
+    <string name="blocked_users">Blocked Users</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_use">Terms of Use</string>
+    <string name="data_account_control">Data &amp; Account Control</string>
+    <string name="credits">Credits</string>
+
+    <string name="terms_gate_intro">Before using TwitchMiniChat, you must review and accept the Terms of Use and Privacy Policy.</string>
+    <string name="terms_gate_note">TwitchMiniChat provides access to public Twitch chat content and includes in-app safety tools such as message reporting and user blocking.</string>
+    <string name="open_terms_of_use">Open Terms of Use</string>
+    <string name="open_privacy_policy">Open Privacy Policy</string>
+    <string name="terms_gate_accept_checkbox">I have read and agree to the Terms of Use and Privacy Policy.</string>
+
+    <string name="blocked_users_title">Blocked users</string>
+    <string name="blocked_users_subtitle">Users hidden in this app can be restored here.</string>
+    <string name="blocked_users_empty">No hidden users.</string>
+
+    <string name="safety_and_privacy">Safety &amp; Privacy</string>
+
+    <string name="safety_privacy_manage_subtitle">Manage privacy information, hidden users, and data controls.</string>
+    <string name="privacy_policy_button">Privacy policy</string>
+
+    <string name="remove_channel">Remove channel</string>
 
 </resources>

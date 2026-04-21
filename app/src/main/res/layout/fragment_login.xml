@@ -44,26 +44,25 @@
         android:layout_weight="1"
         android:layout_marginTop="8dp" />
 
-
     <Button
         android:id="@+id/btnSafetyPrivacy"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="Safety and Privacy" />
+        android:text="@string/safety_and_privacy" />
 
     <Button
         android:id="@+id/btnPrivacyPolicy"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Privacy Policy" />
+        android:text="@string/privacy_policy" />
 
     <Button
         android:id="@+id/btnTermsOfUse"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Terms of Use" />
+        android:text="@string/terms_of_use" />
 
 </LinearLayout>

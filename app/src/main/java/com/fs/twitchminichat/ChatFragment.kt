@@ -1824,9 +1824,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
     }
 
     private fun showCatchPresetsMenu() {
-        val presets = CatchPresetStore.loadEnabled(requireContext(), max = 6)
+        val presets: List<CatchPreset> =
+            CatchPresetStore.loadQuickMenuPresets(requireContext())
+
         if (presets.isEmpty()) {
-            Toast.makeText(requireContext(), "No catch presets enabled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.no_enabled_catch_presets),
+                Toast.LENGTH_SHORT
+            ).show()
             return
         }
 

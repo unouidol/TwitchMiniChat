@@ -14,7 +14,7 @@
             android:id="@+id/txtBlockedUsersTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Blocked users"
+            android:text="@string/blocked_users_title"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -23,7 +23,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Users hidden in this app can be restored here."
+            android:text="@string/blocked_users_subtitle"
             android:textSize="14sp" />
 
         <TextView
@@ -31,7 +31,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="No hidden users."
+            android:text="@string/blocked_users_empty"
             android:textSize="15sp" />
 
         <LinearLayout

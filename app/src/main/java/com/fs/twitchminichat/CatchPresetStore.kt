@@ -6,66 +6,49 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object CatchPresetStore {
-    private const val PREFS_NAME = "catch_presets"
-    private const val KEY_PRESETS = "presets"
+
+    private const val PREFS_NAME = "catch_preset_store"
+    private const val KEY_PRESETS_JSON = "presets_json"
+
+    const val MAX_SAVED_PRESETS = 50
+    const val MAX_QUICK_PRESETS = 6
 
     private fun defaultPresets(): List<CatchPreset> {
         return listOf(
-            CatchPreset("normal", "Catch", "!pokecatch"),
-            CatchPreset("great", "Great", "!pokecatch great ball"),
-            CatchPreset("ultra", "Ultra", "!pokecatch ultra ball"),
-            CatchPreset("timer", "Timer", "!pokecatch timer ball"),
-            CatchPreset("quick", "Quick", "!pokecatch quick ball"),
-            CatchPreset("repeat", "Repeat", "!pokecatch repeat ball")
+            CatchPreset("normal", "Catch", "!pokecatch", true),
+            CatchPreset("great", "Great", "!pokecatch great ball", true),
+            CatchPreset("ultra", "Ultra", "!pokecatch ultra ball", true),
+            CatchPreset("timer", "Timer", "!pokecatch timer ball", true),
+            CatchPreset("quick", "Quick", "!pokecatch quick ball", true),
+            CatchPreset("repeat", "Repeat", "!pokecatch repeat ball", true)
         )
     }
 
     fun loadAll(context: Context): List<CatchPreset> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_PRESETS, null)
+        val raw = prefs.getString(KEY_PRESETS_JSON, null)
 
         if (raw.isNullOrBlank()) {
-            val defaults = defaultPresets()
-            saveAll(context, defaults)
-            return defaults
+            return defaultPresets()
         }
 
-        return try {
-            val arr = JSONArray(raw)
-            buildList {
-                for (i in 0 until arr.length()) {
-                    val obj = arr.optJSONObject(i) ?: continue
-                    add(
-                        CatchPreset(
-                            id = obj.optString("id", "preset_$i"),
-                            label = obj.optString("label", "Preset ${i + 1}"),
-                            command = obj.optString("command", ""),
-                            enabled = obj.optBoolean("enabled", true)
-                        )
-                    )
-                }
-            }.ifEmpty {
-                val defaults = defaultPresets()
-                saveAll(context, defaults)
-                defaults
-            }
-        } catch (_: Exception) {
-            val defaults = defaultPresets()
-            saveAll(context, defaults)
-            defaults
-        }
+        return parsePresets(raw).take(MAX_SAVED_PRESETS)
     }
 
-    fun loadEnabled(context: Context, max: Int = 6): List<CatchPreset> {
+    fun loadQuickMenuPresets(context: Context): List<CatchPreset> {
         return loadAll(context)
             .filter { it.enabled && it.command.isNotBlank() }
-            .take(max)
+            .take(MAX_QUICK_PRESETS)
     }
 
     fun saveAll(context: Context, presets: List<CatchPreset>) {
-        val arr = JSONArray()
-        presets.forEach { preset ->
-            arr.put(
+        val cleaned = presets
+            .mapIndexedNotNull { index, preset -> sanitizeForSave(preset, index) }
+            .take(MAX_SAVED_PRESETS)
+
+        val array = JSONArray()
+        cleaned.forEach { preset ->
+            array.put(
                 JSONObject().apply {
                     put("id", preset.id)
                     put("label", preset.label)
@@ -76,7 +59,55 @@ object CatchPresetStore {
         }
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString(KEY_PRESETS, arr.toString())
+            putString(KEY_PRESETS_JSON, array.toString())
         }
+    }
+
+    fun newEmptyPreset(positionHint: Int): CatchPreset {
+        return CatchPreset(
+            id = "custom_${System.currentTimeMillis()}_$positionHint",
+            label = "",
+            command = "",
+            enabled = false
+        )
+    }
+
+    private fun parsePresets(raw: String): List<CatchPreset> {
+        val result = mutableListOf<CatchPreset>()
+
+        runCatching {
+            val array = JSONArray(raw)
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+
+                val preset = CatchPreset(
+                    id = obj.optString("id").trim().ifBlank { "custom_loaded_$i" },
+                    label = obj.optString("label").trim().ifBlank { "Preset ${i + 1}" },
+                    command = obj.optString("command").trim(),
+                    enabled = obj.optBoolean("enabled", false)
+                )
+
+                result += preset
+            }
+        }
+
+        return result
+    }
+
+    private fun sanitizeForSave(preset: CatchPreset, index: Int): CatchPreset? {
+        val id = preset.id.trim().ifBlank { "custom_${System.currentTimeMillis()}_$index" }
+        val label = preset.label.trim()
+        val command = preset.command.trim()
+
+        if (label.isBlank() && command.isBlank()) {
+            return null
+        }
+
+        return CatchPreset(
+            id = id,
+            label = label.ifBlank { "Preset ${index + 1}" },
+            command = command,
+            enabled = preset.enabled
+        )
     }
 }

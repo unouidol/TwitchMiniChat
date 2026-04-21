@@ -11,14 +11,15 @@
         android:layout_height="wrap_content"
         android:textStyle="bold"
         android:textSize="22sp"
-        android:text="Policy" />
+        android:text="@string/policy" />
 
     <Button
         android:id="@+id/btnOpenWeb"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Open web version"
-        android:layout_marginTop="12dp" />
+        android:layout_marginTop="12dp"
+        android:text="@string/open_web_version" />
+
 
     <WebView
         android:id="@+id/webPolicy"

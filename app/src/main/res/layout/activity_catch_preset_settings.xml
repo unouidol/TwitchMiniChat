@@ -9,7 +9,7 @@
         android:id="@+id/textPresetTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Catch Presets"
+        android:text="@string/catch_presets_title"
         android:textSize="24sp"
         android:textStyle="bold" />
 
@@ -18,25 +18,43 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Tap the Poké Ball to open presets. Long-press it to edit them. Up to 6 presets are supported." />
+        android:text="@string/catch_presets_subtitle" />
 
-    <ScrollView
+    <TextView
+        android:id="@+id/textPresetQuickMenuNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/catch_presets_quick_menu_note"
+        android:textSize="13sp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerPresets"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="16dp">
+        android:layout_marginTop="16dp" />
 
-        <LinearLayout
-            android:id="@+id/presetContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
-
-    <Button
-        android:id="@+id/btnSavePresets"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="Save presets" />
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnAddPreset"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/add_preset" />
+
+        <Button
+            android:id="@+id/btnSavePresets"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:text="@string/save_presets" />
+    </LinearLayout>
+
 </LinearLayout>

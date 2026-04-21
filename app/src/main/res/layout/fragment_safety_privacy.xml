@@ -14,7 +14,7 @@
             android:id="@+id/txtSafetyPrivacyTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Safety &amp; Privacy"
+            android:text="@string/safety_privacy_title"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -23,7 +23,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Manage privacy information, hidden users, and data controls."
+            android:text="@string/safety_privacy_manage_subtitle"
             android:textSize="14sp" />
 
         <Button
@@ -31,28 +31,28 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Blocked users" />
+            android:text="@string/blocked_users_title" />
 
         <Button
             android:id="@+id/btnPrivacyPolicy"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Privacy policy" />
+            android:text="@string/privacy_policy_button" />
 
         <Button
             android:id="@+id/btnClearLocalData"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Reset local data" />
+            android:text="@string/reset_local_data_title" />
 
         <Button
             android:id="@+id/btnDeleteServerData"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Delete app account and all data" />
+            android:text="@string/delete_account_all_data_confirm" />
 
     </LinearLayout>
 </ScrollView>

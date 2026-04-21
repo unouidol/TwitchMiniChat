@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="48dp"
+    android:layout_height="wrap_content"
+    android:minHeight="56dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingStart="12dp"
+    android:paddingStart="16dp"
     android:paddingEnd="8dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
     android:clickable="true"
     android:focusable="false">
 
@@ -14,17 +18,22 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="16sp"
-        android:textColor="@android:color/white"
-        android:singleLine="true" />
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:textColor="@android:color/white" />
 
     <ImageButton
         android:id="@+id/btnRemove"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:text="@string/Remove"
+        android:contentDescription="@string/remove_channel"
+        android:padding="12dp"
         android:src="@android:drawable/ic_menu_close_clear_cancel"
+        app:tint="@android:color/white"
         android:focusable="false"
         android:focusableInTouchMode="false" />
+
 </LinearLayout>
