@@ -75,7 +75,7 @@ class CatchPresetEditAdapter(
         private val editLabel: EditText = itemView.findViewById(R.id.editPresetLabel)
         private val editCommand: EditText = itemView.findViewById(R.id.editPresetCommand)
         private val btnRemove: ImageButton = itemView.findViewById(R.id.btnRemovePreset)
-        private val btnDrag: ImageButton = itemView.findViewById(R.id.btnDragPreset)
+        private val btnDrag: DragHandleImageButton = itemView.findViewById(R.id.btnDragPreset)
 
         private var bindingNow = false
 
@@ -120,11 +120,25 @@ class CatchPresetEditAdapter(
                 onRemoveClicked(position)
             }
 
-            btnDrag.setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-                    onStartDragRequested(this)
+            btnDrag.setOnClickListener {
+                // kept for accessibility / performClick path
+            }
+
+            btnDrag.setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        onStartDragRequested(this)
+                        true
+                    }
+
+                    MotionEvent.ACTION_UP -> {
+                        view.performClick()
+                        true
+                    }
+
+                    MotionEvent.ACTION_CANCEL -> false
+                    else -> false
                 }
-                false
             }
         }
 

@@ -21,7 +21,7 @@
             android:textAppearance="?android:attr/textAppearanceMedium"
             android:textStyle="bold" />
 
-        <ImageButton
+        <com.fs.twitchminichat.DragHandleImageButton
             android:id="@+id/btnDragPreset"
             android:layout_width="48dp"
             android:layout_height="48dp"
@@ -56,7 +56,8 @@
         android:layout_marginTop="6dp"
         android:hint="@string/catch_preset_label_hint"
         android:inputType="text"
-        android:maxLines="1" />
+        android:maxLines="1"
+        android:importantForAutofill="no" />
 
     <EditText
         android:id="@+id/editPresetCommand"
@@ -65,6 +66,7 @@
         android:layout_marginTop="6dp"
         android:hint="@string/catch_preset_command_hint"
         android:inputType="text"
-        android:maxLines="1" />
+        android:maxLines="1"
+        android:importantForAutofill="no"/>
 
 </LinearLayout>
