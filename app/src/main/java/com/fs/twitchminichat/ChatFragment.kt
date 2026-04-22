@@ -967,7 +967,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
 
         btnCatchPresets.setOnLongClickListener {
-            CatchPresetSettingsActivity.start(requireContext())
+            CatchPresetSettingsActivity.start(
+                requireContext(),
+                currentProfileId().ifBlank { null }
+            )
             true
         }
     }
@@ -1836,22 +1839,104 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
             return
         }
 
+        val profileId = currentProfileId().ifBlank { null }
+
+        val countsByBallId = if (profileId != null) {
+            InventoryBallStore.getDisplayCounts(requireContext(), profileId)
+        } else {
+            emptyMap()
+        }
+
         val popup = PopupMenu(requireContext(), btnCatchPresets)
 
         presets.forEachIndexed { index, preset ->
-            popup.menu.add(0, index, index, preset.label)
+            popup.menu.add(
+                0,
+                index,
+                index,
+                buildCatchPresetMenuLabel(preset, countsByBallId)
+            )
         }
 
         popup.setOnMenuItemClickListener { item ->
             val preset = presets.getOrNull(item.itemId) ?: return@setOnMenuItemClickListener false
-            sendPresetCommand(preset.command)
+            sendPresetCommand(preset, profileId)
             true
         }
 
         popup.show()
     }
 
-    private fun sendPresetCommand(command: String) {
+    private fun resolveDisplayedCountForPreset(
+        preset: CatchPreset,
+        countsByBallId: Map<String, Int>
+    ): Int? {
+        return when (preset.ballId) {
+            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC -> {
+                val poke = countsByBallId["poke_ball"] ?: 0
+                if (poke > 0) {
+                    poke
+                } else {
+                    countsByBallId["premier_ball"]
+                }
+            }
+
+            null -> null
+            else -> countsByBallId[preset.ballId]
+        }
+    }
+
+    private fun resolveBallIdToSpendForPreset(
+        preset: CatchPreset,
+        countsByBallId: Map<String, Int>
+    ): String? {
+        return when (preset.ballId) {
+            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC -> {
+                val poke = countsByBallId["poke_ball"] ?: 0
+                when {
+                    poke > 0 -> "poke_ball"
+                    (countsByBallId["premier_ball"] ?: 0) > 0 -> "premier_ball"
+                    else -> null
+                }
+            }
+
+            null -> null
+            else -> preset.ballId
+        }
+    }
+
+    private fun buildCatchPresetMenuLabel(
+        preset: CatchPreset,
+        countsByBallId: Map<String, Int>
+    ): String {
+        val count = resolveDisplayedCountForPreset(preset, countsByBallId)
+        return if (count != null) {
+            "${preset.label} ($count)"
+        } else {
+            preset.label
+        }
+    }
+
+    private fun noteCatchPresetUsedOptimistically(
+        profileId: String,
+        preset: CatchPreset
+    ) {
+        val context = requireContext()
+        val countsByBallId = InventoryBallStore.getDisplayCounts(context, profileId)
+
+        val spentBallId = resolveBallIdToSpendForPreset(preset, countsByBallId) ?: return
+
+        InventoryBallStore.noteBallUsed(
+            context = context,
+            profileId = profileId,
+            ballId = spentBallId
+        )
+    }
+
+    private fun sendPresetCommand(
+        preset: CatchPreset,
+        profileId: String?
+    ) {
         val client = sendClient ?: return
         if (!sendReady) {
             appendSystemLine(getString(R.string.connection_not_ready))
@@ -1859,23 +1944,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat) {
         }
 
         clearPendingReply()
-        client.sendMessage(command)
+        client.sendMessage(preset.command)
+
+        if (!profileId.isNullOrBlank()) {
+            noteCatchPresetUsedOptimistically(profileId, preset)
+        }
 
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
 
         stickToBottom = true
         scrollToBottom()
-    }
-
-    private fun insertPresetCommand(command: String) {
-        clearPendingReply()
-        editMessage.setText(command)
-        editMessage.setSelection(editMessage.text?.length ?: 0)
-        editMessage.requestFocus()
-
-        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun createMessageTextView(

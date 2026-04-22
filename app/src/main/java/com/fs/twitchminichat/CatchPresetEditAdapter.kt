@@ -19,6 +19,7 @@ class CatchPresetEditAdapter(
 ) : RecyclerView.Adapter<CatchPresetEditAdapter.PresetViewHolder>() {
 
     private val items = initialItems.toMutableList()
+    private var inventoryCountsByBallId: Map<String, Int> = emptyMap()
 
     init {
         setHasStableIds(true)
@@ -68,9 +69,36 @@ class CatchPresetEditAdapter(
         notifyItemRangeChanged(start, count)
     }
 
+    fun updateInventoryCounts(newCounts: Map<String, Int>) {
+        inventoryCountsByBallId = newCounts.toMap()
+        notifyDataSetChanged()
+    }
+
+    private fun resolveDisplayedCount(item: CatchPreset): Int? {
+        return when (item.ballId) {
+            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC -> {
+                val poke = inventoryCountsByBallId["poke_ball"] ?: 0
+                if (poke > 0) {
+                    poke
+                } else {
+                    inventoryCountsByBallId["premier_ball"]
+                }
+            }
+
+            null -> null
+            else -> inventoryCountsByBallId[item.ballId]
+        }
+    }
+
+    private fun formatDisplayedCount(item: CatchPreset): String {
+        val count = resolveDisplayedCount(item) ?: return "-"
+        return "x$count"
+    }
+
     inner class PresetViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
         private val txtPresetIndex: TextView = itemView.findViewById(R.id.txtPresetIndex)
+        private val txtInventoryCount: TextView = itemView.findViewById(R.id.txtInventoryCount)
         private val checkEnabled: CheckBox = itemView.findViewById(R.id.checkPresetEnabled)
         private val editLabel: EditText = itemView.findViewById(R.id.editPresetLabel)
         private val editCommand: EditText = itemView.findViewById(R.id.editPresetCommand)
@@ -149,6 +177,15 @@ class CatchPresetEditAdapter(
                 R.string.catch_preset_title,
                 position + 1
             )
+
+            txtInventoryCount.text = formatDisplayedCount(item)
+
+            val displayedCount = resolveDisplayedCount(item)
+            txtInventoryCount.alpha = if (displayedCount == null || displayedCount > 0) {
+                1f
+            } else {
+                0.5f
+            }
 
             if (checkEnabled.isChecked != item.enabled) {
                 checkEnabled.isChecked = item.enabled

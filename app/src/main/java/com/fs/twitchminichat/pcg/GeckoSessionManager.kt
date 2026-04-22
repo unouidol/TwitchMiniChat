@@ -17,6 +17,8 @@ import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.WebExtension
 import java.util.concurrent.ConcurrentHashMap
 import org.mozilla.geckoview.StorageController
+import com.fs.twitchminichat.InventoryBallItem
+import com.fs.twitchminichat.InventoryBallStore
 
 @Suppress("unused")
 object GeckoSessionManager {
@@ -153,6 +155,69 @@ object GeckoSessionManager {
         )
     }
 
+    private fun handleInventoryBallExtract(
+        appContext: Context,
+        profileId: String,
+        profileLabel: String,
+        payload: JSONObject
+    ) {
+        val ok = payload.optBoolean("ok", false)
+
+        if (!ok) {
+            Log.w(
+                "PCG_PROBE",
+                "inventory extract failed profileId=$profileId profileLabel=$profileLabel " +
+                        "reason=${payload.optString("reason")} payload=$payload"
+            )
+            return
+        }
+
+        val balls = jsonArrayToInventoryBallList(payload.optJSONArray("balls"))
+        if (balls.isEmpty()) {
+            Log.w(
+                "PCG_PROBE",
+                "inventory extract empty profileId=$profileId profileLabel=$profileLabel payload=$payload"
+            )
+            return
+        }
+
+        InventoryBallStore.saveRealSnapshot(
+            context = appContext,
+            profileId = profileId,
+            balls = balls
+        )
+
+        Log.d(
+            "PCG_PROBE",
+            "inventory extract success profileId=$profileId profileLabel=$profileLabel balls=$balls"
+        )
+    }
+
+    private fun jsonArrayToInventoryBallList(arr: JSONArray?): List<InventoryBallItem> {
+        if (arr == null) return emptyList()
+
+        val out = ArrayList<InventoryBallItem>(arr.length())
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+
+            val ballId = obj.optString("ballId").trim()
+            val name = obj.optString("name").trim()
+            val count = obj.optInt("count", -1)
+
+            if (ballId.isBlank() || name.isBlank() || count < 0) continue
+
+            out.add(
+                InventoryBallItem(
+                    ballId = ballId,
+                    name = name,
+                    count = count
+                )
+            )
+        }
+
+        return out
+    }
+
     private fun installPcgProbeExtension(
         appContext: Context,
         runtime: GeckoRuntime,
@@ -235,7 +300,14 @@ object GeckoSessionManager {
                                             "pcg_probe_progress" -> {
                                                 Log.d(
                                                     "PCG_PROBE",
-                                                    "progress step=${payload.optInt("step")} collected=${payload.optInt("collected")} scrollTop=${payload.optInt("scrollTop")}/${payload.optInt("scrollHeight")}"
+                                                    "progress " +
+                                                            "step=${payload.optInt("step", -1)} " +
+                                                            "phase=${payload.optString("phase")} " +
+                                                            "reason=${payload.optString("reason")} " +
+                                                            "collected=${payload.optInt("collected", -1)} " +
+                                                            "scrollTop=${payload.optInt("scrollTop", -1)}/${payload.optInt("scrollHeight", -1)} " +
+                                                            "href=${payload.optString("href")} " +
+                                                            "host=${payload.optString("host")}"
                                                 )
                                             }
 
@@ -248,6 +320,9 @@ object GeckoSessionManager {
                                                 )
                                             }
 
+                                            "pcg_inventory_ball_extract" -> {
+                                                handleInventoryBallExtract(appContext, profileId, profileLabel, payload)
+                                            }
                                             else -> {
                                                 Log.d("PCG_PROBE", "ignored type=$type")
                                             }

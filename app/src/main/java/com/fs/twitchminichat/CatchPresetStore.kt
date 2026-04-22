@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 
 object CatchPresetStore {
 
@@ -13,14 +14,16 @@ object CatchPresetStore {
     const val MAX_SAVED_PRESETS = 50
     const val MAX_QUICK_PRESETS = 6
 
+    const val BALL_ID_AUTO_CATCH_BASIC = "auto_catch_basic"
+
     private fun defaultPresets(): List<CatchPreset> {
         return listOf(
-            CatchPreset("normal", "Catch", "!pokecatch", true),
-            CatchPreset("great", "Great", "!pokecatch great ball", true),
-            CatchPreset("ultra", "Ultra", "!pokecatch ultra ball", true),
-            CatchPreset("timer", "Timer", "!pokecatch timer ball", true),
-            CatchPreset("quick", "Quick", "!pokecatch quick ball", true),
-            CatchPreset("repeat", "Repeat", "!pokecatch repeat ball", true)
+            CatchPreset("normal", "Catch", "!pokecatch", true, BALL_ID_AUTO_CATCH_BASIC),
+            CatchPreset("great", "Great", "!pokecatch great ball", true, "great_ball"),
+            CatchPreset("ultra", "Ultra", "!pokecatch ultra ball", true, "ultra_ball"),
+            CatchPreset("timer", "Timer", "!pokecatch timer ball", true, "timer_ball"),
+            CatchPreset("quick", "Quick", "!pokecatch quick ball", true, "quick_ball"),
+            CatchPreset("repeat", "Repeat", "!pokecatch repeat ball", true, "repeat_ball")
         )
     }
 
@@ -54,6 +57,9 @@ object CatchPresetStore {
                     put("label", preset.label)
                     put("command", preset.command)
                     put("enabled", preset.enabled)
+                    if (!preset.ballId.isNullOrBlank()) {
+                        put("ballId", preset.ballId)
+                    }
                 }
             )
         }
@@ -68,10 +74,65 @@ object CatchPresetStore {
             id = "custom_${System.currentTimeMillis()}_$positionHint",
             label = "",
             command = "",
-            enabled = false
+            enabled = false,
+            ballId = null
         )
     }
+    fun mergeMissingInventoryPresets(
+        existing: List<CatchPreset>,
+        inventoryBalls: List<InventoryBallItem>
+    ): List<CatchPreset> {
+        if (inventoryBalls.isEmpty()) return existing
 
+        val out = existing.toMutableList()
+        val representedBallIds = existing.mapNotNull { it.ballId }.toMutableSet()
+
+        val hasAutoCatchBasic = existing.any { it.ballId == BALL_ID_AUTO_CATCH_BASIC }
+
+        inventoryBalls
+            .sortedBy { it.name.lowercase(Locale.ROOT) }
+            .forEach { ball ->
+                if (ball.ballId.isBlank()) return@forEach
+                if (representedBallIds.contains(ball.ballId)) return@forEach
+
+                // Evita di creare un preset "Poké Ball" esplicito se c'è già il preset Catch automatico.
+                if (ball.ballId == "poke_ball" && hasAutoCatchBasic) {
+                    representedBallIds += ball.ballId
+                    return@forEach
+                }
+
+                out += CatchPreset(
+                    id = "auto_${ball.ballId}",
+                    label = defaultLabelForBall(ball),
+                    command = defaultCommandForBall(ball),
+                    enabled = ball.count > 0,
+                    ballId = ball.ballId
+                )
+
+                representedBallIds += ball.ballId
+            }
+
+        return out
+    }
+
+    private fun defaultLabelForBall(ball: InventoryBallItem): String {
+        val name = ball.name.trim()
+        return when {
+            name.equals("Poké Ball", ignoreCase = true) -> "Poké"
+            name.equals("Poke Ball", ignoreCase = true) -> "Poké"
+            name.endsWith(" Ball", ignoreCase = true) -> name.removeSuffix(" Ball")
+            else -> name
+        }
+    }
+
+    private fun defaultCommandForBall(ball: InventoryBallItem): String {
+        val normalizedName = ball.name
+            .trim()
+            .lowercase(Locale.ROOT)
+            .replace("poké", "poke")
+
+        return "!pokecatch $normalizedName"
+    }
     private fun parsePresets(raw: String): List<CatchPreset> {
         val result = mutableListOf<CatchPreset>()
 
@@ -80,11 +141,21 @@ object CatchPresetStore {
             for (i in 0 until array.length()) {
                 val obj = array.optJSONObject(i) ?: continue
 
+                val id = obj.optString("id").trim().ifBlank { "custom_loaded_$i" }
+                val label = obj.optString("label").trim().ifBlank { "Preset ${i + 1}" }
+                val command = obj.optString("command").trim()
+                val explicitBallId = obj.optString("ballId").trim().ifBlank { null }
+
                 val preset = CatchPreset(
-                    id = obj.optString("id").trim().ifBlank { "custom_loaded_$i" },
-                    label = obj.optString("label").trim().ifBlank { "Preset ${i + 1}" },
-                    command = obj.optString("command").trim(),
-                    enabled = obj.optBoolean("enabled", false)
+                    id = id,
+                    label = label,
+                    command = command,
+                    enabled = obj.optBoolean("enabled", false),
+                    ballId = normalizeStoredBallId(
+                        id = id,
+                        command = command,
+                        explicitBallId = explicitBallId
+                    )
                 )
 
                 result += preset
@@ -107,7 +178,52 @@ object CatchPresetStore {
             id = id,
             label = label.ifBlank { "Preset ${index + 1}" },
             command = command,
-            enabled = preset.enabled
+            enabled = preset.enabled,
+            ballId = normalizeStoredBallId(
+                id = id,
+                command = command,
+                explicitBallId = preset.ballId
+            )
         )
+    }
+
+    private fun normalizeStoredBallId(
+        id: String,
+        command: String,
+        explicitBallId: String?
+    ): String? {
+        val normalizedCommand = command.trim().lowercase()
+        val normalizedExplicit = explicitBallId?.trim()?.ifBlank { null }
+
+        if (normalizedCommand == "!pokecatch") {
+            return BALL_ID_AUTO_CATCH_BASIC
+        }
+
+        if (normalizedExplicit != null) {
+            return normalizedExplicit
+        }
+
+        return inferBallIdFromCommand(command)
+    }
+
+    private fun inferBallIdFromCommand(command: String): String? {
+        val normalized = command.trim().lowercase()
+
+        if (normalized == "!pokecatch") {
+            return BALL_ID_AUTO_CATCH_BASIC
+        }
+
+        if (!normalized.startsWith("!pokecatch ")) {
+            return null
+        }
+
+        val suffix = normalized.removePrefix("!pokecatch ").trim()
+        if (!suffix.endsWith(" ball")) {
+            return null
+        }
+
+        return suffix
+            .replace("poké", "poke")
+            .replace(Regex("\\s+"), "_")
     }
 }

@@ -19,6 +19,10 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
     private lateinit var adapter: CatchPresetEditAdapter
     private lateinit var itemTouchHelper: ItemTouchHelper
 
+    private val currentProfileId: String by lazy {
+        intent.getStringExtra(EXTRA_PROFILE_ID).orEmpty().trim().lowercase()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -31,8 +35,27 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
     }
 
     private fun setupRecycler() {
+        val savedPresets = CatchPresetStore.loadAll(this)
+
+        val inventoryBalls = if (currentProfileId.isNotBlank()) {
+            InventoryBallStore.loadRealSnapshot(this, currentProfileId)
+        } else {
+            emptyList()
+        }
+
+        val mergedPresets = CatchPresetStore.mergeMissingInventoryPresets(
+            existing = savedPresets,
+            inventoryBalls = inventoryBalls
+        )
+
+        val inventoryCounts = if (currentProfileId.isNotBlank()) {
+            InventoryBallStore.getDisplayCounts(this, currentProfileId)
+        } else {
+            emptyMap()
+        }
+
         adapter = CatchPresetEditAdapter(
-            initialItems = CatchPresetStore.loadAll(this),
+            initialItems = mergedPresets,
             onRemoveClicked = { position ->
                 if (::adapter.isInitialized) {
                     adapter.removeAt(position)
@@ -44,6 +67,8 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
                 }
             }
         )
+
+        adapter.updateInventoryCounts(inventoryCounts)
 
         recyclerPresets.layoutManager = LinearLayoutManager(this)
         recyclerPresets.adapter = adapter
@@ -83,6 +108,16 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
         itemTouchHelper.attachToRecyclerView(recyclerPresets)
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        if (::adapter.isInitialized && currentProfileId.isNotBlank()) {
+            adapter.updateInventoryCounts(
+                InventoryBallStore.getDisplayCounts(this, currentProfileId)
+            )
+        }
+    }
+
     private fun setupButtons() {
         btnAddPreset.setOnClickListener {
             if (adapter.itemCount >= CatchPresetStore.MAX_SAVED_PRESETS) {
@@ -114,8 +149,14 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
     }
 
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, CatchPresetSettingsActivity::class.java))
+        private const val EXTRA_PROFILE_ID = "extra_profile_id"
+
+        fun start(context: Context, profileId: String?) {
+            context.startActivity(
+                Intent(context, CatchPresetSettingsActivity::class.java).apply {
+                    putExtra(EXTRA_PROFILE_ID, profileId)
+                }
+            )
         }
     }
 }
