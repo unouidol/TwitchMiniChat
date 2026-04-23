@@ -57,6 +57,26 @@
     <string name="drag_to_reorder_preset">Drag to reorder preset</string>
     <string name="catch_preset_limit_reached">You can save up to %1$d presets.</string>
     <string name="no_enabled_catch_presets">No catch presets enabled</string>
+    <string name="catch_presets_enable_all">Enable all presets</string>
+    <string name="quick_catch_menu_title">Catch presets</string>
+    <string name="quick_catch_label_with_count">%1$s (%2$d)</string>
+    <string name="quick_catch_count_unknown">%1$s</string>
+
+    <string name="buy_ball_button">Buy</string>
+    <string name="buy_ball_content_description">Buy ball</string>
+    <string name="friend_ball_buddy_content_description">Show buddy info</string>
+
+    <string name="buy_ball_title">Buy %1$s</string>
+    <string name="buy_ball_message">Enter quantity to buy</string>
+    <string name="buy_ball_quantity_hint">Quantity</string>
+    <string name="buy_ball_confirm">Buy</string>
+
+    <string name="invalid_quantity">Invalid quantity</string>
+
+    <string name="buy_ball_request_sent">Purchase sent: %1$d × %2$s</string>
+    <string name="inventory_loaded_success">Inventory loaded</string>
+    <string name="missing_active_profile">No active profile available</string>
+
 
     <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
     <string name="profile_deletion_state_url">https://api.ircminichat.party/get_profile_deletion_state</string>

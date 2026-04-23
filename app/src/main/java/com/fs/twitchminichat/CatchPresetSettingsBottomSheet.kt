@@ -1,24 +1,48 @@
 package com.fs.twitchminichat
 
-import android.content.Context
-import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
+import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import android.app.Activity
-import android.text.InputType
-import android.widget.EditText
-import androidx.appcompat.app.AlertDialog
-import android.content.DialogInterface
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
+class CatchPresetSettingsBottomSheet :
+    BottomSheetDialogFragment(R.layout.activity_catch_preset_settings) {
 
+    interface Host {
+        fun onCatchPresetBuyRequested(
+            profileId: String,
+            ballId: String,
+            shopBallName: String,
+            quantity: Int,
+            label: String
+        ): Boolean
+    }
 
-class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_preset_settings) {
+    companion object {
+        private const val ARG_PROFILE_ID = "arg_profile_id"
+
+        fun newInstance(profileId: String?): CatchPresetSettingsBottomSheet {
+            return CatchPresetSettingsBottomSheet().apply {
+                arguments = Bundle().apply {
+                    putString(ARG_PROFILE_ID, profileId)
+                }
+            }
+        }
+    }
+
+    private val currentProfileId: String
+        get() = arguments?.getString(ARG_PROFILE_ID).orEmpty().trim().lowercase()
+
+    private val host: Host?
+        get() = parentFragment as? Host
 
     private lateinit var recyclerPresets: RecyclerView
     private lateinit var btnAddPreset: Button
@@ -28,27 +52,35 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
     private lateinit var adapter: CatchPresetEditAdapter
     private lateinit var itemTouchHelper: ItemTouchHelper
 
-    private val currentProfileId: String by lazy {
-        intent.getStringExtra(EXTRA_PROFILE_ID).orEmpty().trim().lowercase()
-    }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        recyclerPresets = findViewById(R.id.recyclerPresets)
-        btnAddPreset = findViewById(R.id.btnAddPreset)
-        btnSavePresets = findViewById(R.id.btnSavePresets)
-        checkEnableAllPresets = findViewById(R.id.checkEnableAllPresets)
+        recyclerPresets = view.findViewById(R.id.recyclerPresets)
+        btnAddPreset = view.findViewById(R.id.btnAddPreset)
+        btnSavePresets = view.findViewById(R.id.btnSavePresets)
+        checkEnableAllPresets = view.findViewById(R.id.checkEnableAllPresets)
 
         setupRecycler()
         setupButtons()
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        if (::adapter.isInitialized && currentProfileId.isNotBlank()) {
+            adapter.updateInventoryCounts(
+                InventoryBallStore.getDisplayCounts(requireContext(), currentProfileId)
+            )
+        }
+    }
+
     private fun setupRecycler() {
-        val savedPresets = CatchPresetStore.loadAll(this)
+        val context = requireContext()
+
+        val savedPresets = CatchPresetStore.loadAll(context)
 
         val inventoryBalls = if (currentProfileId.isNotBlank()) {
-            InventoryBallStore.loadRealSnapshot(this, currentProfileId)
+            InventoryBallStore.loadRealSnapshot(context, currentProfileId)
         } else {
             emptyList()
         }
@@ -59,7 +91,7 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
         )
 
         val inventoryCounts = if (currentProfileId.isNotBlank()) {
-            InventoryBallStore.getDisplayCounts(this, currentProfileId)
+            InventoryBallStore.getDisplayCounts(context, currentProfileId)
         } else {
             emptyMap()
         }
@@ -79,19 +111,19 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
             onBuyBallClicked = { preset ->
                 if (currentProfileId.isBlank()) {
                     Toast.makeText(
-                        this,
+                        context,
                         getString(R.string.missing_active_profile),
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
-                    showBuyBallDialogFromSettings(preset)
+                    showBuyBallDialogFromSheet(preset)
                 }
             }
         )
 
         adapter.updateInventoryCounts(inventoryCounts)
 
-        recyclerPresets.layoutManager = LinearLayoutManager(this)
+        recyclerPresets.layoutManager = LinearLayoutManager(context)
         recyclerPresets.adapter = adapter
 
         itemTouchHelper = ItemTouchHelper(
@@ -133,18 +165,8 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
                     adapter.currentItems().all { it.enabled }
     }
 
-    override fun onResume() {
-        super.onResume()
-
-        if (::adapter.isInitialized && currentProfileId.isNotBlank()) {
-            adapter.updateInventoryCounts(
-                InventoryBallStore.getDisplayCounts(this, currentProfileId)
-            )
-        }
-    }
-
     private fun setupButtons() {
-        checkEnableAllPresets.setOnCheckedChangeListener { _, isChecked: Boolean ->
+        checkEnableAllPresets.setOnCheckedChangeListener { _, isChecked ->
             if (::adapter.isInitialized) {
                 adapter.setAllEnabled(isChecked)
             }
@@ -153,7 +175,7 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
         btnAddPreset.setOnClickListener {
             if (adapter.itemCount >= CatchPresetStore.MAX_SAVED_PRESETS) {
                 Toast.makeText(
-                    this,
+                    requireContext(),
                     getString(
                         R.string.catch_preset_limit_reached,
                         CatchPresetStore.MAX_SAVED_PRESETS
@@ -169,13 +191,13 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
         }
 
         btnSavePresets.setOnClickListener {
-            CatchPresetStore.saveAll(this, adapter.currentItems())
+            CatchPresetStore.saveAll(requireContext(), adapter.currentItems())
             Toast.makeText(
-                this,
+                requireContext(),
                 getString(R.string.catch_presets_saved),
                 Toast.LENGTH_SHORT
             ).show()
-            finish()
+            dismiss()
         }
     }
 
@@ -209,20 +231,20 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
         }
     }
 
-    private fun showBuyBallDialogFromSettings(preset: CatchPreset) {
+    private fun showBuyBallDialogFromSheet(preset: CatchPreset) {
         if (!canBuyFromPreset(preset)) return
 
         val shopBallName = resolveShopBallNameForPreset(preset) ?: return
         val boughtBallId = resolveBoughtBallIdForPreset(preset) ?: return
 
-        val input = EditText(this).apply {
+        val input = EditText(requireContext()).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             hint = getString(R.string.buy_ball_quantity_hint)
             setText("1")
             setSelection(text.length)
         }
 
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.buy_ball_title, preset.label))
             .setMessage(getString(R.string.buy_ball_message))
             .setView(input)
@@ -231,24 +253,24 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
                 val quantity = input.text?.toString()?.trim()?.toIntOrNull()
                 if (quantity == null || quantity <= 0) {
                     Toast.makeText(
-                        this,
+                        requireContext(),
                         getString(R.string.invalid_quantity),
                         Toast.LENGTH_SHORT
                     ).show()
                     return@setPositiveButton
                 }
 
-                val sent = CatchPresetActionBus.requestBuyBall(
+                val sent = host?.onCatchPresetBuyRequested(
                     profileId = currentProfileId,
                     ballId = boughtBallId,
                     shopBallName = shopBallName,
                     quantity = quantity,
                     label = preset.label
-                )
+                ) ?: false
 
                 if (!sent) {
                     Toast.makeText(
-                        this,
+                        requireContext(),
                         getString(R.string.connection_not_ready),
                         Toast.LENGTH_SHORT
                     ).show()
@@ -256,31 +278,9 @@ class CatchPresetSettingsActivity : AppCompatActivity(R.layout.activity_catch_pr
                 }
 
                 adapter.updateInventoryCounts(
-                    InventoryBallStore.getDisplayCounts(this, currentProfileId)
+                    InventoryBallStore.getDisplayCounts(requireContext(), currentProfileId)
                 )
             }
             .show()
-    }
-
-    companion object {
-        const val EXTRA_PROFILE_ID = "extra_profile_id"
-
-        const val EXTRA_ACTION = "extra_action"
-        const val EXTRA_COMMAND = "extra_command"
-        const val EXTRA_BOUGHT_BALL_ID = "extra_bought_ball_id"
-        const val EXTRA_QUANTITY = "extra_quantity"
-        const val EXTRA_LABEL = "extra_label"
-
-        const val ACTION_BUY_BALL = "action_buy_ball"
-
-        fun createIntent(context: Context, profileId: String?): Intent {
-            return Intent(context, CatchPresetSettingsActivity::class.java).apply {
-                putExtra(EXTRA_PROFILE_ID, profileId)
-            }
-        }
-
-        fun start(context: Context, profileId: String?) {
-            context.startActivity(createIntent(context, profileId))
-        }
     }
 }

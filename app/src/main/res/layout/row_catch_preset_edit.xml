@@ -33,7 +33,18 @@
             android:paddingBottom="4dp"
             android:text="-"
             android:textAppearance="?android:attr/textAppearanceSmall"
-            android:textStyle="bold" />
+            android:textStyle="bold"/>
+
+        <ImageButton
+            android:id="@+id/btnBuyBall"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="6dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Buy ball"
+            android:padding="8dp"
+            android:src="@android:drawable/ic_input_add"
+            app:tint="@android:color/white" />
 
         <com.fs.twitchminichat.DragHandleImageButton
             android:id="@+id/btnDragPreset"

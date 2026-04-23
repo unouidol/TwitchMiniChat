@@ -19,12 +19,18 @@ import java.util.concurrent.ConcurrentHashMap
 import org.mozilla.geckoview.StorageController
 import com.fs.twitchminichat.InventoryBallItem
 import com.fs.twitchminichat.InventoryBallStore
+import android.os.SystemClock
+import android.widget.Toast
+import com.fs.twitchminichat.R
 
 @Suppress("unused")
 object GeckoSessionManager {
 
     @Volatile
     private var runtime: GeckoRuntime? = null
+
+    @Volatile
+    private var lastInventoryLoadedToastAt: Long = 0L
 
     private val sessions = ConcurrentHashMap<String, GeckoSession>()
 
@@ -186,6 +192,18 @@ object GeckoSessionManager {
             profileId = profileId,
             balls = balls
         )
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastInventoryLoadedToastAt > 5000L) {
+            lastInventoryLoadedToastAt = now
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(
+                    appContext,
+                    appContext.getString(R.string.inventory_loaded_success),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
 
         Log.d(
             "PCG_PROBE",

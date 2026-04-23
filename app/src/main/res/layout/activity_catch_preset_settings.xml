@@ -28,6 +28,13 @@
         android:text="@string/catch_presets_quick_menu_note"
         android:textSize="13sp" />
 
+    <CheckBox
+        android:id="@+id/checkEnableAllPresets"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/catch_presets_enable_all" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerPresets"
         android:layout_width="match_parent"

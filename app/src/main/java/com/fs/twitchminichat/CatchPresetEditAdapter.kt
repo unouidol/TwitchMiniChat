@@ -15,7 +15,8 @@ import androidx.recyclerview.widget.RecyclerView
 class CatchPresetEditAdapter(
     initialItems: List<CatchPreset>,
     private val onRemoveClicked: (Int) -> Unit,
-    private val onStartDragRequested: (RecyclerView.ViewHolder) -> Unit
+    private val onStartDragRequested: (RecyclerView.ViewHolder) -> Unit,
+    private val onBuyBallClicked: (CatchPreset) -> Unit
 ) : RecyclerView.Adapter<CatchPresetEditAdapter.PresetViewHolder>() {
 
     private val items = initialItems.toMutableList()
@@ -37,6 +38,7 @@ class CatchPresetEditAdapter(
 
     override fun onBindViewHolder(holder: PresetViewHolder, position: Int) {
         holder.bind(items[position], position)
+
     }
 
     override fun getItemCount(): Int = items.size
@@ -105,6 +107,8 @@ class CatchPresetEditAdapter(
         private val btnRemove: ImageButton = itemView.findViewById(R.id.btnRemovePreset)
         private val btnDrag: DragHandleImageButton = itemView.findViewById(R.id.btnDragPreset)
 
+        private val btnBuyBall: ImageButton = itemView.findViewById(R.id.btnBuyBall)
+
         private var bindingNow = false
 
         init {
@@ -168,6 +172,11 @@ class CatchPresetEditAdapter(
                     else -> false
                 }
             }
+            btnBuyBall.setOnClickListener {
+                val position = bindingAdapterPosition
+                if (position == RecyclerView.NO_POSITION) return@setOnClickListener
+                onBuyBallClicked(items[position])
+            }
         }
 
         fun bind(item: CatchPreset, position: Int) {
@@ -200,6 +209,23 @@ class CatchPresetEditAdapter(
             }
 
             bindingNow = false
+
+            val canBuyThisBall = when (item.ballId) {
+                CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC,
+                "poke_ball",
+                "great_ball",
+                "ultra_ball" -> true
+                else -> false
+            }
+
+            btnBuyBall.visibility = if (canBuyThisBall) View.VISIBLE else View.GONE
         }
+
+    }
+    fun setAllEnabled(enabled: Boolean) {
+        for (i in items.indices) {
+            items[i] = items[i].copy(enabled = enabled)
+        }
+        notifyDataSetChanged()
     }
 }

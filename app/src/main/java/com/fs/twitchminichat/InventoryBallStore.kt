@@ -18,6 +18,8 @@ object InventoryBallStore {
     private fun realKey(profileId: String) = "real_$profileId"
     private fun optimisticKey(profileId: String) = "optimistic_$profileId"
 
+    private fun boughtKey(profileId: String) = "bought_$profileId"
+
     fun saveRealSnapshot(
         context: Context,
         profileId: String,
@@ -37,6 +39,7 @@ object InventoryBallStore {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             putString(realKey(profileId), array.toString())
             remove(optimisticKey(profileId))
+            remove(boughtKey(profileId))
         }
     }
 
@@ -80,15 +83,75 @@ object InventoryBallStore {
 
         if (real.isEmpty()) return emptyMap()
 
-        val optimistic = loadOptimisticUsage(context, profileId)
+        val optimisticUsed = loadOptimisticUsage(context, profileId)
+        val optimisticBought = loadOptimisticBought(context, profileId)
+
         val out = LinkedHashMap<String, Int>()
 
         for ((ballId, realCount) in real) {
-            val used = optimistic[ballId] ?: 0
-            out[ballId] = (realCount - used).coerceAtLeast(0)
+            val used = optimisticUsed[ballId] ?: 0
+            val bought = optimisticBought[ballId] ?: 0
+            out[ballId] = (realCount - used + bought).coerceAtLeast(0)
+        }
+
+        for ((ballId, bought) in optimisticBought) {
+            if (!out.containsKey(ballId) && bought > 0) {
+                out[ballId] = bought
+            }
         }
 
         return out
+    }
+
+    fun noteBallBought(
+        context: Context,
+        profileId: String,
+        ballId: String,
+        quantity: Int
+    ) {
+        if (quantity <= 0) return
+
+        val bought = loadOptimisticBought(context, profileId).toMutableMap()
+        bought[ballId] = (bought[ballId] ?: 0) + quantity
+        saveOptimisticBought(context, profileId, bought)
+    }
+
+    private fun loadOptimisticBought(
+        context: Context,
+        profileId: String
+    ): Map<String, Int> {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(boughtKey(profileId), null)
+            ?: return emptyMap()
+
+        val obj = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyMap()
+        val out = LinkedHashMap<String, Int>()
+
+        val keys = obj.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val value = obj.optInt(key, -1)
+            if (key.isNotBlank() && value >= 0) {
+                out[key] = value
+            }
+        }
+
+        return out
+    }
+
+    private fun saveOptimisticBought(
+        context: Context,
+        profileId: String,
+        bought: Map<String, Int>
+    ) {
+        val obj = JSONObject()
+        bought.forEach { (ballId, count) ->
+            obj.put(ballId, count)
+        }
+
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString(boughtKey(profileId), obj.toString())
+        }
     }
 
     fun noteBallUsed(
