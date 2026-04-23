@@ -43,8 +43,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".CatchPresetSettingsActivity" />
-
         <activity android:name=".SafetyPrivacyActivity" />
         <activity android:name=".BlockedUsersActivity" />
         <activity android:name=".PolicyPageActivity" />

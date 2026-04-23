@@ -131,4 +131,10 @@
 
     <string name="remove_channel">Remove channel</string>
 
+    <string name="buddy_unknown">Buddy unknown</string>
+    <string name="buddy_request_sent">Buddy info requested</string>
+    <string name="friend_ball_buddy_subtitle">Buddy: %1$s (%2$s)</string>
+    <string name="friend_ball_buddy_subtitle_name_only">Buddy: %1$s</string>
+    <string name="friend_ball_buddy_subtitle_level">Buddy: %1$s (Lvl %2$d)</string>
+
 </resources>

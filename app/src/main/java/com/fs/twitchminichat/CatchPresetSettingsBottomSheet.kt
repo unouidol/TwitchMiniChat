@@ -2,6 +2,7 @@ package com.fs.twitchminichat
 
 import android.os.Bundle
 import android.text.InputType
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -26,24 +27,6 @@ class CatchPresetSettingsBottomSheet :
         ): Boolean
     }
 
-    companion object {
-        private const val ARG_PROFILE_ID = "arg_profile_id"
-
-        fun newInstance(profileId: String?): CatchPresetSettingsBottomSheet {
-            return CatchPresetSettingsBottomSheet().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PROFILE_ID, profileId)
-                }
-            }
-        }
-    }
-
-    private val currentProfileId: String
-        get() = arguments?.getString(ARG_PROFILE_ID).orEmpty().trim().lowercase()
-
-    private val host: Host?
-        get() = parentFragment as? Host
-
     private lateinit var recyclerPresets: RecyclerView
     private lateinit var btnAddPreset: Button
     private lateinit var btnSavePresets: Button
@@ -52,8 +35,23 @@ class CatchPresetSettingsBottomSheet :
     private lateinit var adapter: CatchPresetEditAdapter
     private lateinit var itemTouchHelper: ItemTouchHelper
 
+    private val currentProfileId: String by lazy {
+        requireArguments().getString(ARG_PROFILE_ID).orEmpty().trim().lowercase()
+    }
+
+    private val host: Host?
+        get() = parentFragment as? Host
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        Log.d(
+            "CATCH_SHEET",
+            "onViewCreated sheet=${System.identityHashCode(this)} " +
+                    "parentFragment=${parentFragment?.let { System.identityHashCode(it) }} " +
+                    "hostReady=${host != null} " +
+                    "profileId=$currentProfileId"
+        )
 
         recyclerPresets = view.findViewById(R.id.recyclerPresets)
         btnAddPreset = view.findViewById(R.id.btnAddPreset)
@@ -101,6 +99,7 @@ class CatchPresetSettingsBottomSheet :
             onRemoveClicked = { position ->
                 if (::adapter.isInitialized) {
                     adapter.removeAt(position)
+                    refreshToggleAllState()
                 }
             },
             onStartDragRequested = { viewHolder ->
@@ -116,7 +115,7 @@ class CatchPresetSettingsBottomSheet :
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
-                    showBuyBallDialogFromSheet(preset)
+                    showBuyBallDialogFromSettings(preset)
                 }
             }
         )
@@ -160,9 +159,7 @@ class CatchPresetSettingsBottomSheet :
 
         itemTouchHelper.attachToRecyclerView(recyclerPresets)
 
-        checkEnableAllPresets.isChecked =
-            adapter.currentItems().isNotEmpty() &&
-                    adapter.currentItems().all { it.enabled }
+        refreshToggleAllState()
     }
 
     private fun setupButtons() {
@@ -188,6 +185,7 @@ class CatchPresetSettingsBottomSheet :
             val newPreset = CatchPresetStore.newEmptyPreset(adapter.itemCount)
             adapter.addPreset(newPreset)
             recyclerPresets.smoothScrollToPosition(adapter.itemCount - 1)
+            refreshToggleAllState()
         }
 
         btnSavePresets.setOnClickListener {
@@ -201,41 +199,28 @@ class CatchPresetSettingsBottomSheet :
         }
     }
 
-    private fun canBuyFromPreset(preset: CatchPreset): Boolean {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC,
-            "poke_ball",
-            "great_ball",
-            "ultra_ball" -> true
-            else -> false
+    private fun refreshToggleAllState() {
+        if (!::adapter.isInitialized || !::checkEnableAllPresets.isInitialized) return
+
+        checkEnableAllPresets.setOnCheckedChangeListener(null)
+
+        checkEnableAllPresets.isChecked =
+            adapter.currentItems().isNotEmpty() &&
+                    adapter.currentItems().all { it.enabled }
+
+        checkEnableAllPresets.setOnCheckedChangeListener { _, isChecked ->
+            if (::adapter.isInitialized) {
+                adapter.setAllEnabled(isChecked)
+            }
         }
     }
 
-    private fun resolveShopBallNameForPreset(preset: CatchPreset): String? {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC,
-            "poke_ball" -> "poke ball"
-            "great_ball" -> "great ball"
-            "ultra_ball" -> "ultra ball"
-            else -> null
-        }
-    }
 
-    private fun resolveBoughtBallIdForPreset(preset: CatchPreset): String? {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC,
-            "poke_ball" -> "poke_ball"
-            "great_ball" -> "great_ball"
-            "ultra_ball" -> "ultra_ball"
-            else -> null
-        }
-    }
+        private fun showBuyBallDialogFromSettings(preset: CatchPreset) {
+        if (!CatchPresetBallHelper.canBuyFromPreset(preset)) return
 
-    private fun showBuyBallDialogFromSheet(preset: CatchPreset) {
-        if (!canBuyFromPreset(preset)) return
-
-        val shopBallName = resolveShopBallNameForPreset(preset) ?: return
-        val boughtBallId = resolveBoughtBallIdForPreset(preset) ?: return
+        val shopBallName = CatchPresetBallHelper.resolveShopBallNameForPreset(preset) ?: return
+        val boughtBallId = CatchPresetBallHelper.resolveBoughtBallIdForPreset(preset) ?: return
 
         val input = EditText(requireContext()).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
@@ -260,15 +245,23 @@ class CatchPresetSettingsBottomSheet :
                     return@setPositiveButton
                 }
 
-                val sent = host?.onCatchPresetBuyRequested(
+                val handled = host?.onCatchPresetBuyRequested(
                     profileId = currentProfileId,
                     ballId = boughtBallId,
                     shopBallName = shopBallName,
                     quantity = quantity,
                     label = preset.label
-                ) ?: false
+                ) == true
 
-                if (!sent) {
+                Log.d(
+                    "CATCH_SHEET",
+                    "buyClick sheet=${System.identityHashCode(this)} " +
+                            "parentFragment=${parentFragment?.let { System.identityHashCode(it) }} " +
+                            "handled=$handled profileId=$currentProfileId " +
+                            "ballId=$boughtBallId quantity=$quantity"
+                )
+
+                if (!handled) {
                     Toast.makeText(
                         requireContext(),
                         getString(R.string.connection_not_ready),
@@ -282,5 +275,18 @@ class CatchPresetSettingsBottomSheet :
                 )
             }
             .show()
+    }
+
+    companion object {
+        const val TAG = "catch_preset_settings_sheet"
+        private const val ARG_PROFILE_ID = "arg_profile_id"
+
+        fun newInstance(profileId: String?): CatchPresetSettingsBottomSheet {
+            return CatchPresetSettingsBottomSheet().apply {
+                arguments = Bundle().apply {
+                    putString(ARG_PROFILE_ID, profileId)
+                }
+            }
+        }
     }
 }

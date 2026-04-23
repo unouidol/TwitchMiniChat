@@ -64,7 +64,10 @@ import androidx.recyclerview.widget.RecyclerView
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
 
+
+
 class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottomSheet.Host {
+
 
     private var cfg: AccountConfig? = null
     private var accountId: String = ""
@@ -80,6 +83,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private var suppressComposerRestore = false
     private var composerTextVersion = 0L
+
+    private var pendingBuddyUsername: String? = null
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -116,6 +121,31 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val messageTimestampSec: Double
     )
 
+
+    private fun requestBallPurchase(
+        profileId: String,
+        preset: CatchPreset,
+        quantity: Int,
+        onSuccess: (() -> Unit)? = null
+    ): Boolean {
+        val shopBallName = CatchPresetBallHelper.resolveShopBallNameForPreset(preset) ?: return false
+        val boughtBallId = CatchPresetBallHelper.resolveBoughtBallIdForPreset(preset) ?: return false
+
+        val handled = onCatchPresetBuyRequested(
+            profileId = profileId,
+            ballId = boughtBallId,
+            shopBallName = shopBallName,
+            quantity = quantity,
+            label = preset.label
+        )
+
+        if (handled) {
+            onSuccess?.invoke()
+        }
+
+        return handled
+    }
+
     override fun onCatchPresetBuyRequested(
         profileId: String,
         ballId: String,
@@ -123,18 +153,50 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         quantity: Int,
         label: String
     ): Boolean {
+        val requestedProfileId = profileId.trim().lowercase()
         val activeProfileId = currentProfileId().trim().lowercase()
-        if (activeProfileId.isBlank()) return false
-        if (activeProfileId != profileId.trim().lowercase()) return false
-        if (quantity <= 0) return false
+
+        Log.d(
+            "CHAT_BUY",
+            "buy host fragment=${System.identityHashCode(this)} " +
+                    "activeProfileId=$activeProfileId " +
+                    "requestProfileId=$requestedProfileId " +
+                    "ballId=$ballId " +
+                    "shopBallName=$shopBallName " +
+                    "quantity=$quantity " +
+                    "sendReady=$sendReady " +
+                    "sendClientNull=${sendClient == null} " +
+                    "sendClientId=${sendClient?.let { System.identityHashCode(it) }}"
+        )
+
+        if (activeProfileId.isBlank()) {
+            Log.w("CHAT_BUY", "reject: active profile blank")
+            return false
+        }
+
+        if (activeProfileId != requestedProfileId) {
+            Log.w(
+                "CHAT_BUY",
+                "reject: profile mismatch active=$activeProfileId requested=$requestedProfileId"
+            )
+            return false
+        }
+
+        if (quantity <= 0) {
+            Log.w("CHAT_BUY", "reject: invalid quantity=$quantity")
+            return false
+        }
 
         val command = "!pokeshop $shopBallName $quantity"
         val sent = sendRawChatCommand(command)
-        if (!sent) return false
+        if (!sent) {
+            Log.w("CHAT_BUY", "reject: sendRawChatCommand returned false")
+            return false
+        }
 
         InventoryBallStore.noteBallBought(
             context = requireContext(),
-            profileId = profileId,
+            profileId = requestedProfileId,
             ballId = ballId,
             quantity = quantity
         )
@@ -145,6 +207,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             Toast.LENGTH_SHORT
         ).show()
 
+        Log.d("CHAT_BUY", "buy handled successfully")
         return true
     }
 
@@ -324,6 +387,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var pendingReplyUser: String? = null
     private var pendingReplyBody: String? = null
 
+    private var pendingBuddyProfileId: String? = null
+    private var pendingBuddyRequestedAtMs: Long = 0L
+
     private var streamSession: GeckoSession? = null
     private var streamEnabled = false
     private var streamMuted = true
@@ -356,81 +422,32 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var editChannel: AutoCompleteTextView
     private lateinit var channelsAdapter: ArrayAdapter<String>
 
-
-    private val catchPresetActionListener = object : CatchPresetActionBus.Listener {
-        override fun onBuyBallRequested(
-            profileId: String,
-            ballId: String,
-            shopBallName: String,
-            quantity: Int,
-            label: String
-        ): Boolean {
-            val activeProfileId = currentProfileId().trim().lowercase()
-
-            Log.d(
-                "CATCH_BUY",
-                "buy request received activeProfileId=$activeProfileId requestProfileId=${profileId.trim().lowercase()} " +
-                        "ballId=$ballId shopBallName=$shopBallName quantity=$quantity sendReady=$sendReady sendClientNull=${sendClient == null}"
-            )
-
-            if (activeProfileId.isBlank()) {
-                Log.w("CATCH_BUY", "reject: activeProfileId blank")
-                return false
-            }
-
-            if (activeProfileId != profileId.trim().lowercase()) {
-                Log.w(
-                    "CATCH_BUY",
-                    "reject: profile mismatch active=$activeProfileId requested=${profileId.trim().lowercase()}"
-                )
-                return false
-            }
-
-            if (quantity <= 0) {
-                Log.w("CATCH_BUY", "reject: invalid quantity=$quantity")
-                return false
-            }
-
-            val command = "!pokeshop $shopBallName $quantity"
-            Log.d("CATCH_BUY", "sending command=$command")
-
-            val sent = sendRawChatCommand(command)
-            if (!sent) {
-                Log.w("CATCH_BUY", "reject: sendRawChatCommand returned false")
-                return false
-            }
-
-            InventoryBallStore.noteBallBought(
-                context = requireContext(),
-                profileId = profileId,
-                ballId = ballId,
-                quantity = quantity
-            )
-
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.buy_ball_request_sent, quantity, label),
-                Toast.LENGTH_SHORT
-            ).show()
-
-            Log.d("CATCH_BUY", "buy request handled successfully")
-            return true
-        }
-
-        override fun onBuddyInfoRequested(profileId: String): Boolean {
-            val activeProfileId = currentProfileId().trim().lowercase()
-            if (activeProfileId.isBlank()) return false
-            if (activeProfileId != profileId.trim().lowercase()) return false
-
-            return sendRawChatCommand("!pokebuddy")
-        }
-    }
-
     private fun handleFriendBallBuddyAction(preset: CatchPreset) {
         if (preset.ballId != "friend_ball") return
-        sendRawChatCommand("!pokebuddy")
+        requestBuddyInfo()
     }
 
+    private fun requestBuddyInfo(): Boolean {
+        val profileId = currentProfileId().trim().lowercase()
+        val username = cfg?.username?.trim()?.lowercase().orEmpty()
+
+        if (profileId.isBlank() || username.isBlank()) return false
+
+        val sent = sendRawChatCommand("!pokebuddy")
+        if (!sent) return false
+
+        pendingBuddyProfileId = profileId
+        pendingBuddyUsername = username
+        pendingBuddyRequestedAtMs = System.currentTimeMillis()
+
+        Toast.makeText(
+            requireContext(),
+            getString(R.string.buddy_request_sent),
+            Toast.LENGTH_SHORT
+        ).show()
+
+        return true
+    }
 
     private fun refreshChannelsDropdown() {
         if (!this::channelsAdapter.isInitialized) return
@@ -892,6 +909,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         channelHistory = ChannelHistoryStore(requireContext())
         cfg = AccountRepository(requireContext()).getById(accountId)
 
+        Log.d(
+            "CHAT_INSTANCE",
+            "onViewCreated fragment=${System.identityHashCode(this)} " +
+                    "accountId=$accountId " +
+                    "username=${cfg?.username.orEmpty()} " +
+                    "profile=${currentProfileId()}"
+        )
+
         textStatus = view.findViewById(R.id.textStatus)
         scrollChat = view.findViewById(R.id.scrollChat)
         chatContainer = view.findViewById(R.id.chatContainer)
@@ -910,7 +935,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
         btnCatchPresets = view.findViewById(R.id.btnCatchPresets)
-        CatchPresetActionBus.listener = catchPresetActionListener
+
 
         view.isFocusable = true
         view.isFocusableInTouchMode = true
@@ -1088,10 +1113,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
 
         btnCatchPresets.setOnLongClickListener {
-            CatchPresetSettingsActivity.start(
-                requireContext(),
-                currentProfileId().ifBlank { null }
-            )
+            CatchPresetSettingsBottomSheet
+                .newInstance(currentProfileId().ifBlank { null })
+                .show(childFragmentManager, CatchPresetSettingsBottomSheet.TAG)
             true
         }
 
@@ -1171,6 +1195,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         readClient = rc
         sendClient = sc
+        Log.d(
+            "CHAT_INSTANCE",
+            "openIrcClients fragment=${System.identityHashCode(this)} " +
+                    "sendClient=${System.identityHashCode(sc)} " +
+                    "profile=${currentProfileId()}"
+        )
         sendReady = false
 
         rc.connect(
@@ -1313,37 +1343,56 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun sendCurrentMessage() {
-        val client = sendClient ?: return
+        val text = editMessage.text?.toString().orEmpty()
+        sendMessageText(
+            message = text,
+            clearComposerOnSuccess = true,
+            allowPendingReply = true
+        )
+    }
+
+    private fun sendMessageText(
+        message: String,
+        clearComposerOnSuccess: Boolean,
+        allowPendingReply: Boolean
+    ): Boolean {
+        val client = sendClient ?: return false
         if (!sendReady) {
             appendSystemLine(getString(R.string.connection_not_ready))
-            return
+            return false
         }
 
-        val text = editMessage.text?.toString().orEmpty().trim()
-        if (text.isBlank()) return
+        val text = message.trim()
+        if (text.isBlank()) return false
 
         val replyParentId = pendingReplyMessageId
-        if (!replyParentId.isNullOrBlank()) {
+        if (allowPendingReply && !replyParentId.isNullOrBlank()) {
             client.sendReply(replyParentId, text)
             clearPendingReply()
         } else {
+            if (!replyParentId.isNullOrBlank()) {
+                clearPendingReply()
+            }
             client.sendMessage(text)
         }
 
-        suppressComposerRestore = true
+        if (clearComposerOnSuccess) {
+            suppressComposerRestore = true
 
-        editMessage.text?.clear()
-        editMessage.clearFocus()
+            editMessage.text?.clear()
+            editMessage.clearFocus()
 
-        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
+
+            editMessage.postDelayed({
+                suppressComposerRestore = false
+            }, 400)
+        }
 
         stickToBottom = true
         scrollToBottom()
-
-        editMessage.postDelayed({
-            suppressComposerRestore = false
-        }, 400)
+        return true
     }
 
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
@@ -1808,6 +1857,56 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
     }
 
+    private fun maybeCaptureBuddyInfoFromChat(user: String, message: String) {
+        val profileId = pendingBuddyProfileId ?: return
+        val expectedUsername = pendingBuddyUsername ?: return
+        val now = System.currentTimeMillis()
+
+        if (now - pendingBuddyRequestedAtMs > 15_000L) {
+            pendingBuddyProfileId = null
+            pendingBuddyUsername = null
+            pendingBuddyRequestedAtMs = 0L
+            return
+        }
+
+        val normalizedUser = user.trim().lowercase()
+        if (normalizedUser != "pokemoncommunitygame") return
+
+        val parsed = BuddyMessageParser.parse(message)
+        if (parsed == null) {
+            Log.d("BUDDY_PARSE", "unparsed buddy response: $message")
+            return
+        }
+
+        if (parsed.addressedUsername != expectedUsername) {
+            Log.d(
+                "BUDDY_PARSE",
+                "ignored buddy response for other user expected=$expectedUsername actual=${parsed.addressedUsername}"
+            )
+            return
+        }
+
+        val info = BuddyInfo(
+            pokemonName = parsed.pokemonName,
+            level = parsed.level,
+            avgIv = parsed.avgIv,
+            primaryType = null,
+            secondaryType = null,
+            updatedAtMs = System.currentTimeMillis()
+        )
+
+        BuddyInfoStore.save(requireContext(), profileId, info)
+
+        pendingBuddyProfileId = null
+        pendingBuddyUsername = null
+        pendingBuddyRequestedAtMs = 0L
+
+        Log.d(
+            "BUDDY_PARSE",
+            "saved profileId=$profileId username=$expectedUsername pokemon=${info.pokemonName} level=${info.level} avgIv=${info.avgIv}"
+        )
+    }
+
     private fun appendChatLine(
         user: String,
         message: String,
@@ -1831,6 +1930,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val resolvedMessageTimestampSec = messageTimestampSec
             ?: (System.currentTimeMillis().toDouble() / 1000.0)
+
+        maybeCaptureBuddyInfoFromChat(user, message)
 
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip hidden user=$user")
@@ -1981,7 +2082,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 emptyMap()
             }
 
-            adapter?.updateItems(buildQuickCatchRows(presets, refreshedCounts))
+            adapter?.updateItems(buildQuickCatchRows(presets, refreshedCounts, profileId))
         }
 
         val dialog = AlertDialog.Builder(context)
@@ -1989,7 +2090,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             .create()
 
         adapter = QuickCatchPresetMenuAdapter(
-            items = buildQuickCatchRows(presets, countsByBallId),
+            items = buildQuickCatchRows(presets, countsByBallId, profileId),
             onPresetClicked = { preset ->
                 sendPresetCommand(preset, profileId)
                 dialog.dismiss()
@@ -2033,82 +2134,61 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private fun canBuyForPreset(preset: CatchPreset): Boolean {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC,
-            "poke_ball",
-            "great_ball",
-            "ultra_ball" -> true
-
-            else -> false
-        }
-    }
-
-    private fun resolveShopBallNameForPreset(preset: CatchPreset): String? {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC,
-            "poke_ball" -> "poke ball"
-
-            "great_ball" -> "great ball"
-            "ultra_ball" -> "ultra ball"
-            else -> null
-        }
-    }
-
-    private fun resolveBoughtBallIdForPreset(preset: CatchPreset): String? {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC,
-            "poke_ball" -> "poke_ball"
-
-            "great_ball" -> "great_ball"
-            "ultra_ball" -> "ultra_ball"
-            else -> null
-        }
-    }
 
     private fun buildQuickCatchRows(
         presets: List<CatchPreset>,
-        countsByBallId: Map<String, Int>
+        countsByBallId: Map<String, Int>,
+        profileId: String?
     ): List<QuickCatchPresetRow> {
         return presets.map { preset ->
             val count = resolveDisplayedCountForPreset(preset, countsByBallId)
-
+            Log.d(
+                "QUICK_PRESET",
+                "label=${preset.label} command=${preset.command} ballId=${preset.ballId} showBuddy=${preset.ballId == "friend_ball"}"
+            )
             QuickCatchPresetRow(
                 preset = preset,
                 label = preset.label,
                 countText = count?.toString() ?: "-",
-                subtitle = null,
-                showBuyButton = canBuyForPreset(preset),
+                subtitle = if (preset.ballId == "friend_ball") {
+                    buildFriendBallSubtitle(profileId)
+                } else {
+                    null
+                },
+                showBuyButton = CatchPresetBallHelper.canBuyFromPreset(preset),
                 showBuddyButton = preset.ballId == "friend_ball"
+
+            )
+
+        }
+
+    }
+
+    private fun buildFriendBallSubtitle(profileId: String?): String? {
+        if (profileId.isNullOrBlank()) return null
+
+        val info = BuddyInfoStore.load(requireContext(), profileId)
+            ?: return getString(R.string.buddy_unknown)
+
+        return when {
+            info.level != null -> getString(
+                R.string.friend_ball_buddy_subtitle_level,
+                info.pokemonName,
+                info.level
+            )
+            else -> getString(
+                R.string.friend_ball_buddy_subtitle_name_only,
+                info.pokemonName
             )
         }
     }
 
     private fun sendRawChatCommand(command: String): Boolean {
-        val client = sendClient
-        if (client == null) {
-            Log.w("CATCH_BUY", "sendRawChatCommand failed: sendClient is null command=$command")
-            return false
-        }
-
-        if (!sendReady) {
-            Log.w("CATCH_BUY", "sendRawChatCommand failed: sendReady=false command=$command")
-            appendSystemLine(getString(R.string.connection_not_ready))
-            return false
-        }
-
-        Log.d("CATCH_BUY", "sendRawChatCommand sending command=$command")
-
-        clearPendingReply()
-        client.sendMessage(command)
-
-        val imm =
-            requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
-
-        stickToBottom = true
-        scrollToBottom()
-        return true
+        return sendMessageText(
+            message = command,
+            clearComposerOnSuccess = false,
+            allowPendingReply = false
+        )
     }
 
     private fun showBuyBallQuantityDialog(
@@ -2116,8 +2196,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         preset: CatchPreset,
         onInventoryChanged: () -> Unit
     ) {
-        val shopBallName = resolveShopBallNameForPreset(preset) ?: return
-        val boughtBallId = resolveBoughtBallIdForPreset(preset) ?: return
+        val shopBallName = CatchPresetBallHelper.resolveShopBallNameForPreset(preset) ?: return
+        val boughtBallId = CatchPresetBallHelper.resolveBoughtBallIdForPreset(preset) ?: return
 
         val input = EditText(requireContext()).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
@@ -2144,24 +2224,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     return@setPositiveButton
                 }
 
-                val command = "!pokeshop $shopBallName $quantity"
-                val sent = sendRawChatCommand(command)
-                if (!sent) return@setPositiveButton
-
-                InventoryBallStore.noteBallBought(
-                    context = requireContext(),
+                val handled = requestBallPurchase(
                     profileId = profileId,
-                    ballId = boughtBallId,
-                    quantity = quantity
+                    preset = preset,
+                    quantity = quantity,
+                    onSuccess = onInventoryChanged
                 )
 
-                Toast.makeText(
-                    requireContext(),
-                    getString(R.string.buy_ball_request_sent, quantity, preset.label),
-                    Toast.LENGTH_SHORT
-                ).show()
-
-                onInventoryChanged()
+                if (!handled) return@setPositiveButton
             }
             .show()
     }
