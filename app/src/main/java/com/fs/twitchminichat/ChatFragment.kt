@@ -1886,12 +1886,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
+        val dexEntry = PokemonTypeDex.findByPokemonName(requireContext(), parsed.pokemonName)
+
         val info = BuddyInfo(
             pokemonName = parsed.pokemonName,
             level = parsed.level,
             avgIv = parsed.avgIv,
-            primaryType = null,
-            secondaryType = null,
+            primaryType = dexEntry?.type1,
+            secondaryType = dexEntry?.type2,
             updatedAtMs = System.currentTimeMillis()
         )
 
@@ -1903,7 +1905,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         Log.d(
             "BUDDY_PARSE",
-            "saved profileId=$profileId username=$expectedUsername pokemon=${info.pokemonName} level=${info.level} avgIv=${info.avgIv}"
+            "saved profileId=$profileId username=$expectedUsername " +
+                    "pokemon=${info.pokemonName} level=${info.level} avgIv=${info.avgIv} " +
+                    "type1=${info.primaryType} type2=${info.secondaryType}"
         )
     }
 
@@ -2170,12 +2174,36 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val info = BuddyInfoStore.load(requireContext(), profileId)
             ?: return getString(R.string.buddy_unknown)
 
+        val typeText = when {
+            !info.primaryType.isNullOrBlank() && !info.secondaryType.isNullOrBlank() ->
+                "${info.primaryType} / ${info.secondaryType}"
+
+            !info.primaryType.isNullOrBlank() ->
+                info.primaryType
+
+            else -> null
+        }
+
         return when {
+            info.level != null && typeText != null -> getString(
+                R.string.friend_ball_buddy_subtitle_level_types,
+                info.pokemonName,
+                info.level,
+                typeText
+            )
+
             info.level != null -> getString(
                 R.string.friend_ball_buddy_subtitle_level,
                 info.pokemonName,
                 info.level
             )
+
+            typeText != null -> getString(
+                R.string.friend_ball_buddy_subtitle_name_types,
+                info.pokemonName,
+                typeText
+            )
+
             else -> getString(
                 R.string.friend_ball_buddy_subtitle_name_only,
                 info.pokemonName

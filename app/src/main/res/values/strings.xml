@@ -137,4 +137,7 @@
     <string name="friend_ball_buddy_subtitle_name_only">Buddy: %1$s</string>
     <string name="friend_ball_buddy_subtitle_level">Buddy: %1$s (Lvl %2$d)</string>
 
+    <string name="friend_ball_buddy_subtitle_name_types">Buddy: %1$s (%2$s)</string>
+    <string name="friend_ball_buddy_subtitle_level_types">Buddy: %1$s (Lvl %2$d • %3$s)</string>
+
 </resources>
