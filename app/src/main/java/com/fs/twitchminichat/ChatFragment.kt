@@ -86,6 +86,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private var pendingBuddyUsername: String? = null
 
+    private var quickCatchDialog: AlertDialog? = null
+    private var quickCatchAdapter: QuickCatchPresetMenuAdapter? = null
+    private var quickCatchProfileId: String? = null
+
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
     private lateinit var chatContainer: LinearLayout
@@ -144,6 +148,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
 
         return handled
+    }
+
+    private val quickCatchRefreshRunnable = object : Runnable {
+        override fun run() {
+            refreshOpenQuickCatchMenuIfNeeded()
+
+            val dialog = quickCatchDialog
+            if (dialog != null && dialog.isShowing && view != null) {
+                view?.postDelayed(this, 1000L)
+            }
+        }
     }
 
     override fun onCatchPresetBuyRequested(
@@ -412,6 +427,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var historyLoaded = false
     private var lastPausedAtMs: Long = 0L
 
+    private var lastBallRecoLogSignature: String? = null
+
     private val botcolors = mapOf(
         "elbierro" to 0xFFFFD700.toInt(),
         "pokemoncommunitygame" to 0xFFFF5555.toInt()
@@ -425,6 +442,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun handleFriendBallBuddyAction(preset: CatchPreset) {
         if (preset.ballId != "friend_ball") return
         requestBuddyInfo()
+    }
+
+    private fun resolveDexEntryForSpawnName(rawName: String): PokemonTypeEntry? {
+        return PokemonTypeDex.findByPokemonName(requireContext(), rawName)
     }
 
     private fun requestBuddyInfo(): Boolean {
@@ -447,6 +468,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         ).show()
 
         return true
+    }
+
+    private fun startQuickCatchAutoRefresh() {
+        view?.removeCallbacks(quickCatchRefreshRunnable)
+        view?.post(quickCatchRefreshRunnable)
+    }
+
+    private fun stopQuickCatchAutoRefresh() {
+        view?.removeCallbacks(quickCatchRefreshRunnable)
     }
 
     private fun refreshChannelsDropdown() {
@@ -1886,18 +1916,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val dexEntry = PokemonTypeDex.findByPokemonName(requireContext(), parsed.pokemonName)
+        val dexEntry = PokemonTypeDex.findByPokemonName(requireContext(), parsed.rawName)
 
         val info = BuddyInfo(
-            pokemonName = parsed.pokemonName,
+            rawName = parsed.rawName,
             level = parsed.level,
             avgIv = parsed.avgIv,
             primaryType = dexEntry?.type1,
             secondaryType = dexEntry?.type2,
+            isKnownPokemon = dexEntry != null,
             updatedAtMs = System.currentTimeMillis()
         )
 
         BuddyInfoStore.save(requireContext(), profileId, info)
+        refreshOpenQuickCatchMenuIfNeeded()
 
         pendingBuddyProfileId = null
         pendingBuddyUsername = null
@@ -1906,9 +1938,82 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         Log.d(
             "BUDDY_PARSE",
             "saved profileId=$profileId username=$expectedUsername " +
-                    "pokemon=${info.pokemonName} level=${info.level} avgIv=${info.avgIv} " +
-                    "type1=${info.primaryType} type2=${info.secondaryType}"
+                    "rawName=${info.rawName} level=${info.level} avgIv=${info.avgIv} " +
+                    "knownPokemon=${info.isKnownPokemon} type1=${info.primaryType} type2=${info.secondaryType}"
         )
+    }
+
+    private fun maybeCaptureSpawnInfoFromChat(
+        user: String,
+        message: String,
+        messageTimestampSec: Double?
+    ) {
+        val normalizedUser = user.trim().lowercase()
+        if (normalizedUser != "pokemoncommunitygame") return
+
+        Log.d("SPAWN_PARSE", "candidate message=$message")
+
+        val parsed = SpawnMessageParser.parse(message)
+        if (parsed == null) {
+            Log.d("SPAWN_PARSE", "not a spawn message")
+            return
+        }
+
+        Log.d("SPAWN_PARSE", "parsed rawName=${parsed.rawName}")
+
+        val dexEntry = resolveDexEntryForSpawnName(parsed.rawName)
+
+        val seenAtMs = when {
+            messageTimestampSec != null && messageTimestampSec > 0.0 ->
+                (messageTimestampSec * 1000.0).toLong()
+            else ->
+                System.currentTimeMillis()
+        }
+
+        val newSnapshot = SpawnSnapshot(
+            rawName = parsed.rawName,
+            dexKey = dexEntry?.key,
+            displayName = dexEntry?.pcgName ?: parsed.rawName,
+            type1 = dexEntry?.type1,
+            type2 = dexEntry?.type2,
+            weightKg = dexEntry?.weightKg,
+            baseSpeed = dexEntry?.baseSpeed,
+            baseHp = dexEntry?.baseHp,
+            evolvesTwice = dexEntry?.evolvesTwice,
+            seenAtMs = seenAtMs,
+            isAlreadyCaught = null
+        )
+
+        val channel = currentChannelNormalized()
+        val existing = CurrentSpawnStore.loadForChannel(requireContext(), channel)
+
+        if (existing != null && existing.seenAtMs > newSnapshot.seenAtMs) {
+            Log.d(
+                "SPAWN_PARSE",
+                "ignored older spawn rawName=${newSnapshot.rawName} existing=${existing.rawName} " +
+                        "existingSeenAtMs=${existing.seenAtMs} newSeenAtMs=${newSnapshot.seenAtMs}"
+            )
+            return
+        }
+
+        CurrentSpawnStore.saveForChannel(
+            context = requireContext(),
+            channel = channel,
+            spawn = newSnapshot
+        )
+
+        val reloaded = CurrentSpawnStore.loadForChannel(requireContext(), channel)
+
+        Log.d(
+            "SPAWN_PARSE",
+            "saved channel=$channel rawName=${newSnapshot.rawName} dexKey=${newSnapshot.dexKey} " +
+                    "type1=${newSnapshot.type1} type2=${newSnapshot.type2} " +
+                    "weightKg=${newSnapshot.weightKg} baseSpeed=${newSnapshot.baseSpeed} " +
+                    "baseHp=${newSnapshot.baseHp} evolvesTwice=${newSnapshot.evolvesTwice} " +
+                    "seenAtMs=${newSnapshot.seenAtMs} reloadOk=${reloaded != null} reloadName=${reloaded?.rawName}"
+        )
+
+        refreshOpenQuickCatchMenuIfNeeded()
     }
 
     private fun appendChatLine(
@@ -1936,6 +2041,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             ?: (System.currentTimeMillis().toDouble() / 1000.0)
 
         maybeCaptureBuddyInfoFromChat(user, message)
+        maybeCaptureSpawnInfoFromChat(
+            user = user,
+            message = message,
+            messageTimestampSec = messageTimestampSec
+        )
 
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip hidden user=$user")
@@ -2055,7 +2165,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private fun showCatchPresetsMenu() {
         val context = requireContext()
-        val presets = CatchPresetStore.loadQuickMenuPresets(context)
+
+        val profileId = currentProfileId().ifBlank { null }
+        val rawPresets = candidateQuickPresetsForCurrentContext(profileId)
+        val recommendations = recommendQuickPresetsForCurrentContext(rawPresets, profileId)
+        val visibleRecommendations = visibleQuickRecommendations(recommendations)
+
+        val presets = visibleRecommendations.map { it.preset }
 
         if (presets.isEmpty()) {
             Toast.makeText(
@@ -2066,7 +2182,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val profileId = currentProfileId().ifBlank { null }
         val countsByBallId = if (profileId != null) {
             InventoryBallStore.getDisplayCounts(context, profileId)
         } else {
@@ -2077,24 +2192,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerQuickCatchPresets)
         recycler.layoutManager = LinearLayoutManager(context)
 
-        var adapter: QuickCatchPresetMenuAdapter? = null
-
-        fun refreshRows() {
-            val refreshedCounts = if (profileId != null) {
-                InventoryBallStore.getDisplayCounts(context, profileId)
-            } else {
-                emptyMap()
-            }
-
-            adapter?.updateItems(buildQuickCatchRows(presets, refreshedCounts, profileId))
-        }
-
         val dialog = AlertDialog.Builder(context)
             .setView(dialogView)
             .create()
 
-        adapter = QuickCatchPresetMenuAdapter(
-            items = buildQuickCatchRows(presets, countsByBallId, profileId),
+        val adapter = QuickCatchPresetMenuAdapter(
+            items = buildQuickCatchRows(
+                presets = presets,
+                countsByBallId = countsByBallId,
+                profileId = profileId,
+                recommendations = visibleRecommendations
+            ),
             onPresetClicked = { preset ->
                 sendPresetCommand(preset, profileId)
                 dialog.dismiss()
@@ -2106,7 +2214,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     profileId = profileId,
                     preset = preset,
                     onInventoryChanged = {
-                        refreshRows()
+                        refreshOpenQuickCatchMenuIfNeeded()
                     }
                 )
             },
@@ -2116,7 +2224,49 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         recycler.adapter = adapter
+
+        quickCatchDialog = dialog
+        quickCatchAdapter = adapter
+        quickCatchProfileId = profileId
+
+        dialog.setOnDismissListener {
+            stopQuickCatchAutoRefresh()
+            quickCatchDialog = null
+            quickCatchAdapter = null
+            quickCatchProfileId = null
+        }
+
         dialog.show()
+        startQuickCatchAutoRefresh()
+    }
+
+    private fun refreshOpenQuickCatchMenuIfNeeded() {
+        val dialog = quickCatchDialog ?: return
+        if (!dialog.isShowing) return
+
+        val context = context ?: return
+        val profileId = quickCatchProfileId
+
+        val rawPresets = candidateQuickPresetsForCurrentContext(profileId)
+        val recommendations = recommendQuickPresetsForCurrentContext(rawPresets, profileId)
+        val visibleRecommendations = visibleQuickRecommendations(recommendations)
+
+        val presets = visibleRecommendations.map { it.preset }
+
+        val countsByBallId = if (!profileId.isNullOrBlank()) {
+            InventoryBallStore.getDisplayCounts(context, profileId)
+        } else {
+            emptyMap()
+        }
+
+        quickCatchAdapter?.updateItems(
+            buildQuickCatchRows(
+                presets = presets,
+                countsByBallId = countsByBallId,
+                profileId = profileId,
+                recommendations = visibleRecommendations
+            )
+        )
     }
 
     private fun resolveDisplayedCountForPreset(
@@ -2142,30 +2292,35 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun buildQuickCatchRows(
         presets: List<CatchPreset>,
         countsByBallId: Map<String, Int>,
-        profileId: String?
+        profileId: String?,
+        recommendations: List<CatchBallRecommendation>
     ): List<QuickCatchPresetRow> {
+        val recommendationByPresetId = recommendations.associateBy { it.preset.id }
+
         return presets.map { preset ->
             val count = resolveDisplayedCountForPreset(preset, countsByBallId)
-            Log.d(
-                "QUICK_PRESET",
-                "label=${preset.label} command=${preset.command} ballId=${preset.ballId} showBuddy=${preset.ballId == "friend_ball"}"
-            )
+            val recommendation = recommendationByPresetId[preset.id]
+
+            val subtitle = when {
+                CatchPresetBallHelper.isFriendBallPreset(preset) ->
+                    buildFriendBallSubtitle(profileId)
+
+                else ->
+                    CatchBallReasonFormatter.format(
+                        context = requireContext(),
+                        reasonKeys = recommendation?.reasonKeys.orEmpty()
+                    )
+            }
+
             QuickCatchPresetRow(
                 preset = preset,
                 label = preset.label,
                 countText = count?.toString() ?: "-",
-                subtitle = if (preset.ballId == "friend_ball") {
-                    buildFriendBallSubtitle(profileId)
-                } else {
-                    null
-                },
+                subtitle = subtitle,
                 showBuyButton = CatchPresetBallHelper.canBuyFromPreset(preset),
-                showBuddyButton = preset.ballId == "friend_ball"
-
+                showBuddyButton = CatchPresetBallHelper.isFriendBallPreset(preset)
             )
-
         }
-
     }
 
     private fun buildFriendBallSubtitle(profileId: String?): String? {
@@ -2187,26 +2342,26 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return when {
             info.level != null && typeText != null -> getString(
                 R.string.friend_ball_buddy_subtitle_level_types,
-                info.pokemonName,
+                info.rawName,
                 info.level,
                 typeText
             )
 
             info.level != null -> getString(
                 R.string.friend_ball_buddy_subtitle_level,
-                info.pokemonName,
+                info.rawName,
                 info.level
             )
 
             typeText != null -> getString(
                 R.string.friend_ball_buddy_subtitle_name_types,
-                info.pokemonName,
+                info.rawName,
                 typeText
             )
 
             else -> getString(
                 R.string.friend_ball_buddy_subtitle_name_only,
-                info.pokemonName
+                info.rawName
             )
         }
     }
@@ -2219,13 +2374,145 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
     }
 
+    private fun currentSpawnSnapshot(): SpawnSnapshot? {
+        return CurrentSpawnStore.loadForChannel(
+            requireContext(),
+            currentChannelNormalized()
+        )
+    }
+
+
+    private fun recommendQuickPresetsForCurrentContext(
+        presets: List<CatchPreset>,
+        profileId: String?
+    ): List<CatchBallRecommendation> {
+        val buddy = if (!profileId.isNullOrBlank()) {
+            BuddyInfoStore.load(requireContext(), profileId)
+        } else {
+            null
+        }
+
+        val spawn = currentSpawnSnapshot()
+        val spawnAgeSec = if (spawn != null) {
+            ((System.currentTimeMillis() - spawn.seenAtMs) / 1000L).toInt()
+        } else {
+            null
+        }
+
+        val recommendations = CatchBallRecommender.recommend(
+            presets = presets,
+            spawn = spawn,
+            buddy = buddy
+        )
+
+        val signature = buildString {
+            append("channel=").append(currentChannelNormalized())
+            append("|spawn=").append(spawn?.displayName)
+            append("|age=").append(spawnAgeSec)
+            append("|buddy=").append(buddy?.rawName)
+            append("|items=")
+            recommendations.forEach { r ->
+                append(r.preset.label)
+                    .append(":")
+                    .append(CatchPresetBallHelper.effectiveBallId(r.preset))
+                    .append(":")
+                    .append(r.score)
+                    .append(":")
+                    .append(r.reasonKeys.joinToString(","))
+                    .append(";")
+            }
+        }
+
+        if (signature != lastBallRecoLogSignature) {
+            lastBallRecoLogSignature = signature
+
+            Log.d(
+                "BALL_RECO",
+                "channel=${currentChannelNormalized()} spawn=${spawn?.displayName} ageSec=$spawnAgeSec " +
+                        "type1=${spawn?.type1} type2=${spawn?.type2} weightKg=${spawn?.weightKg} " +
+                        "speed=${spawn?.baseSpeed} hp=${spawn?.baseHp} evolvesTwice=${spawn?.evolvesTwice}"
+            )
+
+            for (r in recommendations) {
+                Log.d(
+                    "BALL_RECO",
+                    "label=${r.preset.label} ballId=${CatchPresetBallHelper.effectiveBallId(r.preset)} " +
+                            "score=${r.score} reasons=${r.reasonKeys}"
+                )
+            }
+        }
+
+        return recommendations
+    }
+
+    private fun visibleQuickRecommendations(
+        recommendations: List<CatchBallRecommendation>
+    ): List<CatchBallRecommendation> {
+        return recommendations.filter { recommendation ->
+            recommendation.score > 0 ||
+                    CatchPresetBallHelper.isCoreStandardPreset(recommendation.preset)
+        }.filterNot { recommendation ->
+            CatchPresetBallHelper.shouldHideFromQuickMenu(recommendation.preset)
+        }
+    }
+
+    private fun candidateQuickPresetsForCurrentContext(
+        profileId: String?
+    ): List<CatchPreset> {
+        val context = requireContext()
+
+        val savedPresets = CatchPresetStore.loadAll(context)
+        val savedByBallId = LinkedHashMap<String, CatchPreset>()
+
+        for (preset in savedPresets) {
+            val effectiveBallId = CatchPresetBallHelper.effectiveBallId(preset) ?: continue
+            if (!preset.enabled) continue
+            if (!savedByBallId.containsKey(effectiveBallId)) {
+                savedByBallId[effectiveBallId] = preset
+            }
+        }
+
+        val countsByBallId = if (!profileId.isNullOrBlank()) {
+            InventoryBallStore.getDisplayCounts(context, profileId)
+        } else {
+            emptyMap()
+        }
+
+        val candidateEntries = CatchBallCatalog.entries.filter { entry ->
+            entry.keepAlways || (countsByBallId[entry.ballId] ?: 0) > 0
+        }
+
+        val result = mutableListOf<CatchPreset>()
+
+        candidateEntries.forEachIndexed { index, entry ->
+            val preset = savedByBallId[entry.ballId]?.copy(
+                enabled = true,
+                ballId = entry.ballId
+            ) ?: CatchBallCatalog.createDefaultPreset(entry, index)
+
+            result += preset
+        }
+
+        Log.d("QUICK_SRC", "profileId=$profileId savedPresetCount=${savedPresets.size}")
+        Log.d("QUICK_SRC", "profileId=$profileId candidateEntryCount=${candidateEntries.size}")
+        Log.d("QUICK_SRC", "profileId=$profileId finalCandidateCount=${result.size}")
+
+        for (preset in result) {
+            Log.d(
+                "QUICK_SRC",
+                "candidate preset label=${preset.label} command=${preset.command} " +
+                        "ballId=${preset.ballId} effectiveBallId=${CatchPresetBallHelper.effectiveBallId(preset)} enabled=${preset.enabled}"
+            )
+        }
+
+        return result
+    }
+
     private fun showBuyBallQuantityDialog(
         profileId: String,
         preset: CatchPreset,
         onInventoryChanged: () -> Unit
     ) {
-        val shopBallName = CatchPresetBallHelper.resolveShopBallNameForPreset(preset) ?: return
-        val boughtBallId = CatchPresetBallHelper.resolveBoughtBallIdForPreset(preset) ?: return
 
         val input = EditText(requireContext()).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
@@ -2233,6 +2520,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             setText("1")
             setSelection(text.length)
         }
+
 
         AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.buy_ball_title, preset.label))

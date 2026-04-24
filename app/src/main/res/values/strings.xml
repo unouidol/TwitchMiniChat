@@ -139,5 +139,32 @@
 
     <string name="friend_ball_buddy_subtitle_name_types">Buddy: %1$s (%2$s)</string>
     <string name="friend_ball_buddy_subtitle_level_types">Buddy: %1$s (Lvl %2$d • %3$s)</string>
+    <string name="ball_reason_base_basic">30% catch rate</string>
+    <string name="ball_reason_base_great">55% catch rate</string>
+    <string name="ball_reason_base_ultra">80% catch rate</string>
+
+    <string name="ball_reason_buddy_shared_type">Buddy type match</string>
+
+    <string name="ball_reason_speed_100_plus">Speed ≥ 100</string>
+    <string name="ball_reason_weight_under_10kg">Weight &lt; 10 kg</string>
+    <string name="ball_reason_weight_over_100kg">Weight &gt; 100 kg</string>
+    <string name="ball_reason_hp_100_plus">HP ≥ 100</string>
+    <string name="ball_reason_evolves_twice">Can evolve twice</string>
+    <string name="ball_reason_already_caught">Already caught</string>
+
+    <string name="ball_reason_type_ice">Ice type</string>
+    <string name="ball_reason_type_dark">Dark type</string>
+    <string name="ball_reason_type_ghost">Ghost type</string>
+    <string name="ball_reason_type_poison_psychic">Poison/Psychic type</string>
+    <string name="ball_reason_type_electric_steel">Electric/Steel type</string>
+    <string name="ball_reason_type_water_bug">Water/Bug type</string>
+    <string name="ball_reason_type_fire_grass">Fire/Grass type</string>
+    <string name="ball_reason_type_fairy_dragon">Fairy/Dragon type</string>
+    <string name="ball_reason_type_rock_ground">Rock/Ground type</string>
+    <string name="ball_reason_type_normal">Normal type</string>
+    <string name="ball_reason_type_fighting_flying">Fighting/Flying type</string>
+
+    <string name="ball_reason_quick_window">First 15s</string>
+    <string name="ball_reason_timer_window">Last 15s</string>
 
 </resources>

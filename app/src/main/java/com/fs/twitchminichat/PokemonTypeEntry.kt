@@ -1,9 +1,21 @@
 package com.fs.twitchminichat
 
 data class PokemonTypeEntry(
-    val key: String,
+    val sourceKey: String,
     val displayName: String,
+    val pcgName: String,
     val type1: String,
     val type2: String?,
-    val aliases: List<String>
-)
+    val weightKg: Double?,
+    val baseSpeed: Int?,
+    val baseHp: Int?,
+    val evolvesTwice: Boolean?,
+    val aliases: List<String>,
+    val mappingKind: String?,
+    val locked: Boolean,
+    val featured: Boolean
+) {
+    // backward-compatible alias for old code
+    val key: String
+        get() = sourceKey
+}

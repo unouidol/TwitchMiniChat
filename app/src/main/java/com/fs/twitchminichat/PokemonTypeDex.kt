@@ -36,18 +36,52 @@ object PokemonTypeDex {
             for (i in 0 until entries.length()) {
                 val obj = entries.getJSONObject(i)
 
-                val key = obj.optString("key").trim()
+                val sourceKey = obj.optString("sourceKey")
+                    .trim()
+                    .ifBlank { obj.optString("key").trim() }
+
                 val displayName = obj.optString("displayName").trim()
+                val pcgName = obj.optString("pcgName")
+                    .trim()
+                    .ifBlank { displayName }
+
                 val type1 = obj.optString("type1").trim()
                 val type2 = obj.optString("type2").trim().ifBlank { null }
 
-                if (key.isBlank() || displayName.isBlank() || type1.isBlank()) continue
+                val weightKg = when {
+                    obj.has("weightKg") && !obj.isNull("weightKg") -> obj.optDouble("weightKg")
+                    else -> null
+                }
+
+                val baseSpeed = when {
+                    obj.has("baseSpeed") && !obj.isNull("baseSpeed") -> obj.optInt("baseSpeed")
+                    else -> null
+                }
+
+                val baseHp = when {
+                    obj.has("baseHp") && !obj.isNull("baseHp") -> obj.optInt("baseHp")
+                    else -> null
+                }
+
+                val evolvesTwice = when {
+                    obj.has("evolvesTwice") && !obj.isNull("evolvesTwice") -> obj.optBoolean("evolvesTwice")
+                    else -> null
+                }
+
+                val mappingKind = obj.optString("mappingKind").trim().ifBlank { null }
+                val locked = obj.optBoolean("locked", false)
+                val featured = obj.optBoolean("featured", false)
+
+                if (sourceKey.isBlank() || displayName.isBlank() || pcgName.isBlank() || type1.isBlank()) {
+                    continue
+                }
 
                 val aliasesJson = obj.optJSONArray("aliases")
                 val aliases = mutableListOf<String>()
 
-                aliases += key
+                aliases += sourceKey
                 aliases += displayName
+                aliases += pcgName
 
                 if (aliasesJson != null) {
                     for (j in 0 until aliasesJson.length()) {
@@ -56,11 +90,19 @@ object PokemonTypeDex {
                 }
 
                 val entry = PokemonTypeEntry(
-                    key = key,
+                    sourceKey = sourceKey,
                     displayName = displayName,
+                    pcgName = pcgName,
                     type1 = type1,
                     type2 = type2,
-                    aliases = aliases.distinct()
+                    weightKg = weightKg,
+                    baseSpeed = baseSpeed,
+                    baseHp = baseHp,
+                    evolvesTwice = evolvesTwice,
+                    aliases = aliases.distinct(),
+                    mappingKind = mappingKind,
+                    locked = locked,
+                    featured = featured
                 )
 
                 for (alias in entry.aliases) {

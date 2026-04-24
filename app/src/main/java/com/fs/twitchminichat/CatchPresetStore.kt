@@ -18,12 +18,12 @@ object CatchPresetStore {
 
     private fun defaultPresets(): List<CatchPreset> {
         return listOf(
-            CatchPreset("normal", "Catch", "!pokecatch", true, BALL_ID_AUTO_CATCH_BASIC),
-            CatchPreset("great", "Great", "!pokecatch great ball", true, "great_ball"),
-            CatchPreset("ultra", "Ultra", "!pokecatch ultra ball", true, "ultra_ball"),
-            CatchPreset("timer", "Timer", "!pokecatch timer ball", true, "timer_ball"),
-            CatchPreset("quick", "Quick", "!pokecatch quick ball", true, "quick_ball"),
-            CatchPreset("repeat", "Repeat", "!pokecatch repeat ball", true, "repeat_ball")
+            CatchPreset("normal", "Pokeball", "!pokecatch", true, BALL_ID_AUTO_CATCH_BASIC),
+            CatchPreset("great", "Greatball", "!pokecatch great ball", true, "great_ball"),
+            CatchPreset("ultra", "Ultraball", "!pokecatch ultra ball", true, "ultra_ball"),
+            CatchPreset("timer", "Timerball", "!pokecatch timer ball", true, "timer_ball"),
+            CatchPreset("quick", "Quickball", "!pokecatch quick ball", true, "quick_ball"),
+            CatchPreset("repeat", "Repeatball", "!pokecatch repeat ball", true, "repeat_ball")
         )
     }
 
