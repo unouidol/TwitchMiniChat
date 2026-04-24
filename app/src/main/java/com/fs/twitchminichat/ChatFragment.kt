@@ -56,7 +56,10 @@ import android.text.InputType
 import android.widget.EditText
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-
+import android.graphics.Typeface
+import android.text.style.BackgroundColorSpan
+import android.text.style.StyleSpan
+import android.graphics.drawable.GradientDrawable
 
 
 
@@ -89,6 +92,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var quickCatchDialog: AlertDialog? = null
     private var quickCatchAdapter: QuickCatchPresetMenuAdapter? = null
     private var quickCatchProfileId: String? = null
+
+    private var quickCatchSpawnTitle: TextView? = null
+    private var quickCatchSpawnSubtitle: TextView? = null
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -669,6 +675,88 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private fun colorPrimarySafe(): Int {
         return resolveThemeColor(android.R.attr.textColorLink, 0xFF00FFAA.toInt())
+    }
+
+    private fun colorMentionHighlight(): Int {
+        val base = resolveThemeColor(
+            android.R.attr.textColorHighlight,
+            0x66FFD54F
+        )
+
+        return Color.argb(
+            110,
+            Color.red(base),
+            Color.green(base),
+            Color.blue(base)
+        )
+    }
+
+    private fun applyMentionHighlightSpans(text: SpannableStringBuilder): Boolean {
+        val username = cfg?.username?.trim().orEmpty()
+        if (username.isBlank()) return false
+
+        val regex = Regex(
+            pattern = "(?i)(?<![A-Za-z0-9_])@${Regex.escape(username)}(?![A-Za-z0-9_])"
+        )
+
+        val highlightColor = colorMentionHighlight()
+        var found = false
+
+        regex.findAll(text.toString()).forEach { match ->
+            found = true
+
+            text.setSpan(
+                BackgroundColorSpan(highlightColor),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            text.setSpan(
+                StyleSpan(Typeface.BOLD),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+        return found
+    }
+
+    private fun colorMentionRowHighlight(): Int {
+        val base = resolveThemeColor(
+            android.R.attr.textColorHighlight,
+            0x66FFD54F
+        )
+
+        return Color.argb(
+            54,
+            Color.red(base),
+            Color.green(base),
+            Color.blue(base)
+        )
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
+
+    private fun applyMentionRowHighlight(tv: TextView, hasMention: Boolean) {
+        if (!hasMention) return
+
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(10).toFloat()
+            setColor(colorMentionRowHighlight())
+        }
+
+        tv.background = bg
+        tv.setPaddingRelative(
+            dp(8),
+            dp(6),
+            dp(8),
+            dp(6)
+        )
     }
 
     private class MentionTokenizer : MultiAutoCompleteTextView.Tokenizer {
@@ -1281,6 +1369,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     val ctx = context ?: return@runUiIfAlive
                     textStatus.text = ctx.getString(R.string.status_send_error, err.message ?: "unknown")
                 }
+            },
+            onNotice = { msgId, noticeMessage ->
+                runUiIfAlive {
+                    showTwitchSendNoticeToast(
+                        msgId = msgId,
+                        noticeMessage = noticeMessage
+                    )
+                }
             }
         )
     }
@@ -1370,6 +1466,58 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 }
             }
         }
+    }
+
+    private fun showTwitchSendNoticeToast(
+        msgId: String?,
+        noticeMessage: String
+    ) {
+        val normalizedMsgId = msgId?.trim()?.lowercase().orEmpty()
+        val normalizedMessage = noticeMessage.trim()
+        val lowerMessage = normalizedMessage.lowercase()
+
+        val text = when {
+            normalizedMsgId == "msg_duplicate" -> {
+                getString(R.string.chat_send_filtered_duplicate)
+            }
+
+            normalizedMsgId == "msg_ratelimit" ||
+                    normalizedMsgId == "msg_timedout" -> {
+                getString(R.string.chat_send_filtered_rate_limit)
+            }
+
+            lowerMessage.contains("duplicate") ||
+                    lowerMessage.contains("same message") ||
+                    lowerMessage.contains("30 seconds") ||
+                    lowerMessage.contains("identical") -> {
+                getString(R.string.chat_send_filtered_duplicate)
+            }
+
+            lowerMessage.contains("too quickly") ||
+                    lowerMessage.contains("rate") ||
+                    lowerMessage.contains("slow down") -> {
+                getString(R.string.chat_send_filtered_rate_limit)
+            }
+
+            normalizedMessage.isNotBlank() -> {
+                getString(R.string.chat_send_filtered_generic, normalizedMessage)
+            }
+
+            else -> {
+                getString(R.string.chat_send_filtered_rate_limit)
+            }
+        }
+
+        Toast.makeText(
+            requireContext(),
+            text,
+            Toast.LENGTH_SHORT
+        ).show()
+
+        Log.d(
+            "TWITCH_NOTICE",
+            "send notice msgId=$msgId message=$noticeMessage"
+        )
     }
 
     private fun sendCurrentMessage() {
@@ -2190,6 +2338,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val dialogView = layoutInflater.inflate(R.layout.dialog_quick_catch_presets, null, false)
         val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerQuickCatchPresets)
+        val spawnTitle = dialogView.findViewById<TextView>(R.id.txtQuickCatchSpawnTitle)
+        val spawnSubtitle = dialogView.findViewById<TextView>(R.id.txtQuickCatchSpawnSubtitle)
+
         recycler.layoutManager = LinearLayoutManager(context)
 
         val dialog = AlertDialog.Builder(context)
@@ -2228,15 +2379,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         quickCatchDialog = dialog
         quickCatchAdapter = adapter
         quickCatchProfileId = profileId
+        quickCatchSpawnTitle = spawnTitle
+        quickCatchSpawnSubtitle = spawnSubtitle
 
         dialog.setOnDismissListener {
             stopQuickCatchAutoRefresh()
             quickCatchDialog = null
             quickCatchAdapter = null
             quickCatchProfileId = null
+            quickCatchSpawnTitle = null
+            quickCatchSpawnSubtitle = null
         }
 
         dialog.show()
+        updateQuickCatchHeader()
         startQuickCatchAutoRefresh()
     }
 
@@ -2267,6 +2423,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 recommendations = visibleRecommendations
             )
         )
+
+        updateQuickCatchHeader()
     }
 
     private fun resolveDisplayedCountForPreset(
@@ -2380,7 +2538,62 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             currentChannelNormalized()
         )
     }
+    private fun currentSpawnAgeSec(spawn: SpawnSnapshot?): Int? {
+        if (spawn == null) return null
+        val ageMs = System.currentTimeMillis() - spawn.seenAtMs
+        if (ageMs <= 0L) return 0
+        return (ageMs / 1000L).toInt()
+    }
 
+    private fun currentSpawnRemainingSec(spawn: SpawnSnapshot?): Int? {
+        val ageSec = currentSpawnAgeSec(spawn) ?: return null
+        return (90 - ageSec).coerceAtLeast(0)
+    }
+
+    private fun currentSpawnTypesText(spawn: SpawnSnapshot?): String? {
+        if (spawn == null) return null
+
+        return when {
+            !spawn.type1.isNullOrBlank() && !spawn.type2.isNullOrBlank() ->
+                "${spawn.type1} / ${spawn.type2}"
+
+            !spawn.type1.isNullOrBlank() ->
+                spawn.type1
+
+            else -> null
+        }
+    }
+
+    private fun updateQuickCatchHeader() {
+        val titleView = quickCatchSpawnTitle ?: return
+        val subtitleView = quickCatchSpawnSubtitle ?: return
+
+        val spawn = currentSpawnSnapshot()
+
+        if (spawn == null) {
+            titleView.text = getString(R.string.quick_catch_no_spawn_title)
+            subtitleView.text = getString(R.string.quick_catch_no_spawn_subtitle)
+            return
+        }
+
+        titleView.text = spawn.displayName
+
+        val remainingSec = currentSpawnRemainingSec(spawn) ?: 0
+        val typesText = currentSpawnTypesText(spawn)
+
+        subtitleView.text = if (!typesText.isNullOrBlank()) {
+            getString(
+                R.string.quick_catch_spawn_subtitle_types_time,
+                typesText,
+                remainingSec
+            )
+        } else {
+            getString(
+                R.string.quick_catch_spawn_subtitle_time,
+                remainingSec
+            )
+        }
+    }
 
     private fun recommendQuickPresetsForCurrentContext(
         presets: List<CatchPreset>,
@@ -2648,6 +2861,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 )
             }
 
+            val hasMention = applyMentionHighlightSpans(plain)
+            applyMentionRowHighlight(tv, hasMention)
+
             tv.text = plain
             return tv
         }
@@ -2689,6 +2905,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
+
+        val hasMention = applyMentionHighlightSpans(builder)
+        applyMentionRowHighlight(tv, hasMention)
 
         tv.text = builder
 

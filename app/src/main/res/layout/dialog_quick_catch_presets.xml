@@ -12,6 +12,29 @@
         android:text="@string/quick_catch_menu_title"
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:textStyle="bold" />
+    <TextView
+        android:id="@+id/txtQuickCatchSpawnTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/txtQuickCatchSpawnSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:maxLines="1"
+        android:ellipsize="end" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerQuickCatchPresets"

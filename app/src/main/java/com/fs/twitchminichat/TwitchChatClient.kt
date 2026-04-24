@@ -21,7 +21,8 @@ class TwitchChatClient(
     fun connect(
         onConnected: (() -> Unit)? = null,
         onMessage: ((String, String, String?, String?, String?, String?) -> Unit)? = null,
-        onError: (Throwable) -> Unit = {}
+        onError: (Throwable) -> Unit = {},
+        onNotice: ((msgId: String?, message: String) -> Unit)? = null
     ) {
         if (running) return
         running = true
@@ -52,22 +53,35 @@ class TwitchChatClient(
                 while (running) {
                     val line = input.readLine() ?: break
 
-                    if (line.startsWith("PING")) {
-                        val response = line.replace("PING", "PONG")
-                        out.write("$response\r\n")
-                        out.flush()
-                    } else if (onMessage != null && line.contains(" PRIVMSG ")) {
-                        parsePrivmsg(line)?.let { parsed ->
-                            try {
-                                onMessage(
-                                    parsed.user,
-                                    parsed.message,
-                                    parsed.emotesRaw,
-                                    parsed.clientNonce,
-                                    parsed.msgId,
-                                    parsed.replyParentUserLogin
-                                )
-                            } catch (_: Throwable) {
+                    when {
+                        line.startsWith("PING") -> {
+                            val response = line.replace("PING", "PONG")
+                            out.write("$response\r\n")
+                            out.flush()
+                        }
+
+                        onNotice != null && line.contains(" NOTICE ") -> {
+                            parseNotice(line)?.let { parsed ->
+                                try {
+                                    onNotice(parsed.msgId, parsed.message)
+                                } catch (_: Throwable) {
+                                }
+                            }
+                        }
+
+                        onMessage != null && line.contains(" PRIVMSG ") -> {
+                            parsePrivmsg(line)?.let { parsed ->
+                                try {
+                                    onMessage(
+                                        parsed.user,
+                                        parsed.message,
+                                        parsed.emotesRaw,
+                                        parsed.clientNonce,
+                                        parsed.msgId,
+                                        parsed.replyParentUserLogin
+                                    )
+                                } catch (_: Throwable) {
+                                }
                             }
                         }
                     }
@@ -123,7 +137,30 @@ class TwitchChatClient(
         val replyParentUserLogin: String?
     )
 
-    private fun parsePrivmsg(line: String): ParsedPrivMsg? {
+    private data class ParsedNotice(
+        val msgId: String?,
+        val message: String
+    )
+
+    private fun parseTags(tagsPart: String?): Map<String, String> {
+        if (tagsPart.isNullOrBlank()) return emptyMap()
+
+        val out = LinkedHashMap<String, String>()
+
+        for (pair in tagsPart.split(';')) {
+            val eqIndex = pair.indexOf('=')
+            if (eqIndex <= 0) continue
+
+            val key = pair.substring(0, eqIndex)
+            val value = pair.substring(eqIndex + 1)
+
+            out[key] = value
+        }
+
+        return out
+    }
+
+    private fun splitTagsAndRest(line: String): Pair<String?, String> {
         var tagsPart: String? = null
         var rest = line
 
@@ -135,27 +172,48 @@ class TwitchChatClient(
             }
         }
 
+        return tagsPart to rest
+    }
+
+    private fun parseNotice(line: String): ParsedNotice? {
+        val (tagsPart, rest) = splitTagsAndRest(line)
+        val tags = parseTags(tagsPart)
+
+        val noticeIndex = rest.indexOf(" NOTICE ")
+        if (noticeIndex < 0) return null
+
+        val msgColonIndex = rest.indexOf(" :", noticeIndex)
+        if (msgColonIndex < 0 || msgColonIndex + 2 >= rest.length) return null
+
+        val message = rest.substring(msgColonIndex + 2).trim()
+        if (message.isBlank()) return null
+
+        return ParsedNotice(
+            msgId = tags["msg-id"]?.takeIf { it.isNotBlank() },
+            message = message
+        )
+    }
+
+    private fun parsePrivmsg(line: String): ParsedPrivMsg? {
+        val (tagsPart, rest) = splitTagsAndRest(line)
+
         var emotesRaw: String? = null
         var clientNonce: String? = null
         var msgId: String? = null
         var displayName: String? = null
         var replyParentUserLogin: String? = null
 
-        if (!tagsPart.isNullOrBlank()) {
-            for (pair in tagsPart.split(';')) {
-                val eqIndex = pair.indexOf('=')
-                if (eqIndex <= 0) continue
-                val key = pair.substring(0, eqIndex)
-                val value = pair.substring(eqIndex + 1)
-                if (value.isEmpty()) continue
+        val tags = parseTags(tagsPart)
 
-                when (key) {
-                    "emotes" -> emotesRaw = value
-                    "client-nonce" -> clientNonce = value
-                    "id" -> msgId = value
-                    "display-name" -> displayName = value
-                    "reply-parent-user-login" -> replyParentUserLogin = value
-                }
+        for ((key, value) in tags) {
+            if (value.isEmpty()) continue
+
+            when (key) {
+                "emotes" -> emotesRaw = value
+                "client-nonce" -> clientNonce = value
+                "id" -> msgId = value
+                "display-name" -> displayName = value
+                "reply-parent-user-login" -> replyParentUserLogin = value
             }
         }
 

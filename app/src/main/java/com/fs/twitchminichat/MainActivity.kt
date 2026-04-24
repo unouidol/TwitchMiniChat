@@ -44,7 +44,11 @@ class MainActivity : AppCompatActivity() {
         adapter = AccountsPagerAdapter(this, repo)
         pager.adapter = adapter
 
-        handleIntent(intent)
+        val openedFromIntent = handleIntent(intent)
+
+        if (savedInstanceState == null && !openedFromIntent) {
+            openSingleAccountOnStartupIfPossible()
+        }
 
         RemoteDeletionChecker.checkOnceOnAppOpen(
             context = this,
@@ -62,21 +66,90 @@ class MainActivity : AppCompatActivity() {
         pager.currentItem = 0
     }
 
+    private fun openSingleAccountOnStartupIfPossible() {
+        val accounts = repo.loadAccounts()
+
+        if (accounts.size != 1) {
+            pager.setCurrentItem(0, false)
+            return
+        }
+
+        val onlyAccount = accounts.first()
+        val index = adapter.pageIndexForAccountId(onlyAccount.id)
+
+        if (index >= 0) {
+            pager.setCurrentItem(index, false)
+            Log.d("MAIN", "Opening single saved account on startup id=${onlyAccount.id}")
+        } else {
+            pager.setCurrentItem(0, false)
+            Log.w("MAIN", "Single account exists but page index not found id=${onlyAccount.id}")
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIntent(intent)
     }
 
-    private fun handleIntent(intent: Intent) {
-        val newId = intent.getStringExtra("new_account_id")
-        if (newId != null) {
-            adapter.reload()
-            val index = adapter.pageIndexForAccountId(newId)
-            if (index >= 0) {
-                pager.setCurrentItem(index, true)
-            }
+    private fun handleIntent(intent: Intent): Boolean {
+        val directAccountId = intent.getStringExtra(EXTRA_NEW_ACCOUNT_ID)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+
+        if (directAccountId != null) {
+            return openAccountFromIntent(directAccountId)
         }
+
+        val targetProfileId = intent.getStringExtra(EXTRA_TARGET_PROFILE_ID)
+            ?: intent.getStringExtra(EXTRA_PROFILE_ID)
+
+        val normalizedProfileId = targetProfileId
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+
+        if (normalizedProfileId != null) {
+            val accountId = findAccountIdForProfileId(normalizedProfileId)
+            if (accountId != null) {
+                return openAccountFromIntent(accountId)
+            }
+
+            Log.w("MAIN", "Notification target profile not found locally profileId=$normalizedProfileId")
+        }
+
+        return false
+    }
+
+    private fun openAccountFromIntent(accountId: String): Boolean {
+        adapter.reload()
+
+        val index = adapter.pageIndexForAccountId(accountId)
+        if (index >= 0) {
+            pager.setCurrentItem(index, true)
+            Log.d("MAIN", "Opened account from intent accountId=$accountId")
+            return true
+        }
+
+        Log.w("MAIN", "Account from intent not found accountId=$accountId")
+        return false
+    }
+
+    private fun findAccountIdForProfileId(profileId: String): String? {
+        val normalizedTarget = profileId.trim().lowercase()
+        if (normalizedTarget.isBlank()) return null
+
+        return repo.loadAccounts().firstOrNull { account ->
+            val explicitProfileId = account.profileId
+                .trim()
+                .lowercase()
+
+            val derivedProfileId = ProfileIdUtil.fromUsername(account.username)
+                .trim()
+                .lowercase()
+
+            explicitProfileId == normalizedTarget || derivedProfileId == normalizedTarget
+        }?.id
     }
 
     private fun continueStartupAfterDeletionCheck() {
@@ -155,6 +228,10 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val ACTION_ACCOUNTS_CHANGED = "com.fs.twitchminichat.ACCOUNTS_CHANGED"
+
+        const val EXTRA_NEW_ACCOUNT_ID = "new_account_id"
+        const val EXTRA_TARGET_PROFILE_ID = "target_profile_id"
+        const val EXTRA_PROFILE_ID = "profile_id"
     }
 
     fun openAccount(accountId: String) {

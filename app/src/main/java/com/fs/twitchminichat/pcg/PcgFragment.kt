@@ -16,6 +16,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
     private lateinit var geckoView: GeckoView
     private lateinit var session: GeckoSession
 
+    private var accountId: String = ""
     private var channel: String = ""
 
     private fun pcgUrl(): String =
@@ -30,7 +31,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
         geckoView = view.findViewById(R.id.geckoView)
 
-        val accountId = requireArguments().getString(ARG_ACCOUNT_ID).orEmpty()
+        accountId = requireArguments().getString(ARG_ACCOUNT_ID).orEmpty()
         val cfg = AccountRepository(requireContext()).getById(accountId) ?: return
 
         channel = cfg.channel.trim()
@@ -41,13 +42,13 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
         val profileId = ProfileIdUtil.fromUsername(cfg.username)
         val profileLabel = cfg.username.trim().ifBlank { profileId }
 
-        session = GeckoSessionManager.getOrCreatePcgSession(
+        session = GeckoSessionManager.attachPcgSessionToView(
             context = requireContext(),
+            geckoView = geckoView,
             profileId = profileId,
             profileLabel = profileLabel,
             accountId = accountId
         )
-        geckoView.setSession(session)
 
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLoadRequest(
@@ -56,7 +57,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
             ): GeckoResult<AllowOrDeny> {
                 val uri = request.uri
 
-                // resta dentro GeckoView solo per http/https
+                // Resta dentro GeckoView solo per http/https.
                 val isWeb = uri.startsWith("http://") || uri.startsWith("https://")
                 if (!isWeb) {
                     return GeckoResult.fromValue(AllowOrDeny.DENY)
@@ -65,7 +66,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
                 val lower = uri.lowercase()
 
                 // Se siamo nel flusso login, quando Twitch tenta di portarci "fuori" dal login
-                // (home / canale / ecc.), noi blocchiamo e saltiamo a PCG.
+                // home / canale / ecc., blocchiamo e saltiamo a PCG.
                 if (waitingForLogin && !alreadyJumpedToPcg) {
                     val stillLoginFlow =
                         lower.startsWith("https://www.twitch.tv/login") ||
@@ -80,8 +81,12 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
                         alreadyJumpedToPcg = true
                         waitingForLogin = false
 
-                        // blocca il load della home e vai dritto al pannello PCG
-                        this@PcgFragment.session.loadUri(pcgUrl())
+                        GeckoSessionManager.loadPcgUriIfNeeded(
+                            accountId = accountId,
+                            session = this@PcgFragment.session,
+                            url = pcgUrl()
+                        )
+
                         return GeckoResult.fromValue(AllowOrDeny.DENY)
                     }
                 }
@@ -90,10 +95,56 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
             }
         }
 
-        // apri login; se eri già loggato, Twitch proverà ad andare sulla home -> noi intercettiamo e apriamo PCG
+        val targetPcgUrl = pcgUrl()
+
+        val pcgAlreadyLoaded = GeckoSessionManager.isPcgUriAlreadyLoaded(
+            accountId = accountId,
+            url = targetPcgUrl
+        )
+
+        if (pcgAlreadyLoaded) {
+            waitingForLogin = false
+            alreadyJumpedToPcg = true
+            return
+        }
+
+        // Primo avvio o sessione non ancora arrivata al pannello PCG:
+        // apri login; se eri già loggato, Twitch proverà ad andare sulla home
+        // e il navigationDelegate sopra intercetterà il passaggio aprendo PCG.
         waitingForLogin = true
         alreadyJumpedToPcg = false
-        session.loadUri(TWITCH_LOGIN_URL)
+
+        GeckoSessionManager.loadPcgUriIfNeeded(
+            accountId = accountId,
+            session = session,
+            url = TWITCH_LOGIN_URL
+        )
+    }
+
+    override fun onStop() {
+        if (this::geckoView.isInitialized && accountId.isNotBlank()) {
+            runCatching {
+                GeckoSessionManager.detachPcgSessionFromView(
+                    geckoView = geckoView,
+                    accountId = accountId
+                )
+            }
+        }
+
+        super.onStop()
+    }
+
+    override fun onDestroyView() {
+        if (this::geckoView.isInitialized && accountId.isNotBlank()) {
+            runCatching {
+                GeckoSessionManager.detachPcgSessionFromView(
+                    geckoView = geckoView,
+                    accountId = accountId
+                )
+            }
+        }
+
+        super.onDestroyView()
     }
 
     companion object {

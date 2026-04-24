@@ -13,23 +13,29 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
         if (savedInstanceState == null) {
             val accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID).orEmpty()
+
             supportFragmentManager.beginTransaction()
                 .replace(
                     R.id.pcgContainer,
                     PcgFragment().apply {
-                        arguments = Bundle().apply { putString("account_id", accountId) }
+                        arguments = Bundle().apply {
+                            putString("account_id", accountId)
+                        }
                     }
                 )
                 .commit()
         }
-}
+    }
+
     companion object {
         private const val EXTRA_ACCOUNT_ID = "account_id"
 
         fun start(ctx: Context, accountId: String) {
-            ctx.startActivity(Intent(ctx, PcgActivity::class.java).apply {
-                putExtra(EXTRA_ACCOUNT_ID, accountId)
-            })
+            ctx.startActivity(
+                Intent(ctx, PcgActivity::class.java).apply {
+                    putExtra(EXTRA_ACCOUNT_ID, accountId)
+                }
+            )
         }
     }
 }

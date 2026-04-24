@@ -167,4 +167,14 @@
     <string name="ball_reason_quick_window">First 15s</string>
     <string name="ball_reason_timer_window">Last 15s</string>
 
+
+    <string name="quick_catch_no_spawn_title">No recent spawn</string>
+    <string name="quick_catch_no_spawn_subtitle">Generic catch menu</string>
+    <string name="quick_catch_spawn_subtitle_types_time">%1$s • %2$ds</string>
+    <string name="quick_catch_spawn_subtitle_time">%1$ds</string>
+
+    <string name="chat_send_filtered_duplicate">Message not sent: duplicate/spam message.</string>
+    <string name="chat_send_filtered_rate_limit">Message not sent: sending messages too quickly.</string>
+    <string name="chat_send_filtered_generic">Message not sent by Twitch: %1$s</string>
+
 </resources>

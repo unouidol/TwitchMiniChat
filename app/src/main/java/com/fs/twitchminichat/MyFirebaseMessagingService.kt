@@ -48,21 +48,51 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             val body = data["body"]
                 ?: remoteMessage.notification?.body
-                ?: "A missing Pokèmon spawned"
+                ?: "A missing Pokémon spawned"
 
             val pokemon = data["pokemon"].orEmpty()
+
             val profiles = data["profiles"]
                 ?: data["matched_profiles"]
                 ?: ""
+
+            val targetProfileId = data["target_profile_id"]
+                ?: data["profile_id"]
+                ?: data["profileId"]
+                ?: data["matched_profile_id"]
+                ?: inferSingleProfileIdFromProfiles(profiles)
+
+            Log.d(
+                TAG,
+                "Resolved notification targetProfileId=$targetProfileId pokemon=$pokemon profiles=$profiles"
+            )
 
             showSpawnNotification(
                 title = title,
                 body = body,
                 pokemon = pokemon,
-                profiles = profiles
+                profiles = profiles,
+                targetProfileId = targetProfileId.orEmpty()
             )
         } catch (t: Throwable) {
             Log.e(TAG, "Crash inside onMessageReceived", t)
+        }
+    }
+
+    private fun inferSingleProfileIdFromProfiles(profiles: String): String? {
+        val cleaned = profiles.trim()
+        if (cleaned.isBlank()) return null
+
+        val parts = cleaned
+            .split(",", ";", "|")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        return if (parts.size == 1) {
+            parts.first()
+        } else {
+            null
         }
     }
 
@@ -70,25 +100,41 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         title: String,
         body: String,
         pokemon: String,
-        profiles: String
+        profiles: String,
+        targetProfileId: String
     ) {
         ensureNotificationChannel()
 
+        val notificationId = Random.nextInt(1, Int.MAX_VALUE)
+
         val launchIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+
             putExtra("open_from_push", true)
 
             if (pokemon.isNotBlank()) {
                 putExtra("spawn_pokemon", pokemon)
             }
+
             if (profiles.isNotBlank()) {
                 putExtra("spawn_profiles", profiles)
+            }
+
+            if (targetProfileId.isNotBlank()) {
+                putExtra(MainActivity.EXTRA_TARGET_PROFILE_ID, targetProfileId)
+                putExtra(MainActivity.EXTRA_PROFILE_ID, targetProfileId)
+
+                // Extra duplicato non necessario ma comodo per debug/log o compatibilità futura.
+                putExtra("target_profile_id", targetProfileId)
+                putExtra("profile_id", targetProfileId)
             }
         }
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            REQUEST_CODE_OPEN_APP,
+            notificationId,
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -115,6 +161,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 return
             }
         }
+
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val ch = nm.getNotificationChannel(CHANNEL_ID_SPAWN_ALERTS)
         Log.d(
@@ -123,15 +170,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         )
 
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
-        Log.d("FCM", "notificationsEnabled=$notificationsEnabled")
+        Log.d(TAG, "notificationsEnabled=$notificationsEnabled")
+
         NotificationManagerCompat.from(this).notify(
-            Random.nextInt(1, Int.MAX_VALUE),
+            notificationId,
             notification
         )
 
         Log.d(
             TAG,
-            "Notification posted: title=$title body=$body pokemon=$pokemon profiles=$profiles"
+            "Notification posted: title=$title body=$body pokemon=$pokemon profiles=$profiles targetProfileId=$targetProfileId notificationId=$notificationId"
         )
     }
 
@@ -155,7 +203,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "FCM"
         private const val CHANNEL_ID_SPAWN_ALERTS = "spawn_alerts"
-        private const val REQUEST_CODE_OPEN_APP = 1001
 
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"

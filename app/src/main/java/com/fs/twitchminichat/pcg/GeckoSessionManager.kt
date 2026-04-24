@@ -22,6 +22,8 @@ import com.fs.twitchminichat.InventoryBallStore
 import android.os.SystemClock
 import android.widget.Toast
 import com.fs.twitchminichat.R
+import org.mozilla.geckoview.GeckoView
+
 
 @Suppress("unused")
 object GeckoSessionManager {
@@ -468,7 +470,9 @@ object GeckoSessionManager {
     }
 
     fun destroyPcgSession(accountId: String) {
-        destroy("pcg:$accountId")
+        cancelScheduledPcgDestroy(accountId)
+        loadedPcgUrls.remove(pcgSessionKey(accountId))
+        destroy(pcgSessionKey(accountId))
     }
 
     fun destroyStreamSession(accountId: String) {
@@ -501,6 +505,13 @@ object GeckoSessionManager {
 
                 sessions.clear()
 
+                for (runnable in pendingPcgDestroyRunnables.values) {
+                    mainHandler.removeCallbacks(runnable)
+                }
+
+                pendingPcgDestroyRunnables.clear()
+                loadedPcgUrls.clear()
+
                 val rt = getRuntime(appContext)
 
                 rt.storageController
@@ -521,4 +532,170 @@ object GeckoSessionManager {
             }
         }
     }
+
+    private const val PCG_SESSION_KEEP_ALIVE_MS = 5 * 60 * 1000L
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val pendingPcgDestroyRunnables = ConcurrentHashMap<String, Runnable>()
+
+    private val loadedPcgUrls = ConcurrentHashMap<String, String>()
+
+    private fun pcgSessionKey(accountId: String): String {
+        return "pcg:$accountId"
+    }
+
+    private fun assertMainThread() {
+        check(Looper.myLooper() == Looper.getMainLooper()) {
+            "GeckoSessionManager PCG session calls must run on the main thread"
+        }
+    }
+
+    fun attachPcgSessionToView(
+        context: Context,
+        geckoView: GeckoView,
+        profileId: String,
+        profileLabel: String,
+        accountId: String
+    ): GeckoSession {
+        assertMainThread()
+
+        cancelScheduledPcgDestroy(accountId)
+
+        val session = getOrCreatePcgSession(
+            context = context,
+            profileId = profileId,
+            profileLabel = profileLabel,
+            accountId = accountId
+        )
+
+        if (geckoView.session !== session) {
+            if (geckoView.session != null) {
+                runCatching {
+                    geckoView.releaseSession()
+                }.onFailure { t ->
+                    Log.w("PCG_PROBE", "release previous GeckoView session failed", t)
+                }
+            }
+
+            geckoView.setSession(session)
+        }
+
+        runCatching {
+            session.setActive(true)
+        }
+
+        runCatching {
+            session.setFocused(true)
+        }
+
+        runCatching {
+            session.setPriorityHint(GeckoSession.PRIORITY_HIGH)
+        }
+
+        return session
+    }
+
+    fun detachPcgSessionFromView(
+        geckoView: GeckoView,
+        accountId: String
+    ) {
+        assertMainThread()
+
+        val sessionKey = pcgSessionKey(accountId)
+        val session = sessions[sessionKey] ?: return
+
+        if (geckoView.session === session) {
+            runCatching {
+                geckoView.releaseSession()
+            }.onFailure { t ->
+                Log.w("PCG_PROBE", "release PCG GeckoView session failed", t)
+            }
+        }
+
+        runCatching {
+            session.setFocused(false)
+        }
+
+        runCatching {
+            session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
+        }
+
+        schedulePcgDestroyAfterIdle(accountId)
+    }
+
+    fun loadPcgUriIfNeeded(
+        accountId: String,
+        session: GeckoSession,
+        url: String
+    ) {
+        assertMainThread()
+
+        val sessionKey = pcgSessionKey(accountId)
+        val previousUrl = loadedPcgUrls[sessionKey]
+
+        if (previousUrl == url) {
+            Log.d("PCG_PROBE", "skip PCG reload, already loaded url=$url")
+            return
+        }
+
+        loadedPcgUrls[sessionKey] = url
+        session.loadUri(url)
+
+        Log.d("PCG_PROBE", "load PCG url=$url")
+    }
+
+    fun isPcgUriAlreadyLoaded(
+        accountId: String,
+        url: String
+    ): Boolean {
+        val sessionKey = pcgSessionKey(accountId)
+        return loadedPcgUrls[sessionKey] == url
+    }
+
+    private fun schedulePcgDestroyAfterIdle(accountId: String) {
+        val sessionKey = pcgSessionKey(accountId)
+
+        cancelScheduledPcgDestroy(accountId)
+
+        val runnable = Runnable {
+            pendingPcgDestroyRunnables.remove(sessionKey)
+
+            val session = sessions.remove(sessionKey) ?: return@Runnable
+
+            loadedPcgUrls.remove(sessionKey)
+
+            runCatching {
+                session.setFocused(false)
+            }
+
+            runCatching {
+                session.setActive(false)
+            }
+
+            runCatching {
+                session.close()
+            }.onFailure { t ->
+                Log.w("PCG_PROBE", "idle PCG session close failed accountId=$accountId", t)
+            }
+
+            Log.d("PCG_PROBE", "idle PCG session closed accountId=$accountId")
+        }
+
+        pendingPcgDestroyRunnables[sessionKey] = runnable
+        mainHandler.postDelayed(runnable, PCG_SESSION_KEEP_ALIVE_MS)
+
+        Log.d("PCG_PROBE", "scheduled PCG session idle close accountId=$accountId")
+    }
+
+    private fun cancelScheduledPcgDestroy(accountId: String) {
+        val sessionKey = pcgSessionKey(accountId)
+
+        val oldRunnable = pendingPcgDestroyRunnables.remove(sessionKey)
+        if (oldRunnable != null) {
+            mainHandler.removeCallbacks(oldRunnable)
+            Log.d("PCG_PROBE", "cancelled PCG session idle close accountId=$accountId")
+        }
+    }
+
 }
