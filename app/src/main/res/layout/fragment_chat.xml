@@ -16,7 +16,7 @@
         android:orientation="horizontal"
         android:padding="8dp">
 
-        <AutoCompleteTextView
+        <com.fs.twitchminichat.ChannelAutoCompleteTextView
             android:id="@+id/editChannel"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

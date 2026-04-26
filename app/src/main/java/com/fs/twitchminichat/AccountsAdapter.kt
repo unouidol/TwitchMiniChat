@@ -9,11 +9,11 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import androidx.appcompat.app.AlertDialog
 
 class AccountsAdapter(
     private val onClick: (AccountConfig) -> Unit,
     private val onDelete: (AccountConfig) -> Unit,
-    private val onLongPressDelete: (AccountConfig) -> Unit,
     private val onStartDragRequest: (RecyclerView.ViewHolder) -> Unit
 ) : ListAdapter<AccountConfig, AccountsAdapter.VH>(Diff) {
 
@@ -65,13 +65,22 @@ class AccountsAdapter(
         }
 
         holder.btnDelete.setOnClickListener {
-            onDelete(item)
+            AlertDialog.Builder(context)
+                .setTitle(R.string.delete_account_confirm_title)
+                .setMessage(
+                    context.getString(
+                        R.string.delete_account_confirm_message,
+                        item.username
+                    )
+                )
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.delete_account_confirm_action) { _, _ ->
+                    onDelete(item)
+                }
+                .show()
         }
 
-        holder.btnDelete.setOnLongClickListener {
-            onLongPressDelete(item)
-            true
-        }
+
     }
 
     fun submitAccounts(accounts: List<AccountConfig>) {

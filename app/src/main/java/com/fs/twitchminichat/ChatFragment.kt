@@ -22,7 +22,6 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -63,7 +62,6 @@ import android.graphics.drawable.GradientDrawable
 
 
 
-
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
 
@@ -95,6 +93,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private var quickCatchSpawnTitle: TextView? = null
     private var quickCatchSpawnSubtitle: TextView? = null
+    private var channelDropdownManuallyClosed = false
+    private var pendingOpenChannelDropdownAfterIme = false
+    private var lastImeVisible = false
+    private var lastImeBottomInsetPx = 0
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -442,7 +444,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private val userColorCache = HashMap<String, Int>()
 
-    private lateinit var editChannel: AutoCompleteTextView
+    private lateinit var editChannel: ChannelAutoCompleteTextView
     private lateinit var channelsAdapter: ArrayAdapter<String>
 
     private fun handleFriendBallBuddyAction(preset: CatchPreset) {
@@ -497,26 +499,100 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         channelsAdapter.notifyDataSetChanged()
     }
 
-    private fun openChannelDropdownIfEmpty() {
+
+
+    private fun updateChannelDropdownHeight() {
         if (!this::editChannel.isInitialized) return
 
-        val text = editChannel.text?.toString().orEmpty().trim()
-        if (text.isNotEmpty() && text != "#") return
+        // Con ADJUST_NOTHING la tastiera copre la parte bassa dello schermo.
+        // Quindi limitiamo la dropdown per evitare che finisca dietro la tastiera.
+        val root = view ?: return
 
-        if (!editChannel.hasFocus()) {
-            editChannel.requestFocus()
-        }
+        val rootLocation = IntArray(2)
+        val fieldLocation = IntArray(2)
+
+        root.getLocationOnScreen(rootLocation)
+        editChannel.getLocationOnScreen(fieldLocation)
+
+        val rootBottom = rootLocation[1] + root.height
+        val safeBottom = rootBottom - lastImeBottomInsetPx
+
+        val fieldBottom = fieldLocation[1] + editChannel.height
+        val availableBelow = safeBottom - fieldBottom - dp(8)
+
+        editChannel.dropDownHeight = availableBelow
+            .coerceAtLeast(dp(96))
+            .coerceAtMost(dp(260))
+    }
+
+    private fun showChannelDropdownNow() {
+        if (!this::editChannel.isInitialized) return
+        if (!isAdded) return
+        if (!editChannel.hasFocus()) return
+        if (channelDropdownManuallyClosed) return
+
+        refreshChannelsDropdown()
+        updateChannelDropdownHeight()
+
+        editChannel.showDropDown()
+
+        Log.d(
+            "CHAN_DROPDOWN",
+            "show requested hasFocus=${editChannel.hasFocus()} " +
+                    "popup=${editChannel.isPopupShowing} " +
+                    "adapterCount=${channelsAdapter.count} " +
+                    "text='${editChannel.text}'"
+        )
+    }
+
+    private fun scheduleChannelDropdownOpen(delayMs: Long) {
+        if (!this::editChannel.isInitialized) return
+
+        editChannel.postDelayed({
+            if (!isAdded) return@postDelayed
+            if (!editChannel.hasFocus()) return@postDelayed
+            if (channelDropdownManuallyClosed) return@postDelayed
+
+            refreshChannelsDropdown()
+            updateChannelDropdownHeight()
+
+            if (!editChannel.isPopupShowing) {
+                editChannel.showDropDown()
+            }
+        }, delayMs)
+    }
+
+    private fun openChannelFieldInput() {
+        if (!this::editChannel.isInitialized) return
+
+        channelDropdownManuallyClosed = false
+        pendingOpenChannelDropdownAfterIme = true
 
         refreshChannelsDropdown()
 
+        editChannel.requestFocus()
+        ViewCompat.requestApplyInsets(requireView())
+
         editChannel.post {
+            if (!isAdded) return@post
             if (!editChannel.hasFocus()) return@post
 
-            val currentText = editChannel.text?.toString().orEmpty().trim()
-            if (currentText.isEmpty() || currentText == "#") {
-                editChannel.showDropDown()
+            val imm = requireContext()
+                .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+            imm.showSoftInput(editChannel, InputMethodManager.SHOW_IMPLICIT)
+
+            // Se la tastiera era già visibile, possiamo aprire subito.
+            // Se invece sta ancora comparendo, aspettiamo gli insets o i delay sotto.
+            if (lastImeVisible && !channelDropdownManuallyClosed) {
+                pendingOpenChannelDropdownAfterIme = false
+                showChannelDropdownNow()
             }
         }
+
+        // Backup contro il caso in cui l'evento insets arrivi tardi o non arrivi.
+        scheduleChannelDropdownOpen(220L)
+        scheduleChannelDropdownOpen(420L)
     }
 
     private fun clearChannelFieldUi(hideKeyboard: Boolean = true) {
@@ -535,6 +611,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!this::editChannel.isInitialized) return
         editChannel.dismissDropDown()
     }
+
 
     private fun colorForUsername(user: String): Int {
         val key = user.lowercase()
@@ -802,6 +879,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     parent,
                     false
                 )
+
                 val ch = getItem(position).orEmpty()
 
                 val txt = row.findViewById<TextView>(R.id.txtChannel)
@@ -810,16 +888,34 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 txt.text = ch
 
                 row.setOnClickListener {
-                    editChannel.setText(ch, false)
-                    editChannel.setSelection(editChannel.text.length)
                     dismissChannelDropdown()
-                    joinChannelFromChat(ch)
+
+                    val joined = joinChannelFromChat(ch)
+                    if (joined) {
+                        editChannel.setText("", false)
+                        clearChannelFieldUi(hideKeyboard = false)
+                    }
                 }
 
                 btn.setOnClickListener {
                     channelHistory.remove(accountId, ch)
+
+                    dismissChannelDropdown()
                     refreshChannelsDropdown()
-                    openChannelDropdownIfEmpty()
+
+                    editChannel.post {
+                        if (!isAdded) return@post
+
+                        if (!editChannel.hasFocus()) {
+                            editChannel.requestFocus()
+                        }
+
+                        val currentText = editChannel.text?.toString().orEmpty().trim()
+
+                        if (currentText.isEmpty() || currentText == "#") {
+                            openChannelFieldInput()
+                        }
+                    }
                 }
 
                 return row
@@ -827,18 +923,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private fun joinChannelFromChat(channelRaw: String) {
+    private fun joinChannelFromChat(channelRaw: String): Boolean {
         val ch = channelRaw.trim().removePrefix("#").lowercase()
 
         val ok = Regex("^[a-z0-9_]{1,25}$").matches(ch)
         if (!ok) {
             appendSystemLine(getString(R.string.invalid_channel_name))
-            return
+            return false
         }
 
-        val c = cfg ?: return
+        val c = cfg ?: return false
         val current = c.channel.trim().removePrefix("#").lowercase()
-        if (ch == current) return
+        if (ch == current) {
+            return false
+        }
 
         appendSystemLine(getString(R.string.channel_switch, ch))
 
@@ -871,6 +969,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         connectInProgress = false
 
         connectIfNeeded()
+
+        return true
     }
 
     private fun sendOrGo() {
@@ -879,9 +979,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val ch = editChannel.text?.toString().orEmpty().trim().removePrefix("#").lowercase()
         val current = c.channel.trim().removePrefix("#").lowercase()
 
-        if (ch.isNotBlank() && ch != current && Regex("^[a-z0-9_]{1,25}$").matches(ch)) {
-            joinChannelFromChat(ch)
-            editChannel.text?.clear()
+        if (ch.isNotBlank() && ch != current) {
+            val joined = joinChannelFromChat(ch)
+            if (joined) {
+                editChannel.setText("", false)
+                dismissChannelDropdown()
+                clearChannelFieldUi(hideKeyboard = false)
+            }
             return
         }
 
@@ -1040,6 +1144,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         chatContainer = view.findViewById(R.id.chatContainer)
         editMessage = view.findViewById(R.id.editMessage)
         btnSend = view.findViewById(R.id.btnSend)
+        val chatComposerBar = editMessage.parent as? View
         btnStartPcg = view.findViewById(R.id.btnStartPcg)
         btnRefreshChat = view.findViewById(R.id.btnRefreshChat)
         btnTogglePush = view.findViewById(R.id.btnTogglePush)
@@ -1102,6 +1207,53 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         channelsAdapter = buildChannelsAdapter()
         editChannel.setAdapter(channelsAdapter)
         editChannel.threshold = 0
+        editChannel.setSingleLine(true)
+        editChannel.imeOptions = EditorInfo.IME_ACTION_SEND
+
+        editChannel.onChannelFieldTapped = { wasDropdownOpenBeforeTap ->
+            if (wasDropdownOpenBeforeTap) {
+                channelDropdownManuallyClosed = true
+                pendingOpenChannelDropdownAfterIme = false
+                editChannel.dismissDropDown()
+            } else {
+                openChannelFieldInput()
+            }
+        }
+
+        editChannel.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                if (!channelDropdownManuallyClosed) {
+                    pendingOpenChannelDropdownAfterIme = true
+                    scheduleChannelDropdownOpen(220L)
+                    scheduleChannelDropdownOpen(420L)
+                }
+            } else {
+                channelDropdownManuallyClosed = false
+                pendingOpenChannelDropdownAfterIme = false
+                editChannel.dismissDropDown()
+            }
+
+            ViewCompat.requestApplyInsets(view)
+        }
+
+
+        editChannel.setOnEditorActionListener { _, actionId, event ->
+            val isEnter = event?.keyCode == KeyEvent.KEYCODE_ENTER &&
+                    event.action == KeyEvent.ACTION_DOWN
+
+            val isSendAction =
+                actionId == EditorInfo.IME_ACTION_SEND ||
+                        actionId == EditorInfo.IME_ACTION_GO ||
+                        actionId == EditorInfo.IME_ACTION_DONE
+
+            if (isSendAction || isEnter) {
+                dismissChannelDropdown()
+                sendOrGo()
+                true
+            } else {
+                false
+            }
+        }
 
         cfg?.channel?.let { channelHistory.add(accountId, it) }
         refreshChannelsDropdown()
@@ -1110,15 +1262,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             getString(R.string.status_loading, it.username, it.channel)
         } ?: getString(R.string.account_not_found)
 
-        editChannel.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                dismissChannelDropdown()
-            }
-        }
-
-        editChannel.setOnClickListener {
-            openChannelDropdownIfEmpty()
-        }
 
         val clearChannelFocusClickListener = View.OnClickListener {
             view.requestFocus()
@@ -1134,6 +1277,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         editMessage.setOnClickListener {
             clearChannelFieldUi(hideKeyboard = false)
+            ViewCompat.requestApplyInsets(view)
+        }
+
+        editMessage.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                clearChannelFieldUi(hideKeyboard = false)
+                ViewCompat.requestApplyInsets(view)
+            }
         }
 
         btnStartPcg.setOnClickListener {
@@ -1188,16 +1339,60 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val initialBottom = view.paddingBottom
 
         ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
-            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-            val extraBottom = maxOf(imeBottom, systemBottom)
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+
+            lastImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            lastImeBottomInsetPx = imeInsets.bottom
+
+            val channelFieldHasFocus =
+                this::editChannel.isInitialized && editChannel.hasFocus()
+
+            val chatComposerHasFocus =
+                this::editMessage.isInitialized && editMessage.hasFocus()
 
             v.setPadding(
                 initialLeft,
                 initialTop,
                 initialRight,
-                initialBottom + extraBottom
+                initialBottom + systemInsets.bottom
             )
+
+            chatComposerBar?.translationY = 0f
+
+            if (chatComposerHasFocus && !channelFieldHasFocus && lastImeVisible) {
+                scrollChat.post {
+                    if (stickToBottom) {
+                        scrollToBottom()
+                    }
+                }
+            }
+
+            if (channelFieldHasFocus) {
+                if (
+                    pendingOpenChannelDropdownAfterIme &&
+                    lastImeVisible &&
+                    !channelDropdownManuallyClosed
+                ) {
+                    pendingOpenChannelDropdownAfterIme = false
+
+                    editChannel.post {
+                        if (!isAdded) return@post
+                        showChannelDropdownNow()
+                    }
+
+                    editChannel.postDelayed({
+                        if (!isAdded) return@postDelayed
+                        if (!editChannel.hasFocus()) return@postDelayed
+                        if (channelDropdownManuallyClosed) return@postDelayed
+                        if (editChannel.isPopupShowing) return@postDelayed
+
+                        showChannelDropdownNow()
+                    }, 120L)
+                } else if (editChannel.isPopupShowing) {
+                    updateChannelDropdownHeight()
+                }
+            }
 
             insets
         }
@@ -1481,7 +1676,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 getString(R.string.chat_send_filtered_duplicate)
             }
 
-            normalizedMsgId == "msg_ratelimit" ||
+            normalizedMsgId == "msg_rate-limit" ||
                     normalizedMsgId == "msg_timedout" -> {
                 getString(R.string.chat_send_filtered_rate_limit)
             }

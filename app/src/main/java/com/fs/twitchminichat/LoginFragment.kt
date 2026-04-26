@@ -44,9 +44,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             onDelete = { cfg ->
                 deleteAccount(cfg.id)
             },
-            onLongPressDelete = { cfg ->
-                deleteAccount(cfg.id)
-            },
+
             onStartDragRequest = { holder ->
                 itemTouchHelper.startDrag(holder)
             }
