@@ -234,6 +234,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return true
     }
 
+    override fun onCatchPresetBuddyInfoRequested(): Boolean {
+        /*
+         * The preset settings sheet exposes a Pokébuddy button, but the actual
+         * request must use ChatFragment's existing buddy flow.
+         *
+         * requestBuddyInfo() sends !pokebuddy and stores the pending profile/user
+         * information needed to parse and save the response correctly.
+         */
+        return requestBuddyInfo()
+    }
+
     private inner class SwipeReplyTextView(context: Context) : AppCompatTextView(context) {
 
         var onSwipeReply: (() -> Unit)? = null

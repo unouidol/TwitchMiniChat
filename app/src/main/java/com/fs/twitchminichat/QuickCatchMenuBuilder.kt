@@ -22,11 +22,11 @@ import android.content.Context
 object QuickCatchMenuBuilder {
 
     fun build(
-    context: Context,
-    userPresets: List<CatchPreset>,
-    countsByBallId: Map<String, Int>,
-    profileId: String?,
-    recommendationSet: QuickCatchRecommendationSet
+        context: Context,
+        userPresets: List<CatchPreset>,
+        countsByBallId: Map<String, Int>,
+        profileId: String?,
+        recommendationSet: QuickCatchRecommendationSet
     ): List<QuickCatchPresetMenuEntry> {
         /**
          * Friend Ball subtitle is profile/buddy based, so compute it once for this
@@ -99,7 +99,7 @@ object QuickCatchMenuBuilder {
                     countsByBallId = countsByBallId
                 )
 
-                val subtitle = when {
+                val recommendationSubtitle = when {
                     CatchPresetBallHelper.isFriendBallPreset(preset) ->
                         friendBallSubtitle
 
@@ -109,6 +109,13 @@ object QuickCatchMenuBuilder {
                             reasonKeys = recommendation.reasonKeys
                         )
                 }
+
+                val subtitle = resolveSubtitleForPreset(
+                    context = context,
+                    preset = preset,
+                    countsByBallId = countsByBallId,
+                    fallbackSubtitle = recommendationSubtitle
+                )
 
                 QuickCatchPresetRow(
                     preset = preset,
@@ -146,7 +153,7 @@ object QuickCatchMenuBuilder {
 
             val recommendation = recommendationByPresetId[preset.id]
 
-            val subtitle = when {
+            val recommendationSubtitle = when {
                 CatchPresetBallHelper.isFriendBallPreset(preset) ->
                     friendBallSubtitle
 
@@ -156,6 +163,13 @@ object QuickCatchMenuBuilder {
                         reasonKeys = recommendation?.reasonKeys.orEmpty()
                     )
             }
+
+            val subtitle = resolveSubtitleForPreset(
+                context = context,
+                preset = preset,
+                countsByBallId = countsByBallId,
+                fallbackSubtitle = recommendationSubtitle
+            )
 
             QuickCatchPresetRow(
                 preset = preset,
@@ -178,7 +192,48 @@ object QuickCatchMenuBuilder {
         preset: CatchPreset,
         countsByBallId: Map<String, Int>
     ): Int? {
+        /*
+         * The user "Catch" preset is special because it can consume different balls
+         * depending on inventory state.
+         *
+         * Keep this branch before CatchPresetBallHelper.effectiveBallId(...).
+         * The generic helper may resolve a preset to a concrete ball id, while here
+         * we need the custom display priority:
+         *
+         * 1) show Poké Ball count while Poké Ball is available
+         * 2) show Premier Ball count only when Poké Ball is zero
+         */
+        BasicCatchPresetDisplayHelper.resolveDisplayedCount(
+            preset = preset,
+            countsByBallId = countsByBallId
+        )?.let { return it }
+
         val effectiveBallId = CatchPresetBallHelper.effectiveBallId(preset) ?: return null
         return countsByBallId[effectiveBallId]
+    }
+
+    /**
+     * Resolves the subtitle displayed under each quick catch row.
+     *
+     * Most presets use the normal recommendation reason text, for example type
+     * match reasons or Friend Ball buddy info.
+     *
+     * The user "Catch" preset is different: its subtitle must explain which ball
+     * is currently being used by the priority rule.
+     *
+     * The fallback subtitle is nullable because some normal presets may not have
+     * any useful reason text for the current spawn/context.
+     */
+    private fun resolveSubtitleForPreset(
+        context: Context,
+        preset: CatchPreset,
+        countsByBallId: Map<String, Int>,
+        fallbackSubtitle: String?
+    ): String? {
+        return BasicCatchPresetDisplayHelper.buildSubtitle(
+            context = context,
+            preset = preset,
+            countsByBallId = countsByBallId
+        ) ?: fallbackSubtitle
     }
 }

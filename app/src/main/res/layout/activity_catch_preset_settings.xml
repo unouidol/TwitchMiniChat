@@ -1,70 +1,138 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/catchPresetEditorRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:paddingStart="12dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="10dp">
 
+    <!--
+        Compact fixed header.
+
+        This dialog behaves more like a small management screen than a popup,
+        so the title area must stay readable without stealing too much vertical
+        space from the preset list.
+    -->
     <TextView
         android:id="@+id/textPresetTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/catch_presets_title"
-        android:textSize="24sp"
+        android:textSize="20sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/textPresetSubtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/catch_presets_subtitle" />
+        android:layout_marginTop="4dp"
+        android:text="@string/catch_presets_subtitle"
+        android:textSize="13sp" />
 
     <TextView
         android:id="@+id/textPresetQuickMenuNote"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:text="@string/catch_presets_quick_menu_note"
-        android:textSize="13sp" />
+        android:textSize="12sp" />
 
     <CheckBox
         android:id="@+id/checkEnableAllPresets"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/catch_presets_enable_all" />
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:text="@string/catch_presets_enable_all"
+        android:textSize="13sp" />
 
+    <!--
+        The RecyclerView is the only area that should consume the remaining
+        height. The footer stays outside this list so Save is always visible.
+    -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerPresets"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_marginTop="8dp"
         android:layout_weight="1"
-        android:layout_marginTop="16dp" />
+        android:clipToPadding="false"
+        android:paddingBottom="8dp" />
 
+    <!--
+        Fixed footer.
+
+        Two rows avoid cramped buttons while keeping important manual actions
+        visible. Save stays in the bottom-right position where users expect the
+        final confirmation action.
+    -->
     <LinearLayout
+        android:id="@+id/catchPresetEditorFooter"
+        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:orientation="horizontal"
-        style="?android:attr/buttonBarStyle">
+        android:orientation="vertical"
+        android:paddingTop="8dp">
 
-        <Button
-            android:id="@+id/btnAddPreset"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:id="@+id/catchPresetEditorUtilityActions"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/add_preset" />
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btnSavePresets"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
+            <Button
+                android:id="@+id/btnPresetEditorPokebuddy"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="@string/quick_catch_pokebuddy"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btnRestorePresets"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/restore_presets"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/catchPresetEditorMainActions"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:text="@string/save_presets" />
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnAddPreset"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="@string/add_preset"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btnSavePresets"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/save_presets"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
     </LinearLayout>
 
 </LinearLayout>

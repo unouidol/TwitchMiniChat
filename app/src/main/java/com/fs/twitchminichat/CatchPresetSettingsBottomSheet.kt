@@ -13,6 +13,9 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import android.view.ViewGroup
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 
 class CatchPresetSettingsBottomSheet :
     BottomSheetDialogFragment(R.layout.activity_catch_preset_settings) {
@@ -25,11 +28,23 @@ class CatchPresetSettingsBottomSheet :
             quantity: Int,
             label: String
         ): Boolean
+
+        /**
+         * Requests buddy info through the chat.
+         *
+         * The bottom sheet does not send IRC messages directly. It only reports the
+         * user tap to the host fragment, because ChatFragment already owns the real
+         * chat connection state and the pending buddy response tracking.
+         */
+        fun onCatchPresetBuddyInfoRequested(): Boolean
     }
 
     private lateinit var recyclerPresets: RecyclerView
     private lateinit var btnAddPreset: Button
     private lateinit var btnSavePresets: Button
+
+    private lateinit var btnPresetEditorPokebuddy: Button
+    private lateinit var btnRestorePresets: Button
     private lateinit var checkEnableAllPresets: CheckBox
 
     private lateinit var adapter: CatchPresetEditAdapter
@@ -56,10 +71,37 @@ class CatchPresetSettingsBottomSheet :
         recyclerPresets = view.findViewById(R.id.recyclerPresets)
         btnAddPreset = view.findViewById(R.id.btnAddPreset)
         btnSavePresets = view.findViewById(R.id.btnSavePresets)
+        btnPresetEditorPokebuddy = view.findViewById(R.id.btnPresetEditorPokebuddy)
+        btnRestorePresets = view.findViewById(R.id.btnRestorePresets)
         checkEnableAllPresets = view.findViewById(R.id.checkEnableAllPresets)
 
         setupRecycler()
         setupButtons()
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        val bottomSheetDialog = dialog as? BottomSheetDialog ?: return
+        val bottomSheet = bottomSheetDialog.findViewById<View>(
+            com.google.android.material.R.id.design_bottom_sheet
+        ) ?: return
+
+        /*
+         * This screen manages a long list of presets, so a half-height bottom sheet
+         * makes the Save button hard to reach.
+         *
+         * Expanding the Material bottom sheet to full height gives us a real
+         * settings-like screen while keeping the existing BottomSheetDialogFragment
+         * architecture.
+         */
+        bottomSheet.layoutParams = bottomSheet.layoutParams.apply {
+            height = ViewGroup.LayoutParams.MATCH_PARENT
+        }
+
+        val behavior = BottomSheetBehavior.from(bottomSheet)
+        behavior.skipCollapsed = true
+        behavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
     override fun onResume() {
@@ -88,6 +130,16 @@ class CatchPresetSettingsBottomSheet :
             inventoryBalls = inventoryBalls
         )
 
+        /*
+ * The editor should stay focused on manual/generic presets.
+ *
+ * Context-driven balls are still available through Smart presets, so they do
+ * not need to fill this management list.
+ */
+        val visibleEditorPresets = mergedPresets.filter { preset ->
+            UserCatchPresetEditorFilter.shouldShowInEditor(preset)
+        }
+
         val inventoryCounts = if (currentProfileId.isNotBlank()) {
             InventoryBallStore.getDisplayCounts(context, currentProfileId)
         } else {
@@ -95,7 +147,7 @@ class CatchPresetSettingsBottomSheet :
         }
 
         adapter = CatchPresetEditAdapter(
-            initialItems = mergedPresets,
+            initialItems = visibleEditorPresets,
             onRemoveClicked = { position ->
                 if (::adapter.isInitialized) {
                     adapter.removeAt(position)
@@ -188,6 +240,47 @@ class CatchPresetSettingsBottomSheet :
             refreshToggleAllState()
         }
 
+        btnPresetEditorPokebuddy.setOnClickListener {
+            /*
+             * Manual PCG helper action.
+             *
+             * The bottom sheet does not send !pokebuddy directly because ChatFragment
+             * already has a complete buddy request flow:
+             * - sends the chat command
+             * - stores the pending profile/user
+             * - waits for the buddy response
+             * - updates the local buddy info
+             */
+            val handled = host?.onCatchPresetBuddyInfoRequested() == true
+
+            if (!handled) {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.connection_not_ready),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        btnPresetEditorPokebuddy.setOnClickListener {
+            /*
+             * Manual PCG helper action.
+             *
+             * This is intentionally user-triggered: the command is requested only when
+             * the user taps this button. The actual IRC send and buddy response tracking
+             * stay inside ChatFragment.
+             */
+            val handled = host?.onCatchPresetBuddyInfoRequested() == true
+
+            if (!handled) {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.connection_not_ready),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         btnSavePresets.setOnClickListener {
             CatchPresetStore.saveAll(requireContext(), adapter.currentItems())
             Toast.makeText(
@@ -216,7 +309,7 @@ class CatchPresetSettingsBottomSheet :
     }
 
 
-        private fun showBuyBallDialogFromSettings(preset: CatchPreset) {
+    private fun showBuyBallDialogFromSettings(preset: CatchPreset) {
         if (!CatchPresetBallHelper.canBuyFromPreset(preset)) return
 
         val shopBallName = CatchPresetBallHelper.resolveShopBallNameForPreset(preset) ?: return

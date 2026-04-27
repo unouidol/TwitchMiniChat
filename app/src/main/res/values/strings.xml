@@ -184,6 +184,15 @@
     <string name="quick_catch_spawn_subtitle_types_time">%1$s • %2$ds</string>
     <string name="quick_catch_spawn_subtitle_time">%1$ds</string>
     <string name="action_close">Close</string>
+    <string name="quick_catch_basic_using_poke_ball">Using Poké Ball</string>
+    <string name="quick_catch_basic_using_premier_ball">Using Premier Ball</string>
+    <string name="quick_catch_basic_no_basic_balls">No Poké Ball or Premier Ball available</string>
+    <string name="quick_catch_pokebuddy">Pokébuddy</string>
+    <string name="restore_presets">Restore presets</string>
+    <string name="restore_presets_confirm_title">Restore default presets?</string>
+    <string name="restore_presets_confirm_message">This will restore the default preset list. Your current preset changes in this editor may be replaced.</string>
+    <string name="restore_presets_confirm_positive">Restore</string>
+    <string name="restore_presets_restored">Default presets restored</string>
 
     <string name="quick_catch_next_spawn_title">No active spawn</string>
     <string name="quick_catch_next_spawn_subtitle">Next spawn in: %1$s</string>
