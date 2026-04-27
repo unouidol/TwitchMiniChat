@@ -81,4 +81,35 @@ object CatchBallCatalog {
             ballId = entry.ballId
         )
     }
+
+    /**
+     * Builds the internal preset candidates used by the Smart Presets system.
+     *
+     * These presets are NOT user presets and must NOT be saved into
+     * CatchPresetStore.
+     *
+     * They only exist at runtime so CatchBallRecommender can score the full ball
+     * catalog even if the user deleted all default/user presets.
+     */
+    fun createSmartCandidatePresets(): List<CatchPreset> {
+        return entries.map { entry ->
+            createSmartCandidatePreset(entry)
+        }
+    }
+
+    /**
+     * Creates one runtime-only smart preset candidate from a catalog entry.
+     *
+     * The ID intentionally starts with "smart_" so RecyclerView DiffUtil and any
+     * future menu logic can distinguish these rows from saved user presets.
+     */
+    private fun createSmartCandidatePreset(entry: Entry): CatchPreset {
+        return CatchPreset(
+            id = "smart_${entry.ballId}",
+            label = entry.label,
+            command = entry.command,
+            enabled = true,
+            ballId = entry.ballId
+        )
+    }
 }

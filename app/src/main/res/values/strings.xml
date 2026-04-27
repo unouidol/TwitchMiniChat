@@ -183,6 +183,10 @@
     <string name="quick_catch_no_spawn_subtitle">Generic catch menu</string>
     <string name="quick_catch_spawn_subtitle_types_time">%1$s • %2$ds</string>
     <string name="quick_catch_spawn_subtitle_time">%1$ds</string>
+    <string name="action_close">Close</string>
+
+    <string name="quick_catch_next_spawn_title">No active spawn</string>
+    <string name="quick_catch_next_spawn_subtitle">Next spawn in: %1$s</string>
 
     <string name="chat_send_filtered_duplicate">Message not sent: duplicate/spam message.</string>
     <string name="chat_send_filtered_rate_limit">Message not sent: sending messages too quickly.</string>

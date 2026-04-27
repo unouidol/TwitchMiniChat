@@ -435,7 +435,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var historyLoaded = false
     private var lastPausedAtMs: Long = 0L
 
-    private var lastBallRecoLogSignature: String? = null
 
     private val botcolors = mapOf(
         "elbierro" to 0xFFFFD700.toInt(),
@@ -2313,6 +2312,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 System.currentTimeMillis()
         }
 
+        Log.d(
+            "SPAWN_PARSE",
+            "timestampSec=$messageTimestampSec seenAtMs=$seenAtMs nowMs=${System.currentTimeMillis()} ageMs=${System.currentTimeMillis() - seenAtMs}"
+        )
+
         val newSnapshot = SpawnSnapshot(
             rawName = parsed.rawName,
             dexKey = dexEntry?.key,
@@ -2327,8 +2331,44 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             isAlreadyCaught = null
         )
 
-        val channel = currentChannelNormalized()
-        val existing = CurrentSpawnStore.loadForChannel(requireContext(), channel)
+        val nowMs = System.currentTimeMillis()
+        val ageMs = nowMs - newSnapshot.seenAtMs
+
+        /**
+         * Ignore impossible/future timestamps.
+         *
+         * This can happen if a server timestamp is malformed or if seconds/milliseconds
+         * are mixed up somewhere.
+         */
+        if (ageMs < 0L) {
+            Log.d(
+                "SPAWN_PARSE",
+                "ignored future spawn rawName=${newSnapshot.rawName} seenAtMs=${newSnapshot.seenAtMs} ageMs=$ageMs"
+            )
+            return
+        }
+
+        /**
+         * Ignore expired history spawns.
+         *
+         * PCG spawns are valid for 90 seconds. If a spawn message is loaded from chat
+         * history, but it is already older than that, it should not revive Smart Presets.
+         */
+        if (ageMs > 90_000L) {
+            Log.d(
+                "SPAWN_PARSE",
+                "ignored expired spawn rawName=${newSnapshot.rawName} seenAtMs=${newSnapshot.seenAtMs} ageMs=$ageMs"
+            )
+            return
+        }
+
+        /**
+         * CurrentSpawnStore is now global, not per-channel.
+         *
+         * If we already have a newer spawn saved, do not overwrite it with an older
+         * history message.
+         */
+        val existing = CurrentSpawnStore.load(requireContext())
 
         if (existing != null && existing.seenAtMs > newSnapshot.seenAtMs) {
             Log.d(
@@ -2339,24 +2379,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        CurrentSpawnStore.saveForChannel(
+        CurrentSpawnStore.save(
             context = requireContext(),
-            channel = channel,
             spawn = newSnapshot
         )
 
-        val reloaded = CurrentSpawnStore.loadForChannel(requireContext(), channel)
-
         Log.d(
             "SPAWN_PARSE",
-            "saved channel=$channel rawName=${newSnapshot.rawName} dexKey=${newSnapshot.dexKey} " +
-                    "type1=${newSnapshot.type1} type2=${newSnapshot.type2} " +
-                    "weightKg=${newSnapshot.weightKg} baseSpeed=${newSnapshot.baseSpeed} " +
-                    "baseHp=${newSnapshot.baseHp} evolvesTwice=${newSnapshot.evolvesTwice} " +
-                    "seenAtMs=${newSnapshot.seenAtMs} reloadOk=${reloaded != null} reloadName=${reloaded?.rawName}"
+            "saved global spawn rawName=${newSnapshot.rawName} displayName=${newSnapshot.displayName} ageMs=$ageMs"
         )
 
+        /**
+         * If the quick catch dialog is open while the spawn is detected from live chat
+         * or history, refresh it immediately so Smart Presets appear.
+         */
         refreshOpenQuickCatchMenuIfNeeded()
+        updateQuickCatchHeader()
     }
 
     private fun appendChatLine(
@@ -2506,17 +2544,53 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return (textSizePx * 1.5f).toInt()
     }
 
+
     private fun showCatchPresetsMenu() {
+        /**
+         * This menu is opened from the chat screen, so here we need a valid Fragment
+         * context. If the Fragment is not attached, requireContext() will fail,
+         * which is fine for a direct user-triggered UI action.
+         */
         val context = requireContext()
 
+        /**
+         * The active profile controls profile-scoped data such as:
+         * - ball inventory counts;
+         * - buddy info;
+         * - per-profile catch recommendation context.
+         *
+         * currentProfileId() can return an empty string, so normalize it to null
+         * when no profile is available.
+         */
         val profileId = currentProfileId().ifBlank { null }
-        val rawPresets = candidateQuickPresetsForCurrentContext(profileId)
-        val recommendations = recommendQuickPresetsForCurrentContext(rawPresets, profileId)
-        val visibleRecommendations = visibleQuickRecommendations(recommendations)
 
-        val presets = visibleRecommendations.map { it.preset }
+        /**
+         * Build the complete quick catch menu model.
+         *
+         * The factory handles:
+         * - enabled User Presets;
+         * - Smart Presets from the current spawn;
+         * - inventory counts;
+         * - recommendation filtering;
+         * - section/header row creation.
+         *
+         * ChatFragment only needs the final list to show in the RecyclerView.
+         */
+        val menuEntries = QuickCatchMenuModelFactory.build(
+            context = context,
+            profileId = profileId,
+            spawn = currentSpawnSnapshot()
+        )
 
-        if (presets.isEmpty()) {
+        /**
+         * If there is nothing to show, do not open an empty dialog.
+         *
+         * This can happen if:
+         * - there is no active spawn, so no Smart Presets;
+         * - there are no visible User Presets;
+         * - filtering hides all available rows.
+         */
+        if (menuEntries.isEmpty()) {
             Toast.makeText(
                 context,
                 getString(R.string.no_enabled_catch_presets),
@@ -2525,34 +2599,69 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val countsByBallId = if (profileId != null) {
-            InventoryBallStore.getDisplayCounts(context, profileId)
-        } else {
-            emptyMap()
-        }
-
+        /**
+         * Inflate the dialog layout.
+         *
+         * The layout contains:
+         * - a header area for spawn title/subtitle;
+         * - a RecyclerView for section headers and preset rows.
+         */
         val dialogView = layoutInflater.inflate(R.layout.dialog_quick_catch_presets, null, false)
         val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerQuickCatchPresets)
         val spawnTitle = dialogView.findViewById<TextView>(R.id.txtQuickCatchSpawnTitle)
         val spawnSubtitle = dialogView.findViewById<TextView>(R.id.txtQuickCatchSpawnSubtitle)
+        val btnClose = dialogView.findViewById<ImageButton>(R.id.btnQuickCatchClose)
 
+        /**
+         * The quick catch menu is a vertical list.
+         *
+         * The adapter itself decides whether each item is a section header or a
+         * preset row.
+         */
         recycler.layoutManager = LinearLayoutManager(context)
 
+        /**
+         * Create the AlertDialog but do not show it yet.
+         *
+         * We need the dialog reference before creating callbacks because the preset
+         * click callback dismisses the dialog after sending the command.
+         */
         val dialog = AlertDialog.Builder(context)
             .setView(dialogView)
             .create()
 
+        dialog.setCanceledOnTouchOutside(true)
+
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        /**
+         * Create the RecyclerView adapter.
+         *
+         * The adapter only renders rows and forwards click events.
+         * It does not send chat commands directly and does not decide catch logic.
+         */
         val adapter = QuickCatchPresetMenuAdapter(
-            items = buildQuickCatchRows(
-                presets = presets,
-                countsByBallId = countsByBallId,
-                profileId = profileId,
-                recommendations = visibleRecommendations
-            ),
+            items = menuEntries,
+
+            /**
+             * Main preset row tap.
+             *
+             * This keeps the actual chat/game command behavior in ChatFragment,
+             * where the existing sendPresetCommand(...) logic already lives.
+             */
             onPresetClicked = { preset ->
                 sendPresetCommand(preset, profileId)
                 dialog.dismiss()
             },
+
+            /**
+             * Buy button tap.
+             *
+             * This is only useful when we have a profile, because inventory updates
+             * are profile-scoped.
+             */
             onBuyClicked = buyClick@ { preset ->
                 if (profileId.isNullOrBlank()) return@buyClick
 
@@ -2560,10 +2669,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     profileId = profileId,
                     preset = preset,
                     onInventoryChanged = {
+                        /**
+                         * If the user buys balls while the menu is open, rebuild the
+                         * visible rows so counts and recommendations stay current.
+                         */
                         refreshOpenQuickCatchMenuIfNeeded()
                     }
                 )
             },
+
+            /**
+             * Buddy button tap.
+             *
+             * Currently used for Friend Ball-related buddy handling.
+             */
             onBuddyClicked = { preset ->
                 handleFriendBallBuddyAction(preset)
             }
@@ -2571,12 +2690,26 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         recycler.adapter = adapter
 
+        /**
+         * Store references to the open quick catch UI.
+         *
+         * These are used by:
+         * - refreshOpenQuickCatchMenuIfNeeded();
+         * - updateQuickCatchHeader();
+         * - the auto-refresh timer.
+         */
         quickCatchDialog = dialog
         quickCatchAdapter = adapter
         quickCatchProfileId = profileId
         quickCatchSpawnTitle = spawnTitle
         quickCatchSpawnSubtitle = spawnSubtitle
 
+        /**
+         * Clean up dialog references when it closes.
+         *
+         * This prevents stale Fragment/UI references from being used after the menu
+         * has been dismissed.
+         */
         dialog.setOnDismissListener {
             stopQuickCatchAutoRefresh()
             quickCatchDialog = null
@@ -2586,138 +2719,78 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             quickCatchSpawnSubtitle = null
         }
 
+        /**
+         * Show the dialog, then immediately refresh the header and start periodic
+         * refresh.
+         *
+         * Periodic refresh matters because some recommendations are time-sensitive:
+         * - Quick Ball changes after the early window;
+         * - Timer Ball becomes relevant near the end of the spawn.
+         */
         dialog.show()
         updateQuickCatchHeader()
         startQuickCatchAutoRefresh()
     }
 
     private fun refreshOpenQuickCatchMenuIfNeeded() {
+        /**
+         * If the quick catch dialog is not open, there is nothing to refresh.
+         *
+         * This function may be called after inventory changes or timer ticks, so it
+         * must safely exit when the popup is not currently visible.
+         */
         val dialog = quickCatchDialog ?: return
         if (!dialog.isShowing) return
 
+        /**
+         * Use the nullable Fragment context here because this can be called by
+         * delayed refresh/timer logic.
+         *
+         * If the Fragment is detached, we should not try to rebuild UI state.
+         */
         val context = context ?: return
+
+        /**
+         * The profile used when the dialog was opened.
+         *
+         * We intentionally reuse quickCatchProfileId instead of recalculating it
+         * from the active account, because the open dialog should stay tied to the
+         * profile it was opened for.
+         */
         val profileId = quickCatchProfileId
 
-        val rawPresets = candidateQuickPresetsForCurrentContext(profileId)
-        val recommendations = recommendQuickPresetsForCurrentContext(rawPresets, profileId)
-        val visibleRecommendations = visibleQuickRecommendations(recommendations)
-
-        val presets = visibleRecommendations.map { it.preset }
-
-        val countsByBallId = if (!profileId.isNullOrBlank()) {
-            InventoryBallStore.getDisplayCounts(context, profileId)
-        } else {
-            emptyMap()
-        }
-
-        quickCatchAdapter?.updateItems(
-            buildQuickCatchRows(
-                presets = presets,
-                countsByBallId = countsByBallId,
-                profileId = profileId,
-                recommendations = visibleRecommendations
-            )
+        /**
+         * Rebuild the full quick catch menu model from the current state.
+         *
+         * This keeps the open dialog updated when:
+         * - inventory changes;
+         * - spawn timing changes;
+         * - user preset settings change;
+         * - Smart Preset recommendations change.
+         */
+        val menuEntries = QuickCatchMenuModelFactory.build(
+            context = context,
+            profileId = profileId,
+            spawn = currentSpawnSnapshot()
         )
 
+        /**
+         * Push the rebuilt menu model into the adapter.
+         *
+         * The adapter uses DiffUtil, so it should update only the rows that changed
+         * instead of redrawing the entire list blindly.
+         */
+        quickCatchAdapter?.updateItems(menuEntries)
+
+        /**
+         * Refresh the header above the list.
+         *
+         * This keeps the spawn title/subtitle/timer aligned with the same current
+         * spawn snapshot used to build Smart Presets.
+         */
         updateQuickCatchHeader()
     }
 
-    private fun resolveDisplayedCountForPreset(
-        preset: CatchPreset,
-        countsByBallId: Map<String, Int>
-    ): Int? {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC -> {
-                val poke = countsByBallId["poke_ball"] ?: 0
-                if (poke > 0) {
-                    poke
-                } else {
-                    countsByBallId["premier_ball"]
-                }
-            }
-
-            null -> null
-            else -> countsByBallId[preset.ballId]
-        }
-    }
-
-
-    private fun buildQuickCatchRows(
-        presets: List<CatchPreset>,
-        countsByBallId: Map<String, Int>,
-        profileId: String?,
-        recommendations: List<CatchBallRecommendation>
-    ): List<QuickCatchPresetRow> {
-        val recommendationByPresetId = recommendations.associateBy { it.preset.id }
-
-        return presets.map { preset ->
-            val count = resolveDisplayedCountForPreset(preset, countsByBallId)
-            val recommendation = recommendationByPresetId[preset.id]
-
-            val subtitle = when {
-                CatchPresetBallHelper.isFriendBallPreset(preset) ->
-                    buildFriendBallSubtitle(profileId)
-
-                else ->
-                    CatchBallReasonFormatter.format(
-                        context = requireContext(),
-                        reasonKeys = recommendation?.reasonKeys.orEmpty()
-                    )
-            }
-
-            QuickCatchPresetRow(
-                preset = preset,
-                label = preset.label,
-                countText = count?.toString() ?: "-",
-                subtitle = subtitle,
-                showBuyButton = CatchPresetBallHelper.canBuyFromPreset(preset),
-                showBuddyButton = CatchPresetBallHelper.isFriendBallPreset(preset)
-            )
-        }
-    }
-
-    private fun buildFriendBallSubtitle(profileId: String?): String? {
-        if (profileId.isNullOrBlank()) return null
-
-        val info = BuddyInfoStore.load(requireContext(), profileId)
-            ?: return getString(R.string.buddy_unknown)
-
-        val typeText = when {
-            !info.primaryType.isNullOrBlank() && !info.secondaryType.isNullOrBlank() ->
-                "${info.primaryType} / ${info.secondaryType}"
-
-            !info.primaryType.isNullOrBlank() ->
-                info.primaryType
-
-            else -> null
-        }
-
-        return when {
-            info.level != null && typeText != null -> getString(
-                R.string.friend_ball_buddy_subtitle_level_types,
-                info.rawName,
-                info.level,
-                typeText
-            )
-
-            info.level != null -> getString(
-                R.string.friend_ball_buddy_subtitle_level,
-                info.rawName,
-                info.level
-            )
-
-            typeText != null -> getString(
-                R.string.friend_ball_buddy_subtitle_name_types,
-                info.rawName,
-                typeText
-            )
-
-            else -> getString(
-                R.string.friend_ball_buddy_subtitle_name_only,
-                info.rawName
-            )
-        }
-    }
 
     private fun sendRawChatCommand(command: String): Boolean {
         return sendMessageText(
@@ -2728,11 +2801,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun currentSpawnSnapshot(): SpawnSnapshot? {
-        return CurrentSpawnStore.loadForChannel(
-            requireContext(),
-            currentChannelNormalized()
-        )
+        return CurrentSpawnStore.load(requireContext())
     }
+
     private fun currentSpawnAgeSec(spawn: SpawnSnapshot?): Int? {
         if (spawn == null) return null
         val ageMs = System.currentTimeMillis() - spawn.seenAtMs
@@ -2743,6 +2814,38 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun currentSpawnRemainingSec(spawn: SpawnSnapshot?): Int? {
         val ageSec = currentSpawnAgeSec(spawn) ?: return null
         return (90 - ageSec).coerceAtLeast(0)
+    }
+
+    /**
+     * Returns seconds until the next expected PCG spawn.
+     *
+     * This uses the last known spawn timestamp as the anchor.
+     *
+     * PCG spawn model:
+     * - spawn is active for 90 seconds;
+     * - a new spawn starts every 15 minutes.
+     *
+     * If the app has never seen a spawn, we cannot calculate the next one.
+     */
+    private fun nextSpawnRemainingSecFromLastKnownSpawn(): Int? {
+        val lastSpawn = CurrentSpawnStore.loadLastKnown(requireContext()) ?: return null
+
+        val nowMs = System.currentTimeMillis()
+        val ageMs = nowMs - lastSpawn.seenAtMs
+
+        if (ageMs < 0L) return null
+
+        /**
+         * If several cycles passed while the app was closed, jump to the next
+         * future 15-minute boundary based on the last known spawn.
+         */
+        val completedCycles = ageMs / PCG_SPAWN_INTERVAL_MS
+        val nextSpawnAtMs = lastSpawn.seenAtMs + ((completedCycles + 1) * PCG_SPAWN_INTERVAL_MS)
+
+        val remainingMs = nextSpawnAtMs - nowMs
+        if (remainingMs <= 0L) return 0
+
+        return (remainingMs / 1000L).toInt()
     }
 
     private fun currentSpawnTypesText(spawn: SpawnSnapshot?): String? {
@@ -2759,6 +2862,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
+    private fun formatCountdownMmSs(totalSeconds: Int): String {
+        val safeSeconds = totalSeconds.coerceAtLeast(0)
+        val minutes = safeSeconds / 60
+        val seconds = safeSeconds % 60
+        return "%d:%02d".format(minutes, seconds)
+    }
+
     private fun updateQuickCatchHeader() {
         val titleView = quickCatchSpawnTitle ?: return
         val subtitleView = quickCatchSpawnSubtitle ?: return
@@ -2766,8 +2876,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val spawn = currentSpawnSnapshot()
 
         if (spawn == null) {
-            titleView.text = getString(R.string.quick_catch_no_spawn_title)
-            subtitleView.text = getString(R.string.quick_catch_no_spawn_subtitle)
+            val nextSpawnRemainingSec = nextSpawnRemainingSecFromLastKnownSpawn()
+
+            if (nextSpawnRemainingSec != null) {
+                titleView.text = getString(R.string.quick_catch_next_spawn_title)
+                subtitleView.text = getString(
+                    R.string.quick_catch_next_spawn_subtitle,
+                    formatCountdownMmSs(nextSpawnRemainingSec)
+                )
+            } else {
+                titleView.text = getString(R.string.quick_catch_no_spawn_title)
+                subtitleView.text = getString(R.string.quick_catch_no_spawn_subtitle)
+            }
+
             return
         }
 
@@ -2790,131 +2911,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private fun recommendQuickPresetsForCurrentContext(
-        presets: List<CatchPreset>,
-        profileId: String?
-    ): List<CatchBallRecommendation> {
-        val buddy = if (!profileId.isNullOrBlank()) {
-            BuddyInfoStore.load(requireContext(), profileId)
-        } else {
-            null
-        }
 
-        val spawn = currentSpawnSnapshot()
-        val spawnAgeSec = if (spawn != null) {
-            ((System.currentTimeMillis() - spawn.seenAtMs) / 1000L).toInt()
-        } else {
-            null
-        }
 
-        val recommendations = CatchBallRecommender.recommend(
-            presets = presets,
-            spawn = spawn,
-            buddy = buddy
-        )
-
-        val signature = buildString {
-            append("channel=").append(currentChannelNormalized())
-            append("|spawn=").append(spawn?.displayName)
-            append("|age=").append(spawnAgeSec)
-            append("|buddy=").append(buddy?.rawName)
-            append("|items=")
-            recommendations.forEach { r ->
-                append(r.preset.label)
-                    .append(":")
-                    .append(CatchPresetBallHelper.effectiveBallId(r.preset))
-                    .append(":")
-                    .append(r.score)
-                    .append(":")
-                    .append(r.reasonKeys.joinToString(","))
-                    .append(";")
-            }
-        }
-
-        if (signature != lastBallRecoLogSignature) {
-            lastBallRecoLogSignature = signature
-
-            Log.d(
-                "BALL_RECO",
-                "channel=${currentChannelNormalized()} spawn=${spawn?.displayName} ageSec=$spawnAgeSec " +
-                        "type1=${spawn?.type1} type2=${spawn?.type2} weightKg=${spawn?.weightKg} " +
-                        "speed=${spawn?.baseSpeed} hp=${spawn?.baseHp} evolvesTwice=${spawn?.evolvesTwice}"
-            )
-
-            for (r in recommendations) {
-                Log.d(
-                    "BALL_RECO",
-                    "label=${r.preset.label} ballId=${CatchPresetBallHelper.effectiveBallId(r.preset)} " +
-                            "score=${r.score} reasons=${r.reasonKeys}"
-                )
-            }
-        }
-
-        return recommendations
-    }
-
-    private fun visibleQuickRecommendations(
-        recommendations: List<CatchBallRecommendation>
-    ): List<CatchBallRecommendation> {
-        return recommendations.filter { recommendation ->
-            recommendation.score > 0 ||
-                    CatchPresetBallHelper.isCoreStandardPreset(recommendation.preset)
-        }.filterNot { recommendation ->
-            CatchPresetBallHelper.shouldHideFromQuickMenu(recommendation.preset)
-        }
-    }
-
-    private fun candidateQuickPresetsForCurrentContext(
-        profileId: String?
-    ): List<CatchPreset> {
-        val context = requireContext()
-
-        val savedPresets = CatchPresetStore.loadAll(context)
-        val savedByBallId = LinkedHashMap<String, CatchPreset>()
-
-        for (preset in savedPresets) {
-            val effectiveBallId = CatchPresetBallHelper.effectiveBallId(preset) ?: continue
-            if (!preset.enabled) continue
-            if (!savedByBallId.containsKey(effectiveBallId)) {
-                savedByBallId[effectiveBallId] = preset
-            }
-        }
-
-        val countsByBallId = if (!profileId.isNullOrBlank()) {
-            InventoryBallStore.getDisplayCounts(context, profileId)
-        } else {
-            emptyMap()
-        }
-
-        val candidateEntries = CatchBallCatalog.entries.filter { entry ->
-            entry.keepAlways || (countsByBallId[entry.ballId] ?: 0) > 0
-        }
-
-        val result = mutableListOf<CatchPreset>()
-
-        candidateEntries.forEachIndexed { index, entry ->
-            val preset = savedByBallId[entry.ballId]?.copy(
-                enabled = true,
-                ballId = entry.ballId
-            ) ?: CatchBallCatalog.createDefaultPreset(entry, index)
-
-            result += preset
-        }
-
-        Log.d("QUICK_SRC", "profileId=$profileId savedPresetCount=${savedPresets.size}")
-        Log.d("QUICK_SRC", "profileId=$profileId candidateEntryCount=${candidateEntries.size}")
-        Log.d("QUICK_SRC", "profileId=$profileId finalCandidateCount=${result.size}")
-
-        for (preset in result) {
-            Log.d(
-                "QUICK_SRC",
-                "candidate preset label=${preset.label} command=${preset.command} " +
-                        "ballId=${preset.ballId} effectiveBallId=${CatchPresetBallHelper.effectiveBallId(preset)} enabled=${preset.enabled}"
-            )
-        }
-
-        return result
-    }
 
     private fun showBuyBallQuantityDialog(
         profileId: String,
@@ -2960,38 +2958,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             .show()
     }
 
-    private fun resolveBallIdToSpendForPreset(
-        preset: CatchPreset,
-        countsByBallId: Map<String, Int>
-    ): String? {
-        return when (preset.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC -> {
-                val poke = countsByBallId["poke_ball"] ?: 0
-                when {
-                    poke > 0 -> "poke_ball"
-                    (countsByBallId["premier_ball"] ?: 0) > 0 -> "premier_ball"
-                    else -> null
-                }
-            }
-
-            null -> null
-            else -> preset.ballId
-        }
-    }
-
     private fun noteCatchPresetUsedOptimistically(
         profileId: String,
         preset: CatchPreset
     ) {
-        val context = requireContext()
-        val countsByBallId = InventoryBallStore.getDisplayCounts(context, profileId)
-
-        val spentBallId = resolveBallIdToSpendForPreset(preset, countsByBallId) ?: return
-
-        InventoryBallStore.noteBallUsed(
-            context = context,
+        QuickCatchInventoryUsageTracker.notePresetUsedOptimistically(
+            context = requireContext(),
             profileId = profileId,
-            ballId = spentBallId
+            preset = preset
         )
     }
 
@@ -3159,6 +3133,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     companion object {
         private const val EMOTE_MARKER: Char = '\u2063'
         private const val ARG_ACCOUNT_ID = "accountId"
+
+        private const val PCG_SPAWN_INTERVAL_MS = 15 * 60 * 1000L
 
         fun newInstance(accountId: String): ChatFragment {
             return ChatFragment().apply {

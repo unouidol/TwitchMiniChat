@@ -5,32 +5,58 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <TextView
-        android:id="@+id/textQuickCatchMenuTitle"
+    <!--
+        Top header row.
+
+        The close button is placed on the left so the user can quickly dismiss
+        the quick catch menu when it covers too much of the chat.
+    -->
+    <LinearLayout
+        android:id="@+id/layoutQuickCatchMenuHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/quick_catch_menu_title"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:textStyle="bold" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/textQuickCatchMenuTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/quick_catch_menu_title"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:textStyle="bold" />
+
+
+        <ImageButton
+            android:id="@+id/btnQuickCatchClose"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/action_close"
+            android:padding="8dp"
+            android:src="@drawable/ic_close_24" />
+
+    </LinearLayout>
+
+    <!-- Current spawn title. Hidden/updated by ChatFragment when needed. -->
     <TextView
         android:id="@+id/txtQuickCatchSpawnTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:textStyle="bold"
         android:maxLines="1"
         android:ellipsize="end" />
 
+    <!-- Current spawn subtitle/timer/recommendation context. -->
     <TextView
         android:id="@+id/txtQuickCatchSpawnSubtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
         android:layout_marginTop="4dp"
-        android:layout_marginEnd="16dp"
         android:layout_marginBottom="8dp"
         android:textAppearance="?android:attr/textAppearanceSmall"
         android:maxLines="1"

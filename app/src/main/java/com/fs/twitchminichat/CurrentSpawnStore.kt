@@ -1,24 +1,39 @@
 package com.fs.twitchminichat
 
 import android.content.Context
+import androidx.core.content.edit
 import org.json.JSONObject
 
+/**
+ * Stores the latest known PCG spawn.
+ *
+ * PCG spawns are global across channels, so this store must NOT be scoped to the
+ * current Twitch channel. If a Pikachu is active, it is active everywhere until
+ * the 90 second spawn window expires.
+ */
 object CurrentSpawnStore {
 
     private const val PREFS_NAME = "current_spawn_store"
 
-    private fun key(channel: String): String {
-        return "spawn_${channel.trim().removePrefix("#").lowercase()}"
-    }
+    /**
+     * Single global key.
+     *
+     * Older versions used per-channel keys like "spawn_unouidol".
+     * From now on, the current spawn is global.
+     */
+    private const val GLOBAL_SPAWN_KEY = "current_global_spawn"
 
-    fun saveForChannel(
+    private const val SPAWN_TTL_MS = 90_000L
+
+    /**
+     * Saves the latest global spawn.
+     *
+     * This should be called whenever the app detects a new valid PCG spawn.
+     */
+    fun save(
         context: Context,
-        channel: String,
         spawn: SpawnSnapshot
     ) {
-        val normalizedChannel = channel.trim().removePrefix("#").lowercase()
-        if (normalizedChannel.isBlank()) return
-
         val json = JSONObject()
             .put("rawName", spawn.rawName)
             .put("dexKey", spawn.dexKey ?: "")
@@ -33,22 +48,42 @@ object CurrentSpawnStore {
             .put("isAlreadyCaught", spawn.isAlreadyCaught ?: JSONObject.NULL)
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(key(normalizedChannel), json.toString())
-            .apply()
+            .edit {
+                putString(GLOBAL_SPAWN_KEY, json.toString())
+            }
     }
 
-    fun loadForChannel(
+    /**
+     * Loads the current global spawn only if it is still inside the 90 second
+     * valid window.
+     *
+     * Expired spawns are removed and returned as null.
+     */
+    fun load(
         context: Context,
-        channel: String
+        nowMs: Long = System.currentTimeMillis()
     ): SpawnSnapshot? {
-        val normalizedChannel = channel.trim().removePrefix("#").lowercase()
-        if (normalizedChannel.isBlank()) return null
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(key(normalizedChannel), null)
+        val raw = prefs.getString(GLOBAL_SPAWN_KEY, null)
             ?: return null
 
+        val snapshot = parse(raw) ?: return null
+        val ageMs = nowMs - snapshot.seenAtMs
+
+        if (ageMs < 0L) {
+            return snapshot
+        }
+
+        if (ageMs > SPAWN_TTL_MS) {
+            return null
+        }
+
+        return snapshot
+    }
+
+
+    private fun parse(raw: String): SpawnSnapshot? {
         return try {
             val json = JSONObject(raw)
 
@@ -85,17 +120,22 @@ object CurrentSpawnStore {
             null
         }
     }
+    /**
+     * Loads the last known spawn even if the 90 second active catch window expired.
+     *
+     * This is useful for UI countdowns such as:
+     * "Next spawn in: 13:30"
+     *
+     * It should NOT be used to decide whether Smart Presets are available.
+     * For Smart Presets, use load(...), which only returns active spawns.
+     */
+    fun loadLastKnown(
+        context: Context
+    ): SpawnSnapshot? {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(GLOBAL_SPAWN_KEY, null)
+            ?: return null
 
-    fun clearForChannel(
-        context: Context,
-        channel: String
-    ) {
-        val normalizedChannel = channel.trim().removePrefix("#").lowercase()
-        if (normalizedChannel.isBlank()) return
-
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .remove(key(normalizedChannel))
-            .apply()
+        return parse(raw)
     }
 }
