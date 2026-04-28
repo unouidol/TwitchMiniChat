@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
+
 /**
  * Adapter for the quick catch menu RecyclerView.
  *
@@ -29,6 +30,25 @@ class QuickCatchPresetMenuAdapter(
     private val onBuyClicked: (CatchPreset) -> Unit,
     private val onBuddyClicked: (CatchPreset) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+    companion object {
+        /**
+         * RecyclerView view types.
+         *
+         * The quick catch menu can render two different row layouts:
+         * - section headers, for "Smart presets" / "User presets"
+         * - actual preset rows
+         *
+         * Keeping these as named constants makes getItemViewType(...) and
+         * onCreateViewHolder(...) easier to read than using raw numbers.
+         */
+        private const val VIEW_TYPE_HEADER = 0
+        private const val VIEW_TYPE_PRESET = 1
+        /**
+         * RecyclerView view type for non-clickable empty section messages.
+         */
+        private const val VIEW_TYPE_EMPTY_STATE = 2
+    }
 
     /**
      * Replaces the current menu content.
@@ -61,6 +81,7 @@ class QuickCatchPresetMenuAdapter(
         return when (items[position]) {
             is QuickCatchPresetMenuEntry.Header -> VIEW_TYPE_HEADER
             is QuickCatchPresetMenuEntry.PresetRow -> VIEW_TYPE_PRESET
+            is QuickCatchPresetMenuEntry.EmptyState -> VIEW_TYPE_EMPTY_STATE
         }
     }
 
@@ -94,6 +115,12 @@ class QuickCatchPresetMenuAdapter(
                 )
             }
 
+            VIEW_TYPE_EMPTY_STATE -> {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.row_quick_catch_empty_state, parent, false)
+                EmptyStateViewHolder(view)
+            }
+
             else -> error("Unsupported quick catch menu viewType=$viewType")
         }
     }
@@ -110,8 +137,14 @@ class QuickCatchPresetMenuAdapter(
             is QuickCatchPresetMenuEntry.PresetRow -> {
                 (holder as RowViewHolder).bind(item.row)
             }
+
+            is QuickCatchPresetMenuEntry.EmptyState ->
+                (holder as EmptyStateViewHolder).bind(item)
+            }
+
+
         }
-    }
+
 
     /**
      * Total number of visual entries.
@@ -180,6 +213,18 @@ class QuickCatchPresetMenuAdapter(
                 textSubtitle.visibility = View.GONE
             }
 
+            /**
+             * Smart Quick Ball / Timer Ball rows get a subtle background tint.
+             *
+             * Always set the background on every bind, including the transparent fallback,
+             * because RecyclerView reuses row views. Without the reset, a recycled Timer
+             * Ball row could accidentally make another preset look highlighted.
+             */
+            itemView.background = QuickCatchSmartHighlight.buildBackground(
+                context = itemView.context,
+                preset = row.preset
+            )
+
             btnBuy.visibility = if (row.showBuyButton) View.VISIBLE else View.GONE
             btnBuddy.visibility = if (row.showBuddyButton) View.VISIBLE else View.GONE
 
@@ -197,6 +242,18 @@ class QuickCatchPresetMenuAdapter(
         }
     }
 
+private class EmptyStateViewHolder(
+    itemView: View
+) : RecyclerView.ViewHolder(itemView) {
+
+    private val textEmptyState: TextView =
+        itemView.findViewById(R.id.textQuickCatchEmptyState)
+
+    fun bind(item: QuickCatchPresetMenuEntry.EmptyState) {
+        textEmptyState.text = item.message
+    }
+}
+
     /**
      * DiffUtil callback for menu entries.
      *
@@ -208,36 +265,73 @@ class QuickCatchPresetMenuAdapter(
         private val newItems: List<QuickCatchPresetMenuEntry>
     ) : DiffUtil.Callback() {
 
-        override fun getOldListSize(): Int = oldItems.size
+        override fun getOldListSize(): Int {
+            return oldItems.size
+        }
 
-        override fun getNewListSize(): Int = newItems.size
+        override fun getNewListSize(): Int {
+            return newItems.size
+        }
 
-        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+        override fun areItemsTheSame(
+            oldItemPosition: Int,
+            newItemPosition: Int
+        ): Boolean {
             val oldItem = oldItems[oldItemPosition]
             val newItem = newItems[newItemPosition]
 
-            return when {
-                oldItem is QuickCatchPresetMenuEntry.Header &&
-                        newItem is QuickCatchPresetMenuEntry.Header -> {
-                    oldItem.title == newItem.title
+            /**
+             * Identity comparison for RecyclerView rows.
+             *
+             * Headers are identified by their title.
+             * Preset rows are identified by the underlying preset id.
+             */
+            return when (oldItem) {
+                is QuickCatchPresetMenuEntry.Header -> {
+                    newItem is QuickCatchPresetMenuEntry.Header &&
+                            oldItem.title == newItem.title
                 }
 
-                oldItem is QuickCatchPresetMenuEntry.PresetRow &&
-                        newItem is QuickCatchPresetMenuEntry.PresetRow -> {
-                    oldItem.row.preset.id == newItem.row.preset.id
+                is QuickCatchPresetMenuEntry.PresetRow -> {
+                    newItem is QuickCatchPresetMenuEntry.PresetRow &&
+                            oldItem.row.preset.id == newItem.row.preset.id
                 }
 
-                else -> false
+                is QuickCatchPresetMenuEntry.EmptyState -> {
+                    newItem is QuickCatchPresetMenuEntry.EmptyState
+                }
             }
         }
 
-        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            return oldItems[oldItemPosition] == newItems[newItemPosition]
-        }
-    }
+        override fun areContentsTheSame(
+            oldItemPosition: Int,
+            newItemPosition: Int
+        ): Boolean {
+            val oldItem = oldItems[oldItemPosition]
+            val newItem = newItems[newItemPosition]
 
-    private companion object {
-        const val VIEW_TYPE_HEADER = 1
-        const val VIEW_TYPE_PRESET = 2
+            /**
+             * Content comparison.
+             *
+             * If the row count, subtitle, highlight state, buttons, or any other row
+             * content changes, DiffUtil will rebind that row.
+             */
+            return when (oldItem) {
+                is QuickCatchPresetMenuEntry.Header -> {
+                    newItem is QuickCatchPresetMenuEntry.Header &&
+                            oldItem.title == newItem.title
+                }
+
+                is QuickCatchPresetMenuEntry.PresetRow -> {
+                    newItem is QuickCatchPresetMenuEntry.PresetRow &&
+                            oldItem.row == newItem.row
+                }
+
+                is QuickCatchPresetMenuEntry.EmptyState -> {
+                    newItem is QuickCatchPresetMenuEntry.EmptyState &&
+                            oldItem.message == newItem.message
+                }
+            }
+        }
     }
 }

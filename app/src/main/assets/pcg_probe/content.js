@@ -12,6 +12,29 @@
   const WAIT_FOR_POKEDEX_ATTEMPTS = 60;
   const WAIT_FOR_POKEDEX_DELAY_MS = 500;
 
+  /*
+   * Android now understands these two semantic events.
+   *
+   * They are intentionally sent by the content script even when Android has not
+   * requested anything yet. GeckoSessionManager ignores them unless a manual
+   * Register inventory / Register Pokédex request is currently pending.
+   */
+  const TYPE_POKEDEX_WRONG_TAB = "pcg_pokedex_wrong_tab";
+  const TYPE_INVENTORY_WRONG_TAB = "pcg_inventory_wrong_tab";
+
+  /*
+   * This monitor makes the wrong-tab toast feel immediate.
+   *
+   * Without it, Android can only notice the wrong tab after the 15 second manual
+   * update timeout. With this, a pending manual request is usually answered within
+   * about 1.5 seconds.
+   */
+  const WRONG_TAB_MONITOR_INTERVAL_MS = 1500;
+  const WRONG_TAB_MESSAGE_COOLDOWN_MS = 1500;
+
+  let lastPokedexWrongTabSentAt = 0;
+  let lastInventoryWrongTabSentAt = 0;
+
   let extractionScheduled = false;
   let extractionRunning = false;
   let extractionRerunRequested = false;
@@ -36,6 +59,17 @@
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, maxLen);
+  }
+
+  function bodyText(maxLen = 2500) {
+    const body = document.body;
+    if (!body) return "";
+
+    return compactText(body.innerText || body.textContent || "", maxLen);
+  }
+
+  function lowerBodyText(maxLen = 2500) {
+    return bodyText(maxLen).toLowerCase();
   }
 
   function frameInfo() {
@@ -69,6 +103,136 @@
     return !!document.querySelector(
       ".pokedex__container, .pokedex__grid, .pokedex__entry, .pokedex__entry-name"
     );
+  }
+
+  function looksLikeInventory() {
+    const selectorMatch = document.querySelector(
+      [
+        ".inventory__container",
+        ".inventory__wrapper",
+        ".inventory__grid",
+        ".inventory__item",
+        ".inventory__item-name",
+        ".inventory-page",
+        "[class*='inventory']"
+      ].join(", ")
+    );
+
+    if (selectorMatch) {
+      return true;
+    }
+
+    const text = lowerBodyText(3000);
+
+    const hasInventoryWord = text.includes("inventory");
+    const knownBallNames = [
+      "poké ball",
+      "poke ball",
+      "great ball",
+      "ultra ball",
+      "premier ball",
+      "quick ball",
+      "timer ball",
+      "repeat ball"
+    ];
+
+    let ballMentions = 0;
+    for (const ballName of knownBallNames) {
+      if (text.includes(ballName)) {
+        ballMentions += 1;
+      }
+    }
+
+    /*
+     * The Inventory tab normally contains several ball names together.
+     *
+     * This fallback helps if PCG changes its CSS class names but the visible
+     * text still clearly looks like the ball inventory.
+     */
+    return hasInventoryWord || ballMentions >= 2;
+  }
+
+  function looksLikeAnyLoadedPcgSurface() {
+    if (looksLikePokedex() || looksLikeInventory()) {
+      return true;
+    }
+
+    const text = lowerBodyText(1800);
+
+    if (!text || text.length < 30) {
+      return false;
+    }
+
+    return (
+      text.includes("pokédex") ||
+      text.includes("pokedex") ||
+      text.includes("inventory") ||
+      text.includes("spawnable") ||
+      text.includes("obtained") ||
+      text.includes("poké ball") ||
+      text.includes("poke ball") ||
+      text.includes("great ball") ||
+      text.includes("ultra ball")
+    );
+  }
+
+  function sendWrongTabMessage(type, reason, details) {
+    const now = Date.now();
+
+    if (type === TYPE_POKEDEX_WRONG_TAB) {
+      if (now - lastPokedexWrongTabSentAt < WRONG_TAB_MESSAGE_COOLDOWN_MS) {
+        return;
+      }
+      lastPokedexWrongTabSentAt = now;
+    }
+
+    if (type === TYPE_INVENTORY_WRONG_TAB) {
+      if (now - lastInventoryWrongTabSentAt < WRONG_TAB_MESSAGE_COOLDOWN_MS) {
+        return;
+      }
+      lastInventoryWrongTabSentAt = now;
+    }
+
+    send(type, {
+      ok: false,
+      reason,
+      frame: frameInfo(),
+      pokedexVisible: looksLikePokedex(),
+      inventoryVisible: looksLikeInventory(),
+      details: details || {}
+    });
+  }
+
+  function monitorWrongTabsOnce(reason) {
+    if (!isRealPcgFrame()) {
+      return;
+    }
+
+    /*
+     * Avoid sending wrong-tab events while the extension iframe is still blank or
+     * very early in its loading phase. Android still has its 15 second timeout as
+     * a fallback for ambiguous cases.
+     */
+    if (!looksLikeAnyLoadedPcgSurface()) {
+      return;
+    }
+
+    const pokedexVisible = looksLikePokedex();
+    const inventoryVisible = looksLikeInventory();
+
+    if (!pokedexVisible) {
+      sendWrongTabMessage(TYPE_POKEDEX_WRONG_TAB, reason, {
+        expectedTab: "pokedex",
+        actualSurfaceLooksLikeInventory: inventoryVisible
+      });
+    }
+
+    if (!inventoryVisible) {
+      sendWrongTabMessage(TYPE_INVENTORY_WRONG_TAB, reason, {
+        expectedTab: "inventory",
+        actualSurfaceLooksLikePokedex: pokedexVisible
+      });
+    }
   }
 
   function normalizePokemonName(text) {
@@ -285,8 +449,16 @@
       if (isRealPcgFrame() && looksLikePokedex()) {
         return true;
       }
+
+      /*
+       * While waiting, keep publishing wrong-tab state. Android only reacts if the
+       * user has just pressed Register Pokédex.
+       */
+      monitorWrongTabsOnce("waiting_for_pokedex");
+
       await sleep(delayMs);
     }
+
     return false;
   }
 
@@ -338,6 +510,8 @@
       return;
     }
 
+    monitorWrongTabsOnce("pokedex_extraction_started");
+
     send("pcg_missing_spawnable_extract", {
       ok: false,
       reason: "frame_seen_waiting_for_pokedex",
@@ -347,6 +521,10 @@
 
     const ready = await waitForRealPokedex();
     if (!ready) {
+      sendWrongTabMessage(TYPE_POKEDEX_WRONG_TAB, "pokedex_not_visible_after_wait", {
+        triggerReason
+      });
+
       send("pcg_missing_spawnable_extract", {
         ok: false,
         reason: "pokedex_not_found_in_real_frame",
@@ -441,11 +619,13 @@
   }
 
   if (isRealPcgFrame()) {
+    monitorWrongTabsOnce("initial_real_frame");
     scheduleExtraction("initial_real_frame");
   }
 
   const observer = new MutationObserver(() => {
     if (isRealPcgFrame()) {
+      monitorWrongTabsOnce("mutation_real_frame");
       scheduleExtraction("mutation_real_frame");
     }
   });
@@ -454,4 +634,8 @@
     childList: true,
     subtree: true
   });
+
+  setInterval(() => {
+    monitorWrongTabsOnce("wrong_tab_monitor");
+  }, WRONG_TAB_MONITOR_INTERVAL_MS);
 })();

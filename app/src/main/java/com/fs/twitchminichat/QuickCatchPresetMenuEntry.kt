@@ -1,11 +1,12 @@
 package com.fs.twitchminichat
 
 /**
- * Represents one visual entry inside the quick catch menu.
+ * Visual entry rendered inside the quick catch preset menu.
  *
- * We keep section headers separate from real preset rows so Smart Presets can be
- * shown as temporary runtime suggestions without being mixed into the saved user
- * preset list.
+ * The menu is section-based:
+ * - headers separate Smart presets and User presets
+ * - preset rows are clickable command shortcuts
+ * - empty states explain why a section has no rows
  */
 sealed class QuickCatchPresetMenuEntry {
 
@@ -15,5 +16,9 @@ sealed class QuickCatchPresetMenuEntry {
 
     data class PresetRow(
         val row: QuickCatchPresetRow
+    ) : QuickCatchPresetMenuEntry()
+
+    data class EmptyState(
+        val message: String
     ) : QuickCatchPresetMenuEntry()
 }

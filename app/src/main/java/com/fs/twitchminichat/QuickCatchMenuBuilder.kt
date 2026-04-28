@@ -26,7 +26,8 @@ object QuickCatchMenuBuilder {
         userPresets: List<CatchPreset>,
         countsByBallId: Map<String, Int>,
         profileId: String?,
-        recommendationSet: QuickCatchRecommendationSet
+        recommendationSet: QuickCatchRecommendationSet,
+        hasSavedUserPresets: Boolean
     ): List<QuickCatchPresetMenuEntry> {
         /**
          * Friend Ball subtitle is profile/buddy based, so compute it once for this
@@ -64,16 +65,28 @@ object QuickCatchMenuBuilder {
                 }
             }
 
-            if (userRows.isNotEmpty()) {
-                add(
-                    QuickCatchPresetMenuEntry.Header(
-                        title = context.getString(R.string.catch_section_user_presets)
-                    )
+            add(
+                QuickCatchPresetMenuEntry.Header(
+                    title = context.getString(R.string.catch_section_user_presets)
                 )
+            )
 
+            if (userRows.isNotEmpty()) {
                 userRows.forEach { row ->
                     add(QuickCatchPresetMenuEntry.PresetRow(row))
                 }
+            } else {
+                val emptyMessageRes = if (hasSavedUserPresets) {
+                    R.string.quick_catch_no_user_presets_enabled
+                } else {
+                    R.string.quick_catch_no_user_presets_saved
+                }
+
+                add(
+                    QuickCatchPresetMenuEntry.EmptyState(
+                        message = context.getString(emptyMessageRes)
+                    )
+                )
             }
         }
     }
@@ -92,6 +105,12 @@ object QuickCatchMenuBuilder {
     ): List<QuickCatchPresetRow> {
         return recommendations
             .distinctBy { recommendation -> recommendation.preset.id }
+            .filter { recommendation ->
+                shouldShowSmartRecommendationForInventory(
+                    preset = recommendation.preset,
+                    countsByBallId = countsByBallId
+                )
+            }
             .map { recommendation ->
                 val preset = recommendation.preset
                 val count = resolveDisplayedCountForPreset(
@@ -126,6 +145,45 @@ object QuickCatchMenuBuilder {
                     showBuddyButton = CatchPresetBallHelper.isFriendBallPreset(preset)
                 )
             }
+    }
+
+    /**
+     * Decides whether a Smart recommendation should be shown with the current
+     * inventory state.
+     *
+     * Smart suggestions are meant to reduce thinking during a spawn. If we show
+     * recommended balls with count zero, the menu becomes noisy and the user still
+     * has to mentally filter unusable options.
+     *
+     * Important:
+     * - If inventory is not known yet, keep showing recommendations.
+     * - If inventory is known and the recommended ball count is zero, hide it.
+     */
+    private fun shouldShowSmartRecommendationForInventory(
+        preset: CatchPreset,
+        countsByBallId: Map<String, Int>
+    ): Boolean {
+        if (countsByBallId.isEmpty()) {
+            /*
+             * Empty map can mean "inventory not loaded yet", not necessarily "all
+             * balls are zero". In that case, keep the old behavior.
+             */
+            return true
+        }
+
+        val displayedCount = BasicCatchPresetDisplayHelper.resolveDisplayedCount(
+            preset = preset,
+            countsByBallId = countsByBallId
+        )
+
+        if (displayedCount != null) {
+            return displayedCount > 0
+        }
+
+        val effectiveBallId = CatchPresetBallHelper.effectiveBallId(preset) ?: return true
+        val count = countsByBallId[effectiveBallId] ?: 0
+
+        return count > 0
     }
 
     /**

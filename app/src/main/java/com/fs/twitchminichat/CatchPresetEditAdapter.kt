@@ -11,6 +11,7 @@ import android.widget.ImageButton
 import android.widget.TextView
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.DiffUtil
 
 class CatchPresetEditAdapter(
     initialItems: List<CatchPreset>,
@@ -19,15 +20,41 @@ class CatchPresetEditAdapter(
     private val onBuyBallClicked: (CatchPreset) -> Unit
 ) : RecyclerView.Adapter<CatchPresetEditAdapter.PresetViewHolder>() {
 
-    private val items = initialItems.toMutableList()
+    /*
+     * Full editor model.
+     *
+     * Save must always use this list, not the filtered visible list.
+     * Otherwise, saving while a search query is active would accidentally delete
+     * every preset hidden by the filter.
+     */
+    private val allItems = initialItems.toMutableList()
+
+    /*
+     * Current visual list.
+     *
+     * Search only changes this list. It does not remove anything from allItems.
+     */
+    private val visibleItems = initialItems.toMutableList()
+
+    private var searchQuery: String = ""
     private var inventoryCountsByBallId: Map<String, Int> = emptyMap()
 
     init {
         setHasStableIds(true)
     }
 
+    companion object {
+        /*
+         * Payload used when only the inventory counter changed.
+         *
+         * This avoids rebinding the whole row just because the x12 / x4 count
+         * changed after buying balls or refreshing PCG inventory.
+         */
+        private const val PAYLOAD_INVENTORY_COUNT = "payload_inventory_count"
+    }
+
     override fun getItemId(position: Int): Long {
-        return items[position].id.hashCode().toLong()
+        return visibleItems[position].id.hashCode().toLong()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PresetViewHolder {
@@ -37,56 +64,186 @@ class CatchPresetEditAdapter(
     }
 
     override fun onBindViewHolder(holder: PresetViewHolder, position: Int) {
-        holder.bind(items[position], position)
-
+        holder.bind(
+            item = visibleItems[position],
+            visiblePosition = position
+        )
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun onBindViewHolder(
+        holder: PresetViewHolder,
+        position: Int,
+        payloads: MutableList<Any>
+    ) {
+        if (payloads.contains(PAYLOAD_INVENTORY_COUNT)) {
+            /*
+             * Only the displayed inventory count changed.
+             * Do not rebind EditTexts/CheckBox, because that can be annoying while
+             * the user is editing a preset label or command.
+             */
+            holder.bindInventoryCount(visibleItems[position])
+            return
+        }
 
-    fun currentItems(): List<CatchPreset> = items.map { it.copy() }
+        super.onBindViewHolder(holder, position, payloads)
+    }
+
+    override fun getItemCount(): Int = visibleItems.size
+
+    /**
+     * Returns the complete edited preset list.
+     *
+     * Important: this returns allItems, not visibleItems.
+     */
+    fun currentItems(): List<CatchPreset> {
+        return allItems.map { preset -> preset.copy() }
+    }
 
     fun addPreset(preset: CatchPreset) {
-        items.add(preset)
-        notifyItemInserted(items.lastIndex)
+        allItems.add(preset)
+        rebuildVisibleItems()
     }
 
     fun removeAt(position: Int) {
-        if (position !in items.indices) return
-        items.removeAt(position)
-        notifyItemRemoved(position)
-        notifyItemRangeChanged(position, itemCount - position)
+        val item = visibleItems.getOrNull(position) ?: return
+
+        allItems.removeAll { preset ->
+            preset.id == item.id
+        }
+
+        rebuildVisibleItems()
     }
 
     fun moveItem(fromPosition: Int, toPosition: Int) {
         if (fromPosition == toPosition) return
-        if (fromPosition !in items.indices || toPosition !in items.indices) return
+        if (isSearchActive()) return
+        if (fromPosition !in allItems.indices || toPosition !in allItems.indices) return
 
-        val moved = items.removeAt(fromPosition)
-        items.add(toPosition, moved)
+        /*
+         * Reordering is only allowed when search is not active, because visible
+         * positions then match the full saved order.
+         */
+        val moved = allItems.removeAt(fromPosition)
+        allItems.add(toPosition, moved)
 
-        notifyItemMoved(fromPosition, toPosition)
-
-        val start = minOf(fromPosition, toPosition)
-        val count = kotlin.math.abs(fromPosition - toPosition) + 1
-        notifyItemRangeChanged(start, count)
+        rebuildVisibleItems()
     }
 
     fun updateInventoryCounts(newCounts: Map<String, Int>) {
+        /*
+         * Remember the old rendered count text before replacing the inventory map.
+         * Then update only rows whose visible counter actually changed.
+         */
+        val oldCountTextByPresetId = visibleItems.associate { preset ->
+            preset.id to formatDisplayedCount(preset)
+        }
+
         inventoryCountsByBallId = newCounts.toMap()
-        notifyDataSetChanged()
+
+        visibleItems.forEachIndexed { index, preset ->
+            val oldText = oldCountTextByPresetId[preset.id]
+            val newText = formatDisplayedCount(preset)
+
+            if (oldText != newText) {
+                notifyItemChanged(index, PAYLOAD_INVENTORY_COUNT)
+            }
+        }
+    }
+
+    fun setAllEnabled(enabled: Boolean) {
+        for (i in allItems.indices) {
+            allItems[i] = allItems[i].copy(enabled = enabled)
+        }
+
+        rebuildVisibleItems()
+    }
+
+    /**
+     * Applies a visual search filter to the editor.
+     *
+     * The full preset list remains stored in allItems. Only visibleItems changes.
+     */
+    fun setSearchQuery(query: String) {
+        searchQuery = query
+        rebuildVisibleItems()
+    }
+
+    fun isSearchActive(): Boolean {
+        return searchQuery.trim().isNotEmpty()
+    }
+
+    private fun rebuildVisibleItems() {
+        val newVisibleItems = allItems.filter { preset ->
+            CatchPresetEditorSearchMatcher.matches(
+                preset = preset,
+                rawQuery = searchQuery
+            )
+        }
+
+        submitVisibleItems(newVisibleItems)
+    }
+
+    private fun submitVisibleItems(newVisibleItems: List<CatchPreset>) {
+        /*
+         * DiffUtil updates only inserted/removed/changed rows.
+         *
+         * This is especially useful for search filtering: typing in the search box
+         * should not force RecyclerView to rebuild every row from scratch.
+         */
+        val oldVisibleItems = visibleItems.toList()
+
+        val diffResult = DiffUtil.calculateDiff(
+            object : DiffUtil.Callback() {
+                override fun getOldListSize(): Int = oldVisibleItems.size
+
+                override fun getNewListSize(): Int = newVisibleItems.size
+
+                override fun areItemsTheSame(
+                    oldItemPosition: Int,
+                    newItemPosition: Int
+                ): Boolean {
+                    return oldVisibleItems[oldItemPosition].id ==
+                            newVisibleItems[newItemPosition].id
+                }
+
+                override fun areContentsTheSame(
+                    oldItemPosition: Int,
+                    newItemPosition: Int
+                ): Boolean {
+                    return oldVisibleItems[oldItemPosition] ==
+                            newVisibleItems[newItemPosition]
+                }
+            }
+        )
+
+        visibleItems.clear()
+        visibleItems.addAll(newVisibleItems)
+
+        diffResult.dispatchUpdatesTo(this)
+    }
+
+    private fun updatePresetAtVisiblePosition(
+        visiblePosition: Int,
+        transform: (CatchPreset) -> CatchPreset
+    ) {
+        val visibleItem = visibleItems.getOrNull(visiblePosition) ?: return
+        val allIndex = allItems.indexOfFirst { preset -> preset.id == visibleItem.id }
+        if (allIndex == -1) return
+
+        val updated = transform(allItems[allIndex])
+        allItems[allIndex] = updated
+
+        val visibleIndex = visibleItems.indexOfFirst { preset -> preset.id == visibleItem.id }
+        if (visibleIndex != -1) {
+            visibleItems[visibleIndex] = updated
+        }
     }
 
     private fun resolveDisplayedCount(item: CatchPreset): Int? {
-        return when (item.ballId) {
-            CatchPresetStore.BALL_ID_AUTO_CATCH_BASIC -> {
-                val poke = inventoryCountsByBallId["poke_ball"] ?: 0
-                if (poke > 0) {
-                    poke
-                } else {
-                    inventoryCountsByBallId["premier_ball"]
-                }
-            }
-
+        return BasicCatchPresetDisplayHelper.resolveDisplayedCount(
+            preset = item,
+            countsByBallId = inventoryCountsByBallId
+        ) ?: when (item.ballId) {
             null -> null
             else -> inventoryCountsByBallId[item.ballId]
         }
@@ -95,6 +252,11 @@ class CatchPresetEditAdapter(
     private fun formatDisplayedCount(item: CatchPreset): String {
         val count = resolveDisplayedCount(item) ?: return "-"
         return "x$count"
+    }
+
+    private fun fullIndexOf(item: CatchPreset, fallbackVisiblePosition: Int): Int {
+        val fullIndex = allItems.indexOfFirst { preset -> preset.id == item.id }
+        return if (fullIndex >= 0) fullIndex else fallbackVisiblePosition
     }
 
     inner class PresetViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -106,7 +268,6 @@ class CatchPresetEditAdapter(
         private val editCommand: EditText = itemView.findViewById(R.id.editPresetCommand)
         private val btnRemove: ImageButton = itemView.findViewById(R.id.btnRemovePreset)
         private val btnDrag: DragHandleImageButton = itemView.findViewById(R.id.btnDragPreset)
-
         private val btnBuyBall: ImageButton = itemView.findViewById(R.id.btnBuyBall)
 
         private var bindingNow = false
@@ -121,7 +282,9 @@ class CatchPresetEditAdapter(
                 val position = bindingAdapterPosition
                 if (position == RecyclerView.NO_POSITION) return@setOnCheckedChangeListener
 
-                items[position] = items[position].copy(enabled = isChecked)
+                updatePresetAtVisiblePosition(position) { preset ->
+                    preset.copy(enabled = isChecked)
+                }
             }
 
             editLabel.doAfterTextChanged { editable ->
@@ -130,9 +293,9 @@ class CatchPresetEditAdapter(
                 val position = bindingAdapterPosition
                 if (position == RecyclerView.NO_POSITION) return@doAfterTextChanged
 
-                items[position] = items[position].copy(
-                    label = editable?.toString().orEmpty()
-                )
+                updatePresetAtVisiblePosition(position) { preset ->
+                    preset.copy(label = editable?.toString().orEmpty())
+                }
             }
 
             editCommand.doAfterTextChanged { editable ->
@@ -141,9 +304,9 @@ class CatchPresetEditAdapter(
                 val position = bindingAdapterPosition
                 if (position == RecyclerView.NO_POSITION) return@doAfterTextChanged
 
-                items[position] = items[position].copy(
-                    command = editable?.toString().orEmpty()
-                )
+                updatePresetAtVisiblePosition(position) { preset ->
+                    preset.copy(command = editable?.toString().orEmpty())
+                }
             }
 
             btnRemove.setOnClickListener {
@@ -153,7 +316,7 @@ class CatchPresetEditAdapter(
             }
 
             btnDrag.setOnClickListener {
-                // kept for accessibility / performClick path
+                // Kept for accessibility / performClick path.
             }
 
             btnDrag.setOnTouchListener { view, event ->
@@ -172,21 +335,23 @@ class CatchPresetEditAdapter(
                     else -> false
                 }
             }
+
             btnBuyBall.setOnClickListener {
                 val position = bindingAdapterPosition
                 if (position == RecyclerView.NO_POSITION) return@setOnClickListener
-                onBuyBallClicked(items[position])
+
+                val item = visibleItems.getOrNull(position) ?: return@setOnClickListener
+                onBuyBallClicked(item)
             }
         }
 
-        fun bind(item: CatchPreset, position: Int) {
-            bindingNow = true
-
-            txtPresetIndex.text = itemView.context.getString(
-                R.string.catch_preset_title,
-                position + 1
-            )
-
+        fun bindInventoryCount(item: CatchPreset) {
+            /*
+             * Small partial bind used when only the inventory count changed.
+             *
+             * This keeps text fields and checkbox state untouched while refreshing the
+             * xN counter on the right side of the row.
+             */
             txtInventoryCount.text = formatDisplayedCount(item)
 
             val displayedCount = resolveDisplayedCount(item)
@@ -195,6 +360,24 @@ class CatchPresetEditAdapter(
             } else {
                 0.5f
             }
+        }
+
+        fun bind(item: CatchPreset, visiblePosition: Int) {
+            bindingNow = true
+
+            val fullIndex = fullIndexOf(
+                item = item,
+                fallbackVisiblePosition = visiblePosition
+            )
+
+            txtPresetIndex.text = itemView.context.getString(
+                R.string.catch_preset_title,
+                fullIndex + 1
+            )
+
+            txtInventoryCount.text = formatDisplayedCount(item)
+
+            bindInventoryCount(item)
 
             if (checkEnabled.isChecked != item.enabled) {
                 checkEnabled.isChecked = item.enabled
@@ -215,17 +398,11 @@ class CatchPresetEditAdapter(
                 "poke_ball",
                 "great_ball",
                 "ultra_ball" -> true
+
                 else -> false
             }
 
             btnBuyBall.visibility = if (canBuyThisBall) View.VISIBLE else View.GONE
         }
-
-    }
-    fun setAllEnabled(enabled: Boolean) {
-        for (i in items.indices) {
-            items[i] = items[i].copy(enabled = enabled)
-        }
-        notifyDataSetChanged()
     }
 }

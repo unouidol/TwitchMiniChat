@@ -39,7 +39,8 @@ object QuickCatchMenuModelFactory {
          * This intentionally respects enabled=false and does not recreate rows
          * from CatchBallCatalog.
          */
-        val userPresets = UserCatchPresetSource.loadEnabled(context)
+        val userPresetSnapshot = UserCatchPresetSource.loadSnapshot(context)
+        val userPresets = userPresetSnapshot.enabledCommandPresets
 
         /**
          * Builds Smart/User recommendation groups.
@@ -74,7 +75,8 @@ object QuickCatchMenuModelFactory {
             userPresets = userPresets,
             countsByBallId = countsByBallId,
             profileId = profileId,
-            recommendationSet = recommendationSet
+            recommendationSet = recommendationSet,
+            hasSavedUserPresets = userPresetSnapshot.hasSavedCommandPresets
         )
     }
 }

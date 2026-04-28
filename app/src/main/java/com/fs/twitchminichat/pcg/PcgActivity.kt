@@ -3,17 +3,24 @@ package com.fs.twitchminichat.pcg
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
+import com.fs.twitchminichat.PcgManualDataUpdateController
 import com.fs.twitchminichat.R
 
 class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
+    private var accountId: String = ""
+    private var pcgManualDataUpdateController: PcgManualDataUpdateController? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (savedInstanceState == null) {
-            val accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID).orEmpty()
+        accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID).orEmpty()
 
+        setupManualPcgDataUpdateButtons()
+
+        if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(
                     R.id.pcgContainer,
@@ -25,6 +32,55 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
                 )
                 .commit()
         }
+    }
+
+    /**
+     * Connects the visible manual PCG data update buttons.
+     *
+     * These buttons live above the PCG GeckoView container, so the user clearly
+     * chooses when to register Inventory or Pokédex data.
+     */
+    private fun setupManualPcgDataUpdateButtons() {
+        val btnRegisterPokedex = findViewById<Button>(R.id.btnRegisterPokedex)
+        val btnRegisterInventory = findViewById<Button>(R.id.btnRegisterInventory)
+
+        val controller = PcgManualDataUpdateController(
+            context = this,
+            bridge = object : PcgManualDataUpdateController.Bridge {
+                override fun requestManualPokedexUpdate(): Boolean {
+                    if (accountId.isBlank()) return false
+
+                    return GeckoSessionManager.requestManualPokedexUpdate(
+                        context = this@PcgActivity,
+                        accountId = accountId
+                    )
+                }
+
+                override fun requestManualInventoryUpdate(): Boolean {
+                    if (accountId.isBlank()) return false
+
+                    return GeckoSessionManager.requestManualInventoryUpdate(
+                        context = this@PcgActivity,
+                        accountId = accountId
+                    )
+                }
+            }
+        )
+
+        pcgManualDataUpdateController = controller
+
+        btnRegisterPokedex.setOnClickListener {
+            controller.onRegisterPokedexClicked()
+        }
+
+        btnRegisterInventory.setOnClickListener {
+            controller.onRegisterInventoryClicked()
+        }
+    }
+
+    override fun onDestroy() {
+        pcgManualDataUpdateController = null
+        super.onDestroy()
     }
 
     companion object {

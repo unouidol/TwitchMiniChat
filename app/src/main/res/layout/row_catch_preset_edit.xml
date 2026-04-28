@@ -1,50 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
+    android:layout_marginBottom="6dp"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="8dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="8dp"
+    android:paddingBottom="6dp">
 
+    <!--
+        Compact but accessible header row.
+
+        The touchable controls are 48dp high/wide to satisfy Android's
+        accessibility target size, while the icons remain visually compact
+        through internal padding.
+    -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/txtPresetIndex"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/txtInventoryCount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:background="@android:color/transparent"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:text="-"
-            android:textAppearance="?android:attr/textAppearanceSmall"
-            android:textStyle="bold"/>
-
-        <ImageButton
-            android:id="@+id/btnBuyBall"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="6dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Buy ball"
-            android:padding="8dp"
-            android:src="@android:drawable/ic_input_add"
-            app:tint="@android:color/white" />
 
         <com.fs.twitchminichat.DragHandleImageButton
             android:id="@+id/btnDragPreset"
@@ -52,8 +30,59 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/drag_to_reorder_preset"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
             android:padding="12dp"
-            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:src="@drawable/ic_drag_indicator_24"
+            app:tint="@android:color/white" />
+
+        <CheckBox
+            android:id="@+id/checkPresetEnabled"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="6dp"
+            android:text="@string/catch_preset_enabled"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/txtPresetIndex"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:includeFontPadding="false"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textStyle="bold"
+            tools:text="Preset 1" />
+
+        <TextView
+            android:id="@+id/txtInventoryCount"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="4dp"
+            android:gravity="center"
+            android:minWidth="40dp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:text="@string/catch_preset_inventory_count_placeholder"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textStyle="bold"
+            tools:text="x12" />
+
+        <ImageButton
+            android:id="@+id/btnBuyBall"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/buy_ball_content_description"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:padding="12dp"
+            android:src="@android:drawable/ic_input_add"
             app:tint="@android:color/white" />
 
         <ImageButton
@@ -62,36 +91,59 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/remove_preset"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
             android:padding="12dp"
             android:src="@android:drawable/ic_menu_delete"
             app:tint="@android:color/white" />
+
     </LinearLayout>
 
-    <CheckBox
-        android:id="@+id/checkPresetEnabled"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="@string/catch_preset_enabled" />
+    <!--
+        Label field.
 
+        48dp keeps the input comfortable and avoids touch-target warnings.
+        The small text/padding keep it visually compact.
+    -->
     <EditText
         android:id="@+id/editPresetLabel"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="2dp"
         android:hint="@string/catch_preset_label_hint"
+        android:importantForAutofill="no"
+        android:includeFontPadding="false"
         android:inputType="text"
         android:maxLines="1"
-        android:importantForAutofill="no" />
+        android:minHeight="48dp"
+        android:paddingStart="8dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="2dp"
+        android:singleLine="true"
+        android:textSize="13sp" />
 
+    <!--
+        Command field.
+
+        Kept on its own row because PCG commands can be long.
+    -->
     <EditText
         android:id="@+id/editPresetCommand"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="2dp"
         android:hint="@string/catch_preset_command_hint"
+        android:importantForAutofill="no"
+        android:includeFontPadding="false"
         android:inputType="text"
         android:maxLines="1"
-        android:importantForAutofill="no"/>
+        android:minHeight="48dp"
+        android:paddingStart="8dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="2dp"
+        android:singleLine="true"
+        android:textSize="13sp" />
 
 </LinearLayout>

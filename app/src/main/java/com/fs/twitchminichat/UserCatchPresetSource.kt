@@ -3,31 +3,44 @@ package com.fs.twitchminichat
 import android.content.Context
 
 /**
- * Provides the saved user presets that are allowed to appear in the quick catch
- * menu under the "User presets" section.
+ * Snapshot of the user preset state used by the quick catch menu.
  *
- * This class intentionally does NOT use CatchBallCatalog.
+ * The quick menu needs to distinguish between:
+ * - no saved presets at all
+ * - saved presets exist, but none are enabled
+ * - enabled presets are available
+ */
+data class UserCatchPresetSnapshot(
+    val savedCommandPresets: List<CatchPreset>,
+    val enabledCommandPresets: List<CatchPreset>
+) {
+    val hasSavedCommandPresets: Boolean
+        get() = savedCommandPresets.isNotEmpty()
+}
+
+/**
+ * Loads user-created catch presets for quick menu presentation.
  *
- * Reason:
- * User Presets should reflect what the user configured in the preset settings.
- * If the user disables a preset, it must not be recreated from the catalog and
- * shown again in the quick menu.
+ * This source deliberately does not build visual rows. It only exposes the
+ * saved/enabled preset state so QuickCatchMenuBuilder can decide what message
+ * should be shown in the User presets section.
  */
 object UserCatchPresetSource {
 
-    /**
-     * Loads only user-enabled catch presets.
-     *
-     * These are the rows that should appear in the "User presets" section.
-     *
-     * Filtering rules:
-     * - enabled must be true;
-     * - command must not be blank, because a preset without a command cannot
-     *   safely be sent to chat.
-     */
-    fun loadEnabled(context: Context): List<CatchPreset> {
-        return CatchPresetStore.loadAll(context)
-            .filter { preset -> preset.enabled }
+    fun loadSnapshot(context: Context): UserCatchPresetSnapshot {
+        val savedCommandPresets = CatchPresetStore.loadAll(context)
             .filter { preset -> preset.command.isNotBlank() }
+
+        val enabledCommandPresets = savedCommandPresets
+            .filter { preset -> preset.enabled }
+
+        return UserCatchPresetSnapshot(
+            savedCommandPresets = savedCommandPresets,
+            enabledCommandPresets = enabledCommandPresets
+        )
+    }
+
+    fun loadEnabled(context: Context): List<CatchPreset> {
+        return loadSnapshot(context).enabledCommandPresets
     }
 }

@@ -7,4 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="quick_catch_quick_ball_smart_bg">#2A4F7A</color>
+    <color name="quick_catch_timer_ball_smart_bg">#5A3B78</color>
+    <color name="quick_catch_normal_row_bg">#00000000</color>
 </resources>

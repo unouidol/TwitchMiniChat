@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!--
+        Drag handle icon.
+
+        Six-dot "grip" pattern: visually clearer than the Android built-in
+        sort icon, which looks too much like a chart/histogram.
+    -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M9,5a2,2 0,1 0,0.01,0M15,5a2,2 0,1 0,0.01,0M9,12a2,2 0,1 0,0.01,0M15,12a2,2 0,1 0,0.01,0M9,19a2,2 0,1 0,0.01,0M15,19a2,2 0,1 0,0.01,0" />
+
+</vector>

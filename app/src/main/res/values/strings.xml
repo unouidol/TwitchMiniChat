@@ -142,6 +142,21 @@
 
     <string name="remove_channel">Remove channel</string>
 
+    <string name="pcg_manual_update_title">Manual PCG data update</string>
+    <string name="pcg_register_pokedex">Update Pokédex</string>
+    <string name="pcg_register_inventory">Update Inventory</string>
+
+    <string name="pcg_inventory_wrong_tab">Load the Inventory tab and press Register inventory to update your Poké Ball list.</string>
+    <string name="pcg_pokedex_wrong_tab">Load the Pokédex tab and press Register Pokédex to update your missing Pokédex entries.</string>
+
+    <string name="pcg_inventory_updated">Poké Ball inventory updated.</string>
+    <string name="pcg_pokedex_updated">Pokédex updated.</string>
+
+    <string name="pcg_inventory_update_requested">Inventory update requested</string>
+    <string name="pcg_pokedex_update_requested">Pokédex update requested</string>
+    <string name="pcg_manual_update_not_ready">PCG panel is not ready yet. Open the PCG panel and try again.</string>
+    <string name="pcg_manual_update_failed">PCG data update failed. Try again after the tab finishes loading.</string>
+
     <string name="buddy_unknown">Buddy unknown</string>
     <string name="buddy_request_sent">Buddy info requested</string>
     <string name="friend_ball_buddy_subtitle">Buddy: %1$s (%2$s)</string>
@@ -188,11 +203,17 @@
     <string name="quick_catch_basic_using_premier_ball">Using Premier Ball</string>
     <string name="quick_catch_basic_no_basic_balls">No Poké Ball or Premier Ball available</string>
     <string name="quick_catch_pokebuddy">Pokébuddy</string>
+    <string name="quick_catch_no_user_presets_saved">No preset saved</string>
+    <string name="quick_catch_no_user_presets_enabled">No enabled user presets</string>
     <string name="restore_presets">Restore presets</string>
     <string name="restore_presets_confirm_title">Restore default presets?</string>
     <string name="restore_presets_confirm_message">This will restore the default preset list. Your current preset changes in this editor may be replaced.</string>
     <string name="restore_presets_confirm_positive">Restore</string>
-    <string name="restore_presets_restored">Default presets restored</string>
+    <string name="restore_presets_restored">Preset list restored</string>
+    <string name="catch_presets_search_hint">Search presets, balls or commands</string>
+    <string name="catch_preset_inventory_count_placeholder">-</string>
+
+
 
     <string name="quick_catch_next_spawn_title">No active spawn</string>
     <string name="quick_catch_next_spawn_subtitle">Next spawn in: %1$s</string>

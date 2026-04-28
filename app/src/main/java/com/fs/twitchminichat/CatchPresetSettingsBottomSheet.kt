@@ -16,6 +16,9 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import android.view.ViewGroup
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import android.text.Editable
+import android.text.TextWatcher
+
 
 class CatchPresetSettingsBottomSheet :
     BottomSheetDialogFragment(R.layout.activity_catch_preset_settings) {
@@ -46,6 +49,7 @@ class CatchPresetSettingsBottomSheet :
     private lateinit var btnPresetEditorPokebuddy: Button
     private lateinit var btnRestorePresets: Button
     private lateinit var checkEnableAllPresets: CheckBox
+    private lateinit var editPresetSearch: EditText
 
     private lateinit var adapter: CatchPresetEditAdapter
     private lateinit var itemTouchHelper: ItemTouchHelper
@@ -74,9 +78,11 @@ class CatchPresetSettingsBottomSheet :
         btnPresetEditorPokebuddy = view.findViewById(R.id.btnPresetEditorPokebuddy)
         btnRestorePresets = view.findViewById(R.id.btnRestorePresets)
         checkEnableAllPresets = view.findViewById(R.id.checkEnableAllPresets)
+        editPresetSearch = view.findViewById(R.id.editPresetSearch)
 
         setupRecycler()
         setupButtons()
+        setupSearch()
     }
 
     override fun onStart() {
@@ -262,6 +268,7 @@ class CatchPresetSettingsBottomSheet :
             }
         }
 
+
         btnPresetEditorPokebuddy.setOnClickListener {
             /*
              * Manual PCG helper action.
@@ -281,6 +288,36 @@ class CatchPresetSettingsBottomSheet :
             }
         }
 
+        btnRestorePresets.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle(R.string.restore_presets_confirm_title)
+                .setMessage(R.string.restore_presets_confirm_message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.restore_presets_confirm_positive) { _, _ ->
+                    /*
+                     * Restore is a user-confirmed reset of the preset editor list.
+                     *
+                     * The restored list is saved immediately so it also becomes the new
+                     * source of truth for the quick catch menu the next time it opens.
+                     */
+                    val restoredPresets = CatchPresetDefaultRestorer.buildRestoredEditorPresets(
+                        context = requireContext(),
+                        profileId = currentProfileId
+                    )
+
+                    CatchPresetStore.saveAll(requireContext(), restoredPresets)
+
+                    setupRecycler()
+
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.restore_presets_restored),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                .show()
+        }
+
         btnSavePresets.setOnClickListener {
             CatchPresetStore.saveAll(requireContext(), adapter.currentItems())
             Toast.makeText(
@@ -290,6 +327,44 @@ class CatchPresetSettingsBottomSheet :
             ).show()
             dismiss()
         }
+    }
+
+    private fun setupSearch() {
+        editPresetSearch.addTextChangedListener(
+            object : TextWatcher {
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) = Unit
+
+                override fun onTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    before: Int,
+                    count: Int
+                ) {
+                    if (!::adapter.isInitialized) return
+
+                    /*
+                     * Search is only a visual filter.
+                     *
+                     * It must not discard presets from the editor model, otherwise
+                     * saving after a search would accidentally delete hidden presets.
+                     */
+                    adapter.setSearchQuery(s?.toString().orEmpty())
+
+                    /*
+                     * The enable-all checkbox represents the currently edited model.
+                     * Refresh it after filtering so its visual state remains coherent.
+                     */
+                    refreshToggleAllState()
+                }
+
+                override fun afterTextChanged(s: Editable?) = Unit
+            }
+        )
     }
 
     private fun refreshToggleAllState() {

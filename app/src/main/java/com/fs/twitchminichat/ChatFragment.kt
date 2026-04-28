@@ -2593,22 +2593,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             spawn = currentSpawnSnapshot()
         )
 
-        /**
-         * If there is nothing to show, do not open an empty dialog.
-         *
-         * This can happen if:
-         * - there is no active spawn, so no Smart Presets;
-         * - there are no visible User Presets;
-         * - filtering hides all available rows.
-         */
-        if (menuEntries.isEmpty()) {
-            Toast.makeText(
-                context,
-                getString(R.string.no_enabled_catch_presets),
-                Toast.LENGTH_SHORT
-            ).show()
-            return
-        }
 
         /**
          * Inflate the dialog layout.
