@@ -1289,7 +1289,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         refreshPushToggleUi()
 
         btnTogglePush.setOnClickListener {
-            togglePushForCurrentProfile()
+            showSpawnAlertModeMenu()
         }
 
         mentionAdapter = ArrayAdapter(
@@ -3248,6 +3248,116 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return ChatFragment().apply {
                 arguments = Bundle().apply { putString(ARG_ACCOUNT_ID, accountId) }
             }
+        }
+    }
+
+    /** PCG ALERT Functions
+     *
+     */
+    /**
+     * Opens the spawn alert mode menu anchored to the bell button.
+     *
+     * Each Twitch profile can have its own spawn alert mode, so the current
+     * profile id is used as the key for local storage and backend sync.
+     */
+    /**
+     * Opens the spawn alert mode menu anchored to the bell button.
+     *
+     * Each Twitch profile can have its own spawn alert mode, so the current
+     * profile id is used as the key for local storage and backend sync.
+     */
+    private fun showSpawnAlertModeMenu() {
+        val profileId = currentProfileId().trim().lowercase()
+
+        if (profileId.isEmpty()) {
+            Toast.makeText(
+                requireContext(),
+                R.string.spawn_alert_profile_missing,
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val currentMode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
+
+        PcgSpawnAlertModeMenu.show(
+            anchor = btnTogglePush,
+            currentMode = currentMode
+        ) { selectedMode ->
+            applySpawnAlertMode(profileId, selectedMode)
+        }
+    }
+
+    /**
+     * Applies the selected spawn alert mode locally, updates the bell UI, and then
+     * asks the backend to persist the same mode for the current device/profile pair.
+     *
+     * If the server update fails, the previous local value is restored so the UI
+     * does not claim a mode that the backend did not actually accept.
+     */
+    /**
+     * Applies the selected spawn alert mode locally, updates the bell UI, and then
+     * asks the backend to persist the same mode for the current device/profile pair.
+     *
+     * If the server update fails, the previous local value is restored so the UI
+     * does not claim a mode that the backend did not actually accept.
+     */
+    private fun applySpawnAlertMode(
+        profileId: String,
+        mode: PcgSpawnAlertMode
+    ) {
+        val previousMode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
+
+        PcgSpawnAlertModeStore.setMode(requireContext(), profileId, mode)
+        updateSpawnAlertBellUi(profileId)
+
+        FcmRegistrationUploader.setProfileSpawnAlertMode(
+            context = requireContext(),
+            profileId = profileId,
+            mode = mode
+        ) { ok ->
+            if (!isAdded) return@setProfileSpawnAlertMode
+
+            if (!ok) {
+                PcgSpawnAlertModeStore.setMode(requireContext(), profileId, previousMode)
+                updateSpawnAlertBellUi(profileId)
+
+                Toast.makeText(
+                    requireContext(),
+                    R.string.spawn_alert_mode_save_failed,
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setProfileSpawnAlertMode
+            }
+
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.spawn_alert_mode_saved, getString(mode.titleRes)),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    /**
+     * Updates the bell button to reflect the locally selected spawn alert mode.
+     *
+     * The icon remains the same for now; the important feedback is the checked item
+     * inside the bell menu. NONE is dimmed to make the disabled state visible.
+     */
+    private fun updateSpawnAlertBellUi(profileId: String) {
+        if (!this::btnTogglePush.isInitialized) return
+
+        val mode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
+
+        btnTogglePush.alpha = if (mode == PcgSpawnAlertMode.NONE) {
+            0.45f
+        } else {
+            1.0f
+        }
+
+        btnTogglePush.contentDescription = getString(mode.titleRes)
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            btnTogglePush.tooltipText = getString(mode.titleRes)
         }
     }
 }

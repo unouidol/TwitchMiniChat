@@ -228,4 +228,25 @@
     <string name="chat_send_filtered_rate_limit">Message not sent: sending messages too quickly.</string>
     <string name="chat_send_filtered_generic">Message not sent by Twitch: %1$s</string>
 
+    <string name="spawn_alert_mode_dialog_title">Spawn notifications</string>
+
+    <string name="spawn_alert_mode_dex_tier_a">Dex + Tier A</string>
+    <string name="spawn_alert_mode_dex_tier_a_desc">Notify missing Dex Pokémon and important Tier A spawns.</string>
+
+    <string name="spawn_alert_mode_dex_only">Dex only</string>
+    <string name="spawn_alert_mode_dex_only_desc">Notify only Pokémon missing from your Dex list.</string>
+
+    <string name="spawn_alert_mode_all_spawns">All spawns</string>
+    <string name="spawn_alert_mode_all_spawns_desc">Notify every detected Pokémon spawn.</string>
+
+    <string name="spawn_alert_mode_none">No spawns</string>
+    <string name="spawn_alert_mode_none_desc">Disable Pokémon spawn notifications for this profile.</string>
+
+    <string name="spawn_alert_mode_saved">Spawn notifications: %1$s</string>
+    <string name="spawn_alert_mode_save_failed">Could not update spawn notification mode.</string>
+    <string name="push_profile_missing">Select a Twitch profile first.</string>
+    <string name="fcm_set_spawn_alert_mode_url">https://api.ircminichat.party/set_spawn_alert_mode</string>
+    <string name="spawn_alert_profile_missing">Select a Twitch profile first.</string>
+
+
 </resources>

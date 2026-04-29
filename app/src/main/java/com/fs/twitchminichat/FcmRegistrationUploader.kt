@@ -196,6 +196,113 @@ object FcmRegistrationUploader {
             sendRequest(freshToken)
         }
     }
+
+    /**
+     * Sends the selected Pokémon Community Game spawn alert mode to the backend.
+     *
+     * This is the new 4-state preference used by the bell menu:
+     *
+     * 0 = Dex + Tier A
+     * 1 = Dex only
+     * 2 = All spawns
+     * 3 = No spawns
+     *
+     * The "enabled" field is also sent as a compatibility bridge:
+     * modes 0/1/2 behave like push enabled, while mode 3 behaves like push disabled.
+     */
+    fun setProfileSpawnAlertMode(
+        context: Context,
+        profileId: String,
+        mode: PcgSpawnAlertMode,
+        onComplete: (Boolean) -> Unit
+    ) {
+        val appContext = context.applicationContext
+        val prefs = appContext.getSharedPreferences("fcm_registration", Context.MODE_PRIVATE)
+        val normalizedProfileId = normalizeProfileId(profileId)
+
+        fun finish(ok: Boolean) {
+            Handler(Looper.getMainLooper()).post {
+                onComplete(ok)
+            }
+        }
+
+        if (normalizedProfileId.isBlank()) {
+            Log.w(TAG, "Cannot set spawn alert mode: blank profileId")
+            finish(false)
+            return
+        }
+
+        fun sendRequest(token: String) {
+            thread(start = true, name = "spawn-alert-mode") {
+                val result = postJson(
+                    urlString = appContext.getString(R.string.fcm_set_spawn_alert_mode_url),
+                    payload = JSONObject().apply {
+                        put("key", BuildConfig.HISTORY_SECRET_KEY)
+                        put("device_id", getInstallId(appContext))
+                        put("device_name", buildDeviceName(appContext))
+                        put("fcm_token", token)
+                        put("profile_id", normalizedProfileId)
+                        put("spawn_alert_mode", mode.id)
+
+                        /*
+                         * Compatibility bridge for the old registration model.
+                         *
+                         * The server can keep profile_ids aligned while also storing
+                         * the more precise profile_spawn_alert_modes map.
+                         */
+                        put("enabled", mode.isPushEnabledForCompatibility)
+                    },
+                    logLabel = "set_spawn_alert_mode"
+                )
+
+                val ok = result?.responseCode in 200..299
+                finish(ok)
+            }
+        }
+
+        val cachedToken = prefs.getString("latest_fcm_token", null).orEmpty()
+
+        /*
+         * For mode NONE we can still send the request without forcing a fresh FCM
+         * token fetch, because the important part is disabling this profile's spawn
+         * notifications on the backend.
+         */
+        if (!mode.isPushEnabledForCompatibility) {
+            sendRequest(cachedToken)
+            return
+        }
+
+        if (cachedToken.isNotBlank()) {
+            sendRequest(cachedToken)
+            return
+        }
+
+        Log.d(TAG, "No cached FCM token, fetching a fresh one for spawn mode profileId=$normalizedProfileId")
+
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w(TAG, "Unable to fetch fresh FCM token for spawn mode profileId=$normalizedProfileId", task.exception)
+                finish(false)
+                return@addOnCompleteListener
+            }
+
+            val freshToken = task.result?.trim().orEmpty()
+            if (freshToken.isBlank()) {
+                Log.w(TAG, "Fresh FCM token is blank for spawn mode profileId=$normalizedProfileId")
+                finish(false)
+                return@addOnCompleteListener
+            }
+
+            prefs.edit {
+                putString("latest_fcm_token", freshToken)
+            }
+
+            Log.d(TAG, "Fetched fresh FCM token for spawn mode profileId=$normalizedProfileId")
+            sendRequest(freshToken)
+        }
+    }
+
+
     fun uploadDexList(
         context: Context,
         profileId: String,
