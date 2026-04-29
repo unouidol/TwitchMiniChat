@@ -1,88 +1,65 @@
 package com.fs.twitchminichat
 
 import android.content.Context
-import android.widget.Toast
 
 /**
- * Handles explicit user-triggered PCG data update requests.
+ * Handles the two manual PCG data update buttons shown above the PCG panel.
  *
- * This controller exists so ChatFragment only wires UI buttons, while the
- * manual update behavior stays in a small, named component.
+ * This controller intentionally does not show an "update requested" toast.
+ * The user should only see a toast when Android has a real outcome:
+ *
+ * - wrong tab: GeckoSessionManager shows the tab-specific instruction
+ * - correct tab: GeckoSessionManager shows the update success message
+ *
+ * This keeps the UI less noisy and avoids telling the user that an update
+ * started when the current PCG tab may actually be wrong.
  */
 class PcgManualDataUpdateController(
-    private val context: Context,
+    @Suppress("UNUSED_PARAMETER")
+    context: Context,
     private val bridge: Bridge
 ) {
 
     /**
-     * Small bridge interface implemented by the owner of the Gecko/WebExtension
-     * connection.
-     *
-     * Keeping this as an interface avoids making this controller depend directly
-     * on ChatFragment internals.
+     * Small bridge used by the Activity so this controller does not need to know
+     * about GeckoSessionManager, account IDs, or Activity state directly.
      */
     interface Bridge {
+
+        /**
+         * Requests a manual Pokédex snapshot registration.
+         *
+         * Returns false when the request cannot even be armed, for example
+         * because the Activity has no account ID yet or the PCG session is not ready.
+         */
         fun requestManualPokedexUpdate(): Boolean
+
+        /**
+         * Requests a manual Inventory snapshot registration.
+         *
+         * Returns false when the request cannot even be armed, for example
+         * because the Activity has no account ID yet or the PCG session is not ready.
+         */
         fun requestManualInventoryUpdate(): Boolean
     }
 
+    /**
+     * Called when the user presses Register Pokédex.
+     *
+     * No immediate toast is shown here. GeckoSessionManager will show either
+     * "Pokédex updated" after a valid snapshot, or the wrong-tab instruction.
+     */
     fun onRegisterPokedexClicked() {
-        val requested = bridge.requestManualPokedexUpdate()
-
-        if (requested) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.pcg_pokedex_update_requested),
-                Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            Toast.makeText(
-                context,
-                context.getString(R.string.pcg_manual_update_not_ready),
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+        bridge.requestManualPokedexUpdate()
     }
 
+    /**
+     * Called when the user presses Register inventory.
+     *
+     * No immediate toast is shown here. GeckoSessionManager will show either
+     * "Inventory updated" after a valid snapshot, or the wrong-tab instruction.
+     */
     fun onRegisterInventoryClicked() {
-        val requested = bridge.requestManualInventoryUpdate()
-
-        if (requested) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.pcg_inventory_update_requested),
-                Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            Toast.makeText(
-                context,
-                context.getString(R.string.pcg_manual_update_not_ready),
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    fun onWrongPokedexTab() {
-        Toast.makeText(
-            context,
-            context.getString(R.string.pcg_pokedex_wrong_tab),
-            Toast.LENGTH_LONG
-        ).show()
-    }
-
-    fun onWrongInventoryTab() {
-        Toast.makeText(
-            context,
-            context.getString(R.string.pcg_inventory_wrong_tab),
-            Toast.LENGTH_LONG
-        ).show()
-    }
-
-    fun onManualUpdateFailed() {
-        Toast.makeText(
-            context,
-            context.getString(R.string.pcg_manual_update_failed),
-            Toast.LENGTH_SHORT
-        ).show()
+        bridge.requestManualInventoryUpdate()
     }
 }

@@ -70,12 +70,49 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         pcgManualDataUpdateController = controller
 
         btnRegisterPokedex.setOnClickListener {
+            showTemporaryButtonFeedback(
+                button = btnRegisterPokedex,
+                normalTextRes = R.string.pcg_register_pokedex,
+                pendingTextRes = R.string.pcg_register_pokedex_checking
+            )
+
             controller.onRegisterPokedexClicked()
         }
 
         btnRegisterInventory.setOnClickListener {
+            showTemporaryButtonFeedback(
+                button = btnRegisterInventory,
+                normalTextRes = R.string.pcg_register_inventory,
+                pendingTextRes = R.string.pcg_register_inventory_checking
+            )
+
             controller.onRegisterInventoryClicked()
         }
+    }
+
+    /**
+     * Gives immediate visual feedback for manual PCG update buttons.
+     *
+     * This intentionally is not a success message. It only confirms that the tap
+     * was received while GeckoSessionManager waits for the probe result.
+     */
+    private fun showTemporaryButtonFeedback(
+        button: Button,
+        normalTextRes: Int,
+        pendingTextRes: Int
+    ) {
+        button.isEnabled = false
+        button.setText(pendingTextRes)
+
+        button.postDelayed(
+            {
+                if (!isFinishing && !isDestroyed) {
+                    button.isEnabled = true
+                    button.setText(normalTextRes)
+                }
+            },
+            MANUAL_BUTTON_FEEDBACK_MS
+        )
     }
 
     override fun onDestroy() {
@@ -85,6 +122,14 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     companion object {
         private const val EXTRA_ACCOUNT_ID = "account_id"
+
+        /**
+         * Small delay used only for visual button feedback.
+         *
+         * The actual Inventory/Pokédex result is still handled asynchronously by
+         * GeckoSessionManager and the PCG probe.
+         */
+        private const val MANUAL_BUTTON_FEEDBACK_MS = 4_000L
 
         fun start(ctx: Context, accountId: String) {
             ctx.startActivity(

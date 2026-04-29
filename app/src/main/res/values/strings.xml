@@ -152,6 +152,9 @@
     <string name="pcg_inventory_updated">Poké Ball inventory updated.</string>
     <string name="pcg_pokedex_updated">Pokédex updated.</string>
 
+    <string name="pcg_register_inventory_checking">Checking inventory…</string>
+    <string name="pcg_register_pokedex_checking">Checking Pokédex…</string>
+
     <string name="pcg_inventory_update_requested">Inventory update requested</string>
     <string name="pcg_pokedex_update_requested">Pokédex update requested</string>
     <string name="pcg_manual_update_not_ready">PCG panel is not ready yet. Open the PCG panel and try again.</string>
