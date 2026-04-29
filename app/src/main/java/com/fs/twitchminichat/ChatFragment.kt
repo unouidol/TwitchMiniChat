@@ -535,6 +535,31 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             .coerceAtMost(dp(260))
     }
 
+    /**
+     * Resets the AutoCompleteTextView adapter filter when the channel field is empty.
+     *
+     * AutoCompleteTextView can keep the adapter filtered by the last selected channel.
+     * This means the visible text field may be empty, but the dropdown still shows
+     * only the previously selected item. Filtering with an empty constraint restores
+     * the full saved-channel list before the popup is shown.
+     */
+    private fun resetChannelDropdownFilterIfFieldEmpty(onFilterReady: () -> Unit) {
+        if (!this::editChannel.isInitialized) return
+
+        val currentText = editChannel.text?.toString().orEmpty()
+
+        if (currentText.isBlank()) {
+            channelsAdapter.filter.filter("") {
+                editChannel.post {
+                    if (!isAdded) return@post
+                    onFilterReady()
+                }
+            }
+        } else {
+            onFilterReady()
+        }
+    }
+
     private fun showChannelDropdownNow() {
         if (!this::editChannel.isInitialized) return
         if (!isAdded) return
@@ -544,15 +569,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         refreshChannelsDropdown()
         updateChannelDropdownHeight()
 
-        editChannel.showDropDown()
+        resetChannelDropdownFilterIfFieldEmpty {
+            if (!isAdded) return@resetChannelDropdownFilterIfFieldEmpty
+            if (!editChannel.hasFocus()) return@resetChannelDropdownFilterIfFieldEmpty
+            if (channelDropdownManuallyClosed) return@resetChannelDropdownFilterIfFieldEmpty
 
-        Log.d(
-            "CHAN_DROPDOWN",
-            "show requested hasFocus=${editChannel.hasFocus()} " +
-                    "popup=${editChannel.isPopupShowing} " +
-                    "adapterCount=${channelsAdapter.count} " +
-                    "text='${editChannel.text}'"
-        )
+            updateChannelDropdownHeight()
+            editChannel.showDropDown()
+
+            Log.d(
+                "CHAN_DROPDOWN",
+                "show requested hasFocus=${editChannel.hasFocus()} " +
+                        "popup=${editChannel.isPopupShowing} " +
+                        "adapterCount=${channelsAdapter.count} " +
+                        "text='${editChannel.text}'"
+            )
+        }
     }
 
     private fun scheduleChannelDropdownOpen(delayMs: Long) {
@@ -566,8 +598,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             refreshChannelsDropdown()
             updateChannelDropdownHeight()
 
-            if (!editChannel.isPopupShowing) {
-                editChannel.showDropDown()
+            resetChannelDropdownFilterIfFieldEmpty {
+                if (!isAdded) return@resetChannelDropdownFilterIfFieldEmpty
+                if (!editChannel.hasFocus()) return@resetChannelDropdownFilterIfFieldEmpty
+                if (channelDropdownManuallyClosed) return@resetChannelDropdownFilterIfFieldEmpty
+
+                updateChannelDropdownHeight()
+
+                if (!editChannel.isPopupShowing) {
+                    editChannel.showDropDown()
+                }
             }
         }, delayMs)
     }
@@ -609,6 +649,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!this::editChannel.isInitialized) return
 
         dismissChannelDropdown()
+
+        /*
+         * Clear the visible channel field without triggering AutoCompleteTextView to
+         * filter again using the last selected channel.
+         */
+        editChannel.setText("", false)
+
+        /*
+         * Reset the adapter filter too, otherwise the dropdown can stay narrowed to
+         * the last selected channel even while the field looks empty.
+         */
+        channelsAdapter.filter.filter("")
+
         editChannel.clearFocus()
 
         if (hideKeyboard) {
@@ -641,16 +694,25 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return HiddenUsersStore.isHidden(requireContext(), user)
     }
 
+    /**
+     * Hides all currently rendered messages from a locally hidden user.
+     *
+     * The views are kept inside chatContainer instead of being removed. This allows
+     * them to become visible again immediately if the user is later unblocked.
+     */
     private fun removeMessagesOfHiddenUser(user: String) {
         val normalized = normalizeChatUser(user)
         if (normalized.isBlank()) return
+
+        var changedAnyView = false
 
         for (i in chatContainer.childCount - 1 downTo 0) {
             val child = chatContainer.getChildAt(i)
             val meta = child.tag as? ChatViewMeta ?: continue
 
-            if (meta.usernameLower == normalized) {
-                chatContainer.removeViewAt(i)
+            if (meta.usernameLower == normalized && child.visibility != View.GONE) {
+                child.visibility = View.GONE
+                changedAnyView = true
             }
         }
 
@@ -659,7 +721,56 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             clearPendingReply()
         }
 
-        updateJumpToBottomButton()
+        if (changedAnyView) {
+            updateJumpToBottomButton()
+        }
+    }
+
+    /**
+     * Re-applies the current local hidden-user state to all rendered chat messages.
+     *
+     * This is useful when returning from the blocked-users screen: users may have
+     * been unblocked while ChatFragment was paused, so previously hidden views can
+     * be made visible again without reopening the whole chat.
+     */
+    private fun refreshHiddenUserVisibilityInChat() {
+        if (!this::chatContainer.isInitialized) return
+        if (!isAdded) return
+
+        var changedAnyView = false
+
+        for (i in 0 until chatContainer.childCount) {
+            val child = chatContainer.getChildAt(i)
+            val meta = child.tag as? ChatViewMeta ?: continue
+
+            val shouldBeHidden = HiddenUsersStore.isHidden(
+                requireContext(),
+                meta.usernameLower
+            )
+
+            val targetVisibility = if (shouldBeHidden) {
+                View.GONE
+            } else {
+                View.VISIBLE
+            }
+
+            if (child.visibility != targetVisibility) {
+                child.visibility = targetVisibility
+                changedAnyView = true
+            }
+        }
+
+        val pendingReplyUserNormalized = normalizeChatUser(pendingReplyUser)
+        if (
+            pendingReplyUserNormalized.isNotBlank() &&
+            HiddenUsersStore.isHidden(requireContext(), pendingReplyUserNormalized)
+        ) {
+            clearPendingReply()
+        }
+
+        if (changedAnyView) {
+            updateJumpToBottomButton()
+        }
     }
 
     private fun addMentionUser(user: String) {
@@ -1471,6 +1582,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     override fun onResume() {
         super.onResume()
+
+        refreshHiddenUserVisibilityInChat()
         dismissChannelDropdown()
 
         if (streamEnabled) {

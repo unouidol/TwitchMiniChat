@@ -62,9 +62,4 @@ object HiddenUsersStore {
         return removed
     }
 
-    fun clear(context: Context) {
-        prefs(context).edit {
-            remove(KEY_USERS)
-        }
-    }
 }

@@ -22,7 +22,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/catch_presets_title"
-        android:textSize="20sp"
+        android:textColor="@color/tmc_on_surface_strong"
+        android:textSize="18sp"
         android:textStyle="bold" />
 
     <TextView
@@ -31,6 +32,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:text="@string/catch_presets_subtitle"
+        android:textColor="@color/tmc_on_surface_muted"
         android:textSize="13sp" />
 
     <TextView
@@ -39,31 +41,39 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:text="@string/catch_presets_quick_menu_note"
+        android:textColor="@color/tmc_on_surface_muted"
         android:textSize="12sp" />
 
     <CheckBox
         android:id="@+id/checkEnableAllPresets"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_width="320dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center_horizontal"
         android:layout_marginTop="4dp"
         android:gravity="center_vertical"
         android:text="@string/catch_presets_enable_all"
+        android:textColor="@color/tmc_on_surface_strong"
         android:textSize="13sp" />
 
     <EditText
         android:id="@+id/editPresetSearch"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_width="320dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center_horizontal"
         android:layout_marginTop="6dp"
         android:background="?android:attr/editTextBackground"
         android:hint="@string/catch_presets_search_hint"
         android:imeOptions="actionSearch"
+        android:importantForAutofill="no"
         android:inputType="text"
         android:maxLines="1"
         android:paddingStart="10dp"
         android:paddingEnd="10dp"
         android:singleLine="true"
+        android:textColor="@color/tmc_on_surface_strong"
+        android:textColorHint="@color/tmc_on_surface_muted"
         android:textSize="13sp" />
+
     <!--
         The RecyclerView is the only area that should consume the remaining
         height. The footer stays outside this list so Save is always visible.
@@ -80,9 +90,8 @@
     <!--
         Fixed footer.
 
-        Two rows avoid cramped buttons while keeping important manual actions
-        visible. Save stays in the bottom-right position where users expect the
-        final confirmation action.
+        The action rows are centered and use explicit button widths to avoid
+        accessibility warnings about overly wide interactive controls.
     -->
     <LinearLayout
         android:id="@+id/catchPresetEditorFooter"
@@ -96,25 +105,26 @@
             android:id="@+id/catchPresetEditorUtilityActions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
             android:orientation="horizontal">
 
             <Button
                 android:id="@+id/btnPresetEditorPokebuddy"
                 style="?android:attr/buttonBarButtonStyle"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
+                android:layout_width="156dp"
+                android:layout_height="48dp"
                 android:text="@string/quick_catch_pokebuddy"
+                android:textColor="@color/tmc_on_surface_strong"
                 android:textSize="12sp" />
 
             <Button
                 android:id="@+id/btnRestorePresets"
                 style="?android:attr/buttonBarButtonStyle"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_width="156dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="8dp"
-                android:layout_weight="1"
                 android:text="@string/restore_presets"
+                android:textColor="@color/tmc_on_surface_strong"
                 android:textSize="12sp" />
 
         </LinearLayout>
@@ -124,25 +134,26 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
+            android:gravity="center_horizontal"
             android:orientation="horizontal">
 
             <Button
                 android:id="@+id/btnAddPreset"
                 style="?android:attr/buttonBarButtonStyle"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
+                android:layout_width="156dp"
+                android:layout_height="48dp"
                 android:text="@string/add_preset"
+                android:textColor="@color/tmc_on_surface_strong"
                 android:textSize="12sp" />
 
             <Button
                 android:id="@+id/btnSavePresets"
                 style="?android:attr/buttonBarButtonStyle"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_width="156dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="8dp"
-                android:layout_weight="1"
                 android:text="@string/save_presets"
+                android:textColor="@color/tmc_on_surface_strong"
                 android:textSize="12sp" />
 
         </LinearLayout>

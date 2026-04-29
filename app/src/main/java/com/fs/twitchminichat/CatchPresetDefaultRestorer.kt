@@ -34,7 +34,7 @@ object CatchPresetDefaultRestorer {
 
         /*
          * Keep inventory-discovered balls available after restore, but still run
-         * the editor filter afterwards so context-driven balls do not flood the
+         * the editor filter afterward so context-driven balls do not flood the
          * preset management screen again.
          */
         return CatchPresetStore.mergeMissingInventoryPresets(

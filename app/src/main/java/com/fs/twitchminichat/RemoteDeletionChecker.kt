@@ -108,11 +108,6 @@ object RemoteDeletionChecker {
         }
     }
 
-    fun resetProcessFlagForTesting() {
-        checkedThisProcess = false
-        checkInFlight = false
-    }
-
     private fun postNoDeletionDetected(callback: (() -> Unit)?) {
         if (callback == null) return
         mainHandler.post { callback.invoke() }

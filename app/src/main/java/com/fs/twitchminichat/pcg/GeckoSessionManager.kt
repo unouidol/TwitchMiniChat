@@ -46,6 +46,15 @@ object GeckoSessionManager {
     private const val TYPE_PCG_TAB_STATE = "pcg_tab_state"
 
     /**
+     * How long a manual PCG update request waits for a fresh probe snapshot before
+     * showing the tab-specific instruction toast.
+     *
+     * This must be long enough for the Pokédex probe, because it waits for the DOM
+     * to settle and may scroll the list before sending a valid snapshot.
+     */
+    private const val MANUAL_PCG_UPDATE_TIMEOUT_MS = 2_000L
+
+    /**
      * Maximum age for PCG tab visibility state reported by the content script.
      *
      * Cached Inventory/Pokédex snapshots are accepted only when this recent tab
@@ -54,24 +63,22 @@ object GeckoSessionManager {
     private const val PCG_TAB_STATE_MAX_AGE_MS = 1_000L
 
     /**
-     * Time window after the user presses a manual PCG update button.
+     * How long a successful passive Pokédex snapshot can be reused for a manual
+     * Register Pokédex press.
      *
-     * If no valid matching snapshot arrives within this time, TMC assumes the user
-     * is probably on the wrong PCG tab or the tab has not finished loading yet.
+     * The snapshot is still invalidated earlier if the Pokédex probe later reports
+     * that the Pokédex DOM is no longer readable.
      */
-    private const val MANUAL_PCG_UPDATE_TIMEOUT_MS = 4_000L
+    private const val CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS = 2 * 60 * 1000L
 
     /**
-     * Maximum age for a cached Pokédex snapshot that can be accepted when the user
-     * presses Register Pokédex.
+     * How long a successful passive Inventory snapshot can be reused for a manual
+     * Register inventory press.
+     *
+     * The snapshot is still invalidated earlier if the Inventory probe later reports
+     * that the ball grid is no longer readable.
      */
-    private const val CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS = 4_000L
-
-    /**
-     * Maximum age for a cached Inventory snapshot that can be accepted when the
-     * user presses Register inventory.
-     */
-    private const val CACHED_INVENTORY_SNAPSHOT_MAX_AGE_MS = 4_000L
+    private const val CACHED_INVENTORY_SNAPSHOT_MAX_AGE_MS = 2 * 60 * 1000L
 
     private const val PCG_SESSION_KEEP_ALIVE_MS = 15*60*1_000L
 
@@ -102,7 +109,7 @@ object GeckoSessionManager {
      * Prevents duplicate manual Pokédex uploads/toasts caused by multiple valid
      * probe snapshots arriving very close together.
      */
-    private const val MANUAL_POKEDEX_UPLOAD_DEDUP_MS = 10_000L
+    private const val MANUAL_POKEDEX_UPLOAD_DEDUP_MS = 1_500L
 
     private val recentManualPokedexUploadKeys =
         ConcurrentHashMap<String, Long>()
@@ -201,6 +208,58 @@ object GeckoSessionManager {
         }
 
         return false
+    }
+
+    /**
+     * Invalidates an older Pokédex snapshot when Inventory has been read after it.
+     *
+     * A successful Inventory read is the strongest practical signal that the current
+     * PCG surface is no longer the Pokédex surface that produced the older snapshot.
+     */
+    private fun invalidateOlderPokedexSnapshot(
+        sessionKey: String,
+        newerCapturedAtMs: Long
+    ) {
+        val oldSnapshot = lastPokedexSnapshots[sessionKey] ?: return
+
+        if (oldSnapshot.capturedAtMs <= newerCapturedAtMs) {
+            val removed = lastPokedexSnapshots.remove(sessionKey, oldSnapshot)
+
+            if (removed) {
+                Log.d(
+                    "PCG_PROBE",
+                    "invalidated older pokedex snapshot after inventory extract success " +
+                            "sessionKey=$sessionKey oldCapturedAtMs=${oldSnapshot.capturedAtMs} " +
+                            "newerCapturedAtMs=$newerCapturedAtMs"
+                )
+            }
+        }
+    }
+
+    /**
+     * Invalidates an older Inventory snapshot when Pokédex has been read after it.
+     *
+     * This mirrors the Inventory-to-Pokédex invalidation, so both manual update
+     * buttons use the same cache ownership rule.
+     */
+    private fun invalidateOlderInventorySnapshot(
+        sessionKey: String,
+        newerCapturedAtMs: Long
+    ) {
+        val oldSnapshot = lastInventorySnapshots[sessionKey] ?: return
+
+        if (oldSnapshot.capturedAtMs <= newerCapturedAtMs) {
+            val removed = lastInventorySnapshots.remove(sessionKey, oldSnapshot)
+
+            if (removed) {
+                Log.d(
+                    "PCG_PROBE",
+                    "invalidated older inventory snapshot after pokedex extract success " +
+                            "sessionKey=$sessionKey oldCapturedAtMs=${oldSnapshot.capturedAtMs} " +
+                            "newerCapturedAtMs=$newerCapturedAtMs"
+                )
+            }
+        }
     }
 
     private fun messageToJsonObject(message: Any?): JSONObject? {
@@ -623,6 +682,15 @@ object GeckoSessionManager {
             capturedAtMs = SystemClock.elapsedRealtime()
         )
 
+        /*
+         * A successful Pokédex read claims the current PCG surface for Pokédex.
+         * Any older Inventory snapshot should no longer be reused.
+         */
+        invalidateOlderInventorySnapshot(
+            sessionKey = sessionKey,
+            newerCapturedAtMs = snapshot.capturedAtMs
+        )
+
         lastPokedexSnapshots[sessionKey] = snapshot
 
         if (!consumeManualUpdateRequest(
@@ -685,6 +753,15 @@ object GeckoSessionManager {
             profileLabel = profileLabel,
             balls = balls,
             capturedAtMs = SystemClock.elapsedRealtime()
+        )
+
+        /*
+         * A successful Inventory read claims the current PCG surface for Inventory.
+         * Any older Pokédex snapshot should no longer be reused.
+         */
+        invalidateOlderPokedexSnapshot(
+            sessionKey = sessionKey,
+            newerCapturedAtMs = snapshot.capturedAtMs,
         )
 
         lastInventorySnapshots[sessionKey] = snapshot
@@ -978,26 +1055,26 @@ object GeckoSessionManager {
         val appContext = context.applicationContext
         val requestedAtMs = SystemClock.elapsedRealtime()
 
-        val justCapturedSnapshot = lastInventorySnapshots[sessionKey]
+        val cachedSnapshot = lastInventorySnapshots[sessionKey]
         if (
-            justCapturedSnapshot != null &&
+            cachedSnapshot != null &&
             isCachedSnapshotFresh(
-                capturedAtMs = justCapturedSnapshot.capturedAtMs,
-                maxAgeMs = JUST_CAPTURED_SNAPSHOT_MAX_AGE_MS,
-                debugLabel = "inventory_just_captured",
+                capturedAtMs = cachedSnapshot.capturedAtMs,
+                maxAgeMs = CACHED_INVENTORY_SNAPSHOT_MAX_AGE_MS,
+                debugLabel = "inventory_reusable",
                 sessionKey = sessionKey
             )
         ) {
             Log.d(
                 "PCG_PROBE",
-                "manual inventory registration completed from just-captured snapshot sessionKey=$sessionKey"
+                "manual inventory registration completed from reusable snapshot sessionKey=$sessionKey"
             )
 
             saveManualInventorySnapshot(
                 appContext = appContext,
                 sessionKey = sessionKey,
-                snapshot = justCapturedSnapshot,
-                source = "just_captured_before_click"
+                snapshot = cachedSnapshot,
+                source = "reusable_cached_snapshot"
             )
 
             return true
@@ -1012,10 +1089,6 @@ object GeckoSessionManager {
                     "timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
         )
 
-        /*
-         * If no fresh Inventory snapshot arrives before the timeout, the most useful
-         * instruction is still to load the Inventory tab and try again.
-         */
         scheduleManualUpdateTimeout(
             appContext = appContext,
             sessionKey = sessionKey,
@@ -1045,26 +1118,26 @@ object GeckoSessionManager {
         val appContext = context.applicationContext
         val requestedAtMs = SystemClock.elapsedRealtime()
 
-        val justCapturedSnapshot = lastPokedexSnapshots[sessionKey]
+        val cachedSnapshot = lastPokedexSnapshots[sessionKey]
         if (
-            justCapturedSnapshot != null &&
+            cachedSnapshot != null &&
             isCachedSnapshotFresh(
-                capturedAtMs = justCapturedSnapshot.capturedAtMs,
-                maxAgeMs = JUST_CAPTURED_SNAPSHOT_MAX_AGE_MS,
-                debugLabel = "pokedex_just_captured",
+                capturedAtMs = cachedSnapshot.capturedAtMs,
+                maxAgeMs = CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS,
+                debugLabel = "pokedex_reusable",
                 sessionKey = sessionKey
             )
         ) {
             Log.d(
                 "PCG_PROBE",
-                "manual pokedex registration completed from just-captured snapshot sessionKey=$sessionKey"
+                "manual pokedex registration completed from reusable snapshot sessionKey=$sessionKey"
             )
 
             uploadManualPokedexSnapshot(
                 appContext = appContext,
                 sessionKey = sessionKey,
-                snapshot = justCapturedSnapshot,
-                source = "just_captured_before_click"
+                snapshot = cachedSnapshot,
+                source = "reusable_cached_snapshot"
             )
 
             return true
@@ -1079,11 +1152,6 @@ object GeckoSessionManager {
                     "timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
         )
 
-        /*
-         * Pokédex extraction can take several seconds because the probe waits for the
-         * DOM to settle and then scrolls the list. The timeout must be long enough
-         * to let a real extraction complete.
-         */
         scheduleManualUpdateTimeout(
             appContext = appContext,
             sessionKey = sessionKey,

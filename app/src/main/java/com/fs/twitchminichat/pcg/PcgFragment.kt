@@ -18,11 +18,12 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
     private var accountId: String = ""
     private var channel: String = ""
+    private var profileId: String = ""
+    private var profileLabel: String = ""
 
     private fun pcgUrl(): String =
         "https://www.twitch.tv/popout/$channel/extensions/$PCG_EXTENSION_ID/panel"
 
-    // Stato: stiamo aspettando che il login finisca?
     private var waitingForLogin = true
     private var alreadyJumpedToPcg = false
 
@@ -39,16 +40,10 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
             .lowercase()
             .ifBlank { "unouidol" }
 
-        val profileId = ProfileIdUtil.fromUsername(cfg.username)
-        val profileLabel = cfg.username.trim().ifBlank { profileId }
+        profileId = ProfileIdUtil.fromUsername(cfg.username)
+        profileLabel = cfg.username.trim().ifBlank { profileId }
 
-        session = GeckoSessionManager.attachPcgSessionToView(
-            context = requireContext(),
-            geckoView = geckoView,
-            profileId = profileId,
-            profileLabel = profileLabel,
-            accountId = accountId
-        )
+        attachOrResumePcgSession()
 
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLoadRequest(
@@ -57,7 +52,6 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
             ): GeckoResult<AllowOrDeny> {
                 val uri = request.uri
 
-                // Resta dentro GeckoView solo per http/https.
                 val isWeb = uri.startsWith("http://") || uri.startsWith("https://")
                 if (!isWeb) {
                     return GeckoResult.fromValue(AllowOrDeny.DENY)
@@ -65,8 +59,12 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
 
                 val lower = uri.lowercase()
 
-                // Se siamo nel flusso login, quando Twitch tenta di portarci "fuori" dal login
-                // home / canale / ecc., blocchiamo e saltiamo a PCG.
+                /*
+                 * During Twitch login, Twitch may try to navigate back to the
+                 * normal Twitch site after authentication. When that happens,
+                 * TMC redirects the existing GeckoSession to the PCG panel instead
+                 * of leaving the user on the Twitch homepage.
+                 */
                 if (waitingForLogin && !alreadyJumpedToPcg) {
                     val stillLoginFlow =
                         lower.startsWith("https://www.twitch.tv/login") ||
@@ -108,9 +106,6 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
             return
         }
 
-        // Primo avvio o sessione non ancora arrivata al pannello PCG:
-        // apri login; se eri già loggato, Twitch proverà ad andare sulla home
-        // e il navigationDelegate sopra intercetterà il passaggio aprendo PCG.
         waitingForLogin = true
         alreadyJumpedToPcg = false
 
@@ -121,17 +116,74 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
         )
     }
 
-    override fun onStop() {
-        if (this::geckoView.isInitialized && accountId.isNotBlank()) {
+    override fun onResume() {
+        super.onResume()
+
+        /*
+         * GeckoView can occasionally return from background with a black rendering
+         * surface while the GeckoSession itself is still alive. Re-attaching and
+         * re-activating the session here wakes the existing PCG view without
+         * forcing the user to press Back and reopen the panel.
+         */
+        view?.post {
+            if (!isAdded) return@post
+            if (!this::geckoView.isInitialized) return@post
+            if (accountId.isBlank() || profileId.isBlank()) return@post
+
+            attachOrResumePcgSession()
+
+            val targetUrl =
+                if (waitingForLogin && !alreadyJumpedToPcg) {
+                    TWITCH_LOGIN_URL
+                } else {
+                    pcgUrl()
+                }
+
+            GeckoSessionManager.loadPcgUriIfNeeded(
+                accountId = accountId,
+                session = session,
+                url = targetUrl
+            )
+        }
+    }
+
+    override fun onPause() {
+        /*
+         * Do not detach/release the GeckoSession here.
+         *
+         * onPause/onStop can happen when the user simply backgrounds the app. If
+         * the session is released there, onViewCreated() may not run again when
+         * the app returns, leaving GeckoView with a black surface.
+         */
+        if (this::session.isInitialized) {
             runCatching {
-                GeckoSessionManager.detachPcgSessionFromView(
-                    geckoView = geckoView,
-                    accountId = accountId
-                )
+                session.setFocused(false)
+            }
+
+            runCatching {
+                session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
             }
         }
 
-        super.onStop()
+        super.onPause()
+    }
+
+    /**
+     * Attaches the existing PCG session to the current GeckoView and marks it as
+     * active/focused.
+     *
+     * This is safe to call more than once. GeckoSessionManager avoids reloading
+     * the same URL if it is already loaded, while still making sure the rendering
+     * surface is connected after lifecycle transitions.
+     */
+    private fun attachOrResumePcgSession() {
+        session = GeckoSessionManager.attachPcgSessionToView(
+            context = requireContext(),
+            geckoView = geckoView,
+            profileId = profileId,
+            profileLabel = profileLabel,
+            accountId = accountId
+        )
     }
 
     override fun onDestroyView() {

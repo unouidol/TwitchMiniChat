@@ -17,7 +17,7 @@
         android:id="@+id/editChannel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="20dp"
         android:hint="@string/twitch_channel_hint"
         android:inputType="text"
         android:maxLines="1"

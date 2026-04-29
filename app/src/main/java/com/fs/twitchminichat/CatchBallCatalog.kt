@@ -66,12 +66,6 @@ object CatchBallCatalog {
         Entry("ultra_cherish_ball", "Ultra Cherish", "!pokecatch ultra cherish ball")
     )
 
-    fun find(ballId: String?): Entry? {
-        val normalized = ballId?.trim()?.lowercase().orEmpty()
-        if (normalized.isBlank()) return null
-        return entries.firstOrNull { it.ballId == normalized }
-    }
-
     fun createDefaultPreset(entry: Entry, index: Int): CatchPreset {
         return CatchPreset(
             id = "catalog_${entry.ballId}_$index",

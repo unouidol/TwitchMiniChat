@@ -40,7 +40,4 @@ object UserCatchPresetSource {
         )
     }
 
-    fun loadEnabled(context: Context): List<CatchPreset> {
-        return loadSnapshot(context).enabledCommandPresets
-    }
 }

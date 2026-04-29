@@ -134,6 +134,9 @@
     <string name="blocked_users_title">Blocked users</string>
     <string name="blocked_users_subtitle">Users hidden in this app can be restored here.</string>
     <string name="blocked_users_empty">No hidden users.</string>
+    <string name="mention_username">\@%1$s</string>
+    <string name="hidden_user_unhidden">User unhidden: \@%1$s</string>
+    <string name="hidden_user_not_found">User not found: \@%1$s</string>
 
     <string name="safety_and_privacy">Safety &amp; Privacy</string>
 

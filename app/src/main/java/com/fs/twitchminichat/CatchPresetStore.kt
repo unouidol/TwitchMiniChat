@@ -12,7 +12,7 @@ object CatchPresetStore {
     private const val KEY_PRESETS_JSON = "presets_json"
 
     const val MAX_SAVED_PRESETS = 50
-    const val MAX_QUICK_PRESETS = 6
+
 
     const val BALL_ID_AUTO_CATCH_BASIC = "auto_catch_basic"
 
@@ -36,12 +36,6 @@ object CatchPresetStore {
         }
 
         return parsePresets(raw).take(MAX_SAVED_PRESETS)
-    }
-
-    fun loadQuickMenuPresets(context: Context): List<CatchPreset> {
-        return loadAll(context)
-            .filter { it.enabled && it.command.isNotBlank() }
-            .take(MAX_QUICK_PRESETS)
     }
 
     fun saveAll(context: Context, presets: List<CatchPreset>) {
@@ -152,7 +146,6 @@ object CatchPresetStore {
                     command = command,
                     enabled = obj.optBoolean("enabled", false),
                     ballId = normalizeStoredBallId(
-                        id = id,
                         command = command,
                         explicitBallId = explicitBallId
                     )
@@ -180,7 +173,6 @@ object CatchPresetStore {
             command = command,
             enabled = preset.enabled,
             ballId = normalizeStoredBallId(
-                id = id,
                 command = command,
                 explicitBallId = preset.ballId
             )
@@ -188,7 +180,6 @@ object CatchPresetStore {
     }
 
     private fun normalizeStoredBallId(
-        id: String,
         command: String,
         explicitBallId: String?
     ): String? {

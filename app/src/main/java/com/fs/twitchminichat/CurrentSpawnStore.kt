@@ -9,7 +9,7 @@ import org.json.JSONObject
  *
  * PCG spawns are global across channels, so this store must NOT be scoped to the
  * current Twitch channel. If a Pikachu is active, it is active everywhere until
- * the 90 second spawn window expires.
+ * the 90-second spawn window expires.
  */
 object CurrentSpawnStore {
 
@@ -54,7 +54,7 @@ object CurrentSpawnStore {
     }
 
     /**
-     * Loads the current global spawn only if it is still inside the 90 second
+     * Loads the current global spawn only if it is still inside the 90-second
      * valid window.
      *
      * Expired spawns are removed and returned as null.
@@ -121,7 +121,7 @@ object CurrentSpawnStore {
         }
     }
     /**
-     * Loads the last known spawn even if the 90 second active catch window expired.
+     * Loads the last known spawn even if the 90-second active catch window expired.
      *
      * This is useful for UI countdowns such as:
      * "Next spawn in: 13:30"

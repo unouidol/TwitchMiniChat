@@ -5,7 +5,7 @@ package com.fs.twitchminichat
  *
  * This filter is intentionally only for the editor/settings screen.
  *
- * It does not change Smart recommendations and it does not change the internal
+ * It does not change Smart recommendations, and it does not change the internal
  * ball catalog. It only keeps the manual preset list smaller and easier to
  * manage.
  *
