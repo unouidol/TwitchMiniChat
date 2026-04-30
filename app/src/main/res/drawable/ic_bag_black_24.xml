@@ -6,9 +6,9 @@
 
     <!-- Main backpack body -->
     <path
-        android:fillColor="#000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.2"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="?android:attr/textColorPrimary"
+        android:strokeWidth="1.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="
@@ -26,8 +26,8 @@
 
     <!-- Left side pocket -->
     <path
-        android:fillColor="#000000"
-        android:strokeColor="#FFFFFF"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="?android:attr/textColorPrimary"
         android:strokeWidth="1.2"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -42,8 +42,8 @@
 
     <!-- Right side pocket -->
     <path
-        android:fillColor="#000000"
-        android:strokeColor="#FFFFFF"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="?android:attr/textColorPrimary"
         android:strokeWidth="1.2"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -58,7 +58,7 @@
 
     <!-- Handle cutout / highlight -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="?android:attr/textColorPrimary"
         android:strokeWidth="1.6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -70,9 +70,13 @@
             C14.3,2.1 15.4,2.9 15.4,4.2
             L15.4,5" />
 
-    <!-- Top small white loop -->
+    <!-- Top loop -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="?android:attr/textColorPrimary"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:pathData="
             M10.6,8.2
             C10.6,7.2 11.2,6.6 12,6.6
@@ -81,9 +85,9 @@
             C11.2,9.8 10.6,9.2 10.6,8.2
             Z" />
 
-    <!-- Front pocket white outline -->
+    <!-- Front pocket outline -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="?android:attr/textColorPrimary"
         android:strokeWidth="1.6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -99,7 +103,7 @@
 
     <!-- Pocket zipper line -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="?android:attr/textColorPrimary"
         android:strokeWidth="1.3"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -110,7 +114,7 @@
 
     <!-- Small zipper pull -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="?android:attr/textColorPrimary"
         android:strokeWidth="1.1"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

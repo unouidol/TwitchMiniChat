@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import com.fs.twitchminichat.PcgManualDataUpdateController
 import com.fs.twitchminichat.R
 
@@ -12,6 +14,11 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     private var accountId: String = ""
     private var pcgManualDataUpdateController: PcgManualDataUpdateController? = null
+
+    private lateinit var btnRegisterInventory: Button
+    private lateinit var progressInventoryCapture: ProgressBar
+
+    private var lastInventoryTabAvailable: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,12 +44,19 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     /**
      * Connects the visible manual PCG data update buttons.
      *
-     * These buttons live above the PCG GeckoView container, so the user clearly
-     * chooses when to register Inventory or Pokédex data.
+     * Inventory uses a one-shot manual capture window:
+     * - the WebExtension keeps emitting passive snapshots;
+     * - Android accepts a snapshot only after the user taps Update inventory;
+     * - after a successful read, the Inventory button stays disabled until PCG
+     *   clearly leaves Inventory and enters Inventory again.
+     *
+     * Pokédex keeps the older temporary feedback for now, because this patch only
+     * stabilizes Inventory first.
      */
     private fun setupManualPcgDataUpdateButtons() {
         val btnRegisterPokedex = findViewById<Button>(R.id.btnRegisterPokedex)
-        val btnRegisterInventory = findViewById<Button>(R.id.btnRegisterInventory)
+        btnRegisterInventory = findViewById(R.id.btnRegisterInventory)
+        progressInventoryCapture = findViewById(R.id.progressInventoryCapture)
 
         val controller = PcgManualDataUpdateController(
             context = this,
@@ -79,22 +93,106 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
             controller.onRegisterPokedexClicked()
         }
 
+        /*
+         * Inventory does not use fake temporary feedback anymore.
+         *
+         * The loading state is driven by GeckoSessionManager's manual capture
+         * callbacks, so the UI reflects the real snapshot capture window.
+         */
         btnRegisterInventory.setOnClickListener {
-            showTemporaryButtonFeedback(
-                button = btnRegisterInventory,
-                normalTextRes = R.string.pcg_register_inventory,
-                pendingTextRes = R.string.pcg_register_inventory_checking
-            )
-
             controller.onRegisterInventoryClicked()
         }
+
+        setupInventoryCaptureUiListener()
+    }
+
+    /**
+     * Hooks the Inventory button/progress bar to GeckoSessionManager.
+     *
+     * PcgActivity owns the Android views, while GeckoSessionManager owns the passive
+     * PCG probe messages. This listener is the thin bridge between them.
+     */
+    private fun setupInventoryCaptureUiListener() {
+        btnRegisterInventory.isEnabled = false
+        btnRegisterInventory.setText(R.string.pcg_inventory_open_tab_first)
+
+        progressInventoryCapture.isVisible = false
+        progressInventoryCapture.progress = 0
+
+        GeckoSessionManager.setInventoryCaptureUiListener(
+            accountId = accountId,
+            listener = object : GeckoSessionManager.InventoryCaptureUiListener {
+                override fun onInventoryTabAvailabilityChanged(isAvailable: Boolean) {
+                    if (!isUiAlive()) return
+
+                    lastInventoryTabAvailable = isAvailable
+
+                    /*
+                     * While a manual capture is running, the loading UI owns the
+                     * button state. Do not overwrite "Reading inventory…" halfway.
+                     */
+                    if (progressInventoryCapture.isVisible) {
+                        return
+                    }
+
+                    btnRegisterInventory.isEnabled = isAvailable
+                    btnRegisterInventory.setText(
+                        if (isAvailable) {
+                            R.string.pcg_inventory_update
+                        } else {
+                            R.string.pcg_inventory_open_tab_first
+                        }
+                    )
+                }
+
+                override fun onInventoryCaptureStarted() {
+                    if (!isUiAlive()) return
+
+                    btnRegisterInventory.isEnabled = false
+                    btnRegisterInventory.setText(R.string.pcg_inventory_reading)
+
+                    progressInventoryCapture.progress = 0
+                    progressInventoryCapture.isVisible = true
+                }
+
+                override fun onInventoryCaptureProgress(progress: Float) {
+                    if (!isUiAlive()) return
+
+                    progressInventoryCapture.progress =
+                        (progress.coerceIn(0f, 1f) * progressInventoryCapture.max).toInt()
+                }
+
+                override fun onInventoryCaptureFinished() {
+                    if (!isUiAlive()) return
+
+                    progressInventoryCapture.isVisible = false
+                    progressInventoryCapture.progress = 0
+
+                    btnRegisterInventory.isEnabled = lastInventoryTabAvailable
+                    btnRegisterInventory.setText(
+                        if (lastInventoryTabAvailable) {
+                            R.string.pcg_inventory_update
+                        } else {
+                            R.string.pcg_inventory_open_tab_first
+                        }
+                    )
+                }
+            }
+        )
+    }
+
+    /**
+     * Returns false when delayed Gecko/probe callbacks should no longer touch views.
+     */
+    private fun isUiAlive(): Boolean {
+        return !isFinishing && !isDestroyed
     }
 
     /**
      * Gives immediate visual feedback for manual PCG update buttons.
      *
-     * This intentionally is not a success message. It only confirms that the tap
-     * was received while GeckoSessionManager waits for the probe result.
+     * This is used only for Pokédex. Inventory has its own progress bar tied to the
+     * manual snapshot capture window.
      */
     private fun showTemporaryButtonFeedback(
         button: Button,
@@ -116,6 +214,14 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     override fun onDestroy() {
+        if (accountId.isNotBlank()) {
+            GeckoSessionManager.cancelManualInventoryUpdate(accountId)
+            GeckoSessionManager.setInventoryCaptureUiListener(
+                accountId = accountId,
+                listener = null
+            )
+        }
+
         pcgManualDataUpdateController = null
         super.onDestroy()
     }
@@ -124,10 +230,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         private const val EXTRA_ACCOUNT_ID = "account_id"
 
         /**
-         * Small delay used only for visual button feedback.
-         *
-         * The actual Inventory/Pokédex result is still handled asynchronously by
-         * GeckoSessionManager and the PCG probe.
+         * Small delay used only for Pokédex visual button feedback.
          */
         private const val MANUAL_BUTTON_FEEDBACK_MS = 4_000L
 

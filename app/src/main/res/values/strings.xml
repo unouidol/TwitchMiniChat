@@ -162,6 +162,10 @@
     <string name="pcg_pokedex_update_requested">Pokédex update requested</string>
     <string name="pcg_manual_update_not_ready">PCG panel is not ready yet. Open the PCG panel and try again.</string>
     <string name="pcg_manual_update_failed">PCG data update failed. Try again after the tab finishes loading.</string>
+    <string name="pcg_inventory_update">Update inventory</string>
+    <string name="pcg_inventory_reading">Reading inventory…</string>
+    <string name="pcg_inventory_open_tab_first">Open Inventory tab first</string>
+     <string name="pcg_inventory_timeout">Inventory read timed out. Open the Inventory tab and try again.</string>
 
     <string name="buddy_unknown">Buddy unknown</string>
     <string name="buddy_request_sent">Buddy info requested</string>

@@ -17,20 +17,46 @@
         android:paddingEnd="8dp"
         android:paddingBottom="6dp">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnRegisterInventory"
-            style="?android:attr/buttonBarButtonStyle"
+        <!--
+            Inventory update column.
+
+            The progress bar belongs visually to the Inventory button, so this
+            column keeps the loading indicator under that button only instead of
+            placing it as a third item inside the horizontal button row.
+        -->
+        <LinearLayout
+            android:id="@+id/layoutInventoryUpdateColumn"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:gravity="center"
-            android:minWidth="48dp"
-            android:minHeight="48dp"
-            android:text="@string/pcg_register_inventory"
-            android:textSize="12sp"
-            android:drawablePadding="6dp"
-            app:drawableStartCompat="@drawable/ic_bag_black_24" />
+            android:orientation="vertical">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnRegisterInventory"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:drawablePadding="6dp"
+                android:gravity="center"
+                android:minWidth="48dp"
+                android:minHeight="48dp"
+                android:text="@string/pcg_inventory_open_tab_first"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_bag_black_24" />
+
+            <ProgressBar
+                android:id="@+id/progressInventoryCapture"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="4dp"
+                android:indeterminate="false"
+                android:max="1000"
+                android:progress="0"
+                android:visibility="gone" />
+
+        </LinearLayout>
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnRegisterPokedex"
@@ -38,14 +64,14 @@
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_weight="1"
+            android:drawablePadding="6dp"
             android:gravity="center"
             android:minWidth="48dp"
             android:minHeight="48dp"
             android:text="@string/pcg_register_pokedex"
             android:textSize="12sp"
-            android:drawablePadding="6dp"
-            app:drawableStartCompat="@drawable/ic_pokedex_24"
-            app:drawableTint="?android:attr/textColorPrimary" />
+            app:drawableStartCompat="@drawable/ic_pokedex_24"/>
+
 
     </LinearLayout>
 
