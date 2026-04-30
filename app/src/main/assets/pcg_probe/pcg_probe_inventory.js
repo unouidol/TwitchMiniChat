@@ -130,6 +130,23 @@
   async function runExtraction(triggerReason) {
     if (!isRealPcgFrame()) return;
 
+    /*
+     * FAST PATH: If we can't find the grid markers even BEFORE the settle delay,
+     * it's a very strong signal that the user is not on the Inventory tab.
+     * We send a quick failure to Android so it can disable the button immediately.
+     */
+    const quickGrid = findBallSectionGrid();
+    if (!quickGrid) {
+      send("pcg_inventory_ball_extract", {
+        ok: false,
+        reason: "ball_grid_not_found",
+        isQuickCheck: true,
+        triggerReason,
+        frame: frameInfo()
+      });
+      // We don't return here, in case the grid appears during the settle delay.
+    }
+
     send("pcg_probe_progress", {
       step: 9820,
       phase: "inventory_ball_final_probe_loaded",
