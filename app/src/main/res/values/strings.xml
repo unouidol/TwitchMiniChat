@@ -149,8 +149,11 @@
     <string name="pcg_register_pokedex">Update Pokédex</string>
     <string name="pcg_register_inventory">Update Inventory</string>
 
-    <string name="pcg_inventory_wrong_tab">Load the Inventory tab and press Register inventory to update your Poké Ball list.</string>
-    <string name="pcg_pokedex_wrong_tab">Load the Pokédex tab and press Register Pokédex to update your missing Pokédex entries.</string>
+    <string name="pcg_pokedex_spawnable_only_required">Set the Pokédex filter to Spawnable only, then try again.</string>
+    <string name="pcg_pokedex_read_timeout">Couldn’t read the Pokédex yet. Keep Pokédex open with Spawnable only, then try again.</string>
+
+    <string name="pcg_inventory_wrong_tab">Load the Inventory tab and press Update Inventory to update your Poké Ball list.</string>
+    <string name="pcg_pokedex_wrong_tab">Load the Pokédex tab and press Update Pokédex to update your missing Pokédex entries.</string>
 
     <string name="pcg_inventory_updated">Poké Ball inventory updated.</string>
     <string name="pcg_pokedex_updated">Pokédex updated.</string>

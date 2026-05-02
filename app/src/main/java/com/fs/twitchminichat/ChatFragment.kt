@@ -62,6 +62,7 @@ import android.graphics.drawable.GradientDrawable
 
 
 
+
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
 
@@ -97,6 +98,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var pendingOpenChannelDropdownAfterIme = false
     private var lastImeVisible = false
     private var lastImeBottomInsetPx = 0
+
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -1279,7 +1281,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
         btnCatchPresets = view.findViewById(R.id.btnCatchPresets)
-
 
         view.isFocusable = true
         view.isFocusableInTouchMode = true
@@ -3241,6 +3242,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     companion object {
         private const val EMOTE_MARKER: Char = '\u2063'
         private const val ARG_ACCOUNT_ID = "accountId"
+
 
         private const val PCG_SPAWN_INTERVAL_MS = 15 * 60 * 1000L
 
