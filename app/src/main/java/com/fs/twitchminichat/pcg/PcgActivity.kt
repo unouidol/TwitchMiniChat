@@ -19,6 +19,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     private var pokedexProgressAnimator: ValueAnimator? = null
     private var pokedexRestoreRunnable: Runnable? = null
+    private var inventoryProgressAnimator: ValueAnimator? = null
     private var inventoryRestoreRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +53,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         val btnRegisterPokedex = findViewById<Button>(R.id.btnRegisterPokedex)
         val btnRegisterInventory = findViewById<Button>(R.id.btnRegisterInventory)
         val progressRegisterPokedex = findViewById<ProgressBar>(R.id.progressRegisterPokedex)
+        val progressRegisterInventory = findViewById<ProgressBar>(R.id.progressRegisterInventory)
 
         val controller = PcgManualDataUpdateController(
             context = this,
@@ -92,11 +94,100 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         btnRegisterInventory.setOnClickListener {
             if (accountId.isBlank()) return@setOnClickListener
 
-            showTemporaryInventoryButtonFeedback(
-                button = btnRegisterInventory
+            showInventoryButtonProgressFeedback(
+                button = btnRegisterInventory,
+                progressBar = progressRegisterInventory
             )
 
             controller.onRegisterInventoryClicked()
+        }
+    }
+
+    /**
+     * Shows Inventory checking feedback with the same visual pattern used by Pokédex.
+     *
+     * This is UI-only. The actual Inventory result is still handled by
+     * GeckoSessionManager and the passive PCG probe.
+     */
+    private fun showInventoryButtonProgressFeedback(
+        button: Button,
+        progressBar: ProgressBar
+    ) {
+        cancelInventoryButtonProgressFeedback(
+            button = button,
+            progressBar = progressBar,
+            resetButton = false
+        )
+
+        button.isEnabled = false
+        button.setText(R.string.pcg_register_inventory_checking)
+
+        progressBar.max = PROGRESS_BAR_MAX
+        progressBar.progress = 0
+        progressBar.visibility = View.VISIBLE
+
+        inventoryProgressAnimator = ValueAnimator.ofInt(0, PROGRESS_BAR_MAX).apply {
+            duration = INVENTORY_BUTTON_FEEDBACK_MS
+            interpolator = LinearInterpolator()
+            addUpdateListener { animation ->
+                progressBar.progress = animation.animatedValue as Int
+            }
+            start()
+        }
+
+        val restoreRunnable = Runnable {
+            restoreInventoryButtonFeedback(
+                button = button,
+                progressBar = progressBar
+            )
+        }
+
+        inventoryRestoreRunnable = restoreRunnable
+        button.postDelayed(restoreRunnable, INVENTORY_BUTTON_FEEDBACK_MS)
+    }
+
+    /**
+     * Restores the Inventory button after the visual checking window finishes.
+     */
+    private fun restoreInventoryButtonFeedback(
+        button: Button,
+        progressBar: ProgressBar
+    ) {
+        inventoryProgressAnimator?.cancel()
+        inventoryProgressAnimator = null
+        inventoryRestoreRunnable = null
+
+        if (!isFinishing && !isDestroyed) {
+            button.isEnabled = true
+            button.setText(R.string.pcg_register_inventory)
+
+            progressBar.progress = 0
+            progressBar.visibility = View.INVISIBLE
+        }
+    }
+
+    /**
+     * Cancels pending Inventory button feedback work.
+     */
+    private fun cancelInventoryButtonProgressFeedback(
+        button: Button,
+        progressBar: ProgressBar,
+        resetButton: Boolean
+    ) {
+        inventoryProgressAnimator?.cancel()
+        inventoryProgressAnimator = null
+
+        inventoryRestoreRunnable?.let { runnable ->
+            button.removeCallbacks(runnable)
+        }
+        inventoryRestoreRunnable = null
+
+        if (resetButton && !isFinishing && !isDestroyed) {
+            button.isEnabled = true
+            button.setText(R.string.pcg_register_inventory)
+
+            progressBar.progress = 0
+            progressBar.visibility = View.INVISIBLE
         }
     }
 
@@ -242,6 +333,16 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
         pcgManualDataUpdateController = null
         super.onDestroy()
+
+        val progressRegisterInventory = findViewById<ProgressBar?>(R.id.progressRegisterInventory)
+
+        if (btnRegisterInventory != null && progressRegisterInventory != null) {
+            cancelInventoryButtonProgressFeedback(
+                button = btnRegisterInventory,
+                progressBar = progressRegisterInventory,
+                resetButton = false
+            )
+        }
     }
 
     companion object {
@@ -263,7 +364,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         /**
          * Shorter visual window for Register Inventory.
          */
-        private const val INVENTORY_BUTTON_FEEDBACK_MS = 4_000L
+        private const val INVENTORY_BUTTON_FEEDBACK_MS = 6_500L
 
         fun start(ctx: Context, accountId: String) {
             ctx.startActivity(

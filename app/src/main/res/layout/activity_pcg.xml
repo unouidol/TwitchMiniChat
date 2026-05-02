@@ -38,11 +38,15 @@
                 android:textSize="12sp"
                 app:drawableStartCompat="@drawable/ic_bag_black_24" />
 
-            <View
-                android:id="@+id/spacerRegisterInventoryProgress"
+            <ProgressBar
+                android:id="@+id/progressRegisterInventory"
+                style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="7dp"
+                android:layout_height="4dp"
                 android:layout_marginTop="3dp"
+                android:indeterminate="false"
+                android:max="1000"
+                android:progress="0"
                 android:visibility="invisible" />
 
         </LinearLayout>
