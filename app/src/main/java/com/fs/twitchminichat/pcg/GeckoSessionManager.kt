@@ -48,6 +48,8 @@ object GeckoSessionManager {
     private const val TYPE_PCG_POKEDEX_WRONG_TAB = "pcg_pokedex_wrong_tab"
     private const val TYPE_PCG_TAB_STATE = "pcg_tab_state"
 
+    private const val TYPE_PCG_PROBE_COMMAND_POLL = "pcg_probe_command_poll"
+
     /**
      * How long a manual Pokédex update request waits for a fresh probe snapshot.
      *
@@ -71,12 +73,26 @@ object GeckoSessionManager {
     private const val MANUAL_INVENTORY_CAPTURE_TIMEOUT_MS = 10_000L
 
     /**
-     * A short grace window for detecting that Inventory was recently visible.
+     * A grace window for detecting that Inventory was recently visible.
      *
-     * This is not used as an expiry timer anymore. It is only used when the UI asks
-     * "is Inventory currently available?" after a recent marker/snapshot.
+     * This is used to decide if the "Register inventory" button should be enabled.
+     * It is set to 1 minute to account for static pages where the JS probe might
+     * not send frequent updates due to lack of DOM mutations.
      */
-    private const val PCG_INVENTORY_TAB_SIGNAL_MAX_AGE_MS = 3_000L
+    private const val PCG_INVENTORY_TAB_SIGNAL_MAX_AGE_MS = 60_000L
+
+    /**
+     * How long Android waits for the PCG page side to consume a user-triggered command.
+     */
+    private const val MANUAL_PCG_COMMAND_POLL_TIMEOUT_MS = 5_000L
+
+    /**
+     * How long Android waits for the manually-triggered Pokédex extraction result.
+     *
+     * The JS extraction can take several seconds because it applies filters, waits for
+     * PCG to settle, and scrolls the Pokédex list.
+     */
+    private const val MANUAL_POKEDEX_RESULT_TIMEOUT_MS = 60_000L
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -94,6 +110,9 @@ object GeckoSessionManager {
 
     private val inventoryCaptureUiListeners =
         ConcurrentHashMap<String, InventoryCaptureUiListener>()
+
+    private val pokedexCaptureUiListeners =
+        ConcurrentHashMap<String, PokedexCaptureUiListener>()
 
     /**
      * Prevents duplicate manual Pokédex uploads/toasts caused by multiple valid
@@ -135,11 +154,32 @@ object GeckoSessionManager {
     private val inventoryTabLeftAfterUpdate =
         ConcurrentHashMap<String, Boolean>()
 
+    /**
+     * Last moment when Android had a lightweight signal that the Pokédex page was visible.
+     */
+    private val lastPokedexPageSeenAtMs =
+        ConcurrentHashMap<String, Long>()
+
+    /**
+     * Locks the Pokédex update button after a successful manual read.
+     */
+    private val pokedexUpdateLockedUntilReentry =
+        ConcurrentHashMap<String, Boolean>()
+
+    /**
+     * Tracks whether the user left Pokédex after the button was locked.
+     */
+    private val pokedexTabLeftAfterUpdate =
+        ConcurrentHashMap<String, Boolean>()
+
     private val pendingPcgDestroyRunnables =
         ConcurrentHashMap<String, Runnable>()
 
     private val loadedPcgUrls =
         ConcurrentHashMap<String, String>()
+
+    private val pendingPokedexProbeCommands =
+        ConcurrentHashMap<String, PendingPokedexProbeCommand>()
 
     /**
      * Last valid Inventory snapshot seen passively by the PCG probe.
@@ -165,6 +205,18 @@ object GeckoSessionManager {
         val profileLabel: String,
         val wantedPokemon: List<String>,
         val capturedAtMs: Long
+    )
+
+    /**
+     * Pending manual Pokédex command waiting for the PCG page side to request it.
+     *
+     * This avoids relying on a direct Android-to-page command path. The page side
+     * asks Android whether there is a pending user action, and Android answers only
+     * after the user pressed Update Pokédex.
+     */
+    private data class PendingPokedexProbeCommand(
+        val runId: String,
+        val requestedAtMs: Long
     )
 
     /**
@@ -219,6 +271,12 @@ object GeckoSessionManager {
         fun onInventoryCaptureFinished()
     }
 
+    interface PokedexCaptureUiListener {
+        fun onPokedexTabAvailabilityChanged(isAvailable: Boolean)
+        fun onPokedexCaptureStarted()
+        fun onPokedexCaptureFinished()
+    }
+
     /**
      * Registers or clears the Inventory capture UI listener for one account.
      *
@@ -249,6 +307,30 @@ object GeckoSessionManager {
         }
     }
 
+    fun setPokedexCaptureUiListener(
+        accountId: String,
+        listener: PokedexCaptureUiListener?
+    ) {
+        val sessionKey = pcgSessionKey(accountId)
+
+        if (listener == null) {
+            pokedexCaptureUiListeners.remove(sessionKey)
+            return
+        }
+
+        pokedexCaptureUiListeners[sessionKey] = listener
+
+        mainHandler.post {
+            listener.onPokedexTabAvailabilityChanged(
+                isPokedexTabRecentlyVisible(sessionKey)
+            )
+
+            if (pendingManualPokedexRequests.containsKey(sessionKey)) {
+                listener.onPokedexCaptureStarted()
+            }
+        }
+    }
+
     /**
      * Cancels any in-flight Inventory capture for this account.
      *
@@ -266,7 +348,7 @@ object GeckoSessionManager {
 
         Log.d(
             TAG_INV_UI,
-            "notify_availability sessionKey=$sessionKey available=$available " +
+            "notify_inventory_availability sessionKey=$sessionKey available=$available " +
                     "captureActive=${manualInventoryCaptures[sessionKey]?.isActive == true}"
         )
 
@@ -275,11 +357,34 @@ object GeckoSessionManager {
         }
     }
 
+    private fun notifyPokedexTabAvailabilityForSession(sessionKey: String) {
+        val listener = pokedexCaptureUiListeners[sessionKey] ?: return
+        val available = isPokedexTabRecentlyVisible(sessionKey)
+
+        Log.d(
+            TAG_INV_UI,
+            "notify_pokedex_availability sessionKey=$sessionKey available=$available " +
+                    "pendingRequest=${pendingManualPokedexRequests.containsKey(sessionKey)}"
+        )
+
+        mainHandler.post {
+            listener.onPokedexTabAvailabilityChanged(available)
+        }
+    }
+
     private fun notifyInventoryCaptureStarted(sessionKey: String) {
         val listener = inventoryCaptureUiListeners[sessionKey] ?: return
 
         mainHandler.post {
             listener.onInventoryCaptureStarted()
+        }
+    }
+
+    private fun notifyPokedexCaptureStarted(sessionKey: String) {
+        val listener = pokedexCaptureUiListeners[sessionKey] ?: return
+
+        mainHandler.post {
+            listener.onPokedexCaptureStarted()
         }
     }
 
@@ -305,8 +410,23 @@ object GeckoSessionManager {
         }
     }
 
+    private fun notifyPokedexCaptureFinished(sessionKey: String) {
+        val listener = pokedexCaptureUiListeners[sessionKey] ?: return
+
+        mainHandler.post {
+            listener.onPokedexCaptureFinished()
+            listener.onPokedexTabAvailabilityChanged(
+                isPokedexTabRecentlyVisible(sessionKey)
+            )
+        }
+    }
+
     private fun isInventoryUpdateLocked(sessionKey: String): Boolean {
         return inventoryUpdateLockedUntilReentry[sessionKey] == true
+    }
+
+    private fun isPokedexUpdateLocked(sessionKey: String): Boolean {
+        return pokedexUpdateLockedUntilReentry[sessionKey] == true
     }
 
     /**
@@ -327,6 +447,18 @@ object GeckoSessionManager {
         )
     }
 
+    private fun lockPokedexUpdateUntilReentry(sessionKey: String) {
+        pokedexUpdateLockedUntilReentry[sessionKey] = true
+        pokedexTabLeftAfterUpdate.remove(sessionKey)
+        lastPokedexPageSeenAtMs.remove(sessionKey)
+        lastPokedexSnapshots.remove(sessionKey)
+
+        Log.d(
+            TAG_INV_GATE,
+            "pokedex update locked until reentry sessionKey=$sessionKey"
+        )
+    }
+
     /**
      * Notes that the user reached a known non-Inventory tab.
      *
@@ -334,12 +466,27 @@ object GeckoSessionManager {
      * handshake: leave Inventory first, then re-enter Inventory.
      */
     private fun markInventoryTabLeftIfLocked(sessionKey: String) {
+        lastInventoryPageSeenAtMs.remove(sessionKey)
+
         if (isInventoryUpdateLocked(sessionKey)) {
             inventoryTabLeftAfterUpdate[sessionKey] = true
 
             Log.d(
                 TAG_INV_GATE,
                 "inventory tab left after update sessionKey=$sessionKey"
+            )
+        }
+    }
+
+    private fun markPokedexTabLeftIfLocked(sessionKey: String) {
+        lastPokedexPageSeenAtMs.remove(sessionKey)
+
+        if (isPokedexUpdateLocked(sessionKey)) {
+            pokedexTabLeftAfterUpdate[sessionKey] = true
+
+            Log.d(
+                TAG_INV_GATE,
+                "pokedex tab left after update sessionKey=$sessionKey"
             )
         }
     }
@@ -370,6 +517,31 @@ object GeckoSessionManager {
         Log.d(
             TAG_INV_GATE,
             "inventory update unlocked after reentry sessionKey=$sessionKey"
+        )
+
+        return true
+    }
+
+    private fun canEnablePokedexForCurrentVisit(sessionKey: String): Boolean {
+        if (!isPokedexUpdateLocked(sessionKey)) {
+            return true
+        }
+
+        val leftPokedexAfterUpdate = pokedexTabLeftAfterUpdate[sessionKey] == true
+        if (!leftPokedexAfterUpdate) {
+            Log.d(
+                TAG_INV_GATE,
+                "pokedex enable blocked; still same Pokédex visit sessionKey=$sessionKey"
+            )
+            return false
+        }
+
+        pokedexUpdateLockedUntilReentry.remove(sessionKey)
+        pokedexTabLeftAfterUpdate.remove(sessionKey)
+
+        Log.d(
+            TAG_INV_GATE,
+            "pokedex update unlocked after reentry sessionKey=$sessionKey"
         )
 
         return true
@@ -429,6 +601,71 @@ object GeckoSessionManager {
         }
 
         val snapshot = lastInventorySnapshots[sessionKey]
+        if (snapshot != null) {
+            val snapshotAgeMs = now - snapshot.capturedAtMs
+            if (snapshotAgeMs in 0L..PCG_INVENTORY_TAB_SIGNAL_MAX_AGE_MS) {
+                Log.d(
+                    TAG_INV_GATE,
+                    "availability from cached snapshot sessionKey=$sessionKey " +
+                            "snapshotAgeMs=$snapshotAgeMs"
+                )
+
+                return true
+            }
+        }
+
+        Log.d(TAG_INV_GATE, "availability false sessionKey=$sessionKey")
+        return false
+    }
+
+    private fun isPokedexTabRecentlyVisible(sessionKey: String): Boolean {
+        if (isPokedexUpdateLocked(sessionKey)) {
+            Log.d(
+                TAG_INV_GATE,
+                "availability false because pokedex update is locked sessionKey=$sessionKey"
+            )
+            return false
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        val freshState = getFreshInventoryGateTabState(sessionKey)
+
+        if (freshState != null && freshState.hasKnownActiveTab) {
+            val available = freshState.isPokedexActive
+
+            Log.d(
+                TAG_INV_GATE,
+                "availability from known tab_state sessionKey=$sessionKey " +
+                        "available=$available activeTab=${freshState.activeTab}"
+            )
+
+            return available
+        }
+
+        if (freshState != null && freshState.pokedexVisible) {
+            Log.d(
+                TAG_INV_GATE,
+                "availability from unknown tab_state visibility sessionKey=$sessionKey"
+            )
+
+            return true
+        }
+
+        val pokedexSeenAtMs = lastPokedexPageSeenAtMs[sessionKey]
+        if (pokedexSeenAtMs != null) {
+            val markerAgeMs = now - pokedexSeenAtMs
+            if (markerAgeMs in 0L..PCG_INVENTORY_TAB_SIGNAL_MAX_AGE_MS) {
+                Log.d(
+                    TAG_INV_GATE,
+                    "availability from pokedex marker sessionKey=$sessionKey " +
+                            "markerAgeMs=$markerAgeMs"
+                )
+
+                return true
+            }
+        }
+
+        val snapshot = lastPokedexSnapshots[sessionKey]
         if (snapshot != null) {
             val snapshotAgeMs = now - snapshot.capturedAtMs
             if (snapshotAgeMs in 0L..PCG_INVENTORY_TAB_SIGNAL_MAX_AGE_MS) {
@@ -523,9 +760,26 @@ object GeckoSessionManager {
     }
 
     /**
-     * Checks that the payload came from the real PCG extension iframe, not from the
-     * Twitch top page or the extension supervisor frame.
+     * Records that the Pokédex page was seen recently and refreshes the Pokédex button.
+     *
+     * A visible Pokédex signal is used as the lightweight availability marker for the
+     * manual Update Pokédex button. The UI must be notified here, otherwise the marker
+     * is updated internally but the button can remain disabled.
      */
+    private fun markPokedexTabSeen(
+        sessionKey: String,
+        source: String
+    ) {
+        lastPokedexPageSeenAtMs[sessionKey] = SystemClock.elapsedRealtime()
+
+        Log.d(
+            TAG_INV_GATE,
+            "pokedex_seen source=$source sessionKey=$sessionKey"
+        )
+
+        notifyPokedexTabAvailabilityForSession(sessionKey)
+    }
+
     private fun isTrustedPcgExtensionFrame(frame: JSONObject?): Boolean {
         if (frame == null) return false
 
@@ -638,6 +892,11 @@ object GeckoSessionManager {
         sessionKey: String,
         newerCapturedAtMs: Long
     ) {
+        /*
+         * A newer Inventory read is also a strong signal that the user left Pokédex.
+         */
+        markPokedexTabLeftIfLocked(sessionKey)
+
         val oldSnapshot = lastPokedexSnapshots[sessionKey] ?: return
 
         if (oldSnapshot.capturedAtMs <= newerCapturedAtMs) {
@@ -767,6 +1026,15 @@ object GeckoSessionManager {
             } else {
                 notifyInventoryTabAvailabilityForSession(sessionKey)
             }
+        } else if (state.isPokedexActive) {
+            if (canEnablePokedexForCurrentVisit(sessionKey)) {
+                markPokedexTabSeen(
+                    sessionKey = sessionKey,
+                    source = "tab_state"
+                )
+            } else {
+                notifyPokedexTabAvailabilityForSession(sessionKey)
+            }
         } else if (state.hasKnownActiveTab) {
             /*
              * We clearly moved to another PCG tab.
@@ -775,14 +1043,19 @@ object GeckoSessionManager {
              * real Inventory tab visit to unlock it.
              */
             markInventoryTabLeftIfLocked(sessionKey)
+            markPokedexTabLeftIfLocked(sessionKey)
             lastInventoryPageSeenAtMs.remove(sessionKey)
+            lastPokedexPageSeenAtMs.remove(sessionKey)
             lastInventorySnapshots.remove(sessionKey)
+            lastPokedexSnapshots.remove(sessionKey)
             notifyInventoryTabAvailabilityForSession(sessionKey)
+            notifyPokedexTabAvailabilityForSession(sessionKey)
         } else {
             /*
              * Unknown tab-state is ambiguous. Do not treat it as a real tab change.
              */
             notifyInventoryTabAvailabilityForSession(sessionKey)
+            notifyPokedexTabAvailabilityForSession(sessionKey)
         }
 
         completeOrRejectPendingManualUpdatesFromTabState(
@@ -901,7 +1174,7 @@ object GeckoSessionManager {
         val requestedAtMs = pendingManualPokedexRequests[sessionKey] ?: return false
         val ageMs = SystemClock.elapsedRealtime() - requestedAtMs
 
-        if (ageMs > MANUAL_PCG_UPDATE_TIMEOUT_MS) {
+        if (ageMs > MANUAL_POKEDEX_RESULT_TIMEOUT_MS) {
             pendingManualPokedexRequests.remove(sessionKey, requestedAtMs)
 
             Log.d(
@@ -1016,6 +1289,15 @@ object GeckoSessionManager {
          */
         markInventoryTabLeftIfLocked(sessionKey)
 
+        if (canEnablePokedexForCurrentVisit(sessionKey)) {
+            markPokedexTabSeen(
+                sessionKey = sessionKey,
+                source = "pokedex_snapshot"
+            )
+        } else {
+            notifyPokedexTabAvailabilityForSession(sessionKey)
+        }
+
         val snapshot = CachedPokedexSnapshot(
             profileId = profileId,
             profileLabel = profileLabel,
@@ -1043,11 +1325,14 @@ object GeckoSessionManager {
             return
         }
 
+        lockPokedexUpdateUntilReentry(sessionKey)
+        notifyPokedexCaptureFinished(sessionKey)
+
         uploadManualPokedexSnapshot(
             appContext = appContext,
             sessionKey = sessionKey,
             snapshot = snapshot,
-            source = "live"
+            source = "passive_snapshot_after_manual_request"
         )
     }
 
@@ -1260,6 +1545,43 @@ object GeckoSessionManager {
                                         val payload = json.optJSONObject("payload") ?: JSONObject()
 
                                         when (type) {
+
+                                            "pcg_pokedex_update_started" -> {
+                                                Log.d(TAG_PCG_PROBE, "manual pokedex update started payload=$payload")
+                                            }
+
+                                            "pcg_pokedex_update_error" -> {
+                                                val sessionKey = pcgSessionKey(accountId)
+
+                                                Log.w(TAG_PCG_PROBE, "manual pokedex update error payload=$payload")
+
+                                                pendingPokedexProbeCommands.remove(sessionKey)
+                                                pendingManualPokedexRequests.remove(sessionKey)
+
+                                                notifyPokedexCaptureFinished(sessionKey)
+
+                                                showToastOnMain(
+                                                    appContext = appContext,
+                                                    messageRes = R.string.pcg_pokedex_wrong_tab,
+                                                    duration = Toast.LENGTH_LONG
+                                                )
+                                            }
+
+                                            "pcg_pokedex_update_finished" -> {
+                                                val sessionKey = pcgSessionKey(accountId)
+
+                                                Log.d(TAG_PCG_PROBE, "manual pokedex update finished payload=$payload")
+
+                                                notifyPokedexCaptureFinished(sessionKey)
+                                            }
+
+                                            "pcg_probe_filter_change_blocked" -> {
+                                                Log.d(
+                                                    TAG_PCG_PROBE,
+                                                    "blocked automatic pokedex filter change reason=${payload.optString("reason")}"
+                                                )
+                                            }
+
                                             "pcg_probe_boot_debug" -> {
                                                 Log.d(
                                                     TAG_PCG_PROBE,
@@ -1313,6 +1635,13 @@ object GeckoSessionManager {
                                                             "scrollTop=${payload.optInt("scrollTop", -1)}/${payload.optInt("scrollHeight", -1)} " +
                                                             "href=${payload.optString("href")} " +
                                                             "host=${payload.optString("host")}"
+                                                )
+                                            }
+
+                                            TYPE_PCG_PROBE_COMMAND_POLL -> {
+                                                return handleProbeCommandPoll(
+                                                    accountId = accountId,
+                                                    payload = payload
                                                 )
                                             }
 
@@ -1408,6 +1737,66 @@ object GeckoSessionManager {
         }
     }
 
+    /**
+     * Returns a pending manual Pokédex command to the PCG page side, if one exists.
+     *
+     * The command is consumed only when the current page-side report says the
+     * Pokédex tab is visible. The same poll is also a lightweight tab-availability
+     * signal, so it can keep the Update Pokédex button in sync.
+     */
+    private fun handleProbeCommandPoll(
+        accountId: String,
+        payload: JSONObject
+    ): GeckoResult<Any>? {
+        val sessionKey = pcgSessionKey(accountId)
+        val pokedexVisible = payload.optBoolean("pokedexVisible", false)
+
+        if (pokedexVisible) {
+            if (canEnablePokedexForCurrentVisit(sessionKey)) {
+                markPokedexTabSeen(
+                    sessionKey = sessionKey,
+                    source = "command_poll"
+                )
+            } else {
+                notifyPokedexTabAvailabilityForSession(sessionKey)
+            }
+        }
+
+        val pending = pendingPokedexProbeCommands[sessionKey] ?: return null
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - pending.requestedAtMs > MANUAL_PCG_COMMAND_POLL_TIMEOUT_MS) {
+            pendingPokedexProbeCommands.remove(sessionKey)
+            pendingManualPokedexRequests.remove(sessionKey)
+
+            Log.w(
+                TAG_PCG_PROBE,
+                "manual pokedex command expired before probe consumed it " +
+                        "sessionKey=$sessionKey runId=${pending.runId}"
+            )
+
+            notifyPokedexCaptureFinished(sessionKey)
+            return null
+        }
+
+        if (!pokedexVisible) {
+            return null
+        }
+
+        pendingPokedexProbeCommands.remove(sessionKey)
+
+        val response = JSONObject()
+            .put("type", "tmc_request_pokedex_update")
+            .put("runId", pending.runId)
+
+        Log.d(
+            TAG_PCG_PROBE,
+            "manual pokedex command consumed by probe sessionKey=$sessionKey runId=${pending.runId}"
+        )
+
+        return GeckoResult.fromValue(response)
+    }
+
     private fun buildContextId(storageAccountId: String): String {
         return "acc_$storageAccountId"
     }
@@ -1451,6 +1840,33 @@ object GeckoSessionManager {
 
         val appContext = context.applicationContext
 
+        val cachedSnapshot = lastInventorySnapshots[sessionKey]
+        if (
+            cachedSnapshot != null &&
+            isCachedSnapshotFresh(
+                capturedAtMs = cachedSnapshot.capturedAtMs,
+                maxAgeMs = 15_000L,
+                debugLabel = "inventory_reusable",
+                sessionKey = sessionKey
+            )
+        ) {
+            Log.d(
+                TAG_INV_GATE,
+                "manual inventory update reusing fresh cached snapshot sessionKey=$sessionKey"
+            )
+
+            saveManualInventorySnapshot(
+                appContext = appContext,
+                sessionKey = sessionKey,
+                snapshot = cachedSnapshot,
+                source = "reusable_cached_snapshot"
+            )
+
+            lockInventoryUpdateUntilReentry(sessionKey)
+            notifyInventoryTabAvailabilityForSession(sessionKey)
+            return true
+        }
+
         if (!isInventoryTabRecentlyVisible(sessionKey)) {
             Log.d(
                 TAG_INV_GATE,
@@ -1492,55 +1908,82 @@ object GeckoSessionManager {
         if (!sessions.containsKey(sessionKey)) {
             Log.w(
                 TAG_PCG_PROBE,
-                "manual pokedex registration ignored, PCG session not ready sessionKey=$sessionKey"
+                "manual pokedex update ignored, PCG session not ready sessionKey=$sessionKey"
             )
             return false
         }
 
         val appContext = context.applicationContext
-        val requestedAtMs = SystemClock.elapsedRealtime()
 
-        val cachedSnapshot = lastPokedexSnapshots[sessionKey]
-        if (
-            cachedSnapshot != null &&
-            isCachedSnapshotFresh(
-                capturedAtMs = cachedSnapshot.capturedAtMs,
-                maxAgeMs = CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS,
-                debugLabel = "pokedex_reusable",
-                sessionKey = sessionKey
-            )
-        ) {
+        if (!isPokedexTabRecentlyVisible(sessionKey)) {
             Log.d(
                 TAG_PCG_PROBE,
-                "manual pokedex registration completed from reusable snapshot sessionKey=$sessionKey"
+                "manual pokedex update rejected because Pokédex tab is not available " +
+                        "sessionKey=$sessionKey"
             )
 
-            uploadManualPokedexSnapshot(
+            showToastOnMain(
                 appContext = appContext,
-                sessionKey = sessionKey,
-                snapshot = cachedSnapshot,
-                source = "reusable_cached_snapshot"
+                messageRes = R.string.pcg_pokedex_wrong_tab,
+                duration = Toast.LENGTH_LONG
             )
 
-            return true
+            notifyPokedexTabAvailabilityForSession(sessionKey)
+            return false
         }
 
+        val requestedAtMs = SystemClock.elapsedRealtime()
+        val runId = "pokedex_$requestedAtMs"
+
+        /*
+         * Do not reuse an old Pokédex snapshot for this new manual update.
+         * The button now means: ask the PCG-side probe to perform a fresh read.
+         */
+        lastPokedexSnapshots.remove(sessionKey)
+
+        /*
+         * This marker is consumed by handleMissingSpawnableExtract(...).
+         * Without it, the fresh result would be cached but not uploaded.
+         */
         pendingManualPokedexRequests[sessionKey] = requestedAtMs
+
+        /*
+         * This marker is consumed by handleProbeCommandPoll(...).
+         * The PCG-side script polls Android and receives this command only after
+         * the user pressed Update Pokédex.
+         */
+        pendingPokedexProbeCommands[sessionKey] = PendingPokedexProbeCommand(
+            runId = runId,
+            requestedAtMs = requestedAtMs
+        )
+
+        notifyPokedexCaptureStarted(sessionKey)
+
+        mainHandler.postDelayed({
+            val stillPendingAtMs = pendingManualPokedexRequests[sessionKey]
+            if (stillPendingAtMs == requestedAtMs) {
+                pendingManualPokedexRequests.remove(sessionKey, requestedAtMs)
+                pendingPokedexProbeCommands.remove(sessionKey)
+
+                Log.w(
+                    TAG_PCG_PROBE,
+                    "manual pokedex update timed out waiting for extraction result " +
+                            "sessionKey=$sessionKey runId=$runId"
+                )
+
+                notifyPokedexCaptureFinished(sessionKey)
+
+                showToastOnMain(
+                    appContext = appContext,
+                    messageRes = R.string.pcg_pokedex_wrong_tab,
+                    duration = Toast.LENGTH_LONG
+                )
+            }
+        }, MANUAL_POKEDEX_RESULT_TIMEOUT_MS)
 
         Log.d(
             TAG_PCG_PROBE,
-            "manual pokedex registration armed; waiting for next valid pokedex snapshot " +
-                    "sessionKey=$sessionKey requestedAtMs=$requestedAtMs " +
-                    "timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
-        )
-
-        scheduleManualUpdateTimeout(
-            appContext = appContext,
-            sessionKey = sessionKey,
-            requestedAtMs = requestedAtMs,
-            pendingRequests = pendingManualPokedexRequests,
-            timeoutMessageRes = R.string.pcg_pokedex_wrong_tab,
-            debugLabel = "pokedex"
+            "manual pokedex command armed sessionKey=$sessionKey runId=$runId"
         )
 
         return true
@@ -1569,6 +2012,10 @@ object GeckoSessionManager {
                     TAG_PCG_PROBE,
                     "manual $debugLabel registration timed out sessionKey=$sessionKey timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
                 )
+
+                if (debugLabel == "pokedex") {
+                    notifyPokedexCaptureFinished(sessionKey)
+                }
 
                 showToastOnMain(
                     appContext = appContext,
@@ -1624,6 +2071,12 @@ object GeckoSessionManager {
             "manual pokedex upload accepted source=$source sessionKey=$sessionKey " +
                     "profileId=${snapshot.profileId} profileLabel=${snapshot.profileLabel} " +
                     "count=${snapshot.wantedPokemon.size}"
+        )
+
+        showToastOnMain(
+            appContext = appContext,
+            messageRes = R.string.pcg_pokedex_updated,
+            duration = Toast.LENGTH_SHORT
         )
 
         val pushEnabled = PushSettingsStore.isPushEnabled(appContext, snapshot.profileId)

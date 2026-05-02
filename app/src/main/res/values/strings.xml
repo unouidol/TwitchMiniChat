@@ -167,6 +167,10 @@
     <string name="pcg_inventory_open_tab_first">Open Inventory tab first</string>
      <string name="pcg_inventory_timeout">Inventory read timed out. Open the Inventory tab and try again.</string>
 
+    <string name="pcg_pokedex_update">Update Pokédex</string>
+    <string name="pcg_pokedex_reading">Reading Pokédex…</string>
+    <string name="pcg_pokedex_open_tab_first">Open Pokédex tab first</string>
+
     <string name="buddy_unknown">Buddy unknown</string>
     <string name="buddy_request_sent">Buddy info requested</string>
     <string name="friend_ball_buddy_subtitle">Buddy: %1$s (%2$s)</string>

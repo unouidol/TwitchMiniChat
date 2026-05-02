@@ -16,9 +16,11 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     private var pcgManualDataUpdateController: PcgManualDataUpdateController? = null
 
     private lateinit var btnRegisterInventory: Button
+    private lateinit var btnRegisterPokedex: Button
     private lateinit var progressInventoryCapture: ProgressBar
 
     private var lastInventoryTabAvailable: Boolean = false
+    private var lastPokedexTabAvailable: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,17 +46,13 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     /**
      * Connects the visible manual PCG data update buttons.
      *
-     * Inventory uses a one-shot manual capture window:
+     * Both Inventory and Pokédex use reactive state:
      * - the WebExtension keeps emitting passive snapshots;
-     * - Android accepts a snapshot only after the user taps Update inventory;
-     * - after a successful read, the Inventory button stays disabled until PCG
-     *   clearly leaves Inventory and enters Inventory again.
-     *
-     * Pokédex keeps the older temporary feedback for now, because this patch only
-     * stabilizes Inventory first.
+     * - the buttons enable only when Android detects the corresponding tab;
+     * - manual updates use fresh cached snapshots when available to avoid timeouts.
      */
     private fun setupManualPcgDataUpdateButtons() {
-        val btnRegisterPokedex = findViewById<Button>(R.id.btnRegisterPokedex)
+        btnRegisterPokedex = findViewById(R.id.btnRegisterPokedex)
         btnRegisterInventory = findViewById(R.id.btnRegisterInventory)
         progressInventoryCapture = findViewById(R.id.progressInventoryCapture)
 
@@ -84,26 +82,15 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         pcgManualDataUpdateController = controller
 
         btnRegisterPokedex.setOnClickListener {
-            showTemporaryButtonFeedback(
-                button = btnRegisterPokedex,
-                normalTextRes = R.string.pcg_register_pokedex,
-                pendingTextRes = R.string.pcg_register_pokedex_checking
-            )
-
             controller.onRegisterPokedexClicked()
         }
 
-        /*
-         * Inventory does not use fake temporary feedback anymore.
-         *
-         * The loading state is driven by GeckoSessionManager's manual capture
-         * callbacks, so the UI reflects the real snapshot capture window.
-         */
         btnRegisterInventory.setOnClickListener {
             controller.onRegisterInventoryClicked()
         }
 
         setupInventoryCaptureUiListener()
+        setupPokedexCaptureUiListener()
     }
 
     /**
@@ -182,6 +169,54 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
+     * Hooks the Pokédex button to GeckoSessionManager.
+     */
+    private fun setupPokedexCaptureUiListener() {
+        btnRegisterPokedex.isEnabled = false
+        btnRegisterPokedex.setText(R.string.pcg_pokedex_open_tab_first)
+
+        GeckoSessionManager.setPokedexCaptureUiListener(
+            accountId = accountId,
+            listener = object : GeckoSessionManager.PokedexCaptureUiListener {
+                override fun onPokedexTabAvailabilityChanged(isAvailable: Boolean) {
+                    if (!isUiAlive()) return
+
+                    lastPokedexTabAvailable = isAvailable
+
+                    btnRegisterPokedex.isEnabled = isAvailable
+                    btnRegisterPokedex.setText(
+                        if (isAvailable) {
+                            R.string.pcg_pokedex_update
+                        } else {
+                            R.string.pcg_pokedex_open_tab_first
+                        }
+                    )
+                }
+
+                override fun onPokedexCaptureStarted() {
+                    if (!isUiAlive()) return
+
+                    btnRegisterPokedex.isEnabled = false
+                    btnRegisterPokedex.setText(R.string.pcg_pokedex_reading)
+                }
+
+                override fun onPokedexCaptureFinished() {
+                    if (!isUiAlive()) return
+
+                    btnRegisterPokedex.isEnabled = lastPokedexTabAvailable
+                    btnRegisterPokedex.setText(
+                        if (lastPokedexTabAvailable) {
+                            R.string.pcg_pokedex_update
+                        } else {
+                            R.string.pcg_pokedex_open_tab_first
+                        }
+                    )
+                }
+            }
+        )
+    }
+
+    /**
      * Returns false when delayed Gecko/probe callbacks should no longer touch views.
      */
     private fun isUiAlive(): Boolean {
@@ -217,6 +252,10 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         if (accountId.isNotBlank()) {
             GeckoSessionManager.cancelManualInventoryUpdate(accountId)
             GeckoSessionManager.setInventoryCaptureUiListener(
+                accountId = accountId,
+                listener = null
+            )
+            GeckoSessionManager.setPokedexCaptureUiListener(
                 accountId = accountId,
                 listener = null
             )

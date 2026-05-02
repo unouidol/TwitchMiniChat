@@ -16,6 +16,93 @@
   let extractionRunning = false;
   let extractionRerunRequested = false;
 
+    let activePokedexUpdateRunId = null;
+    let lastReportedPokedexTabVisible = null;
+
+    /**
+     * Returns true only while Android has explicitly requested a manual Pokédex update.
+     *
+     * PCG filters must never be changed by passive observers, timers, boot logic,
+     * or page-readiness checks. Without this guard, the probe can fight the user by
+     * turning Spawnable back on after the user manually disabled it.
+     */
+    function canModifyPokedexFilters() {
+      return activePokedexUpdateRunId !== null;
+    }
+
+    /**
+     * Reports that a filter-changing path was blocked because no manual update is active.
+     *
+     * This makes old automatic paths visible in Logcat while preventing them from
+     * modifying the user's current PCG view.
+     */
+    function reportBlockedPokedexFilterChange(reason) {
+      send("pcg_probe_filter_change_blocked", {
+        reason: reason || "no_active_manual_update",
+        frame: frameInfo()
+      });
+    }
+
+      /**
+       * Sends a request to Android and waits for a response.
+       *
+       * This is used so the PCG side can ask Android whether the user has pressed
+       * the manual Update Pokédex button.
+       */
+      async function requestNative(type, payload) {
+        try {
+          return await browser.runtime.sendNativeMessage(NATIVE_APP, {
+            type,
+            payload
+          });
+        } catch (e) {
+          console.error("PCG collector requestNative error", e);
+          return null;
+        }
+      }
+
+        /**
+         * Normalizes the response returned by Android.
+         *
+         * GeckoView can return the native response either as an object or as a JSON-like
+         * string depending on the bridge path. This keeps the command polling tolerant
+         * instead of silently dropping a valid response.
+         */
+        function normalizeNativeCommandResponse(response) {
+          if (!response) {
+            return null;
+          }
+
+          if (typeof response === "object") {
+            return response;
+          }
+
+          if (typeof response === "string") {
+            try {
+              return JSON.parse(response);
+            } catch (e) {
+              send("pcg_probe_progress", {
+                step: 9501,
+                phase: "command_poll_response_parse_failed",
+                responsePreview: compactText(response, 300),
+                error: String(e),
+                frame: frameInfo()
+              });
+
+              return null;
+            }
+          }
+
+          send("pcg_probe_progress", {
+            step: 9502,
+            phase: "command_poll_response_unsupported_type",
+            responseType: typeof response,
+            frame: frameInfo()
+          });
+
+          return null;
+        }
+
   function send(type, payload) {
     try {
       browser.runtime.sendNativeMessage(NATIVE_APP, {
@@ -160,17 +247,35 @@
     };
   }
 
-  async function ensureWantedFilters() {
-    const spawnableResult = await setFilterState("Spawnable", true);
-    const obtainedResult = await setFilterState("Obtained", false);
+      /**
+       * Applies the Pokédex filters required for missing-spawnable extraction.
+       *
+       * This function is allowed to modify PCG filters only during a user-requested
+       * Pokédex update run. Passive observers may read the DOM, but they must not
+       * click filters or change the user's current PCG view.
+       */
+      async function ensureWantedFilters() {
+        if (!canModifyPokedexFilters()) {
+          reportBlockedPokedexFilterChange("ensure_wanted_filters_without_manual_update");
 
-    await sleep(900);
+          return {
+            blocked: true,
+            spawnable: null,
+            obtained: null
+          };
+        }
 
-    return {
-      spawnable: spawnableResult,
-      obtained: obtainedResult
-    };
-  }
+        const spawnableResult = await setFilterState("Spawnable", true);
+        const obtainedResult = await setFilterState("Obtained", false);
+
+        await sleep(900);
+
+        return {
+          blocked: false,
+          spawnable: spawnableResult,
+          obtained: obtainedResult
+        };
+      }
 
   function collectVisibleEntries() {
     let nodes = Array.from(document.querySelectorAll(".pokedex__entry-name"));
@@ -471,6 +576,139 @@
     });
   }
 
+   /**
+    * Returns true when the current PCG frame looks like the Pokédex surface.
+    *
+    * This detector must stay read-only. It intentionally uses several weak signals
+    * because PCG can render the Pokédex progressively: filters may appear before
+    * entries, entries may appear after loading, and text casing/accents can vary.
+    */
+   function isPokedexTabVisible() {
+     if (!isRealPcgFrame()) {
+       return false;
+     }
+
+     if (looksLikePokedex()) {
+       return true;
+     }
+
+     if (
+       getFilterLabelByText("Spawnable") ||
+       getFilterLabelByText("Obtained") ||
+       getFilterLabelByText("Starters") ||
+       getFilterLabelByText("Legendaries")
+     ) {
+       return true;
+     }
+
+     const bodyText = compactText(
+       document.body ? document.body.innerText || document.body.textContent || "" : "",
+       4000
+     ).toLowerCase();
+
+     return (
+       bodyText.includes("spawnable") ||
+       bodyText.includes("obtained") ||
+       bodyText.includes("pokedex") ||
+       bodyText.includes("pokédex")
+     );
+   }
+
+    /**
+     * Reports the current PCG tab state using the existing Android tab-state contract.
+     *
+     * GeckoSessionManager already listens for "pcg_tab_state" and uses it to enable
+     * or disable the manual Inventory/Pokédex buttons.
+     */
+    function reportPokedexTabStateIfChanged(force) {
+      const visible = isPokedexTabVisible();
+
+      if (!force && lastReportedPokedexTabVisible === visible) {
+        return;
+      }
+
+      lastReportedPokedexTabVisible = visible;
+
+      send("pcg_tab_state", {
+        activeTab: visible ? "pokedex" : "unknown",
+        pokedexVisible: visible,
+        inventoryVisible: false,
+        anyLoadedSurface: visible,
+        frame: frameInfo()
+      });
+
+      send("pcg_probe_progress", {
+        step: 9400,
+        phase: "pokedex_tab_state_reported",
+        visible,
+        activeTab: visible ? "pokedex" : "unknown",
+        host: location.host,
+        href: location.href
+      });
+    }
+
+      /**
+       * Runs a user-requested Pokédex update.
+       *
+       * This is the only high-level path where the probe may temporarily modify PCG
+       * filters. The user must already be in the Pokédex tab; the probe must not
+       * navigate to Pokédex by itself.
+       */
+      async function runUserRequestedPokedexUpdate(runId) {
+        if (activePokedexUpdateRunId !== null) {
+          send("pcg_pokedex_update_error", {
+            runId,
+            message: "Pokédex update already running",
+            frame: frameInfo()
+          });
+          return;
+        }
+
+        if (!isPokedexTabVisible()) {
+          send("pcg_pokedex_update_error", {
+            runId,
+            message: "Open the Pokédex tab before updating",
+            frame: frameInfo()
+          });
+          return;
+        }
+
+        activePokedexUpdateRunId = runId;
+
+        try {
+          send("pcg_pokedex_update_started", {
+            runId,
+            frame: frameInfo()
+          });
+
+          await runExtraction("manual_pokedex_update");
+
+          send("pcg_pokedex_update_finished", {
+            runId,
+            frame: frameInfo()
+          });
+        } catch (e) {
+          send("pcg_pokedex_update_error", {
+            runId,
+            message: String(e),
+            frame: frameInfo()
+          });
+        } finally {
+          activePokedexUpdateRunId = null;
+          reportPokedexTabStateIfChanged(true);
+        }
+      }
+
+        let commandPollRunning = false;
+
+        /**
+         * Checks whether Android has a pending user-requested Pokédex update.
+         *
+         * This keeps the update tied to the Android button without requiring Android
+         * to initiate a direct message into the PCG page.
+         */
+        pollAndroidCommandOnce
+
   function scheduleExtraction(reason) {
     if (extractionRunning || extractionScheduled) {
       extractionRerunRequested = true;
@@ -504,18 +742,59 @@
     }, INITIAL_SCHEDULE_DELAY_MS);
   }
 
-  if (isRealPcgFrame()) {
-    scheduleExtraction("initial_real_frame");
-  }
+  try {
+    send("pcg_probe_progress", {
+      step: 9480,
+      phase: "pokedex_startup_before_final_block",
+      isRealFrame: isRealPcgFrame(),
+      frame: frameInfo()
+    });
 
-  const observer = new MutationObserver(() => {
     if (isRealPcgFrame()) {
-      scheduleExtraction("mutation_real_frame");
+      reportPokedexTabStateIfChanged(true);
     }
-  });
 
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
+    const observer = new MutationObserver(() => {
+      if (isRealPcgFrame()) {
+        reportPokedexTabStateIfChanged(false);
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+
+    send("pcg_probe_progress", {
+      step: 9481,
+      phase: "pokedex_observer_started",
+      frame: frameInfo()
+    });
+
+    setInterval(() => {
+      send("pcg_probe_progress", {
+        step: 9482,
+        phase: "pokedex_interval_tick",
+        isRealFrame: isRealPcgFrame(),
+        pokedexVisible: isPokedexTabVisible(),
+        frame: frameInfo()
+      });
+
+      reportPokedexTabStateIfChanged(false);
+      pollAndroidCommandOnce();
+    }, 750);
+
+    send("pcg_probe_progress", {
+      step: 9483,
+      phase: "pokedex_polling_started",
+      frame: frameInfo()
+    });
+  } catch (e) {
+    send("pcg_probe_progress", {
+      step: 9489,
+      phase: "pokedex_startup_exception",
+      error: String(e),
+      frame: frameInfo()
+    });
+  }
 })();
