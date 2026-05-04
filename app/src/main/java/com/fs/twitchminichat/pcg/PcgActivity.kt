@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ProgressBar
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.fs.twitchminichat.PcgManualDataUpdateController
 import com.fs.twitchminichat.R
@@ -15,10 +17,10 @@ import com.fs.twitchminichat.R
 class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     private var accountId: String = ""
-    private var pcgManualDataUpdateController: PcgManualDataUpdateController? = null
 
     private var pokedexProgressAnimator: ValueAnimator? = null
     private var pokedexRestoreRunnable: Runnable? = null
+
     private var inventoryProgressAnimator: ValueAnimator? = null
     private var inventoryRestoreRunnable: Runnable? = null
 
@@ -47,11 +49,14 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
      * Connects the visible manual PCG data update buttons.
      *
      * These buttons live above the PCG GeckoView container, so the user clearly
-     * chooses when to register Inventory or Pokédex data.
+     * chooses when to register Inventory data, Pokédex data, or refresh the PCG
+     * extension surface.
      */
     private fun setupManualPcgDataUpdateButtons() {
         val btnRegisterPokedex = findViewById<Button>(R.id.btnRegisterPokedex)
         val btnRegisterInventory = findViewById<Button>(R.id.btnRegisterInventory)
+        val btnRefreshPcgExtension = findViewById<ImageButton>(R.id.btnRefreshPcgExtension)
+
         val progressRegisterPokedex = findViewById<ProgressBar>(R.id.progressRegisterPokedex)
         val progressRegisterInventory = findViewById<ProgressBar>(R.id.progressRegisterInventory)
 
@@ -78,8 +83,6 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
             }
         )
 
-        pcgManualDataUpdateController = controller
-
         btnRegisterPokedex.setOnClickListener {
             if (accountId.isBlank()) return@setOnClickListener
 
@@ -101,6 +104,41 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
             controller.onRegisterInventoryClicked()
         }
+
+        btnRefreshPcgExtension.setOnClickListener {
+            refreshPcgExtensionFromUserTap()
+        }
+    }
+
+    /**
+     * Handles the user-triggered PCG extension refresh button.
+     *
+     * This refreshes only the visible PCG Gecko session. It does not automatically
+     * register Inventory or Pokédex data; those remain separate manual actions.
+     */
+    private fun refreshPcgExtensionFromUserTap() {
+        if (accountId.isBlank()) {
+            Toast.makeText(
+                this,
+                R.string.missing_active_profile,
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val started = GeckoSessionManager.refreshPcgExtension(
+            accountId = accountId
+        )
+
+        Toast.makeText(
+            this,
+            if (started) {
+                R.string.pcg_refresh_started
+            } else {
+                R.string.pcg_refresh_failed
+            },
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     /**
@@ -113,11 +151,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         button: Button,
         progressBar: ProgressBar
     ) {
-        cancelInventoryButtonProgressFeedback(
-            button = button,
-            progressBar = progressBar,
-            resetButton = false
-        )
+        cancelInventoryButtonProgressFeedback(button = button)
 
         button.isEnabled = false
         button.setText(R.string.pcg_register_inventory_checking)
@@ -147,7 +181,8 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Restores the Inventory button after the visual checking window finishes.
+     * Restores the Inventory button and progress bar after the visual checking
+     * window finishes.
      */
     private fun restoreInventoryButtonFeedback(
         button: Button,
@@ -168,11 +203,13 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     /**
      * Cancels pending Inventory button feedback work.
+     *
+     * This only stops delayed/animated feedback. The progress bar itself is still
+     * managed by showInventoryButtonProgressFeedback(...) and
+     * restoreInventoryButtonFeedback(...).
      */
     private fun cancelInventoryButtonProgressFeedback(
-        button: Button,
-        progressBar: ProgressBar,
-        resetButton: Boolean
+        button: Button
     ) {
         inventoryProgressAnimator?.cancel()
         inventoryProgressAnimator = null
@@ -181,14 +218,6 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
             button.removeCallbacks(runnable)
         }
         inventoryRestoreRunnable = null
-
-        if (resetButton && !isFinishing && !isDestroyed) {
-            button.isEnabled = true
-            button.setText(R.string.pcg_register_inventory)
-
-            progressBar.progress = 0
-            progressBar.visibility = View.INVISIBLE
-        }
     }
 
     /**
@@ -203,11 +232,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         button: Button,
         progressBar: ProgressBar
     ) {
-        cancelPokedexButtonProgressFeedback(
-            button = button,
-            progressBar = progressBar,
-            resetButton = false
-        )
+        cancelPokedexButtonProgressFeedback(button = button)
 
         button.isEnabled = false
         button.setText(R.string.pcg_register_pokedex_checking)
@@ -237,7 +262,8 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Restores the Pokédex button after the visual checking window finishes.
+     * Restores the Pokédex button and progress bar after the visual checking
+     * window finishes.
      */
     private fun restorePokedexButtonFeedback(
         button: Button,
@@ -259,13 +285,12 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     /**
      * Cancels pending Pokédex button feedback work.
      *
-     * This prevents delayed UI callbacks from touching a button after the Activity
-     * is already being destroyed.
+     * This only stops delayed/animated feedback. The progress bar itself is still
+     * managed by showPokedexButtonProgressFeedback(...) and
+     * restorePokedexButtonFeedback(...).
      */
     private fun cancelPokedexButtonProgressFeedback(
-        button: Button,
-        progressBar: ProgressBar,
-        resetButton: Boolean
+        button: Button
     ) {
         pokedexProgressAnimator?.cancel()
         pokedexProgressAnimator = null
@@ -274,87 +299,37 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
             button.removeCallbacks(runnable)
         }
         pokedexRestoreRunnable = null
-
-        if (resetButton && !isFinishing && !isDestroyed) {
-            button.isEnabled = true
-            button.setText(R.string.pcg_register_pokedex)
-
-            progressBar.progress = 0
-            progressBar.visibility = View.INVISIBLE
-        }
-    }
-
-    /**
-     * Gives immediate visual feedback for the Inventory update button.
-     *
-     * Inventory keeps the shorter feedback because its probe usually responds
-     * faster and does not need the longer Pokédex filter/snapshot window.
-     */
-    private fun showTemporaryInventoryButtonFeedback(
-        button: Button
-    ) {
-        inventoryRestoreRunnable?.let { runnable ->
-            button.removeCallbacks(runnable)
-        }
-
-        button.isEnabled = false
-        button.setText(R.string.pcg_register_inventory_checking)
-
-        val restoreRunnable = Runnable {
-            if (!isFinishing && !isDestroyed) {
-                button.isEnabled = true
-                button.setText(R.string.pcg_register_inventory)
-            }
-        }
-
-        inventoryRestoreRunnable = restoreRunnable
-        button.postDelayed(restoreRunnable, INVENTORY_BUTTON_FEEDBACK_MS)
     }
 
     override fun onDestroy() {
         val btnRegisterPokedex = findViewById<Button?>(R.id.btnRegisterPokedex)
-        val progressRegisterPokedex = findViewById<ProgressBar?>(R.id.progressRegisterPokedex)
         val btnRegisterInventory = findViewById<Button?>(R.id.btnRegisterInventory)
 
-        if (btnRegisterPokedex != null && progressRegisterPokedex != null) {
+        if (btnRegisterPokedex != null) {
             cancelPokedexButtonProgressFeedback(
-                button = btnRegisterPokedex,
-                progressBar = progressRegisterPokedex,
-                resetButton = false
+                button = btnRegisterPokedex
             )
         }
 
         if (btnRegisterInventory != null) {
-            inventoryRestoreRunnable?.let { runnable ->
-                btnRegisterInventory.removeCallbacks(runnable)
-            }
-        }
-        inventoryRestoreRunnable = null
-
-        pcgManualDataUpdateController = null
-        super.onDestroy()
-
-        val progressRegisterInventory = findViewById<ProgressBar?>(R.id.progressRegisterInventory)
-
-        if (btnRegisterInventory != null && progressRegisterInventory != null) {
             cancelInventoryButtonProgressFeedback(
-                button = btnRegisterInventory,
-                progressBar = progressRegisterInventory,
-                resetButton = false
+                button = btnRegisterInventory
             )
         }
+
+        super.onDestroy()
     }
 
     companion object {
         private const val EXTRA_ACCOUNT_ID = "account_id"
 
         /**
-         * ProgressBar max used for the manual Pokédex button feedback animation.
+         * ProgressBar max used for the manual update feedback animations.
          */
         private const val PROGRESS_BAR_MAX = 1_000
 
         /**
-         * Longer visual window for Register Pokédex.
+         * Visual window for Register Pokédex.
          *
          * GeckoSessionManager waits around 6 seconds for a fresh valid Pokédex
          * snapshot/toast result, so the button feedback should not end earlier.
@@ -362,7 +337,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         private const val POKEDEX_BUTTON_FEEDBACK_MS = 6_500L
 
         /**
-         * Shorter visual window for Register Inventory.
+         * Visual window for Register Inventory.
          */
         private const val INVENTORY_BUTTON_FEEDBACK_MS = 6_500L
 

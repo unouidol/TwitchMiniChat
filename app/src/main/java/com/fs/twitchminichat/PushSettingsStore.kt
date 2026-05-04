@@ -1,7 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.Context
-import androidx.core.content.edit
+
 
 object PushSettingsStore {
     private const val PREFS_NAME = "push_settings"
@@ -46,7 +46,7 @@ object PushSettingsStore {
             )
         }
 
-        // Compatibilità con il vecchio booleano:
+        // Compatibility with old boolean system:
         // true  -> Dex + A-tier
         // false -> Off
         val legacyKey = legacyEnabledKey(normalized)
@@ -62,118 +62,9 @@ object PushSettingsStore {
         return MODE_DEX_AND_A_TIER
     }
 
-    fun setPushMode(context: Context, profileId: String, mode: Int) {
-        val normalized = normalizeProfileId(profileId)
-        if (normalized.isEmpty()) return
-
-        val safeMode = coerceMode(mode)
-
-        context.applicationContext
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit {
-                putInt(modeKey(normalized), safeMode)
-
-                // Scriviamo anche il vecchio booleano per compatibilità temporanea
-                // con codice non ancora migrato.
-                putBoolean(
-                    legacyEnabledKey(normalized),
-                    safeMode != MODE_OFF
-                )
-            }
-    }
-
-    fun nextPushMode(currentMode: Int): Int {
-        return when (coerceMode(currentMode)) {
-            MODE_DEX_AND_A_TIER -> MODE_ALL_SPAWNS
-            MODE_ALL_SPAWNS -> MODE_OFF
-            MODE_OFF -> MODE_DEX_AND_A_TIER
-            else -> MODE_DEX_AND_A_TIER
-        }
-    }
-
     fun isPushEnabled(context: Context, profileId: String): Boolean {
         return getPushMode(context, profileId) != MODE_OFF
     }
 
-    fun isDexAndATierMode(context: Context, profileId: String): Boolean {
-        return getPushMode(context, profileId) == MODE_DEX_AND_A_TIER
-    }
 
-    fun isAllSpawnsMode(context: Context, profileId: String): Boolean {
-        return getPushMode(context, profileId) == MODE_ALL_SPAWNS
-    }
-
-    fun setPushEnabled(context: Context, profileId: String, enabled: Boolean) {
-        setPushMode(
-            context = context,
-            profileId = profileId,
-            mode = if (enabled) MODE_DEX_AND_A_TIER else MODE_OFF
-        )
-    }
-
-    fun syncProfilesForDevice(
-        context: Context,
-        allProfileIds: Collection<String>,
-        enabledProfileIds: Collection<String>
-    ) {
-        val normalizedEnabled = enabledProfileIds
-            .map { normalizeProfileId(it) }
-            .filter { it.isNotEmpty() }
-            .toSet()
-
-        val normalizedAll = linkedSetOf<String>()
-        for (profileId in allProfileIds) {
-            val normalized = normalizeProfileId(profileId)
-            if (normalized.isNotEmpty()) {
-                normalizedAll.add(normalized)
-            }
-        }
-
-        val prefs = context.applicationContext
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-        prefs.edit {
-            for (profileId in normalizedAll) {
-                val mode = if (profileId in normalizedEnabled) {
-                    MODE_DEX_AND_A_TIER
-                } else {
-                    MODE_OFF
-                }
-
-                putInt(modeKey(profileId), mode)
-                putBoolean(legacyEnabledKey(profileId), mode != MODE_OFF)
-            }
-        }
-    }
-
-    fun syncProfileModesForDevice(
-        context: Context,
-        allProfileIds: Collection<String>,
-        pushModeByProfile: Map<String, Int>
-    ) {
-        val normalizedAll = linkedSetOf<String>()
-        for (profileId in allProfileIds) {
-            val normalized = normalizeProfileId(profileId)
-            if (normalized.isNotEmpty()) {
-                normalizedAll.add(normalized)
-            }
-        }
-
-        val normalizedModes = pushModeByProfile
-            .mapKeys { normalizeProfileId(it.key) }
-            .filterKeys { it.isNotEmpty() }
-            .mapValues { coerceMode(it.value) }
-
-        val prefs = context.applicationContext
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-        prefs.edit {
-            for (profileId in normalizedAll) {
-                val mode = normalizedModes[profileId] ?: MODE_OFF
-
-                putInt(modeKey(profileId), mode)
-                putBoolean(legacyEnabledKey(profileId), mode != MODE_OFF)
-            }
-        }
-    }
 }

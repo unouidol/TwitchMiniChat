@@ -17,7 +17,8 @@ class CatchPresetEditAdapter(
     initialItems: List<CatchPreset>,
     private val onRemoveClicked: (Int) -> Unit,
     private val onStartDragRequested: (RecyclerView.ViewHolder) -> Unit,
-    private val onBuyBallClicked: (CatchPreset) -> Unit
+    private val onBuyBallClicked: (CatchPreset) -> Unit,
+    private val onPresetChanged: () -> Unit = {}
 ) : RecyclerView.Adapter<CatchPresetEditAdapter.PresetViewHolder>() {
 
     /*
@@ -102,16 +103,20 @@ class CatchPresetEditAdapter(
     fun addPreset(preset: CatchPreset) {
         allItems.add(preset)
         rebuildVisibleItems()
+        onPresetChanged()
     }
 
     fun removeAt(position: Int) {
         val item = visibleItems.getOrNull(position) ?: return
 
-        allItems.removeAll { preset ->
+        val removed = allItems.removeAll { preset ->
             preset.id == item.id
         }
 
+        if (!removed) return
+
         rebuildVisibleItems()
+        onPresetChanged()
     }
 
     fun moveItem(fromPosition: Int, toPosition: Int) {
@@ -127,6 +132,7 @@ class CatchPresetEditAdapter(
         allItems.add(toPosition, moved)
 
         rebuildVisibleItems()
+        onPresetChanged()
     }
 
     fun updateInventoryCounts(newCounts: Map<String, Int>) {
@@ -151,11 +157,19 @@ class CatchPresetEditAdapter(
     }
 
     fun setAllEnabled(enabled: Boolean) {
+        var changed = false
+
         for (i in allItems.indices) {
-            allItems[i] = allItems[i].copy(enabled = enabled)
+            if (allItems[i].enabled != enabled) {
+                allItems[i] = allItems[i].copy(enabled = enabled)
+                changed = true
+            }
         }
 
+        if (!changed) return
+
         rebuildVisibleItems()
+        onPresetChanged()
     }
 
     /**
@@ -230,13 +244,19 @@ class CatchPresetEditAdapter(
         val allIndex = allItems.indexOfFirst { preset -> preset.id == visibleItem.id }
         if (allIndex == -1) return
 
-        val updated = transform(allItems[allIndex])
+        val oldPreset = allItems[allIndex]
+        val updated = transform(oldPreset)
+
+        if (updated == oldPreset) return
+
         allItems[allIndex] = updated
 
         val visibleIndex = visibleItems.indexOfFirst { preset -> preset.id == visibleItem.id }
         if (visibleIndex != -1) {
             visibleItems[visibleIndex] = updated
         }
+
+        onPresetChanged()
     }
 
     private fun resolveDisplayedCount(item: CatchPreset): Int? {
@@ -331,7 +351,7 @@ class CatchPresetEditAdapter(
                         true
                     }
 
-                    MotionEvent.ACTION_CANCEL -> false
+                    MotionEvent.ACTION_CANCEL -> true
                     else -> false
                 }
             }

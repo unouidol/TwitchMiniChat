@@ -140,7 +140,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID_SPAWN_ALERTS)
-            .setSmallIcon(R.drawable.ic_bell_on)
+            .setSmallIcon(R.drawable.ic_stat_notification_bell)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

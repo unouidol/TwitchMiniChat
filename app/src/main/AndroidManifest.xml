@@ -14,6 +14,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TwitchMiniChat">
 
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_notification_bell" />
+
         <activity
             android:name="com.fs.twitchminichat.pcg.PcgActivity"
             android:exported="false" />

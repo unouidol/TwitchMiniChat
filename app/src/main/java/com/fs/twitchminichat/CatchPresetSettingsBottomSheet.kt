@@ -1,9 +1,13 @@
 package com.fs.twitchminichat
 
 import android.os.Bundle
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.util.Log
+import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -12,13 +16,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import android.view.ViewGroup
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import android.text.Editable
-import android.text.TextWatcher
-
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
 class CatchPresetSettingsBottomSheet :
     BottomSheetDialogFragment(R.layout.activity_catch_preset_settings) {
@@ -45,7 +45,6 @@ class CatchPresetSettingsBottomSheet :
     private lateinit var recyclerPresets: RecyclerView
     private lateinit var btnAddPreset: Button
     private lateinit var btnSavePresets: Button
-
     private lateinit var btnPresetEditorPokebuddy: Button
     private lateinit var btnRestorePresets: Button
     private lateinit var checkEnableAllPresets: CheckBox
@@ -53,6 +52,23 @@ class CatchPresetSettingsBottomSheet :
 
     private lateinit var adapter: CatchPresetEditAdapter
     private lateinit var itemTouchHelper: ItemTouchHelper
+
+    /**
+     * Snapshot of the last saved editor state.
+     *
+     * We compare the current adapter model against this list when the user tries
+     * to close the sheet. This means changing something and then changing it back
+     * does not trigger a useless unsaved-changes prompt.
+     */
+    private var savedPresetSnapshot: List<CatchPreset> = emptyList()
+
+    /**
+     * Cached dirty state for the editor.
+     *
+     * The adapter owns the editable model. This flag is only used by the bottom
+     * sheet close flow to decide whether to show Save / Discard / Cancel.
+     */
+    private var hasUnsavedPresetChanges: Boolean = false
 
     private val currentProfileId: String by lazy {
         requireArguments().getString(ARG_PROFILE_ID).orEmpty().trim().lowercase()
@@ -108,6 +124,23 @@ class CatchPresetSettingsBottomSheet :
         val behavior = BottomSheetBehavior.from(bottomSheet)
         behavior.skipCollapsed = true
         behavior.state = BottomSheetBehavior.STATE_EXPANDED
+
+        /*
+         * This editor has important unsaved state, so swipe-to-dismiss would be too
+         * easy to trigger accidentally. Back is handled below and can show the
+         * Save / Discard / Cancel prompt.
+         */
+        behavior.isDraggable = false
+        bottomSheetDialog.setCanceledOnTouchOutside(false)
+
+        dialog?.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                requestClosePresetEditor()
+                true
+            } else {
+                false
+            }
+        }
     }
 
     override fun onResume() {
@@ -137,11 +170,11 @@ class CatchPresetSettingsBottomSheet :
         )
 
         /*
- * The editor should stay focused on manual/generic presets.
- *
- * Context-driven balls are still available through Smart presets, so they do
- * not need to fill this management list.
- */
+         * The editor should stay focused on manual/generic presets.
+         *
+         * Context-driven balls are still available through Smart presets, so they do
+         * not need to fill this management list.
+         */
         val visibleEditorPresets = mergedPresets.filter { preset ->
             UserCatchPresetEditorFilter.shouldShowInEditor(preset)
         }
@@ -175,6 +208,10 @@ class CatchPresetSettingsBottomSheet :
                 } else {
                     showBuyBallDialogFromSettings(preset)
                 }
+            },
+            onPresetChanged = {
+                refreshPresetEditorDirtyState()
+                refreshToggleAllState()
             }
         )
 
@@ -217,6 +254,7 @@ class CatchPresetSettingsBottomSheet :
 
         itemTouchHelper.attachToRecyclerView(recyclerPresets)
 
+        captureSavedPresetSnapshot()
         refreshToggleAllState()
     }
 
@@ -242,6 +280,7 @@ class CatchPresetSettingsBottomSheet :
 
             val newPreset = CatchPresetStore.newEmptyPreset(adapter.itemCount)
             adapter.addPreset(newPreset)
+
             recyclerPresets.smoothScrollToPosition(adapter.itemCount - 1)
             refreshToggleAllState()
         }
@@ -250,32 +289,9 @@ class CatchPresetSettingsBottomSheet :
             /*
              * Manual PCG helper action.
              *
-             * The bottom sheet does not send !pokebuddy directly because ChatFragment
-             * already has a complete buddy request flow:
-             * - sends the chat command
-             * - stores the pending profile/user
-             * - waits for the buddy response
-             * - updates the local buddy info
-             */
-            val handled = host?.onCatchPresetBuddyInfoRequested() == true
-
-            if (!handled) {
-                Toast.makeText(
-                    requireContext(),
-                    getString(R.string.connection_not_ready),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-
-        btnPresetEditorPokebuddy.setOnClickListener {
-            /*
-             * Manual PCG helper action.
-             *
              * This is intentionally user-triggered: the command is requested only when
-             * the user taps this button. The actual IRC send and buddy response tracking
-             * stay inside ChatFragment.
+             * the user taps this button. The actual IRC send and buddy response
+             * tracking stay inside ChatFragment.
              */
             val handled = host?.onCatchPresetBuddyInfoRequested() == true
 
@@ -319,13 +335,7 @@ class CatchPresetSettingsBottomSheet :
         }
 
         btnSavePresets.setOnClickListener {
-            CatchPresetStore.saveAll(requireContext(), adapter.currentItems())
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.catch_presets_saved),
-                Toast.LENGTH_SHORT
-            ).show()
-            dismiss()
+            savePresetEditorChangesAndDismiss()
         }
     }
 
@@ -383,6 +393,77 @@ class CatchPresetSettingsBottomSheet :
         }
     }
 
+    /**
+     * Stores the current adapter model as the last saved state.
+     *
+     * This is called after loading presets from storage and after saving.
+     */
+    private fun captureSavedPresetSnapshot() {
+        savedPresetSnapshot = if (::adapter.isInitialized) {
+            adapter.currentItems()
+        } else {
+            emptyList()
+        }
+
+        refreshPresetEditorDirtyState()
+    }
+
+    /**
+     * Recomputes whether the current editor state differs from the last saved state.
+     */
+    private fun refreshPresetEditorDirtyState() {
+        hasUnsavedPresetChanges =
+            ::adapter.isInitialized && adapter.currentItems() != savedPresetSnapshot
+    }
+
+    /**
+     * Saves the current editor list to storage and closes the bottom sheet.
+     *
+     * The editor currently has only "save and leave" flows:
+     * - the main Save button
+     * - the Save action in the unsaved-changes confirmation popup
+     */
+    private fun savePresetEditorChangesAndDismiss() {
+        if (!::adapter.isInitialized) return
+
+        CatchPresetStore.saveAll(requireContext(), adapter.currentItems())
+        captureSavedPresetSnapshot()
+
+        Toast.makeText(
+            requireContext(),
+            getString(R.string.catch_presets_saved),
+            Toast.LENGTH_SHORT
+        ).show()
+
+        dismiss()
+    }
+
+    /**
+     * Handles any user attempt to close the preset editor.
+     *
+     * If nothing changed, it closes immediately. If there are unsaved changes,
+     * the user can save, discard, or cancel and keep editing.
+     */
+    private fun requestClosePresetEditor() {
+        refreshPresetEditorDirtyState()
+
+        if (!hasUnsavedPresetChanges) {
+            dismiss()
+            return
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.catch_presets_unsaved_title)
+            .setMessage(R.string.catch_presets_unsaved_message)
+            .setPositiveButton(R.string.catch_presets_unsaved_save) { _, _ ->
+                savePresetEditorChangesAndDismiss()
+            }
+            .setNegativeButton(R.string.catch_presets_unsaved_discard) { _, _ ->
+                dismiss()
+            }
+            .setNeutralButton(android.R.string.cancel, null)
+            .show()
+    }
 
     private fun showBuyBallDialogFromSettings(preset: CatchPreset) {
         if (!CatchPresetBallHelper.canBuyFromPreset(preset)) return

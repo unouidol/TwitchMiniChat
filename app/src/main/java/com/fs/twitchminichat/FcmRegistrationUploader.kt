@@ -17,19 +17,11 @@ import kotlin.concurrent.thread
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import com.google.firebase.messaging.FirebaseMessaging
 
 object FcmRegistrationUploader {
 
     private const val TAG = "FCM_REGISTER"
-
-    data class DevicePushState(
-        val deviceId: String,
-        val enabledProfileIds: Set<String>,
-        val pushEnabledByProfile: Map<String, Boolean>
-    )
 
     data class DeleteServerDataResult(
         val ok: Boolean,
@@ -124,78 +116,7 @@ object FcmRegistrationUploader {
             uploadTokenBlocking(appContext, trimmedToken, profileId)
         }
     }
-    fun setProfilePushEnabled(
-        context: Context,
-        profileId: String,
-        enabled: Boolean,
-        onComplete: (Boolean) -> Unit
-    ) {
-        val appContext = context.applicationContext
-        val prefs = appContext.getSharedPreferences("fcm_registration", Context.MODE_PRIVATE)
 
-        fun finish(ok: Boolean) {
-            Handler(Looper.getMainLooper()).post {
-                onComplete(ok)
-            }
-        }
-
-        fun sendRequest(token: String) {
-            thread(start = true, name = "push-toggle") {
-                val result = postJson(
-                    urlString = appContext.getString(R.string.fcm_set_push_enabled_url),
-                    payload = JSONObject().apply {
-                        put("key", BuildConfig.HISTORY_SECRET_KEY)
-                        put("device_id", getInstallId(appContext))
-                        put("device_name", buildDeviceName(appContext))
-                        put("fcm_token", token)
-                        put("profile_id", normalizeProfileId(profileId))
-                        put("enabled", enabled)
-                    },
-                    logLabel = "set_profile_push_enabled"
-                )
-
-                val ok = result?.responseCode in 200..299
-                finish(ok)
-            }
-        }
-
-        val cachedToken = prefs.getString("latest_fcm_token", null).orEmpty()
-
-        if (!enabled) {
-            // per disattivare possiamo anche usare il token cached, anche vuoto
-            sendRequest(cachedToken)
-            return
-        }
-
-        if (cachedToken.isNotBlank()) {
-            sendRequest(cachedToken)
-            return
-        }
-
-        Log.d(TAG, "No cached FCM token, fetching a fresh one for profileId=$profileId")
-
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w(TAG, "Unable to fetch fresh FCM token for profileId=$profileId", task.exception)
-                finish(false)
-                return@addOnCompleteListener
-            }
-
-            val freshToken = task.result?.trim().orEmpty()
-            if (freshToken.isBlank()) {
-                Log.w(TAG, "Fresh FCM token is blank for profileId=$profileId")
-                finish(false)
-                return@addOnCompleteListener
-            }
-
-            prefs.edit {
-                putString("latest_fcm_token", freshToken)
-            }
-
-            Log.d(TAG, "Fetched fresh FCM token for profileId=$profileId")
-            sendRequest(freshToken)
-        }
-    }
 
     /**
      * Sends the selected Pokémon Community Game spawn alert mode to the backend.
@@ -317,128 +238,6 @@ object FcmRegistrationUploader {
 
         thread(start = true, name = "dex-upload") {
             uploadDexListBlocking(appContext, profileId, profileLabel, normalized)
-        }
-    }
-    fun fetchDevicePushState(
-        context: Context,
-        knownProfileIds: Collection<String>,
-        onComplete: (DevicePushState?) -> Unit
-    ) {
-        val appContext = context.applicationContext
-
-        thread(start = true, name = "push-state-readback") {
-            val normalizedKnown = linkedSetOf<String>()
-            for (profileId in knownProfileIds) {
-                val n = normalizeProfileId(profileId)
-                if (n.isNotEmpty()) {
-                    normalizedKnown.add(n)
-                }
-            }
-
-            val result = postJson(
-                urlString = appContext.getString(R.string.fcm_get_device_push_state_url),
-                payload = JSONObject().apply {
-                    put("key", BuildConfig.HISTORY_SECRET_KEY)
-                    put("device_id", getInstallId(appContext))
-                    put("known_profile_ids", JSONArray(normalizedKnown.toList()))
-                },
-                logLabel = "get_device_push_state"
-            )
-
-            val state = try {
-                if (result == null || result.responseCode !in 200..299) {
-                    null
-                } else {
-                    val obj = JSONObject(result.responseBody)
-
-                    val enabledProfileIds = linkedSetOf<String>()
-                    val enabledArray = obj.optJSONArray("enabled_profile_ids")
-                    if (enabledArray != null) {
-                        for (i in 0 until enabledArray.length()) {
-                            val v = normalizeProfileId(enabledArray.optString(i))
-                            if (v.isNotBlank()) {
-                                enabledProfileIds.add(v)
-                            }
-                        }
-                    }
-
-                    val pushEnabledByProfile = linkedMapOf<String, Boolean>()
-                    val mapObj = obj.optJSONObject("push_enabled_by_profile")
-                    if (mapObj != null) {
-                        val keys = mapObj.keys()
-                        while (keys.hasNext()) {
-                            val rawKey = keys.next()
-                            val normalizedKey = normalizeProfileId(rawKey)
-                            if (normalizedKey.isNotBlank()) {
-                                pushEnabledByProfile[normalizedKey] = mapObj.optBoolean(rawKey, false)
-                            }
-                        }
-                    }
-
-                    DevicePushState(
-                        deviceId = obj.optString("device_id", getInstallId(appContext)),
-                        enabledProfileIds = enabledProfileIds,
-                        pushEnabledByProfile = pushEnabledByProfile
-                    )
-                }
-            } catch (t: Throwable) {
-                Log.e(TAG, "Error parsing get_device_push_state response", t)
-                null
-            }
-
-            Handler(Looper.getMainLooper()).post {
-                onComplete(state)
-            }
-        }
-    }
-
-    fun fetchDevicePushStateWithRetry(
-        context: Context,
-        knownProfileIds: Collection<String>,
-        attempts: Int = 2,
-        delayMs: Long = 350L,
-        onComplete: (DevicePushState?) -> Unit
-    ) {
-        val appContext = context.applicationContext
-        val safeAttempts = attempts.coerceAtLeast(1)
-
-        thread(start = true, name = "push-state-readback-retry") {
-            var finalState: DevicePushState? = null
-
-            for (index in 0 until safeAttempts) {
-                val latch = CountDownLatch(1)
-                var resultState: DevicePushState? = null
-
-                fetchDevicePushState(appContext, knownProfileIds) { state ->
-                    resultState = state
-                    latch.countDown()
-                }
-
-                try {
-                    latch.await(12, TimeUnit.SECONDS)
-                } catch (_: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                    break
-                }
-
-                if (resultState != null) {
-                    finalState = resultState
-                    break
-                }
-
-                if (index < safeAttempts - 1) {
-                    try {
-                        Thread.sleep(delayMs)
-                    } catch (_: InterruptedException) {
-                        Thread.currentThread().interrupt()
-                        break
-                    }
-                }
-            }
-
-            Handler(Looper.getMainLooper()).post {
-                onComplete(finalState)
-            }
         }
     }
 

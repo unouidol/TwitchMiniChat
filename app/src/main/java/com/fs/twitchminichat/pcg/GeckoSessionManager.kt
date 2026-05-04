@@ -80,7 +80,7 @@ object GeckoSessionManager {
      * The snapshot is still invalidated earlier if the Pokédex probe later reports
      * that the Pokédex DOM is no longer readable.
      */
-    private const val CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS = 5000L
+    private const val CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS = 90_000L
 
     /**
      * How long a successful passive Inventory snapshot can be reused for a manual
@@ -89,7 +89,7 @@ object GeckoSessionManager {
      * The snapshot is still invalidated earlier if the Inventory probe later reports
      * that the ball grid is no longer readable.
      */
-    private const val CACHED_INVENTORY_SNAPSHOT_MAX_AGE_MS = 5_000L
+    private const val CACHED_INVENTORY_SNAPSHOT_MAX_AGE_MS = 30_000L
 
     private const val PCG_SESSION_KEEP_ALIVE_MS = 15*60*1_000L
 
@@ -225,7 +225,7 @@ object GeckoSessionManager {
     /**
      * Last known passive Pokédex state reported by the WebExtension.
      *
-     * The content script does not change PCG filters anymore. This state only tells
+     * The content script does not change PCG filters any more. This state only tells
      * Android whether the user is currently on the Pokédex with the Spawnable-only
      * filter state required for a valid missing-Dex snapshot.
      */
@@ -388,16 +388,22 @@ object GeckoSessionManager {
         }
     }
 
+    /**
+     * Shows a short app toast on the main thread.
+     *
+     * Use this only for immediate lightweight confirmations. Manual PCG update
+     * result messages should use showManualUpdateResultToastOnMain(...) instead,
+     * because those toasts are intentionally delayed to match the checking UI.
+     */
     private fun showToastOnMain(
         appContext: Context,
-        @StringRes messageRes: Int,
-        duration: Int = Toast.LENGTH_SHORT
+        @StringRes messageRes: Int
     ) {
-        Handler(Looper.getMainLooper()).post {
+        mainHandler.post {
             Toast.makeText(
                 appContext,
                 appContext.getString(messageRes),
-                duration
+                Toast.LENGTH_SHORT
             ).show()
         }
     }
@@ -406,16 +412,13 @@ object GeckoSessionManager {
      * Shows a manual update result toast no earlier than a fixed delay from the
      * original button press.
      *
-     * Some failures are known immediately from cached probe state, while others are
-     * discovered after waiting for a fresh snapshot. Delaying only the immediate
-     * cases makes the user experience more consistent without changing the probe or
-     * upload logic.
+     * Manual PCG update messages are always long to give the user enough time to
+     * read tab/filter instructions after the checking UI finishes.
      */
     private fun showManualUpdateResultToastOnMain(
         appContext: Context,
         requestedAtMs: Long,
         @StringRes messageRes: Int,
-        duration: Int = Toast.LENGTH_LONG,
         debugLabel: String
     ) {
         val elapsedMs = SystemClock.elapsedRealtime() - requestedAtMs
@@ -432,7 +435,7 @@ object GeckoSessionManager {
                 Toast.makeText(
                     appContext,
                     appContext.getString(messageRes),
-                    duration
+                    Toast.LENGTH_LONG
                 ).show()
             },
             delayMs
@@ -462,7 +465,6 @@ object GeckoSessionManager {
 
     private fun getFreshPcgTabState(
         sessionKey: String,
-        debugLabel: String
     ): CachedPcgTabState? {
         val state = lastPcgTabStates[sessionKey] ?: return null
         val ageMs = SystemClock.elapsedRealtime() - state.capturedAtMs
@@ -470,7 +472,7 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "tab state check debugLabel=$debugLabel sessionKey=$sessionKey " +
+            "tab state check sessionKey=$sessionKey " +
                     "ageMs=$ageMs fresh=$fresh pokedexVisible=${state.pokedexVisible} " +
                     "inventoryVisible=${state.inventoryVisible} anyLoadedSurface=${state.anyLoadedSurface}"
         )
@@ -483,7 +485,6 @@ object GeckoSessionManager {
      */
     private fun getFreshPcgPokedexState(
         sessionKey: String,
-        debugLabel: String
     ): PcgPokedexState? {
         val state = lastPcgPokedexStates[sessionKey] ?: return null
         val ageMs = SystemClock.elapsedRealtime() - state.capturedAtMs
@@ -491,7 +492,7 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "pokedex state check debugLabel=$debugLabel sessionKey=$sessionKey " +
+            "pokedex state check sessionKey=$sessionKey " +
                     "ageMs=$ageMs fresh=$fresh onPokedexTab=${state.onPokedexTab} " +
                     "spawnable=${state.spawnable} obtained=${state.obtained} " +
                     "otherFilters=${state.activeNonSpawnableFilters} " +
@@ -591,7 +592,6 @@ object GeckoSessionManager {
                         appContext = appContext,
                         requestedAtMs = removedAtMs,
                         messageRes = R.string.pcg_pokedex_wrong_tab,
-                        duration = Toast.LENGTH_LONG,
                         debugLabel = "pokedex_wrong_tab_from_state"
                     )
                 }
@@ -611,7 +611,6 @@ object GeckoSessionManager {
                         appContext = appContext,
                         requestedAtMs = removedAtMs,
                         messageRes = R.string.pcg_pokedex_spawnable_only_required,
-                        duration = Toast.LENGTH_LONG,
                         debugLabel = "pokedex_spawnable_only_required_from_state"
                     )
                 }
@@ -807,7 +806,6 @@ object GeckoSessionManager {
                             appContext = appContext,
                             requestedAtMs = removedAtMs,
                             messageRes = R.string.pcg_inventory_wrong_tab,
-                            duration = Toast.LENGTH_LONG,
                             debugLabel = "inventory_wrong_tab_from_tab_state"
                         )
                     }
@@ -862,7 +860,6 @@ object GeckoSessionManager {
                             appContext = appContext,
                             requestedAtMs = removedAtMs,
                             messageRes = R.string.pcg_pokedex_wrong_tab,
-                            duration = Toast.LENGTH_LONG,
                             debugLabel = "pokedex_wrong_tab_from_tab_state"
                         )
                     }
@@ -936,7 +933,6 @@ object GeckoSessionManager {
             appContext = appContext,
             requestedAtMs = requestedAtMs,
             messageRes = messageRes,
-            duration = Toast.LENGTH_LONG,
             debugLabel = debugLabel
         )
     }
@@ -1442,7 +1438,6 @@ object GeckoSessionManager {
 
         val tabState = getFreshPcgTabState(
             sessionKey = sessionKey,
-            debugLabel = "manual_inventory_press"
         )
 
         if (tabState != null) {
@@ -1476,10 +1471,10 @@ object GeckoSessionManager {
                     }
                 }
 
-                tabState.isPokedexActive || tabState.activeTab == "pokedex" -> {
+                tabState.hasKnownActiveTab -> {
                     Log.d(
                         "PCG_PROBE",
-                        "manual inventory rejected immediately because Inventory tab is not active " +
+                        "manual inventory rejected immediately because active tab is not Inventory " +
                                 "sessionKey=$sessionKey activeTab=${tabState.activeTab}"
                     )
 
@@ -1487,7 +1482,6 @@ object GeckoSessionManager {
                         appContext = appContext,
                         requestedAtMs = requestedAtMs,
                         messageRes = R.string.pcg_inventory_wrong_tab,
-                        duration = Toast.LENGTH_LONG,
                         debugLabel = "inventory_wrong_tab_immediate"
                     )
 
@@ -1497,7 +1491,7 @@ object GeckoSessionManager {
                 else -> {
                     Log.d(
                         "PCG_PROBE",
-                        "manual inventory press has fresh tab state but it is not decisive yet " +
+                        "manual inventory press has fresh tab state but active tab is unknown " +
                                 "sessionKey=$sessionKey activeTab=${tabState.activeTab} " +
                                 "inventoryVisible=${tabState.inventoryVisible} " +
                                 "pokedexVisible=${tabState.pokedexVisible}"
@@ -1546,7 +1540,6 @@ object GeckoSessionManager {
 
         val pokedexState = getFreshPcgPokedexState(
             sessionKey = sessionKey,
-            debugLabel = "manual_pokedex_press"
         )
 
         if (pokedexState != null) {
@@ -1562,7 +1555,6 @@ object GeckoSessionManager {
                         appContext = appContext,
                         requestedAtMs = requestedAtMs,
                         messageRes = R.string.pcg_pokedex_wrong_tab,
-                        duration = Toast.LENGTH_LONG,
                         debugLabel = "pokedex_wrong_tab_immediate"
                     )
 
@@ -1581,7 +1573,6 @@ object GeckoSessionManager {
                         appContext = appContext,
                         requestedAtMs = requestedAtMs,
                         messageRes = R.string.pcg_pokedex_spawnable_only_required,
-                        duration = Toast.LENGTH_LONG,
                         debugLabel = "pokedex_spawnable_only_required_immediate"
                     )
 
@@ -1641,6 +1632,90 @@ object GeckoSessionManager {
     }
 
     /**
+     * Reloads the active PCG Gecko session for the selected account.
+     *
+     * This is intentionally user-triggered: the app refreshes the PCG surface only
+     * when the user taps the visible Refresh PCG button. Inventory and Pokédex reads
+     * remain separate manual actions.
+     */
+    fun refreshPcgExtension(accountId: String): Boolean {
+        assertMainThread()
+
+        val sessionKey = pcgSessionKey(accountId)
+        val session = sessions[sessionKey]
+
+        if (session == null) {
+            Log.w(
+                "PCG_PROBE",
+                "PCG refresh ignored, session not ready sessionKey=$sessionKey"
+            )
+            return false
+        }
+
+        invalidatePcgProbeStateForSession(sessionKey)
+
+        return try {
+            /*
+             * GeckoSession.reload() refreshes the currently loaded PCG extension page.
+             * We intentionally keep loadedPcgUrls unchanged, because this is a page
+             * refresh, not a navigation to a different PCG URL.
+             */
+            session.reload()
+
+            Log.d(
+                "PCG_PROBE",
+                "PCG extension refresh requested sessionKey=$sessionKey"
+            )
+
+            true
+        } catch (t: Throwable) {
+            Log.e(
+                "PCG_PROBE",
+                "PCG extension refresh failed sessionKey=$sessionKey",
+                t
+            )
+            false
+        }
+    }
+
+    /**
+     * Clears cached probe state for one PCG session.
+     *
+     * A page refresh invalidates the DOM surface that produced previous snapshots.
+     * Keeping old snapshots around would let a later manual update accidentally
+     * accept stale pre-refresh data.
+     */
+    private fun invalidatePcgProbeStateForSession(sessionKey: String) {
+        lastInventorySnapshots.remove(sessionKey)
+        lastPokedexSnapshots.remove(sessionKey)
+
+        pendingManualInventoryRequests.remove(sessionKey)
+        pendingManualPokedexRequests.remove(sessionKey)
+
+        lastPcgTabStates.remove(sessionKey)
+        lastPcgPokedexStates.remove(sessionKey)
+
+        /*
+         * recentManualPokedexUploadKeys is keyed as:
+         * "$sessionKey|profileId|count|signature"
+         *
+         * So it cannot be cleared with remove(sessionKey). Remove all entries that
+         * belong to this PCG session.
+         */
+        val dedupPrefix = "$sessionKey|"
+        for (key in recentManualPokedexUploadKeys.keys) {
+            if (key.startsWith(dedupPrefix)) {
+                recentManualPokedexUploadKeys.remove(key)
+            }
+        }
+
+        Log.d(
+            "PCG_PROBE",
+            "cleared cached PCG probe state for sessionKey=$sessionKey"
+        )
+    }
+
+    /**
      * Completes a manual PCG update request with a tab-specific timeout message.
      *
      * The timeout is a safety net for cases where the WebExtension cannot produce
@@ -1670,7 +1745,6 @@ object GeckoSessionManager {
                     appContext = appContext,
                     requestedAtMs = requestedAtMs,
                     messageRes = timeoutMessageRes,
-                    duration = Toast.LENGTH_LONG,
                     debugLabel = "${debugLabel}_timeout"
                 )
             }
@@ -1694,8 +1768,7 @@ object GeckoSessionManager {
             lastInventoryLoadedToastAt = now
             showToastOnMain(
                 appContext = appContext,
-                messageRes = R.string.pcg_inventory_updated,
-                duration = Toast.LENGTH_SHORT
+                messageRes = R.string.pcg_inventory_updated
             )
         }
 

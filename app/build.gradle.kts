@@ -45,6 +45,10 @@ android {
         resValues = true
     }
 
+    lint {
+        disable += "OldTargetApi"
+    }
+
     flavorDimensions += "env"
 
     productFlavors {

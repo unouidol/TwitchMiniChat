@@ -27,7 +27,7 @@ object PcgSpawnAlertModeMenu {
         val context = anchor.context
         val popup = PopupMenu(context, anchor)
 
-        PcgSpawnAlertMode.values().forEachIndexed { index, mode ->
+        PcgSpawnAlertMode.entries.forEachIndexed { index, mode ->
             popup.menu.add(
                 MENU_GROUP_ALERT_MODES,
                 mode.id,

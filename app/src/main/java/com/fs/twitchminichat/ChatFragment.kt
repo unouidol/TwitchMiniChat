@@ -1135,15 +1135,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return ProfileIdUtil.fromUsername(username).trim().lowercase()
     }
 
-    private fun knownProfileIdsForDevice(): List<String> {
-        return AccountRepository(requireContext())
-            .loadAccounts()
-            .map { ProfileIdUtil.fromUsername(it.username) }
-            .map { it.trim().lowercase() }
-            .filter { it.isNotBlank() }
-            .distinct()
-    }
-
     private fun refreshPushToggleUi() {
         if (!this::btnTogglePush.isInitialized) return
         if (!isAdded) return
@@ -1173,77 +1164,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private fun togglePushForCurrentProfile() {
-        val c = cfg ?: return
-        val ctx = requireContext()
-        val profileId = currentProfileId()
-        if (profileId.isBlank()) return
-
-        val previousEnabled = PushSettingsStore.isPushEnabled(ctx, profileId)
-        val targetEnabled = !previousEnabled
-        val allProfileIds = knownProfileIdsForDevice()
-
-        Log.d("PUSH_TOGGLE", "tap profileId=$profileId targetEnabled=$targetEnabled")
-
-        PushSettingsStore.setPushEnabled(ctx, profileId, targetEnabled)
-        refreshPushToggleUi()
-        btnTogglePush.isEnabled = false
-
-        FcmRegistrationUploader.setProfilePushEnabled(
-            context = ctx,
-            profileId = profileId,
-            enabled = targetEnabled
-        ) { ok ->
-            if (!isAdded) return@setProfilePushEnabled
-
-            Log.d("PUSH_TOGGLE", "toggle response profileId=$profileId ok=$ok")
-
-            FcmRegistrationUploader.fetchDevicePushStateWithRetry(
-                context = ctx,
-                knownProfileIds = allProfileIds
-            ) { state ->
-                if (!isAdded) return@fetchDevicePushStateWithRetry
-
-                btnTogglePush.isEnabled = true
-
-                if (state == null) {
-                    refreshPushToggleUi()
-
-                    Toast.makeText(
-                        requireContext(),
-                        "Switch sent, but status check failed",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@fetchDevicePushStateWithRetry
-                }
-
-                PushSettingsStore.syncProfilesForDevice(
-                    context = requireContext(),
-                    allProfileIds = allProfileIds,
-                    enabledProfileIds = state.enabledProfileIds
-                )
-
-                refreshPushToggleUi()
-
-                val nowEnabled = PushSettingsStore.isPushEnabled(requireContext(), profileId)
-
-                Log.d(
-                    "PUSH_TOGGLE",
-                    "readback profileId=$profileId nowEnabled=$nowEnabled enabledProfileIds=${state.enabledProfileIds}"
-                )
-
-                Toast.makeText(
-                    requireContext(),
-                    if (nowEnabled) {
-                        "Alerts ON for ${c.username}"
-                    } else {
-                        "Alerts OFF for ${c.username}"
-                    },
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -3358,8 +3278,5 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         btnTogglePush.contentDescription = getString(mode.titleRes)
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            btnTogglePush.tooltipText = getString(mode.titleRes)
-        }
     }
 }

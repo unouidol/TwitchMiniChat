@@ -59,7 +59,7 @@ object CatchBallCatalog {
 
         Entry("premier_ball", "Premier", "!pokecatch premier ball"),
 
-        // restano nel catalogo ma li filtri fuori dal quick menu
+        // these balls are in the catalog, but filtered out from smart preset menu
         Entry("master_ball", "Master", "!pokecatch master ball"),
         Entry("cherish_ball", "Cherish", "!pokecatch cherish ball"),
         Entry("great_cherish_ball", "Great Cherish", "!pokecatch great cherish ball"),

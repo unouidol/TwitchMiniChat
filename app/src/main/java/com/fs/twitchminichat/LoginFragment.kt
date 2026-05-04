@@ -80,7 +80,10 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
 
                 recyclerView.post {
                     if (!isAdded) return@post
-                    requireContext().sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
+                    requireContext().sendBroadcast(
+                        Intent(MainActivity.ACTION_ACCOUNTS_CHANGED)
+                            .setPackage(requireContext().packageName)
+                    )
                 }
             }
         })
@@ -137,11 +140,16 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     private fun deleteAccount(accountId: String) {
         val list = repo.loadAccounts().toMutableList()
         val removed = list.removeAll { it.id == accountId }
-        if (removed) {
-            repo.saveAll(list)
-            refreshList()
-            requireContext().sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
-        }
+
+        if (!removed) return
+
+        repo.saveAll(list)
+        refreshList()
+
+        requireContext().sendBroadcast(
+            Intent(MainActivity.ACTION_ACCOUNTS_CHANGED)
+                .setPackage(requireContext().packageName)
+        )
     }
 
     private fun normalizeChannel(raw: String): String {

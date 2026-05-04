@@ -17,6 +17,17 @@
         android:paddingEnd="8dp"
         android:paddingBottom="6dp">
 
+        <ImageButton
+            android:id="@+id/btnRefreshPcgExtension"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="6dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/pcg_refresh_accessibility"
+            android:padding="8dp"
+            android:scaleType="center"
+            android:src="@drawable/ic_refresh_24" />
+
         <LinearLayout
             android:id="@+id/containerRegisterInventory"
             android:layout_width="0dp"
@@ -28,14 +39,14 @@
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnRegisterInventory"
                 style="?android:attr/buttonBarButtonStyle"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="48dp"
-                android:drawablePadding="6dp"
+                android:drawablePadding="4dp"
                 android:gravity="center"
                 android:minWidth="48dp"
                 android:minHeight="48dp"
                 android:text="@string/pcg_register_inventory"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 app:drawableStartCompat="@drawable/ic_bag_black_24" />
 
             <ProgressBar
@@ -63,12 +74,12 @@
                 style="?android:attr/buttonBarButtonStyle"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:drawablePadding="6dp"
+                android:drawablePadding="4dp"
                 android:gravity="center"
                 android:minWidth="48dp"
                 android:minHeight="48dp"
                 android:text="@string/pcg_register_pokedex"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 app:drawableStartCompat="@drawable/ic_pokedex_24"
                 app:drawableTint="?android:attr/textColorPrimary" />
 
@@ -83,7 +94,10 @@
                 android:progress="0"
                 android:visibility="invisible" />
 
+
+
         </LinearLayout>
+
 
     </LinearLayout>
 

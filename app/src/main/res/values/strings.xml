@@ -31,16 +31,16 @@
     <string name="replying_to">Replying to @%1$s: %2$s</string>
     <string name="reply_cancel">X</string>
     <string name="replying">Replying…</string>
-    <string name="close">X</string>
-    <string name="fcm_set_push_enabled_url">https://api.ircminichat.party/set_profile_push_enabled</string>
+
+
     <string name="account_notifications">Account Alerts</string>
-    <string name="fcm_get_device_push_state_url">https://api.ircminichat.party/get_device_push_state</string>
+
     <string name="account_username">User: %1$s</string>
     <string name="account_channel">Channel: #%1$s</string>
     <string name="twitch_channel_hint">Twitch channel (e.g. unouidol)</string>
     <string name="twitch_login_button">Twitch Login</string>
     <string name="logged_accounts_title">Logged Accounts - press x to delete</string>
-    <string name="Remove">Remove</string>
+
     <string name="delete_account_confirm_title">Remove account?</string>
     <string name="delete_account_confirm_message">Remove logged-in account @%1$s from this device?</string>
     <string name="delete_account_confirm_action">Remove</string>
@@ -59,21 +59,20 @@
     <string name="add_preset">Add preset</string>
     <string name="remove_preset">Remove preset</string>
     <string name="drag_to_reorder_preset">Drag to reorder preset</string>
-    <string name="catch_preset_limit_reached">You can save up to %1$d presets.</string>
-    <string name="no_enabled_catch_presets">No catch presets enabled</string>
+    <string name="catch_preset_limit_reached">You can save up to %1$d preset.</string>
+
     <string name="catch_presets_enable_all">Enable all presets</string>
     <string name="quick_catch_menu_title">Catch presets</string>
-    <string name="quick_catch_label_with_count">%1$s (%2$d)</string>
-    <string name="quick_catch_count_unknown">%1$s</string>
+
+    <string name="catch_presets_unsaved_title">Save preset changes?</string>
+    <string name="catch_presets_unsaved_message">You changed your catch preset. Do you want to save those changes before closing?</string>
+    <string name="catch_presets_unsaved_save">Save</string>
+    <string name="catch_presets_unsaved_discard">Discard</string>
 
     <string name="catch_section_smart_presets">Smart presets</string>
     <string name="catch_section_user_presets">User presets</string>
-    <string name="catch_no_recent_spawn">No recent spawn</string>
-    <string name="catch_generic_menu">Generic catch menu</string>
-    <string name="catch_no_user_presets">No user presets configured</string>
-    <string name="catch_no_presets_available">No catch presets available</string>
 
-    <string name="buy_ball_button">Buy</string>
+
     <string name="buy_ball_content_description">Buy ball</string>
     <string name="friend_ball_buddy_content_description">Show buddy info</string>
 
@@ -85,7 +84,7 @@
     <string name="invalid_quantity">Invalid quantity</string>
 
     <string name="buy_ball_request_sent">Purchase sent: %1$d × %2$s</string>
-    <string name="inventory_loaded_success">Inventory loaded</string>
+
     <string name="missing_active_profile">No active profile available</string>
 
 
@@ -145,9 +144,11 @@
 
     <string name="remove_channel">Remove channel</string>
 
-    <string name="pcg_manual_update_title">Manual PCG data update</string>
     <string name="pcg_register_pokedex">Update Pokédex</string>
     <string name="pcg_register_inventory">Update Inventory</string>
+    <string name="pcg_refresh_started">Refreshing PCG extension…</string>
+    <string name="pcg_refresh_failed">PCG extension is not ready yet.</string>
+    <string name="pcg_refresh_accessibility">Refresh Pokémon Community Game extension</string>
 
     <string name="pcg_pokedex_spawnable_only_required">Set the Pokédex filter to Spawnable only, then try again.</string>
     <string name="pcg_pokedex_read_timeout">Couldn’t read the Pokédex yet. Keep Pokédex open with Spawnable only, then try again.</string>
@@ -156,31 +157,23 @@
     <string name="pcg_pokedex_wrong_tab">Load the Pokédex tab and press Update Pokédex to update your missing Pokédex entries.</string>
 
     <string name="pcg_inventory_updated">Poké Ball inventory updated.</string>
-    <string name="pcg_pokedex_updated">Pokédex updated.</string>
+
 
     <string name="pcg_register_inventory_checking">Checking inventory…</string>
     <string name="pcg_register_pokedex_checking">Checking Pokédex…</string>
 
-    <string name="pcg_inventory_update_requested">Inventory update requested</string>
-    <string name="pcg_pokedex_update_requested">Pokédex update requested</string>
-    <string name="pcg_manual_update_not_ready">PCG panel is not ready yet. Open the PCG panel and try again.</string>
-    <string name="pcg_manual_update_failed">PCG data update failed. Try again after the tab finishes loading.</string>
-    <string name="pcg_inventory_update">Update inventory</string>
-    <string name="pcg_inventory_reading">Reading inventory…</string>
-    <string name="pcg_inventory_open_tab_first">Open Inventory tab first</string>
-     <string name="pcg_inventory_timeout">Inventory read timed out. Open the Inventory tab and try again.</string>
+
 
     <string name="buddy_unknown">Buddy unknown</string>
     <string name="buddy_request_sent">Buddy info requested</string>
-    <string name="friend_ball_buddy_subtitle">Buddy: %1$s (%2$s)</string>
     <string name="friend_ball_buddy_subtitle_name_only">Buddy: %1$s</string>
     <string name="friend_ball_buddy_subtitle_level">Buddy: %1$s (Lvl %2$d)</string>
 
     <string name="friend_ball_buddy_subtitle_name_types">Buddy: %1$s (%2$s)</string>
     <string name="friend_ball_buddy_subtitle_level_types">Buddy: %1$s (Lvl %2$d • %3$s)</string>
-    <string name="ball_reason_base_basic">30% catch rate</string>
-    <string name="ball_reason_base_great">55% catch rate</string>
-    <string name="ball_reason_base_ultra">80% catch rate</string>
+    <string name="ball_reason_base_basic">30%% catch rate</string>
+    <string name="ball_reason_base_great">55%% catch rate</string>
+    <string name="ball_reason_base_ultra">80%% catch rate</string>
 
     <string name="ball_reason_buddy_shared_type">Buddy type match</string>
 
@@ -235,23 +228,20 @@
     <string name="chat_send_filtered_rate_limit">Message not sent: sending messages too quickly.</string>
     <string name="chat_send_filtered_generic">Message not sent by Twitch: %1$s</string>
 
-    <string name="spawn_alert_mode_dialog_title">Spawn notifications</string>
+    <string name="spawn_alert_mode_dex_tier_a">Notify missing dex entries spawns and A tiers</string>
 
-    <string name="spawn_alert_mode_dex_tier_a">Dex + Tier A</string>
-    <string name="spawn_alert_mode_dex_tier_a_desc">Notify missing Dex Pokémon and important Tier A spawns.</string>
+    <string name="spawn_alert_mode_dex_only">Notify only missing dex entries spawns</string>
 
-    <string name="spawn_alert_mode_dex_only">Dex only</string>
-    <string name="spawn_alert_mode_dex_only_desc">Notify only Pokémon missing from your Dex list.</string>
 
-    <string name="spawn_alert_mode_all_spawns">All spawns</string>
-    <string name="spawn_alert_mode_all_spawns_desc">Notify every detected Pokémon spawn.</string>
+    <string name="spawn_alert_mode_all_spawns">Notify ALL spawns</string>
+
 
     <string name="spawn_alert_mode_none">No spawns</string>
-    <string name="spawn_alert_mode_none_desc">Disable Pokémon spawn notifications for this profile.</string>
+
 
     <string name="spawn_alert_mode_saved">Spawn notifications: %1$s</string>
     <string name="spawn_alert_mode_save_failed">Could not update spawn notification mode.</string>
-    <string name="push_profile_missing">Select a Twitch profile first.</string>
+
     <string name="fcm_set_spawn_alert_mode_url">https://api.ircminichat.party/set_spawn_alert_mode</string>
     <string name="spawn_alert_profile_missing">Select a Twitch profile first.</string>
 

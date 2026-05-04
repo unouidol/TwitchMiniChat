@@ -43,7 +43,7 @@ object BuddyInfoStore {
     /**
      * Saves buddy information for the given profile.
      *
-     * Optional fields are saved as JSONObject.NULL when they are null, so the load
+     * Optional fields are saved as "JSONObject.NULL" when they are null, so the load
      * path can distinguish between a missing value and a numeric value.
      */
     fun save(context: Context, profileId: String, info: BuddyInfo) {

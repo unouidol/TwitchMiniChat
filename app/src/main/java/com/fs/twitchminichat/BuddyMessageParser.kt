@@ -49,7 +49,7 @@ object BuddyMessageParser {
 
         tail = tail.replace(avgIvPattern, "").trim()
 
-        // pulizia finale
+        // final cleaning
         tail = tail
             .replace(Regex("""\s+"""), " ")
             .trim('-', '•', '·', ' ')

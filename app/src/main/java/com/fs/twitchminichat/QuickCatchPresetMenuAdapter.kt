@@ -146,6 +146,7 @@ class QuickCatchPresetMenuAdapter(
         }
 
 
+
     /**
      * Total number of visual entries.
      *

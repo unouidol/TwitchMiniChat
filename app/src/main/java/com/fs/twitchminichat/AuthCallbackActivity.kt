@@ -87,7 +87,9 @@ class AuthCallbackActivity : AppCompatActivity() {
             clearPendingChannelForSlot(slot)
 
             runOnUiThread {
-                sendBroadcast(Intent(MainActivity.ACTION_ACCOUNTS_CHANGED))
+                sendBroadcast(
+                    Intent(MainActivity.ACTION_ACCOUNTS_CHANGED).setPackage(packageName)
+                )
 
                 Toast.makeText(
                     this,
