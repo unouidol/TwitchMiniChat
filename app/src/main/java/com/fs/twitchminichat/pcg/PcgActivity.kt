@@ -18,6 +18,15 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     private var accountId: String = ""
 
+    private lateinit var btnRegisterPokedex: Button
+    private lateinit var btnRegisterInventory: Button
+    private lateinit var btnRefreshPcgExtension: ImageButton
+
+    private lateinit var progressRegisterPokedex: ProgressBar
+    private lateinit var progressRegisterInventory: ProgressBar
+
+    private var latestManualUpdateButtonState: GeckoSessionManager.PcgManualUpdateButtonState? = null
+
     private var pokedexProgressAnimator: ValueAnimator? = null
     private var pokedexRestoreRunnable: Runnable? = null
 
@@ -53,12 +62,14 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
      * extension surface.
      */
     private fun setupManualPcgDataUpdateButtons() {
-        val btnRegisterPokedex = findViewById<Button>(R.id.btnRegisterPokedex)
-        val btnRegisterInventory = findViewById<Button>(R.id.btnRegisterInventory)
-        val btnRefreshPcgExtension = findViewById<ImageButton>(R.id.btnRefreshPcgExtension)
+        btnRegisterPokedex = findViewById(R.id.btnRegisterPokedex)
+        btnRegisterInventory = findViewById(R.id.btnRegisterInventory)
+        btnRefreshPcgExtension = findViewById(R.id.btnRefreshPcgExtension)
 
-        val progressRegisterPokedex = findViewById<ProgressBar>(R.id.progressRegisterPokedex)
-        val progressRegisterInventory = findViewById<ProgressBar>(R.id.progressRegisterInventory)
+        progressRegisterPokedex = findViewById(R.id.progressRegisterPokedex)
+        progressRegisterInventory = findViewById(R.id.progressRegisterInventory)
+
+        applyManualUpdateButtonsDisabled()
 
         val controller = PcgManualDataUpdateController(
             context = this,
@@ -108,6 +119,79 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         btnRefreshPcgExtension.setOnClickListener {
             refreshPcgExtensionFromUserTap()
         }
+
+        if (accountId.isNotBlank()) {
+            GeckoSessionManager.setManualUpdateButtonStateListener(
+                accountId = accountId
+            ) { state ->
+                runOnUiThread {
+                    applyManualUpdateButtonState(state)
+                }
+            }
+        }
+    }
+
+    /**
+     * Disables both manual update buttons until GeckoSessionManager reports a fresh
+     * confirmed PCG tab state.
+     */
+    private fun applyManualUpdateButtonsDisabled() {
+        btnRegisterInventory.isEnabled = false
+        btnRegisterPokedex.isEnabled = false
+
+        btnRegisterInventory.alpha = DISABLED_BUTTON_ALPHA
+        btnRegisterPokedex.alpha = DISABLED_BUTTON_ALPHA
+    }
+
+    /**
+     * Applies the latest PCG tab state to the manual update buttons.
+     *
+     * Inventory and Pokédex are mutually exclusive: only the button matching the
+     * confirmed active PCG tab can be enabled. Button progress feedback still wins
+     * temporarily, so a button stays disabled while its checking animation is shown.
+     */
+    private fun applyManualUpdateButtonState(
+        state: GeckoSessionManager.PcgManualUpdateButtonState
+    ) {
+        latestManualUpdateButtonState = state
+        applyLatestManualUpdateButtonState()
+    }
+
+    /**
+     * Re-applies the last known button state after progress feedback starts/ends.
+     *
+     * This prevents restoreInventoryButtonFeedback(...) and
+     * restorePokedexButtonFeedback(...) from accidentally enabling a button that
+     * should remain disabled because the user is on the other PCG tab.
+     */
+    private fun applyLatestManualUpdateButtonState() {
+        val state = latestManualUpdateButtonState
+
+        if (state == null) {
+            applyManualUpdateButtonsDisabled()
+            return
+        }
+
+        val inventoryFeedbackRunning = inventoryProgressAnimator != null || inventoryRestoreRunnable != null
+        val pokedexFeedbackRunning = pokedexProgressAnimator != null || pokedexRestoreRunnable != null
+
+        val inventoryEnabled = state.inventoryEnabled && !inventoryFeedbackRunning
+        val pokedexEnabled = state.pokedexEnabled && !pokedexFeedbackRunning
+
+        btnRegisterInventory.isEnabled = inventoryEnabled
+        btnRegisterPokedex.isEnabled = pokedexEnabled
+
+        btnRegisterInventory.alpha = if (inventoryEnabled) {
+            ENABLED_BUTTON_ALPHA
+        } else {
+            DISABLED_BUTTON_ALPHA
+        }
+
+        btnRegisterPokedex.alpha = if (pokedexEnabled) {
+            ENABLED_BUTTON_ALPHA
+        } else {
+            DISABLED_BUTTON_ALPHA
+        }
     }
 
     /**
@@ -154,6 +238,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         cancelInventoryButtonProgressFeedback(button = button)
 
         button.isEnabled = false
+        button.alpha = DISABLED_BUTTON_ALPHA
         button.setText(R.string.pcg_register_inventory_checking)
 
         progressBar.max = PROGRESS_BAR_MAX
@@ -193,11 +278,12 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         inventoryRestoreRunnable = null
 
         if (!isFinishing && !isDestroyed) {
-            button.isEnabled = true
             button.setText(R.string.pcg_register_inventory)
 
             progressBar.progress = 0
             progressBar.visibility = View.INVISIBLE
+
+            applyLatestManualUpdateButtonState()
         }
     }
 
@@ -235,6 +321,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         cancelPokedexButtonProgressFeedback(button = button)
 
         button.isEnabled = false
+        button.alpha = DISABLED_BUTTON_ALPHA
         button.setText(R.string.pcg_register_pokedex_checking)
 
         progressBar.max = PROGRESS_BAR_MAX
@@ -274,11 +361,12 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         pokedexRestoreRunnable = null
 
         if (!isFinishing && !isDestroyed) {
-            button.isEnabled = true
             button.setText(R.string.pcg_register_pokedex)
 
             progressBar.progress = 0
             progressBar.visibility = View.INVISIBLE
+
+            applyLatestManualUpdateButtonState()
         }
     }
 
@@ -302,16 +390,20 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     override fun onDestroy() {
-        val btnRegisterPokedex = findViewById<Button?>(R.id.btnRegisterPokedex)
-        val btnRegisterInventory = findViewById<Button?>(R.id.btnRegisterInventory)
+        if (accountId.isNotBlank()) {
+            GeckoSessionManager.setManualUpdateButtonStateListener(
+                accountId = accountId,
+                listener = null
+            )
+        }
 
-        if (btnRegisterPokedex != null) {
+        if (this::btnRegisterPokedex.isInitialized) {
             cancelPokedexButtonProgressFeedback(
                 button = btnRegisterPokedex
             )
         }
 
-        if (btnRegisterInventory != null) {
+        if (this::btnRegisterInventory.isInitialized) {
             cancelInventoryButtonProgressFeedback(
                 button = btnRegisterInventory
             )
@@ -327,6 +419,16 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
          * ProgressBar max used for the manual update feedback animations.
          */
         private const val PROGRESS_BAR_MAX = 1_000
+
+        /**
+         * Visual opacity for enabled manual update buttons.
+         */
+        private const val ENABLED_BUTTON_ALPHA = 1.0f
+
+        /**
+         * Visual opacity for disabled manual update buttons.
+         */
+        private const val DISABLED_BUTTON_ALPHA = 0.45f
 
         /**
          * Visual window for Register Pokédex.

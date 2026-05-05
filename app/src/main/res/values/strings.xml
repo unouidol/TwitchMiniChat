@@ -246,5 +246,23 @@
     <string name="fcm_set_spawn_alert_mode_url">https://api.ircminichat.party/set_spawn_alert_mode</string>
     <string name="spawn_alert_profile_missing">Select a Twitch profile first.</string>
 
+    <string name="pcg_notification_channel_silent_name">PCG alerts silent</string>
+    <string name="pcg_notification_channel_silent_description">PokémonCommunityGame alerts without sound or vibration.</string>
+
+    <string name="pcg_notification_channel_sound_name">PCG alerts sound</string>
+    <string name="pcg_notification_channel_sound_description">PokémonCommunityGame alerts with sound.</string>
+
+    <string name="pcg_notification_channel_vibrate_name">PCG alerts vibration</string>
+    <string name="pcg_notification_channel_vibrate_description">PokémonCommunityGame alerts with vibration.</string>
+
+    <string name="pcg_notification_channel_sound_vibrate_name">PCG alerts sound and vibration</string>
+    <string name="pcg_notification_channel_sound_vibrate_description">PokémonCommunityGame alerts with sound and vibration.</string>
+
+    <string name="pcg_spawn_alert_dialog_title">PCG notifications</string>
+    <string name="pcg_spawn_alert_modes_header">Notify me for</string>
+    <string name="pcg_notification_delivery_header">Alert style</string>
+    <string name="pcg_notification_sound_label">Sound</string>
+    <string name="pcg_notification_vibration_label">Vibration</string>
+
 
 </resources>

@@ -63,7 +63,7 @@ object GeckoSessionManager {
      * Cached Inventory/Pokédex snapshots are accepted only when this recent tab
      * state confirms that the user is currently looking at the matching tab.
      */
-    private const val PCG_TAB_STATE_MAX_AGE_MS = 1_000L
+    private const val PCG_TAB_STATE_MAX_AGE_MS = 5_000L
 
     /**
      * Maximum age for the passive Pokédex filter/tab state reported by the content script.
@@ -72,24 +72,6 @@ object GeckoSessionManager {
      * should show a filter/tab hint to the user.
      */
     private const val PCG_POKEDEX_STATE_MAX_AGE_MS = 3_000L
-
-    /**
-     * How long a successful passive Pokédex snapshot can be reused for a manual
-     * Register Pokédex press.
-     *
-     * The snapshot is still invalidated earlier if the Pokédex probe later reports
-     * that the Pokédex DOM is no longer readable.
-     */
-    private const val CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS = 90_000L
-
-    /**
-     * How long a successful passive Inventory snapshot can be reused for a manual
-     * Register inventory press.
-     *
-     * The snapshot is still invalidated earlier if the Inventory probe later reports
-     * that the ball grid is no longer readable.
-     */
-    private const val CACHED_INVENTORY_SNAPSHOT_MAX_AGE_MS = 30_000L
 
 
     /**
@@ -102,6 +84,15 @@ object GeckoSessionManager {
      * candidate from the currently visible PCG surface.
      */
     private const val RECENT_PASSIVE_SNAPSHOT_MAX_AGE_MS = 5_000L
+
+    /**
+     * Initial grace period before enabling the manual Inventory button after the
+     * PCG screen starts listening for tab state.
+     *
+     * PCG opens on Inventory, but the WebExtension still needs a short boot/settle
+     * window before it can confirm the tab and cache a fresh Inventory candidate.
+     */
+    private const val INVENTORY_BUTTON_STARTUP_COOLDOWN_MS = 5_000L
 
     private const val PCG_SESSION_KEEP_ALIVE_MS = 15*60*1_000L
 
@@ -155,6 +146,15 @@ object GeckoSessionManager {
     private val loadedPcgUrls =
         ConcurrentHashMap<String, String>()
 
+    private val manualUpdateButtonStateListeners =
+        ConcurrentHashMap<String, (PcgManualUpdateButtonState) -> Unit>()
+
+    private val inventoryButtonCooldownUntilMs =
+        ConcurrentHashMap<String, Long>()
+
+    private val manualUpdateButtonStateExpiryRunnables =
+        ConcurrentHashMap<String, Runnable>()
+
     /**
      * Last valid inventory snapshot seen passively by the PCG probe.
      *
@@ -182,6 +182,20 @@ object GeckoSessionManager {
     )
 
     /**
+     * UI-facing state for the manual PCG update buttons.
+     *
+     * The buttons are only an affordance: the real safety checks still happen inside
+     * requestManualInventoryUpdate(...) and requestManualPokedexUpdate(...).
+     */
+    data class PcgManualUpdateButtonState(
+        val inventoryEnabled: Boolean,
+        val pokedexEnabled: Boolean,
+        val inventoryCoolingDown: Boolean,
+        val activeTab: String?,
+        val reason: String
+    )
+
+    /**
      * Last known PCG tab state reported by the WebExtension.
      *
      * activeTab is preferred over raw DOM visibility because PCG can keep inactive
@@ -196,6 +210,12 @@ object GeckoSessionManager {
     ) {
         val hasKnownActiveTab: Boolean
             get() = activeTab.isNotBlank() && activeTab != "unknown"
+
+        val isInventoryConfirmedActive: Boolean
+            get() = activeTab == "inventory"
+
+        val isPokedexConfirmedActive: Boolean
+            get() = activeTab == "pokedex"
 
         val isInventoryActive: Boolean
             get() {
@@ -401,6 +421,128 @@ object GeckoSessionManager {
     }
 
     /**
+     * Registers or clears the UI listener that receives manual update button state.
+     *
+     * Registering a listener starts a short Inventory-only cooldown. This prevents
+     * the user from pressing Register Inventory before the probe has had time to
+     * boot, settle the DOM, confirm the Inventory tab, and cache a first candidate.
+     */
+    fun setManualUpdateButtonStateListener(
+        accountId: String,
+        listener: ((PcgManualUpdateButtonState) -> Unit)?
+    ) {
+        val sessionKey = pcgSessionKey(accountId)
+
+        if (listener == null) {
+            manualUpdateButtonStateListeners.remove(sessionKey)
+            inventoryButtonCooldownUntilMs.remove(sessionKey)
+
+            manualUpdateButtonStateExpiryRunnables.remove(sessionKey)?.let { runnable ->
+                mainHandler.removeCallbacks(runnable)
+            }
+            return
+        }
+
+        manualUpdateButtonStateListeners[sessionKey] = listener
+
+        val cooldownUntilMs = SystemClock.elapsedRealtime() + INVENTORY_BUTTON_STARTUP_COOLDOWN_MS
+        inventoryButtonCooldownUntilMs[sessionKey] = cooldownUntilMs
+
+        notifyManualUpdateButtonStateChanged(sessionKey)
+
+        mainHandler.postDelayed(
+            {
+                notifyManualUpdateButtonStateChanged(sessionKey)
+            },
+            INVENTORY_BUTTON_STARTUP_COOLDOWN_MS + 50L
+        )
+    }
+
+    /**
+     * Builds the current enabled/disabled state for the manual PCG buttons.
+     *
+     * This intentionally does not use snapshot freshness as a fallback. The tab
+     * state is the source of truth for where the user is; snapshots only decide
+     * whether a confirmed manual update can complete immediately.
+     */
+    /**
+     * Builds the current enabled/disabled state for the manual PCG buttons.
+     *
+     * This intentionally does not use snapshot freshness as a fallback. The tab
+     * state is the source of truth for where the user is; snapshots only decide
+     * whether a confirmed manual update can complete immediately.
+     */
+    private fun buildManualUpdateButtonState(
+        sessionKey: String
+    ): PcgManualUpdateButtonState {
+        val nowMs = SystemClock.elapsedRealtime()
+        val tabState = getFreshPcgTabState(sessionKey = sessionKey)
+
+        val cooldownUntilMs = inventoryButtonCooldownUntilMs[sessionKey] ?: 0L
+        val inventoryCoolingDown = nowMs < cooldownUntilMs
+
+        /*
+         * Use strict activeTab checks for the buttons.
+         *
+         * Do not use isInventoryActive/isPokedexActive here because those properties
+         * can fall back to DOM visibility. For the UI buttons, "visible somewhere in
+         * the DOM" is not enough: the selected tab must be explicitly Inventory or
+         * Pokédex.
+         */
+        val inventoryTabConfirmed = tabState?.isInventoryConfirmedActive == true
+        val pokedexTabConfirmed = tabState?.isPokedexConfirmedActive == true
+
+        return PcgManualUpdateButtonState(
+            inventoryEnabled = inventoryTabConfirmed && !inventoryCoolingDown,
+            pokedexEnabled = pokedexTabConfirmed,
+            inventoryCoolingDown = inventoryCoolingDown,
+            activeTab = tabState?.activeTab,
+            reason = when {
+                inventoryCoolingDown && inventoryTabConfirmed -> "inventory_startup_cooldown"
+                inventoryTabConfirmed -> "inventory_active"
+                pokedexTabConfirmed -> "pokedex_active"
+                tabState == null -> "no_fresh_tab_state"
+                tabState.activeTab == "other" -> "other_pcg_tab"
+                tabState.activeTab == "unknown" -> "unknown_pcg_tab"
+                else -> "unsupported_pcg_tab_${tabState.activeTab}"
+            }
+        )
+    }
+
+    /**
+     * Sends the latest manual update button state to the visible PCG Activity.
+     */
+    private fun notifyManualUpdateButtonStateChanged(sessionKey: String) {
+        val listener = manualUpdateButtonStateListeners[sessionKey] ?: return
+        val state = buildManualUpdateButtonState(sessionKey)
+
+        mainHandler.post {
+            listener(state)
+        }
+    }
+
+    /**
+     * Schedules a UI refresh right after the current tab-state freshness window
+     * expires.
+     *
+     * Without this, the Activity may keep showing the last enabled button even after
+     * getFreshPcgTabState(...) would already return null.
+     */
+    private fun scheduleManualUpdateButtonStateExpiry(sessionKey: String) {
+        manualUpdateButtonStateExpiryRunnables.remove(sessionKey)?.let { oldRunnable ->
+            mainHandler.removeCallbacks(oldRunnable)
+        }
+
+        val runnable = Runnable {
+            manualUpdateButtonStateExpiryRunnables.remove(sessionKey)
+            notifyManualUpdateButtonStateChanged(sessionKey)
+        }
+
+        manualUpdateButtonStateExpiryRunnables[sessionKey] = runnable
+        mainHandler.postDelayed(runnable, PCG_TAB_STATE_MAX_AGE_MS + 50L)
+    }
+
+    /**
      * Shows a short app toast on the main thread.
      *
      * Use this only for immediate lightweight confirmations. Manual PCG update
@@ -458,40 +600,28 @@ object GeckoSessionManager {
         return "pcg:$accountId"
     }
 
-    private fun isCachedSnapshotFresh(
-        capturedAtMs: Long,
-        maxAgeMs: Long,
-        debugLabel: String,
-        sessionKey: String
-    ): Boolean {
-        val ageMs = SystemClock.elapsedRealtime() - capturedAtMs
-        val fresh = ageMs in 0L..maxAgeMs
-
-        Log.d(
-            "PCG_PROBE",
-            "cached $debugLabel snapshot check sessionKey=$sessionKey ageMs=$ageMs maxAgeMs=$maxAgeMs fresh=$fresh"
-        )
-
-        return fresh
-    }
-
     /**
      * Checks whether a passive PCG DOM snapshot is recent enough to be promoted to
      * a user-confirmed manual registration.
      *
-     * Passive snapshots are only candidates kept in memory. They become real app
-     * data only when the user presses one of the manual Register buttons.
+     * Passive snapshots are only RAM candidates. They become real Inventory/Dex app
+     * data only when the user presses one of the manual Register buttons while the
+     * matching PCG tab is confirmed active.
      */
     private fun isRecentPassiveSnapshot(
         capturedAtMs: Long,
         sessionKey: String
     ): Boolean {
-        return isCachedSnapshotFresh(
-            capturedAtMs = capturedAtMs,
-            maxAgeMs = RECENT_PASSIVE_SNAPSHOT_MAX_AGE_MS,
-            debugLabel = "recent_passive_snapshot",
-            sessionKey = sessionKey
+        val ageMs = SystemClock.elapsedRealtime() - capturedAtMs
+        val fresh = ageMs in 0L..RECENT_PASSIVE_SNAPSHOT_MAX_AGE_MS
+
+        Log.d(
+            "PCG_PROBE",
+            "recent passive snapshot check sessionKey=$sessionKey " +
+                    "ageMs=$ageMs maxAgeMs=$RECENT_PASSIVE_SNAPSHOT_MAX_AGE_MS fresh=$fresh"
         )
+
+        return fresh
     }
 
     private fun getFreshPcgTabState(
@@ -504,8 +634,11 @@ object GeckoSessionManager {
         Log.d(
             "PCG_PROBE",
             "tab state check sessionKey=$sessionKey " +
-                    "ageMs=$ageMs fresh=$fresh pokedexVisible=${state.pokedexVisible} " +
-                    "inventoryVisible=${state.inventoryVisible} anyLoadedSurface=${state.anyLoadedSurface}"
+                    "ageMs=$ageMs maxAgeMs=$PCG_TAB_STATE_MAX_AGE_MS fresh=$fresh " +
+                    "activeTab=${state.activeTab} " +
+                    "pokedexVisible=${state.pokedexVisible} " +
+                    "inventoryVisible=${state.inventoryVisible} " +
+                    "anyLoadedSurface=${state.anyLoadedSurface}"
         )
 
         return if (fresh) state else null
@@ -550,19 +683,16 @@ object GeckoSessionManager {
 
         lastPcgPokedexStates[sessionKey] = state
 
-        if (state.onPokedexTab) {
-            val removedInventorySnapshot = lastInventorySnapshots.remove(sessionKey)
-            if (removedInventorySnapshot != null) {
-                Log.d(
-                    "PCG_PROBE",
-                    "invalidated cached inventory snapshot because passive Pokédex state is active " +
-                            "sessionKey=$sessionKey reason=${state.reason}"
-                )
-            }
-        }
 
         if (!state.validForMissingDexUpload) {
+            /*
+             * The user may be on Pokédex, but the visible filter state is not valid
+             * for the missing-dex upload. Drop the cached Pokédex candidate so a
+             * previously valid Spawnable-only snapshot cannot be reused after the
+             * visible filters changed.
+             */
             val removedSnapshot = lastPokedexSnapshots.remove(sessionKey)
+
             if (removedSnapshot != null) {
                 Log.d(
                     "PCG_PROBE",
@@ -652,10 +782,8 @@ object GeckoSessionManager {
 
                 if (
                     snapshot != null &&
-                    isCachedSnapshotFresh(
+                    isRecentPassiveSnapshot(
                         capturedAtMs = snapshot.capturedAtMs,
-                        maxAgeMs = CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS,
-                        debugLabel = "pokedex",
                         sessionKey = sessionKey
                     ) &&
                     consumeManualUpdateRequest(
@@ -745,10 +873,64 @@ object GeckoSessionManager {
             sessionKey = sessionKey,
             state = state
         )
+        notifyManualUpdateButtonStateChanged(sessionKey)
+        scheduleManualUpdateButtonStateExpiry(sessionKey)
     }
 
-    //**
-    /* Invalidates cached passive snapshots when the active PCG surface changes.
+    /**
+     * Records a confirmed PCG tab state from a strong surface-specific signal.
+     *
+     * This is used when a probe has direct evidence of the active PCG surface:
+     * - Inventory is confirmed when the Inventory ball grid is successfully read.
+     * - Pokédex is confirmed when the Pokédex probe reports that the Pokédex tab is active.
+     *
+     * Keeping this centralized prevents passive snapshots from becoming the UI
+     * source of truth directly. Snapshots remain data candidates; this method only
+     * records "where we are" inside PCG.
+     */
+    private fun recordConfirmedPcgTabState(
+        appContext: Context,
+        sessionKey: String,
+        activeTab: String,
+        source: String
+    ) {
+        val state = CachedPcgTabState(
+            activeTab = activeTab,
+            pokedexVisible = activeTab == "pokedex",
+            inventoryVisible = activeTab == "inventory",
+            anyLoadedSurface = true,
+            capturedAtMs = SystemClock.elapsedRealtime()
+        )
+
+        val previousState = lastPcgTabStates[sessionKey]
+        lastPcgTabStates[sessionKey] = state
+
+        invalidateCachedSnapshotsForHiddenTabs(
+            sessionKey = sessionKey,
+            state = state
+        )
+
+        Log.d(
+            "PCG_PROBE",
+            "confirmed PCG tab state from $source sessionKey=$sessionKey " +
+                    "previousActiveTab=${previousState?.activeTab} " +
+                    "newActiveTab=${state.activeTab} " +
+                    "inventoryVisible=${state.inventoryVisible} " +
+                    "pokedexVisible=${state.pokedexVisible}"
+        )
+
+        completeOrRejectPendingManualUpdatesFromTabState(
+            appContext = appContext,
+            sessionKey = sessionKey,
+            state = state
+        )
+
+        notifyManualUpdateButtonStateChanged(sessionKey)
+        scheduleManualUpdateButtonStateExpiry(sessionKey)
+    }
+
+    /**
+    *Invalidates cached passive snapshots when the active PCG surface changes.
     *
     * A snapshot belongs to the tab that produced it. If the user moves to another
     * known tab, that snapshot must not be reused for a later manual update.
@@ -837,10 +1019,8 @@ object GeckoSessionManager {
 
                     if (
                         snapshot != null &&
-                        isCachedSnapshotFresh(
+                        isRecentPassiveSnapshot(
                             capturedAtMs = snapshot.capturedAtMs,
-                            maxAgeMs = CACHED_INVENTORY_SNAPSHOT_MAX_AGE_MS,
-                            debugLabel = "inventory",
                             sessionKey = sessionKey
                         ) &&
                         consumeManualUpdateRequest(
@@ -891,10 +1071,8 @@ object GeckoSessionManager {
 
                     if (
                         snapshot != null &&
-                        isCachedSnapshotFresh(
+                        isRecentPassiveSnapshot(
                             capturedAtMs = snapshot.capturedAtMs,
-                            maxAgeMs = CACHED_POKEDEX_SNAPSHOT_MAX_AGE_MS,
-                            debugLabel = "pokedex",
                             sessionKey = sessionKey
                         ) &&
                         consumeManualUpdateRequest(
@@ -1115,15 +1293,6 @@ object GeckoSessionManager {
             capturedAtMs = SystemClock.elapsedRealtime()
         )
 
-        /*
-         * A successful Pokédex read claims the current PCG surface for Pokédex.
-         * Any older Inventory snapshot should no longer be reused.
-         */
-        invalidateOlderInventorySnapshot(
-            sessionKey = sessionKey,
-            newerCapturedAtMs = snapshot.capturedAtMs
-        )
-
         lastPokedexSnapshots[sessionKey] = snapshot
 
         if (!consumeManualUpdateRequest(
@@ -1217,34 +1386,30 @@ object GeckoSessionManager {
             return
         }
 
+        /*
+         * Do not update the UI tab state from an Inventory extract.
+         *
+         * Extracts are data candidates; the manual update buttons are controlled only
+         * by the explicit pcg_tab_state DOM signal so they can turn off immediately
+         * when the selected PCG tab changes.
+         */
+
+        /*
+         * A successful Inventory extraction is strong evidence that the current PCG
+         * surface is Inventory. This updates the shared tab-state source of truth.
+         *
+         * Snapshot invalidation for the opposite tab is handled centrally by
+         * recordConfirmedPcgTabState(...), through invalidateCachedSnapshotsForHiddenTabs(...).
+         */
+
+
+
         val snapshot = CachedInventorySnapshot(
             profileId = profileId,
             profileLabel = profileLabel,
             balls = balls,
             capturedAtMs = SystemClock.elapsedRealtime()
         )
-
-        /*
-         * Only invalidate the Pokédex candidate when Android has a fresh signal
-         * confirming that Inventory is the active PCG tab. This avoids letting a
-         * late Inventory message wipe a valid Pokédex candidate after a tab change.
-         */
-        if (tabState?.isInventoryActive == true) {
-            lastPokedexSnapshots.remove(sessionKey)
-
-            Log.d(
-                "PCG_PROBE",
-                "pokedex passive snapshot invalidated because Inventory tab is active " +
-                        "sessionKey=$sessionKey"
-            )
-        } else {
-            Log.d(
-                "PCG_PROBE",
-                "inventory extract accepted with no confirmed active Inventory tab; " +
-                        "keeping Pokédex snapshot untouched sessionKey=$sessionKey " +
-                        "activeTab=${tabState?.activeTab}"
-            )
-        }
 
         /*
          * This is still only a passive candidate. It becomes real saved Inventory
@@ -1559,46 +1724,25 @@ object GeckoSessionManager {
             sessionKey = sessionKey,
         )
 
-        if (tabState != null && tabState.hasKnownActiveTab && !tabState.isInventoryActive) {
-            /*
-             * Android has a fresh tab-state signal, and it says another PCG tab is
-             * active. Remove the Inventory candidate so it cannot be reused after the
-             * user has moved away from Inventory.
-             */
+        if (tabState?.isInventoryActive != true) {
             lastInventorySnapshots.remove(sessionKey)
 
             Log.d(
                 "PCG_PROBE",
-                "manual inventory rejected immediately because active tab is not Inventory " +
-                        "sessionKey=$sessionKey activeTab=${tabState.activeTab}"
+                "manual inventory rejected because Inventory tab is not confirmed active " +
+                        "sessionKey=$sessionKey activeTab=${tabState?.activeTab} " +
+                        "inventoryVisible=${tabState?.inventoryVisible} " +
+                        "pokedexVisible=${tabState?.pokedexVisible}"
             )
 
             showManualUpdateResultToastOnMain(
                 appContext = appContext,
                 requestedAtMs = requestedAtMs,
                 messageRes = R.string.pcg_inventory_wrong_tab,
-                debugLabel = "inventory_wrong_tab_immediate"
+                debugLabel = "inventory_not_confirmed_active"
             )
 
             return true
-        }
-
-        if (tabState != null && !tabState.hasKnownActiveTab) {
-            /*
-             * We have a fresh PCG tab-state payload, but it cannot identify the active
-             * tab yet. Do not reject immediately.
-             *
-             * A recent Inventory snapshot is still safe to use because it is short-lived
-             * and came from the Inventory extractor. If it is stale or missing, the
-             * manual request below will wait for the next valid Inventory snapshot.
-             */
-            Log.d(
-                "PCG_PROBE",
-                "manual inventory press has fresh tab state but active tab is unknown " +
-                        "sessionKey=$sessionKey activeTab=${tabState.activeTab} " +
-                        "inventoryVisible=${tabState.inventoryVisible} " +
-                        "pokedexVisible=${tabState.pokedexVisible}"
-            )
         }
 
         val cachedSnapshot = lastInventorySnapshots[sessionKey]
@@ -1613,7 +1757,7 @@ object GeckoSessionManager {
             Log.d(
                 "PCG_PROBE",
                 "manual inventory registration completed from recent passive Inventory snapshot " +
-                        "sessionKey=$sessionKey activeTab=${tabState?.activeTab}"
+                        "sessionKey=$sessionKey"
             )
 
             saveManualInventorySnapshot(
@@ -1627,24 +1771,15 @@ object GeckoSessionManager {
         }
 
         if (cachedSnapshot != null) {
-            /*
-             * The cached candidate exists, but it is too old for the new passive-snapshot
-             * model. Drop it and wait for the next fresh Inventory extract.
-             */
             lastInventorySnapshots.remove(sessionKey)
 
             Log.d(
                 "PCG_PROBE",
                 "stale inventory passive snapshot dropped before arming manual registration " +
-                        "sessionKey=$sessionKey activeTab=${tabState?.activeTab}"
+                        "sessionKey=$sessionKey"
             )
         }
 
-        /*
-         * No recent passive candidate is available. Keep the user action alive for
-         * a short window: the next valid Inventory extract from the active Inventory
-         * tab will be promoted from passive candidate to saved app data.
-         */
         pendingManualInventoryRequests[sessionKey] = requestedAtMs
 
         Log.d(
@@ -1683,6 +1818,37 @@ object GeckoSessionManager {
         val appContext = context.applicationContext
         val requestedAtMs = SystemClock.elapsedRealtime()
 
+        val tabState = getFreshPcgTabState(
+            sessionKey = sessionKey,
+        )
+
+        if (tabState?.isPokedexActive != true) {
+            /*
+             * Manual Pokédex registration requires a confirmed active Pokédex tab.
+             * We do not use a fresh snapshot as a substitute for tab ownership:
+             * snapshots are data candidates, while tab state is the source of truth
+             * for where the user currently is inside PCG.
+             */
+            lastPokedexSnapshots.remove(sessionKey)
+
+            Log.d(
+                "PCG_PROBE",
+                "manual pokedex rejected because Pokédex tab is not confirmed active " +
+                        "sessionKey=$sessionKey activeTab=${tabState?.activeTab} " +
+                        "pokedexVisible=${tabState?.pokedexVisible} " +
+                        "inventoryVisible=${tabState?.inventoryVisible}"
+            )
+
+            showManualUpdateResultToastOnMain(
+                appContext = appContext,
+                requestedAtMs = requestedAtMs,
+                messageRes = R.string.pcg_pokedex_wrong_tab,
+                debugLabel = "pokedex_not_confirmed_active"
+            )
+
+            return true
+        }
+
         val pokedexState = getFreshPcgPokedexState(
             sessionKey = sessionKey,
         )
@@ -1691,16 +1857,15 @@ object GeckoSessionManager {
             when {
                 !pokedexState.onPokedexTab -> {
                     /*
-                     * The user pressed the Pokédex registration button, but Android
-                     * has a fresh signal saying the currently visible PCG surface is
-                     * not the Pokédex tab. Do not arm a manual request here, because
-                     * the next passive snapshot could belong to another surface.
+                     * The general PCG tab state says Pokédex is active, but the
+                     * Pokédex-specific probe does not agree. Treat this as unsafe
+                     * and refuse to reuse any cached Pokédex candidate.
                      */
                     lastPokedexSnapshots.remove(sessionKey)
 
                     Log.d(
                         "PCG_PROBE",
-                        "manual pokedex rejected immediately because Pokédex tab is not active " +
+                        "manual pokedex rejected because Pokédex probe does not confirm the tab " +
                                 "sessionKey=$sessionKey reason=${pokedexState.reason}"
                     )
 
@@ -1708,7 +1873,7 @@ object GeckoSessionManager {
                         appContext = appContext,
                         requestedAtMs = requestedAtMs,
                         messageRes = R.string.pcg_pokedex_wrong_tab,
-                        debugLabel = "pokedex_wrong_tab_immediate"
+                        debugLabel = "pokedex_probe_not_confirmed_active"
                     )
 
                     return true
@@ -1716,16 +1881,14 @@ object GeckoSessionManager {
 
                 pokedexState.needsSpawnableOnlyHint -> {
                     /*
-                     * The Pokédex tab is visible, but the active filters are not the
-                     * safe Spawnable-only state required for a missing-dex upload.
-                     * Drop the cached candidate so an old valid snapshot cannot be
-                     * reused while the visible UI is now in a different filter state.
+                     * The user is on Pokédex, but the visible filter state is not the
+                     * safe Spawnable-only state required for the missing-dex upload.
                      */
                     lastPokedexSnapshots.remove(sessionKey)
 
                     Log.d(
                         "PCG_PROBE",
-                        "manual pokedex rejected immediately because Spawnable-only filter is required " +
+                        "manual pokedex rejected because Spawnable-only filter is required " +
                                 "sessionKey=$sessionKey reason=${pokedexState.reason} " +
                                 "otherFilters=${pokedexState.activeNonSpawnableFilters}"
                     )
@@ -1768,9 +1931,8 @@ object GeckoSessionManager {
 
                     if (cachedSnapshot != null) {
                         /*
-                         * A stale candidate is worse than no candidate: keeping it
-                         * around would make the manual button depend on old DOM state
-                         * instead of the currently visible Pokédex tab.
+                         * The tab and filters are valid, but the snapshot is too old.
+                         * Drop it and wait for the next valid Pokédex extraction.
                          */
                         lastPokedexSnapshots.remove(sessionKey)
 
@@ -1782,13 +1944,23 @@ object GeckoSessionManager {
                     }
                 }
             }
+        } else {
+            /*
+             * The active tab is confirmed as Pokédex, but we do not yet have a fresh
+             * Pokédex-specific state. It is safe to arm a short manual window because
+             * we are not guessing the tab: lastPcgTabStates already confirmed it.
+             */
+            Log.d(
+                "PCG_PROBE",
+                "manual pokedex registration has confirmed Pokédex tab but no fresh Pokédex state yet " +
+                        "sessionKey=$sessionKey"
+            )
         }
 
         /*
-         * Either we have no fresh Pokédex state yet, or the Pokédex tab is valid
-         * but no recent passive snapshot is available. Arm a short manual window:
-         * the next valid Spawnable-only snapshot received from the visible Pokédex
-         * tab will be promoted to a real user-confirmed upload.
+         * The Pokédex tab is confirmed, but no recent valid Spawnable-only snapshot
+         * is available. Keep the user action alive briefly and let the next valid
+         * Pokédex extract complete the manual registration.
          */
         pendingManualPokedexRequests[sessionKey] = requestedAtMs
 
@@ -1893,6 +2065,8 @@ object GeckoSessionManager {
             "PCG_PROBE",
             "cleared cached PCG probe state for sessionKey=$sessionKey"
         )
+
+        notifyManualUpdateButtonStateChanged(sessionKey)
     }
 
     /**

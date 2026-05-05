@@ -1,7 +1,7 @@
 package com.fs.twitchminichat
 
 import android.Manifest
-import android.app.NotificationChannel
+import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
@@ -12,9 +12,13 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlin.random.Random
+import android.app.Notification
+import android.provider.Settings
+import com.fs.twitchminichat.pcg.PcgNotificationAlertPrefsStore
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -96,6 +100,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
+    /**
+     * Shows a local PCG spawn notification.
+     *
+     * The notification channel is selected at send time from the user's current
+     * sound/vibration preferences. This lets TMC support:
+     *
+     * - silent alerts
+     * - sound-only alerts
+     * - vibration-only alerts
+     * - sound + vibration alerts
+     *
+     * Android 8+ uses notification channels for sound/vibration behavior.
+     * Android 7.1 and lower use NotificationCompat legacy defaults.
+     */
+    @SuppressLint("MissingPermission")
     private fun showSpawnNotification(
         title: String,
         body: String,
@@ -103,7 +122,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         profiles: String,
         targetProfileId: String
     ) {
-        ensureNotificationChannel()
+        /*
+         * Create all PCG alert channels before choosing one.
+         *
+         * Android keeps channel behavior stable once a channel has been created,
+         * so PcgNotificationChannelManager owns multiple channel IDs instead of
+         * trying to mutate one existing channel.
+         */
+        PcgNotificationChannelManager.ensureChannels(this)
+
+        val channelId = PcgNotificationChannelManager.resolveChannelId(this)
+        val deliverySettings = PcgNotificationAlertPrefsStore.getSettings(this)
+
+        Log.d(
+            TAG,
+            "resolved PCG notification channelId=$channelId " +
+                    "soundEnabled=${deliverySettings.soundEnabled} " +
+                    "vibrationEnabled=${deliverySettings.vibrationEnabled}"
+        )
 
         val notificationId = Random.nextInt(1, Int.MAX_VALUE)
 
@@ -126,7 +162,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 putExtra(MainActivity.EXTRA_TARGET_PROFILE_ID, targetProfileId)
                 putExtra(MainActivity.EXTRA_PROFILE_ID, targetProfileId)
 
-                // Extra duplicato non necessario ma comodo per debug/log o compatibilità futura.
+                /*
+                 * Duplicate extras are not strictly necessary, but they make
+                 * debugging and future compatibility easier if another entry
+                 * point expects generic profile keys.
+                 */
                 putExtra("target_profile_id", targetProfileId)
                 putExtra("profile_id", targetProfileId)
             }
@@ -139,16 +179,56 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID_SPAWN_ALERTS)
+        val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_stat_notification_bell)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(false)
+            .setSilent(false)
             .setContentIntent(pendingIntent)
-            .build()
+
+        /*
+         * Android 8+ ignores most per-notification sound/vibration settings and
+         * uses the channel instead. Older Android versions still need these
+         * NotificationCompat settings.
+         */
+        PcgNotificationChannelManager.applyLegacyAlertBehavior(
+            context = this,
+            builder = builder
+        )
+
+        /*
+         * Extra explicit alert behavior.
+         *
+         * Android 8+ should use the notification channel, but some ROMs are more
+         * reliable when the builder also carries the requested sound/vibration intent.
+         */
+        if (deliverySettings.soundEnabled) {
+            builder.setSound(Settings.System.DEFAULT_NOTIFICATION_URI)
+        }
+
+        if (deliverySettings.vibrationEnabled) {
+            builder.setVibrate(longArrayOf(0L, 180L, 90L, 180L))
+        }
+
+        var defaults = 0
+
+        if (deliverySettings.soundEnabled) {
+            defaults = defaults or Notification.DEFAULT_SOUND
+        }
+
+        if (deliverySettings.vibrationEnabled) {
+            defaults = defaults or Notification.DEFAULT_VIBRATE
+        }
+
+        builder.setDefaults(defaults)
+
+        val notification = builder.build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
@@ -157,17 +237,27 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             ) == PackageManager.PERMISSION_GRANTED
 
             if (!granted) {
-                Log.w(TAG, "POST_NOTIFICATIONS non allowed: alert not shown")
+                Log.w(TAG, "POST_NOTIFICATIONS not allowed: alert not shown")
                 return
             }
         }
 
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val ch = nm.getNotificationChannel(CHANNEL_ID_SPAWN_ALERTS)
-        Log.d(
-            TAG,
-            "channel exists=${ch != null} importance=${ch?.importance} canBypassDnd=${ch?.canBypassDnd()}"
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            val channel = notificationManager.getNotificationChannel(channelId)
+
+            Log.d(
+                TAG,
+                "channelId=$channelId exists=${channel != null} " +
+                        "importance=${channel?.importance} " +
+                        "canBypassDnd=${channel?.canBypassDnd()} " +
+                        "sound=${channel?.sound} " +
+                        "shouldVibrate=${channel?.shouldVibrate()} " +
+                        "vibrationPattern=${channel?.vibrationPattern?.joinToString()}"
+            )
+        } else {
+            Log.d(TAG, "legacy notification behavior channelId=$channelId")
+        }
 
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
         Log.d(TAG, "notificationsEnabled=$notificationsEnabled")
@@ -179,30 +269,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(
             TAG,
-            "Notification posted: title=$title body=$body pokemon=$pokemon profiles=$profiles targetProfileId=$targetProfileId notificationId=$notificationId"
+            "Notification posted: title=$title body=$body pokemon=$pokemon " +
+                    "profiles=$profiles targetProfileId=$targetProfileId " +
+                    "notificationId=$notificationId channelId=$channelId"
         )
-    }
-
-    private fun ensureNotificationChannel() {
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val existing = manager.getNotificationChannel(CHANNEL_ID_SPAWN_ALERTS)
-        if (existing != null) return
-
-        val channel = NotificationChannel(
-            CHANNEL_ID_SPAWN_ALERTS,
-            "Spawn alerts",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Alerts for missing Pokémon from PCG"
-        }
-
-        manager.createNotificationChannel(channel)
-        Log.d(TAG, "Created notification channel: $CHANNEL_ID_SPAWN_ALERTS")
     }
 
     companion object {
         private const val TAG = "FCM"
-        private const val CHANNEL_ID_SPAWN_ALERTS = "spawn_alerts"
 
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"
