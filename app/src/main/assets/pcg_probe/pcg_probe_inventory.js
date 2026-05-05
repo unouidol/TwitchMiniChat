@@ -9,6 +9,16 @@
   const INITIAL_DELAY_MS = 1200;
   const SETTLE_DELAY_MS = 1800;
 
+  /*
+   * Passive Inventory snapshots keep Android's in-memory candidate fresh while
+   * the user stays on the Inventory tab.
+   *
+   * This does not save data by itself. Android still commits the snapshot only
+   * after the user presses Register Inventory.
+   */
+  const PASSIVE_POLL_INTERVAL_MS = 2000;
+  const PASSIVE_POLL_REASON = "passive_poll";
+
   let scheduled = false;
   let running = false;
   let rerunRequested = false;
@@ -26,6 +36,17 @@
 
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Returns true when an extraction was triggered only to refresh Android's
+   * passive Inventory candidate.
+   *
+   * Passive polls should send successful snapshots, but they should avoid sending
+   * repeated failure payloads while the user is not on the Inventory tab.
+   */
+  function isPassivePoll(triggerReason) {
+    return triggerReason === PASSIVE_POLL_REASON;
   }
 
   function compactText(text, maxLen = 200) {
@@ -130,13 +151,18 @@
   async function runExtraction(triggerReason) {
     if (!isRealPcgFrame()) return;
 
+    const passivePoll = isPassivePoll(triggerReason);
+
     /*
      * FAST PATH: If we can't find the grid markers even BEFORE the settle delay,
-     * it's a very strong signal that the user is not on the Inventory tab.
-     * We send a quick failure to Android so it can disable the button immediately.
+     * it's a strong signal that the user is not on the Inventory tab.
+     *
+     * For passive polling we stay quiet on failures, otherwise Android would get
+     * repeated "not Inventory" failures every few seconds while the user is on
+     * another PCG tab. Successful passive snapshots are still sent normally.
      */
     const quickGrid = findBallSectionGrid();
-    if (!quickGrid) {
+    if (!quickGrid && !passivePoll) {
       send("pcg_inventory_ball_extract", {
         ok: false,
         reason: "ball_grid_not_found",
@@ -147,12 +173,14 @@
       // We don't return here, in case the grid appears during the settle delay.
     }
 
-    send("pcg_probe_progress", {
-      step: 9820,
-      phase: "inventory_ball_final_probe_loaded",
-      href: location.href,
-      host: location.host
-    });
+    if (!passivePoll) {
+      send("pcg_probe_progress", {
+        step: 9820,
+        phase: "inventory_ball_final_probe_loaded",
+        href: location.href,
+        host: location.host
+      });
+    }
 
     await sleep(SETTLE_DELAY_MS);
 
@@ -160,22 +188,26 @@
     const balls = extractBallsFromGrid(grid);
 
     if (!grid) {
-      send("pcg_inventory_ball_extract", {
-        ok: false,
-        reason: "ball_grid_not_found",
-        triggerReason,
-        frame: frameInfo()
-      });
+      if (!passivePoll) {
+        send("pcg_inventory_ball_extract", {
+          ok: false,
+          reason: "ball_grid_not_found",
+          triggerReason,
+          frame: frameInfo()
+        });
+      }
       return;
     }
 
     if (balls.length === 0) {
-      send("pcg_inventory_ball_extract", {
-        ok: false,
-        reason: "ball_cards_not_found_or_empty",
-        triggerReason,
-        frame: frameInfo()
-      });
+      if (!passivePoll) {
+        send("pcg_inventory_ball_extract", {
+          ok: false,
+          reason: "ball_cards_not_found_or_empty",
+          triggerReason,
+          frame: frameInfo()
+        });
+      }
       return;
     }
 
@@ -189,9 +221,20 @@
     });
   }
 
-  function scheduleExtraction(reason) {
+  /**
+   * Schedules one Inventory extraction while preventing overlapping reads.
+   *
+   * Mutation-driven reads can request a queued rerun because DOM changes may mean
+   * the inventory grid is still settling. Passive polling, instead, should skip a
+   * tick when the extractor is already busy so it does not create an endless queue.
+   */
+  function scheduleExtraction(reason, options = {}) {
+    const queueIfBusy = options.queueIfBusy !== false;
+
     if (running || scheduled) {
-      rerunRequested = true;
+      if (queueIfBusy) {
+        rerunRequested = true;
+      }
       return;
     }
 
@@ -222,8 +265,26 @@
     }, INITIAL_DELAY_MS);
   }
 
+  /**
+   * Starts a lightweight passive polling loop for Inventory snapshots.
+   *
+   * This keeps Android's latest Inventory candidate fresh while the user remains
+   * on the Inventory tab. The loop does not force any save: Android still stores
+   * the result only after the user presses Register Inventory.
+   */
+  function startPassiveInventoryPolling() {
+    if (!isRealPcgFrame()) return;
+
+    window.setInterval(() => {
+      scheduleExtraction(PASSIVE_POLL_REASON, {
+        queueIfBusy: false
+      });
+    }, PASSIVE_POLL_INTERVAL_MS);
+  }
+
   if (isRealPcgFrame()) {
     scheduleExtraction("initial_real_frame");
+    startPassiveInventoryPolling();
   }
 
   const observer = new MutationObserver(() => {

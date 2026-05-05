@@ -146,6 +146,7 @@
 
     <string name="pcg_register_pokedex">Update Pokédex</string>
     <string name="pcg_register_inventory">Update Inventory</string>
+    <string name="pcg_inventory_read_timeout">Inventory read timed out. Keep the Inventory tab open and press Register inventory again.</string>
     <string name="pcg_refresh_started">Refreshing PCG extension…</string>
     <string name="pcg_refresh_failed">PCG extension is not ready yet.</string>
     <string name="pcg_refresh_accessibility">Refresh Pokémon Community Game extension</string>
