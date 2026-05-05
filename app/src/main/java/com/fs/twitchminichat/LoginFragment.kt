@@ -66,8 +66,12 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             ): Boolean {
                 val from = viewHolder.bindingAdapterPosition
                 val to = target.bindingAdapterPosition
-                adapter.moveItem(from, to)
-                return true
+
+                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) {
+                    return false
+                }
+
+                return adapter.moveItem(from, to)
             }
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
@@ -75,11 +79,16 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
                 super.clearView(recyclerView, viewHolder)
 
+                if (!isAdded) return
+
                 val orderedIds = adapter.currentAccounts().map { it.id }
+                if (orderedIds.isEmpty()) return
+
                 repo.reorderAccounts(orderedIds)
 
                 recyclerView.post {
                     if (!isAdded) return@post
+
                     requireContext().sendBroadcast(
                         Intent(MainActivity.ACTION_ACCOUNTS_CHANGED)
                             .setPackage(requireContext().packageName)
