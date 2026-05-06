@@ -146,4 +146,17 @@ object BuddyInfoStore {
             null
         }
     }
+
+    /**
+     * Deletes the saved PCG buddy snapshot for one profile.
+     */
+    fun clearProfile(context: Context, profileId: String) {
+        val normalized = profileId.trim().lowercase()
+        if (normalized.isBlank()) return
+
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit {
+                remove(key(normalized))
+            }
+    }
 }

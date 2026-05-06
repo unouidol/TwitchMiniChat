@@ -15,6 +15,8 @@ import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
 import android.widget.CheckBox
 import androidx.appcompat.app.AlertDialog
+import android.widget.Toast
+import android.util.Log
 
 class LoginFragment : Fragment(R.layout.fragment_login) {
 
@@ -42,9 +44,8 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
                 }
             },
             onDelete = { cfg ->
-                deleteAccount(cfg.id)
+                showRemoveAccountDialog(cfg)
             },
-
             onStartDragRequest = { holder ->
                 itemTouchHelper.startDrag(holder)
             }
@@ -146,19 +147,56 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         adapter.submitAccounts(repo.loadAccounts())
     }
 
-    private fun deleteAccount(accountId: String) {
-        val list = repo.loadAccounts().toMutableList()
-        val removed = list.removeAll { it.id == accountId }
-
-        if (!removed) return
-
-        repo.saveAll(list)
-        refreshList()
-
-        requireContext().sendBroadcast(
-            Intent(MainActivity.ACTION_ACCOUNTS_CHANGED)
-                .setPackage(requireContext().packageName)
+    private fun showRemoveAccountDialog(account: AccountConfig) {
+        Log.d(
+            "LOGIN_REMOVE",
+            "showRemoveAccountDialog accountId=${account.id} username=${account.username} profileId=${account.profileId}"
         )
+        val label = account.username
+            .trim()
+            .ifBlank { account.channel.trim() }
+            .ifBlank { account.id }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.account_remove_dialog_title)
+            .setMessage(getString(R.string.account_remove_dialog_message, label))
+            .setNegativeButton(R.string.account_remove_dialog_cancel, null)
+            .setPositiveButton(R.string.account_remove_dialog_positive) { _, _ ->
+                removeAccount(account)
+            }
+            .show()
+    }
+
+    private fun removeAccount(account: AccountConfig) {
+        Log.d(
+            "LOGIN_REMOVE",
+            "removeAccount confirmed accountId=${account.id} username=${account.username} profileId=${account.profileId}"
+        )
+        AccountProfileRemovalController.removeAccountFromDevice(
+            context = requireContext(),
+            account = account
+        ) { result ->
+            if (!isAdded) return@removeAccountFromDevice
+
+            refreshList()
+
+            requireContext().sendBroadcast(
+                Intent(MainActivity.ACTION_ACCOUNTS_CHANGED)
+                    .setPackage(requireContext().packageName)
+            )
+
+            val messageRes = if (result.removedAccount) {
+                R.string.account_remove_done
+            } else {
+                R.string.account_remove_failed
+            }
+
+            Toast.makeText(
+                requireContext(),
+                getString(messageRes),
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun normalizeChannel(raw: String): String {

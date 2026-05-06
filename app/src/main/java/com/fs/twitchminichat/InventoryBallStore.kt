@@ -205,4 +205,36 @@ object InventoryBallStore {
             putString(optimisticKey(profileId), obj.toString())
         }
     }
+
+    /**
+     * Deletes every local inventory value associated with one profile.
+     *
+     * Inventory currently stores three profile-scoped entries:
+     * - the last real snapshot extracted from PCG;
+     * - optimistic usage caused by manual quick-catch taps;
+     * - optimistic bought counts caused by shop shortcuts.
+     */
+    fun clearProfile(context: Context, profileId: String) {
+        val cleanProfileId = profileId.trim()
+        if (cleanProfileId.isBlank()) return
+
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            remove(realKey(cleanProfileId))
+            remove(optimisticKey(cleanProfileId))
+            remove(boughtKey(cleanProfileId))
+
+            /*
+             * Deletion should be forgiving with older or accidental mixed-case ids.
+             * Normal profile ids are expected to be lowercase, but this second pass
+             * prevents stale entries from surviving just because the stored id had a
+             * different casing.
+             */
+            val normalizedProfileId = cleanProfileId.lowercase()
+            if (normalizedProfileId != cleanProfileId) {
+                remove(realKey(normalizedProfileId))
+                remove(optimisticKey(normalizedProfileId))
+                remove(boughtKey(normalizedProfileId))
+            }
+        }
+    }
 }

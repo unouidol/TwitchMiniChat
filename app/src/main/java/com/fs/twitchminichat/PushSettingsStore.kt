@@ -1,7 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.Context
-
+import androidx.core.content.edit
 
 object PushSettingsStore {
     private const val PREFS_NAME = "push_settings"
@@ -65,6 +65,23 @@ object PushSettingsStore {
     fun isPushEnabled(context: Context, profileId: String): Boolean {
         return getPushMode(context, profileId) != MODE_OFF
     }
+    /**
+     * Deletes legacy push settings for one profile.
+     *
+     * New PCG notification mode is stored in PcgSpawnAlertModeStore, but this legacy
+     * store can still contain old keys from previous builds, so account deletion
+     * clears both generations.
+     */
+    fun clearProfile(context: Context, profileId: String) {
+        val normalized = normalizeProfileId(profileId)
+        if (normalized.isEmpty()) return
 
+        context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit {
+                remove(legacyEnabledKey(normalized))
+                remove(modeKey(normalized))
+            }
+    }
 
 }

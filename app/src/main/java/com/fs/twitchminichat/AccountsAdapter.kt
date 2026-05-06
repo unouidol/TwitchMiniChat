@@ -6,7 +6,6 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 
 /**
@@ -87,19 +86,22 @@ class AccountsAdapter(
         }
 
         holder.btnDelete.setOnClickListener {
-            AlertDialog.Builder(context)
-                .setTitle(R.string.delete_account_confirm_title)
-                .setMessage(
-                    context.getString(
-                        R.string.delete_account_confirm_message,
-                        item.username
-                    )
-                )
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.delete_account_confirm_action) { _, _ ->
-                    onDelete(item)
-                }
-                .show()
+            /*
+             * Keep the adapter presentation-only.
+             *
+             * LoginFragment owns the confirmation dialog and the account/profile cleanup
+             * flow, because that flow needs repository access, broadcasts, backend calls,
+             * and profile-scoped store cleanup.
+             */
+            onDelete(item)
+        }
+
+        holder.btnDelete.setOnLongClickListener {
+            /*
+             * Consume long-clicks on the delete button so ItemTouchHelper drag remains tied
+             * to the account row/content, not to the destructive action button.
+             */
+            true
         }
     }
 

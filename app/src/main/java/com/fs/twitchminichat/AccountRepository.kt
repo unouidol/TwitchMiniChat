@@ -54,6 +54,24 @@ class AccountRepository(ctx: Context) {
 
     fun getById(id: String): AccountConfig? = loadAccounts().firstOrNull { it.id == id }
 
+    /**
+     * Removes one saved account by id and returns the removed config.
+     *
+     * Returning the removed account keeps deletion flows safer because callers can
+     * still resolve profile-scoped cleanup data from the exact account that was
+     * deleted.
+     */
+    fun removeById(id: String): AccountConfig? {
+        val list = loadAccounts().toMutableList()
+        val index = list.indexOfFirst { it.id == id }
+
+        if (index == -1) return null
+
+        val removed = list.removeAt(index)
+        saveAll(list)
+        return removed
+    }
+
     fun updateChannel(accountId: String, newChannel: String) {
         val ch = newChannel.trim().removePrefix("#")
         if (ch.isBlank()) return

@@ -63,6 +63,7 @@ import android.graphics.drawable.GradientDrawable
 
 
 
+
 private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
 
@@ -99,6 +100,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var lastImeVisible = false
     private var lastImeBottomInsetPx = 0
 
+    private var keyboardLayoutController: ChatKeyboardLayoutController? = null
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -518,6 +520,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         // Con ADJUST_NOTHING la tastiera copre la parte bassa dello schermo.
         // Quindi limitiamo la dropdown per evitare che finisca dietro la tastiera.
+
         val root = view ?: return
 
         val rootLocation = IntArray(2)
@@ -650,6 +653,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun clearChannelFieldUi(hideKeyboard: Boolean = true) {
         if (!this::editChannel.isInitialized) return
 
+        /*
+         * Capture the window token before clearing focus. Some devices are pickier
+         * about hiding the keyboard after focus has already moved away.
+         */
+        val channelWindowToken = editChannel.windowToken
+
         dismissChannelDropdown()
 
         /*
@@ -667,8 +676,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         editChannel.clearFocus()
 
         if (hideKeyboard) {
-            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(editChannel.windowToken, 0)
+            val imm = requireContext()
+                .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+            imm.hideSoftInputFromWindow(channelWindowToken, 0)
+
+            view?.let { root ->
+                ViewCompat.requestApplyInsets(root)
+            }
         }
     }
 
@@ -1016,7 +1031,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     val joined = joinChannelFromChat(ch)
                     if (joined) {
                         editChannel.setText("", false)
-                        clearChannelFieldUi(hideKeyboard = false)
+                        clearChannelFieldUi(hideKeyboard = true)
                     }
                 }
 
@@ -1107,7 +1122,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             if (joined) {
                 editChannel.setText("", false)
                 dismissChannelDropdown()
-                clearChannelFieldUi(hideKeyboard = false)
+                clearChannelFieldUi(hideKeyboard = true)
             }
             return
         }
@@ -1187,7 +1202,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         chatContainer = view.findViewById(R.id.chatContainer)
         editMessage = view.findViewById(R.id.editMessage)
         btnSend = view.findViewById(R.id.btnSend)
-        val chatComposerBar = editMessage.parent as? View
         btnStartPcg = view.findViewById(R.id.btnStartPcg)
         btnRefreshChat = view.findViewById(R.id.btnRefreshChat)
         btnTogglePush = view.findViewById(R.id.btnTogglePush)
@@ -1201,6 +1215,35 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
         btnCatchPresets = view.findViewById(R.id.btnCatchPresets)
+
+        /*
+         * The composer container is the parent of the message input.
+         *
+         * We move this whole bar above the keyboard instead of moving only editMessage,
+         * so the send button and the text field stay aligned.
+         */
+        val chatComposerBar = editMessage.parent as? View
+
+        if (chatComposerBar != null) {
+            keyboardLayoutController = ChatKeyboardLayoutController(
+                root = view,
+                composerBar = chatComposerBar,
+                chatScroll = scrollChat,
+                shouldLiftComposer = {
+                    this::editMessage.isInitialized &&
+                            editMessage.hasFocus() &&
+                            this::editChannel.isInitialized &&
+                            !editChannel.hasFocus()
+                },
+                onKeyboardShown = {
+                    if (stickToBottom) {
+                        scrollToBottom()
+                    }
+                }
+            ).also { controller ->
+                controller.start()
+            }
+        }
 
         view.isFocusable = true
         view.isFocusableInTouchMode = true
@@ -1375,40 +1418,28 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         updateStreamUi()
 
-        val initialLeft = view.paddingLeft
-        val initialTop = view.paddingTop
-        val initialRight = view.paddingRight
-        val initialBottom = view.paddingBottom
 
-        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+
+            Log.d(
+                "CHAT_IME",
+                "insets imeVisible=${insets.isVisible(WindowInsetsCompat.Type.ime())} " +
+                        "imeBottom=${imeInsets.bottom} " +
+                        "systemBottom=${systemInsets.bottom} " +
+                        "editMessageFocus=${this::editMessage.isInitialized && editMessage.hasFocus()} " +
+                        "editChannelFocus=${this::editChannel.isInitialized && editChannel.hasFocus()} " +
+                        "composer=${chatComposerBar?.javaClass?.simpleName} " +
+                        "composerHeight=${chatComposerBar?.height} " +
+                        "composerParent=${(chatComposerBar?.parent as? View)?.javaClass?.simpleName}"
+            )
 
             lastImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
             lastImeBottomInsetPx = imeInsets.bottom
 
             val channelFieldHasFocus =
                 this::editChannel.isInitialized && editChannel.hasFocus()
-
-            val chatComposerHasFocus =
-                this::editMessage.isInitialized && editMessage.hasFocus()
-
-            v.setPadding(
-                initialLeft,
-                initialTop,
-                initialRight,
-                initialBottom + systemInsets.bottom
-            )
-
-            chatComposerBar?.translationY = 0f
-
-            if (chatComposerHasFocus && !channelFieldHasFocus && lastImeVisible) {
-                scrollChat.post {
-                    if (stickToBottom) {
-                        scrollToBottom()
-                    }
-                }
-            }
 
             if (channelFieldHasFocus) {
                 if (
@@ -1474,6 +1505,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             true
         }
 
+    }
+
+    override fun onDestroyView() {
+        keyboardLayoutController?.stop()
+        keyboardLayoutController = null
+
+        super.onDestroyView()
     }
 
     override fun onStart() {
@@ -1802,6 +1840,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
 
+            view?.let { root ->
+                ViewCompat.requestApplyInsets(root)
+            }
+
             editMessage.postDelayed({
                 suppressComposerRestore = false
             }, 400)
@@ -1909,6 +1951,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
+
+        view?.let { root ->
+            ViewCompat.requestApplyInsets(root)
+        }
     }
 
     private fun restoreComposerFocusIfNeeded(
@@ -2579,10 +2625,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun buildTwitchEmoteUrl(
         emoteId: String,
         themeMode: String,
-        scale: String,
-        format: String = "static"
+        scale: String
     ): String {
-        return "https://static-cdn.jtvnw.net/emoticons/v2/$emoteId/$format/$themeMode/$scale"
+        return "https://static-cdn.jtvnw.net/emoticons/v2/$emoteId/static/$themeMode/$scale"
     }
 
     private fun targetEmoteRenderSizePx(textSizePx: Float): Int {
@@ -3126,7 +3171,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 emoteId = emoteId,
                 themeMode = themeMode,
                 scale = scale,
-                format = "static"
             )
 
             Glide.with(this)

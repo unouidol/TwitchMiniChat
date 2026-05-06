@@ -41,9 +41,14 @@
     <string name="twitch_login_button">Twitch Login</string>
     <string name="logged_accounts_title">Logged Accounts - press x to delete</string>
 
-    <string name="delete_account_confirm_title">Remove account?</string>
-    <string name="delete_account_confirm_message">Remove logged-in account @%1$s from this device?</string>
-    <string name="delete_account_confirm_action">Remove</string>
+
+    <string name="account_remove_dialog_title">Remove account?</string>
+    <string name="account_remove_dialog_message">Remove %1$s from this device? TMC will delete local PCG data for this profile and try to disable its spawn notifications.</string>
+    <string name="account_remove_dialog_positive">Remove account</string>
+    <string name="account_remove_dialog_cancel">Cancel</string>
+    <string name="account_remove_done">Account removed and local profile data deleted.</string>
+    <string name="account_remove_done_backend_warning">Account removed locally, but TMC could not confirm server notification disable. If notifications continue, use Privacy &amp; Safety to remove device and server data.</string>
+    <string name="account_remove_failed">Could not remove this account.</string>
 
     <string name="catch_presets">Catch presets</string>
 
