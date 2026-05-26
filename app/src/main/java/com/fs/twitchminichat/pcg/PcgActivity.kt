@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.fs.twitchminichat.PcgManualDataUpdateController
 import com.fs.twitchminichat.R
+import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 
 class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
@@ -38,6 +39,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
         accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID).orEmpty()
 
+        setupManualUpdateBarInsets()
         setupManualPcgDataUpdateButtons()
 
         if (savedInstanceState == null) {
@@ -51,6 +53,19 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
                     }
                 )
                 .commit()
+        }
+    }
+
+    /**
+     * Keeps the manual PokémonCommunityGame update controls below the Android status bar.
+     *
+     * Modern Android versions can draw this Activity edge-to-edge. Only the top
+     * manual update row receives the safe offset, so the GeckoView content and
+     * PokémonCommunityGame page behaviour remain unchanged.
+     */
+    private fun setupManualUpdateBarInsets() {
+        findViewById<View>(R.id.layoutPcgManualUpdateBar)?.let { manualUpdateBar ->
+            SystemBarsInsetHelper.keepBelowStatusBar(manualUpdateBar)
         }
     }
 

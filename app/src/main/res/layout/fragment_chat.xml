@@ -191,7 +191,7 @@
         android:orientation="horizontal"
         android:padding="6dp">
 
-        <MultiAutoCompleteTextView
+        <com.fs.twitchminichat.ui.input.ChatMessageInputView
             android:id="@+id/editMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

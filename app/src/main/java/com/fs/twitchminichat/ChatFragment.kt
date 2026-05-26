@@ -59,7 +59,7 @@ import android.graphics.Typeface
 import android.text.style.BackgroundColorSpan
 import android.text.style.StyleSpan
 import android.graphics.drawable.GradientDrawable
-
+import com.fs.twitchminichat.ui.input.ChatMessageInputView
 
 
 
@@ -95,6 +95,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      */
     private var composerFocusGuardUntilMs = 0L
 
+    /**
+     * Last ACTION_DOWN timestamp on the message composer.
+     *
+     * This lets outside-click handling distinguish between a transient layout click
+     * caused by the composer tap and a real user tap outside the input.
+     */
+    private var lastComposerTouchDownAtMs = 0L
 
 
     /**
@@ -140,7 +147,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
     private lateinit var chatContainer: LinearLayout
-    private lateinit var editMessage: MultiAutoCompleteTextView
+    private lateinit var editMessage: ChatMessageInputView
     private lateinit var btnSend: Button
     private lateinit var btnStartPcg: Button
     private lateinit var btnJumpToBottom: Button
@@ -553,8 +560,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun updateChannelDropdownHeight() {
         if (!this::editChannel.isInitialized) return
 
-        // Con ADJUST_NOTHING la tastiera copre la parte bassa dello schermo.
-        // Quindi limitiamo la dropdown per evitare che finisca dietro la tastiera.
+        // With ADJUST_NOTHING the keyboard covers the bottom part of the screen.
+        // Limiting the dropdown height avoids it to end behind the keyboard.
 
         val root = view ?: return
 
@@ -747,15 +754,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             imm.showSoftInput(editChannel, InputMethodManager.SHOW_IMPLICIT)
 
-            // Se la tastiera era già visibile, possiamo aprire subito.
-            // Se invece sta ancora comparendo, aspettiamo gli insets o i delay sotto.
+            // If the keyboard is visible, it's opened immediately.
+            // if it is still loading, we wait for it to be stable.
             if (lastImeVisible && !channelDropdownManuallyClosed) {
                 pendingOpenChannelDropdownAfterIme = false
                 showChannelDropdownNow()
             }
         }
 
-        // Backup contro il caso in cui l'evento insets arrivi tardi o non arrivi.
+        // Backup against when the insets event arrives late or not at all.
         scheduleChannelDropdownOpen(220L)
         scheduleChannelDropdownOpen(420L)
     }
@@ -1326,6 +1333,26 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
         btnCatchPresets = view.findViewById(R.id.btnCatchPresets)
 
+        editMessage.onComposerTouchDown = {
+            lastComposerTouchDownAtMs = SystemClock.elapsedRealtime()
+
+            armComposerFocusGuard()
+            keyboardLayoutController?.prepareForKeyboardOpen()
+
+            /*
+             * Request focus immediately on ACTION_DOWN, before regular click dispatch.
+             * This is the earliest safe moment to prepare the Input Method Editor.
+             */
+            editMessage.requestFocus()
+            editMessage.setSelection(editMessage.text?.length ?: 0)
+
+            val imm = requireContext()
+                .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+            imm.restartInput(editMessage)
+            imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
+        }
+
         /*
          * The composer container is the parent of the message input.
          *
@@ -1487,12 +1514,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
 
         val clearChannelFocusClickListener = View.OnClickListener {
+            val now = SystemClock.elapsedRealtime()
+            val elapsedSinceComposerTouchMs = now - lastComposerTouchDownAtMs
+
             /*
-             * A real outside tap must always win over the focus guard.
-             *
-             * The guard protects only transient focus loss during keyboard opening; it must
-             * not make the keyboard feel sticky when the user taps the chat area.
+             * Ignore only the tiny synthetic/out-of-order click window right after the
+             * composer ACTION_DOWN. Any later outside tap is intentional and must close
+             * the keyboard immediately.
              */
+            if (
+                isComposerFocusGuardActive() &&
+                elapsedSinceComposerTouchMs in 0L..COMPOSER_OUTSIDE_TAP_IGNORE_MS
+            ) {
+                restoreComposerFocusIfGuarded("outside_click_ignored_initial_tap")
+                return@OnClickListener
+            }
+
             disarmComposerFocusGuard("outside_click")
             view.requestFocus()
             clearChannelFieldUi(hideKeyboard = false)
@@ -1506,7 +1543,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         replyBar.setOnClickListener(clearChannelFocusClickListener)
 
         editMessage.setOnClickListener {
-            armComposerFocusGuard()
             clearChannelFieldUi(hideKeyboard = false)
 
             editMessage.requestFocus()
@@ -1520,7 +1556,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         editMessage.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                armComposerFocusGuard()
                 clearChannelFieldUi(hideKeyboard = false)
 
                 keyboardLayoutController?.prepareForKeyboardOpen()
@@ -1528,13 +1563,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 updateMessageMentionDropdownGeometry()
                 ViewCompat.requestApplyInsets(view)
             } else {
+                val now = SystemClock.elapsedRealtime()
+                val elapsedSinceComposerTouchMs = now - lastComposerTouchDownAtMs
+
                 /*
-                 * Reclaim focus only during the short initial keyboard-opening window.
-                 * Outside taps explicitly disarm the guard before clearing focus, so they
-                 * still close the keyboard immediately.
+                 * Reclaim focus only during the very short initial tap window. If the user
+                 * taps outside after that, the focus loss is intentional and must be allowed.
                  */
-                if (isComposerFocusGuardActive()) {
-                    restoreComposerFocusIfGuarded("message_focus_lost_initial_window")
+                if (
+                    isComposerFocusGuardActive() &&
+                    elapsedSinceComposerTouchMs in 0L..COMPOSER_OUTSIDE_TAP_IGNORE_MS
+                ) {
+                    restoreComposerFocusIfGuarded("message_focus_lost_initial_tap")
                 } else {
                     editMessage.dismissDropDown()
                 }
@@ -2191,6 +2231,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             val imm = requireContext()
                 .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
 
+            /*
+             * Restart the input connection before showing the keyboard again. This helps
+             * when the cursor disappears but the keyboard remains visible.
+             */
+            imm.restartInput(editMessage)
             imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
 
             Log.d(
@@ -2267,7 +2312,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             val currentText = editMessage.text?.toString().orEmpty()
 
-            // Se l'utente ha digitato nel frattempo, non ripristinare una selezione vecchia.
+            // If the user already digited , do not restore the older selection
             if (composerTextVersion != expectedTextVersion) return@post
             if (currentText != expectedTextSnapshot) return@post
 
@@ -2773,7 +2818,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         /**
-         * If the quick catch dialog is open while the spawn is detected from live chat
+         * If the quick catch dialogue is open while the spawn is detected from live chat
          * or history, refresh it immediately so Smart Presets appear.
          */
         refreshOpenQuickCatchMenuIfNeeded()
@@ -2966,7 +3011,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
 
         /**
-         * Inflate the dialog layout.
+         * Inflate the dialogue layout.
          *
          * The layout contains:
          * - a header area for spawn title/subtitle;
@@ -2989,8 +3034,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         /**
          * Create the AlertDialog but do not show it yet.
          *
-         * We need the dialog reference before creating callbacks because the preset
-         * click callback dismisses the dialog after sending the command.
+         * We need the dialogue reference before creating callbacks because the preset
+         * click callback dismisses the dialogue after sending the command.
          */
         val dialog = AlertDialog.Builder(context)
             .setView(dialogView)
@@ -3014,7 +3059,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             /**
              * Main preset row tap.
              *
-             * This keeps the actual chat/game command behavior in ChatFragment,
+             * This keeps the actual chat/game command behaviour in ChatFragment,
              * where the existing sendPresetCommand(...) logic already lives.
              */
             onPresetClicked = { preset ->
@@ -3071,7 +3116,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         quickCatchSpawnSubtitle = spawnSubtitle
 
         /**
-         * Clean up dialog references when it closes.
+         * Clean up dialogue references when it closes.
          *
          * This prevents stale Fragment/UI references from being used after the menu
          * has been dismissed.
@@ -3086,7 +3131,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
 
         /**
-         * Show the dialog, then immediately refresh the header and start periodic
+         * Show the dialogue, then immediately refresh the header and start periodic
          * refresh.
          *
          * Periodic refresh matters because some recommendations are time-sensitive:
@@ -3100,7 +3145,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private fun refreshOpenQuickCatchMenuIfNeeded() {
         /**
-         * If the quick catch dialog is not open, there is nothing to refresh.
+         * If the quick catch dialogue is not open, there is nothing to refresh.
          *
          * This function may be called after inventory changes or timer ticks, so it
          * must safely exit when the popup is not currently visible.
@@ -3117,10 +3162,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val context = context ?: return
 
         /**
-         * The profile used when the dialog was opened.
+         * The profile used when the dialogue was opened.
          *
          * We intentionally reuse quickCatchProfileId instead of recalculating it
-         * from the active account, because the open dialog should stay tied to the
+         * from the active account, because the open dialogue should stay tied to the
          * profile it was opened for.
          */
         val profileId = quickCatchProfileId
@@ -3128,7 +3173,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         /**
          * Rebuild the full quick catch menu model from the current state.
          *
-         * This keeps the open dialog updated when:
+         * This keeps the open dialogue updated when:
          * - inventory changes;
          * - spawn timing changes;
          * - user preset settings change;
@@ -3506,6 +3551,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * taps feel delayed.
          */
         private const val COMPOSER_FOCUS_GUARD_MS = 420L
+
+        /**
+         * Maximum time after composer ACTION_DOWN where an outside click can be considered
+         * a synthetic/out-of-order event caused by layout movement.
+         */
+        private const val COMPOSER_OUTSIDE_TAP_IGNORE_MS = 140L
 
 
 
