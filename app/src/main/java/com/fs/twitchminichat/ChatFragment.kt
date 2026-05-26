@@ -60,6 +60,7 @@ import android.text.style.BackgroundColorSpan
 import android.text.style.StyleSpan
 import android.graphics.drawable.GradientDrawable
 import com.fs.twitchminichat.ui.input.ChatMessageInputView
+import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 
 
 
@@ -144,6 +145,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      */
     private val mentionDropdownMaxVisibleRows = 5
 
+    private lateinit var channelSwitchBox: LinearLayout
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
     private lateinit var chatContainer: LinearLayout
@@ -555,7 +557,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         channelsAdapter.notifyDataSetChanged()
     }
 
+    /**
+     * Keeps the chat top controls below the Android status bar.
+     *
+     * This mirrors the PCG screen behaviour, where only the top manual controls row
+     * receives the status bar inset. Bottom keyboard/navigation handling stays owned
+     * by ChatKeyboardLayoutController, so the message composer logic is not disturbed.
+     */
+    private fun setupChatTopBarInsets() {
+        if (!this::channelSwitchBox.isInitialized) return
 
+        SystemBarsInsetHelper.keepBelowStatusBar(channelSwitchBox)
+    }
 
     private fun updateChannelDropdownHeight() {
         if (!this::editChannel.isInitialized) return
@@ -1314,6 +1327,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     "profile=${currentProfileId()}"
         )
 
+        channelSwitchBox = view.findViewById(R.id.channelSwitchBox)
         textStatus = view.findViewById(R.id.textStatus)
         scrollChat = view.findViewById(R.id.scrollChat)
         chatContainer = view.findViewById(R.id.chatContainer)
@@ -1332,6 +1346,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
         btnCatchPresets = view.findViewById(R.id.btnCatchPresets)
+        setupChatTopBarInsets()
 
         editMessage.onComposerTouchDown = {
             lastComposerTouchDownAtMs = SystemClock.elapsedRealtime()
