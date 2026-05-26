@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.firebase.messaging.FirebaseMessaging
+import com.fs.twitchminichat.ui.input.PagerKeyboardDismissController
 
 
 class MainActivity : AppCompatActivity() {
@@ -26,6 +27,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var repo: AccountRepository
     private lateinit var adapter: AccountsPagerAdapter
     private var startupAfterDeletionCheckDone = false
+
+    private var pagerKeyboardDismissController: PagerKeyboardDismissController? = null
+    private var pagerKeyboardDismissCallback: ViewPager2.OnPageChangeCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +47,9 @@ class MainActivity : AppCompatActivity() {
 
         adapter = AccountsPagerAdapter(this, repo)
         pager.adapter = adapter
+
+        pagerKeyboardDismissController = PagerKeyboardDismissController(pager)
+        pagerKeyboardDismissCallback = pagerKeyboardDismissController?.installOn(pager)
 
         val openedFromIntent = handleIntent(intent)
 
@@ -266,6 +273,25 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         unregisterReceiver(accountsChangedReceiver)
+    }
+
+    /**
+     * Unregisters ViewPager2 callbacks owned by this Activity.
+     *
+     * This prevents the pager from keeping references to the Activity after it is
+     * destroyed.
+     */
+    override fun onDestroy() {
+        pagerKeyboardDismissCallback?.let { callback ->
+            if (this::pager.isInitialized) {
+                pager.unregisterOnPageChangeCallback(callback)
+            }
+        }
+
+        pagerKeyboardDismissCallback = null
+        pagerKeyboardDismissController = null
+
+        super.onDestroy()
     }
 
     private val requestNotificationPermissionLauncher = registerForActivityResult(

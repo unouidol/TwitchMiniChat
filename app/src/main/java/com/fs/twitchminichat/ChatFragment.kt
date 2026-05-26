@@ -87,6 +87,21 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var suppressComposerRestore = false
     private var composerTextVersion = 0L
 
+    /**
+     * Timestamp until which the message composer is allowed to reclaim focus.
+     *
+     * This is intentionally short: it protects only the initial keyboard opening race,
+     * not normal typing after the keyboard is already open.
+     */
+    private var composerFocusGuardUntilMs = 0L
+
+
+
+    /**
+     * Delayed callbacks used to restore composer focus while the keyboard is opening.
+     */
+    private val composerFocusRestoreRunnables = mutableListOf<Runnable>()
+
     private var pendingBuddyUsername: String? = null
 
     private var quickCatchDialog: AlertDialog? = null
@@ -101,6 +116,26 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var lastImeBottomInsetPx = 0
 
     private var keyboardLayoutController: ChatKeyboardLayoutController? = null
+
+    /**
+     * Approximate row height used by the mention dropdown.
+     *
+     * The platform dropdown row includes text, selector padding, and popup decoration.
+     * A slightly larger value avoids clipping when two suggestions are visible.
+     */
+    private val mentionDropdownRowHeightPx: Int
+        get() = dp(56)
+
+    /**
+     * Extra vertical space reserved for popup padding and selector decoration.
+     */
+    private val mentionDropdownExtraHeightPx: Int
+        get() = dp(12)
+
+    /**
+     * Maximum number of mention rows visible before the dropdown starts scrolling.
+     */
+    private val mentionDropdownMaxVisibleRows = 5
 
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
@@ -538,6 +573,81 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         editChannel.dropDownHeight = availableBelow
             .coerceAtLeast(dp(96))
             .coerceAtMost(dp(260))
+    }
+
+    /**
+     * Positions and sizes the chat mention dropdown above the message input.
+     *
+     * With windowSoftInputMode="adjustNothing", the keyboard does not resize the Activity
+     * window. The composer bar is lifted manually, but AutoCompleteTextView may still
+     * try to place its popup below the input field, where the keyboard can cover it.
+     */
+    private fun updateMessageMentionDropdownGeometry(
+        visibleItemCount: Int = mentionAdapter.count
+    ) {
+        if (!this::editMessage.isInitialized) return
+        if (!this::mentionAdapter.isInitialized) return
+
+        val root = view ?: return
+
+        val rootLocation = IntArray(2)
+        val fieldLocation = IntArray(2)
+
+        root.getLocationOnScreen(rootLocation)
+        editMessage.getLocationOnScreen(fieldLocation)
+
+        val rootTop = rootLocation[1]
+        val fieldTop = fieldLocation[1]
+
+        /*
+         * The mention popup belongs to the bottom composer, so the safest direction
+         * is upward. This avoids the soft keyboard covering the suggestions.
+         */
+        val availableAbove = fieldTop - rootTop - dp(8)
+
+        val safeVisibleRows = visibleItemCount
+            .coerceAtLeast(1)
+            .coerceAtMost(mentionDropdownMaxVisibleRows)
+
+        val desiredHeight = (safeVisibleRows * mentionDropdownRowHeightPx) +
+                mentionDropdownExtraHeightPx
+
+        val dropdownHeight = desiredHeight
+            .coerceAtMost(availableAbove.coerceAtLeast(mentionDropdownRowHeightPx))
+            .coerceAtLeast(mentionDropdownRowHeightPx)
+
+        editMessage.dropDownHeight = dropdownHeight
+
+        /*
+         * AutoCompleteTextView positions the popup below the anchor by default.
+         * A negative vertical offset moves it above the input field.
+         */
+        editMessage.dropDownVerticalOffset = -(dropdownHeight + editMessage.height + dp(4))
+    }
+
+    /**
+     * Prepares the composer layout while the Input Method Editor is opening.
+     *
+     * This prevents the message input from falling behind the keyboard when the user
+     * taps the field and starts typing before the keyboard animation has settled.
+     */
+    private fun scheduleComposerKeyboardWarmUp() {
+        if (!this::editMessage.isInitialized) return
+
+        keyboardLayoutController?.prepareForKeyboardOpen()
+
+        editMessage.post {
+            if (!isAdded) return@post
+            if (!this::editMessage.isInitialized) return@post
+            if (!editMessage.hasFocus()) return@post
+
+            editMessage.requestFocus()
+            updateMessageMentionDropdownGeometry()
+
+            if (stickToBottom) {
+                scrollToBottom()
+            }
+        }
     }
 
     /**
@@ -1231,8 +1341,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 chatScroll = scrollChat,
                 shouldLiftComposer = {
                     this::editMessage.isInitialized &&
-                            editMessage.hasFocus() &&
                             this::editChannel.isInitialized &&
+                            (
+                                    editMessage.hasFocus() ||
+                                            editMessage.isPressed ||
+                                            currentMentionQuery() != null
+                                    ) &&
                             !editChannel.hasFocus()
                 },
                 onKeyboardShown = {
@@ -1265,6 +1379,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         editMessage.setAdapter(mentionAdapter)
         editMessage.setTokenizer(MentionTokenizer())
         editMessage.threshold = 1
+        updateMessageMentionDropdownGeometry()
 
         resetMentionUsersForCurrentChannel()
 
@@ -1273,17 +1388,40 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
             override fun afterTextChanged(s: Editable?) {
-
                 composerTextVersion++
 
-                val query = currentMentionQuery() ?: return
+                /*
+                 * If the user types immediately while the keyboard is still opening, force a
+                 * few layout passes so the composer does not remain behind the IME.
+                 */
+                scheduleComposerKeyboardWarmUp()
+
+                val query = currentMentionQuery()
+                if (query == null) {
+                    editMessage.dismissDropDown()
+                    return
+                }
 
                 refreshMentionSuggestions()
 
                 editMessage.post {
-                    mentionAdapter.filter.filter(query)
-                    if (editMessage.hasFocus()) {
-                        editMessage.showDropDown()
+                    if (!isAdded) return@post
+                    if (!editMessage.hasFocus()) return@post
+
+                    mentionAdapter.filter.filter(query) {
+                        if (!isAdded) return@filter
+                        if (!editMessage.hasFocus()) return@filter
+
+                        val resultCount = mentionAdapter.count
+                        updateMessageMentionDropdownGeometry(
+                            visibleItemCount = resultCount
+                        )
+
+                        if (resultCount > 0 && currentMentionQuery() != null) {
+                            editMessage.showDropDown()
+                        } else {
+                            editMessage.dismissDropDown()
+                        }
                     }
                 }
             }
@@ -1349,6 +1487,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
 
         val clearChannelFocusClickListener = View.OnClickListener {
+            /*
+             * A real outside tap must always win over the focus guard.
+             *
+             * The guard protects only transient focus loss during keyboard opening; it must
+             * not make the keyboard feel sticky when the user taps the chat area.
+             */
+            disarmComposerFocusGuard("outside_click")
             view.requestFocus()
             clearChannelFieldUi(hideKeyboard = false)
             closeComposerKeyboard()
@@ -1361,14 +1506,38 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         replyBar.setOnClickListener(clearChannelFocusClickListener)
 
         editMessage.setOnClickListener {
+            armComposerFocusGuard()
             clearChannelFieldUi(hideKeyboard = false)
+
+            editMessage.requestFocus()
+            editMessage.setSelection(editMessage.text?.length ?: 0)
+
+            keyboardLayoutController?.prepareForKeyboardOpen()
+            scheduleComposerKeyboardWarmUp()
+            updateMessageMentionDropdownGeometry()
             ViewCompat.requestApplyInsets(view)
         }
 
         editMessage.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
+                armComposerFocusGuard()
                 clearChannelFieldUi(hideKeyboard = false)
+
+                keyboardLayoutController?.prepareForKeyboardOpen()
+                scheduleComposerKeyboardWarmUp()
+                updateMessageMentionDropdownGeometry()
                 ViewCompat.requestApplyInsets(view)
+            } else {
+                /*
+                 * Reclaim focus only during the short initial keyboard-opening window.
+                 * Outside taps explicitly disarm the guard before clearing focus, so they
+                 * still close the keyboard immediately.
+                 */
+                if (isComposerFocusGuardActive()) {
+                    restoreComposerFocusIfGuarded("message_focus_lost_initial_window")
+                } else {
+                    editMessage.dismissDropDown()
+                }
             }
         }
 
@@ -1437,6 +1606,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             lastImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
             lastImeBottomInsetPx = imeInsets.bottom
+
+            if (this::editMessage.isInitialized && editMessage.hasFocus()) {
+                updateMessageMentionDropdownGeometry(
+                    visibleItemCount = mentionAdapter.count.coerceAtLeast(1)
+                )
+            }
 
             val channelFieldHasFocus =
                 this::editChannel.isInitialized && editChannel.hasFocus()
@@ -1508,6 +1683,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     override fun onDestroyView() {
+        clearComposerFocusRestoreCallbacks()
+        composerFocusGuardUntilMs = 0L
+
         keyboardLayoutController?.stop()
         keyboardLayoutController = null
 
@@ -1944,12 +2122,126 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
+    /**
+     * Enables a short focus-protection window for the message composer.
+     *
+     * The guard only covers the initial keyboard opening race. It is not renewed for
+     * every typed character, otherwise outside taps would feel delayed.
+     */
+    private fun armComposerFocusGuard() {
+        val now = SystemClock.elapsedRealtime()
+
+        composerFocusGuardUntilMs = now + COMPOSER_FOCUS_GUARD_MS
+
+        Log.d(
+            "CHAT_FOCUS",
+            "composer focus guard armed until=$composerFocusGuardUntilMs"
+        )
+
+        scheduleComposerFocusRestoreBurst()
+    }
+
+    /**
+     * Returns true while the composer is protected from transient focus loss.
+     */
+    private fun isComposerFocusGuardActive(): Boolean {
+        return SystemClock.elapsedRealtime() <= composerFocusGuardUntilMs
+    }
+
+    /**
+     * Disables the composer focus guard immediately.
+     *
+     * This is used for intentional outside taps, where the user's intent is to close
+     * the keyboard rather than keep the composer focused.
+     */
+    private fun disarmComposerFocusGuard(reason: String) {
+        composerFocusGuardUntilMs = 0L
+        clearComposerFocusRestoreCallbacks()
+
+        Log.d(
+            "CHAT_FOCUS",
+            "composer focus guard disarmed reason=$reason"
+        )
+    }
+
+    /**
+     * Cancels delayed focus restore callbacks.
+     */
+    private fun clearComposerFocusRestoreCallbacks() {
+        composerFocusRestoreRunnables.forEach { runnable ->
+            view?.removeCallbacks(runnable)
+            editMessage.removeCallbacks(runnable)
+        }
+
+        composerFocusRestoreRunnables.clear()
+    }
+
+    /**
+     * Reclaims focus for the composer if the focus guard is still active.
+     */
+    private fun restoreComposerFocusIfGuarded(reason: String) {
+        if (!isAdded) return
+        if (!this::editMessage.isInitialized) return
+        if (!isComposerFocusGuardActive()) return
+
+        if (!editMessage.hasFocus()) {
+            editMessage.requestFocus()
+            editMessage.setSelection(editMessage.text?.length ?: 0)
+
+            val imm = requireContext()
+                .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+            imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
+
+            Log.d(
+                "CHAT_FOCUS",
+                "composer focus restored reason=$reason"
+            )
+        }
+
+        keyboardLayoutController?.prepareForKeyboardOpen()
+        updateMessageMentionDropdownGeometry()
+
+        view?.let { root ->
+            ViewCompat.requestApplyInsets(root)
+        }
+    }
+
+    /**
+     * Repeatedly restores composer focus while the keyboard animation settles.
+     *
+     * A single requestFocus() is not always enough because the Input Method Editor and
+     * root layout can dispatch several focus/layout events during the opening animation.
+     */
+    private fun scheduleComposerFocusRestoreBurst() {
+        clearComposerFocusRestoreCallbacks()
+
+        val delaysMs = longArrayOf(0L, 40L, 90L, 160L, 260L, 380L)
+
+        delaysMs.forEach { delayMs ->
+            val runnable = Runnable {
+                restoreComposerFocusIfGuarded("composer_guard_burst")
+            }
+
+            composerFocusRestoreRunnables += runnable
+            editMessage.postDelayed(runnable, delayMs)
+        }
+    }
+
+    /**
+     * Closes the message composer keyboard when the user intentionally taps outside it.
+     */
     private fun closeComposerKeyboard() {
         if (!this::editMessage.isInitialized) return
 
+        disarmComposerFocusGuard("close_composer_keyboard")
+
+        editMessage.dismissDropDown()
         editMessage.clearFocus()
 
-        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        val imm = requireContext()
+            .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
         imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
 
         view?.let { root ->
@@ -3206,6 +3498,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     companion object {
         private const val EMOTE_MARKER: Char = '\u2063'
         private const val ARG_ACCOUNT_ID = "accountId"
+
+        /**
+         * Duration of the focus-protection window after the composer is touched.
+         *
+         * Keep this short: it protects the keyboard opening race without making outside
+         * taps feel delayed.
+         */
+        private const val COMPOSER_FOCUS_GUARD_MS = 420L
+
 
 
         private const val PCG_SPAWN_INTERVAL_MS = 15 * 60 * 1000L
