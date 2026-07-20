@@ -58,6 +58,7 @@ android {
             resValue("string", "app_name", "TwitchMiniChat")
             manifestPlaceholders["authScheme"] = "ircminichat"
             buildConfigField("String", "AUTH_SCHEME", "\"ircminichat\"")
+            buildConfigField("boolean", "REQUEST_EMOTE_SCOPE", "false")
 
             buildConfigField("String", "FCM_REGISTER_URL", "\"https://api.ircminichat.party/register_fcm\"")
         }
@@ -70,6 +71,7 @@ android {
             resValue("string", "app_name", "TwitchMiniChat Dev")
             manifestPlaceholders["authScheme"] = "ircminichatdev"
             buildConfigField("String", "AUTH_SCHEME", "\"ircminichatdev\"")
+            buildConfigField("boolean", "REQUEST_EMOTE_SCOPE", "true")
         }
     }
 

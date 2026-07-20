@@ -229,13 +229,18 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         val slot = allocateLoginSlot()
         savePendingChannelForSlot(slot, channel)
 
-        val authUrl = "https://api.ircminichat.party/oauth/start".toUri()
+        val authUrlBuilder = "https://api.ircminichat.party/oauth/start".toUri()
             .buildUpon()
             .appendQueryParameter("slot", slot.toString())
             .appendQueryParameter("return_scheme", "${BuildConfig.AUTH_SCHEME}://auth")
-            .build()
 
-        startActivity(Intent(Intent.ACTION_VIEW, authUrl))
+        TwitchOAuthRequestFeatures.queryParameters(
+            requestEmoteScope = BuildConfig.REQUEST_EMOTE_SCOPE
+        ).forEach { (name, value) ->
+            authUrlBuilder.appendQueryParameter(name, value)
+        }
+
+        startActivity(Intent(Intent.ACTION_VIEW, authUrlBuilder.build()))
     }
 
     private fun ensureTermsAccepted(onAccepted: () -> Unit) {
