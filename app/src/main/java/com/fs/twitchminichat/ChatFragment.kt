@@ -162,6 +162,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var textStatus: TextView
     private lateinit var scrollChat: ScrollView
     private lateinit var chatContainer: LinearLayout
+    /** Orders asynchronous history and live rows by Twitch timestamp. */
+    private lateinit var chatTimelineController: ChatTimelineController
     private lateinit var editMessage: ChatMessageInputView
     private lateinit var btnSend: Button
     private lateinit var btnStartPcg: Button
@@ -1245,7 +1247,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         unseenMessages = 0
         stickToBottom = true
         clearPendingOutgoingState(removeViews = false)
-        chatContainer.removeAllViews()
+        chatTimelineController.clear()
         updateJumpToBottomButton()
 
         closeIrcClient(resetBackoff = true)
@@ -1344,6 +1346,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         textStatus = view.findViewById(R.id.textStatus)
         scrollChat = view.findViewById(R.id.scrollChat)
         chatContainer = view.findViewById(R.id.chatContainer)
+        chatTimelineController = ChatTimelineController(chatContainer)
         editMessage = view.findViewById(R.id.editMessage)
         btnSend = view.findViewById(R.id.btnSend)
         btnStartPcg = view.findViewById(R.id.btnStartPcg)
@@ -1362,6 +1365,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         setupChatTopBarInsets()
 
         editMessage.onComposerTouchDown = {
+            val wasAlreadyFocused = editMessage.hasFocus()
             lastComposerTouchDownAtMs = SystemClock.elapsedRealtime()
 
             armComposerFocusGuard()
@@ -1369,15 +1373,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             /*
              * Request focus immediately on ACTION_DOWN, before regular click dispatch.
-             * This is the earliest safe moment to prepare the Input Method Editor.
+             * This is the earliest safe moment to prepare the Input Method Editor. The
+             * selection is intentionally left to the platform so a tap can position the
+             * cursor inside existing text.
              */
             editMessage.requestFocus()
-            editMessage.setSelection(editMessage.text?.length ?: 0)
 
             val imm = requireContext()
                 .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
 
-            imm.restartInput(editMessage)
+            if (!wasAlreadyFocused) {
+                imm.restartInput(editMessage)
+            }
+
             imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
         }
 
@@ -1574,7 +1582,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             clearChannelFieldUi(hideKeyboard = false)
 
             editMessage.requestFocus()
-            editMessage.setSelection(editMessage.text?.length ?: 0)
 
             keyboardLayoutController?.prepareForKeyboardOpen()
             scheduleComposerKeyboardWarmUp()
@@ -2221,7 +2228,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         appendChatView(
             view = row,
             forceScroll = true,
-            countAsUnread = false
+            countAsUnread = false,
+            messageTimestampSec = pending.sentAtSec
         )
 
         val timeout = Runnable {
@@ -2266,23 +2274,25 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         user: String,
         message: String,
         messageTimestampSec: Double
-    ) {
+    ): ChatTimelinePosition? {
         val confirmed = outgoingChatMessageTracker.confirmCanonical(
             channel = currentChannelNormalized(),
             username = user,
             message = message,
             messageTimestampSec = messageTimestampSec
-        ) ?: return
+        ) ?: return null
 
         cancelPendingOutgoingTimeout(confirmed.localId)
-        pendingOutgoingViews.remove(confirmed.localId)?.row?.let { row ->
-            chatContainer.removeView(row)
+        val preservedPosition = pendingOutgoingViews.remove(confirmed.localId)?.row?.let { row ->
+            chatTimelineController.removeAndTakePosition(row)
         }
 
         Log.d(
             "TWITCH_IRC",
             "outgoing reconciled accountId=$accountId localId=${confirmed.localId}"
         )
+
+        return preservedPosition
     }
 
     /** Marks the newest unresolved local echo as rejected by a Twitch NOTICE. */
@@ -2318,9 +2328,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         pendingOutgoingTimeouts.clear()
         outgoingChatMessageTracker.clear()
 
-        if (removeViews && this::chatContainer.isInitialized) {
+        if (removeViews && this::chatTimelineController.isInitialized) {
             pendingOutgoingViews.values.forEach { pendingView ->
-                chatContainer.removeView(pendingView.row)
+                chatTimelineController.remove(pendingView.row)
             }
         }
 
@@ -2669,7 +2679,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         if (!editMessage.hasFocus()) {
             editMessage.requestFocus()
-            editMessage.setSelection(editMessage.text?.length ?: 0)
 
             val imm = requireContext()
                 .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -2770,7 +2779,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private fun appendChatView(view: View, forceScroll: Boolean = false, countAsUnread: Boolean = true) {
+    /** Inserts one chat row chronologically without disturbing composer focus. */
+    private fun appendChatView(
+        view: View,
+        forceScroll: Boolean = false,
+        countAsUnread: Boolean = true,
+        messageTimestampSec: Double? = null,
+        preservedTimelinePosition: ChatTimelinePosition? = null
+    ) {
         val hadComposerFocus = this::editMessage.isInitialized && editMessage.hasFocus()
         val oldSelectionStart = if (hadComposerFocus) editMessage.selectionStart else 0
         val oldSelectionEnd = if (hadComposerFocus) editMessage.selectionEnd else 0
@@ -2779,7 +2795,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val shouldAutoScroll = forceScroll || stickToBottom || isNearBottom()
 
-        chatContainer.addView(view)
+        chatTimelineController.insert(
+            view = view,
+            messageTimestampSec = messageTimestampSec,
+            preservedPosition = preservedTimelinePosition
+        )
 
         if (shouldAutoScroll) {
             scrollToBottom()
@@ -3292,7 +3312,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val resolvedMessageTimestampSec = messageTimestampSec
             ?: (System.currentTimeMillis().toDouble() / 1000.0)
 
-        reconcilePendingOutgoingMessage(
+        val preservedTimelinePosition = reconcilePendingOutgoingMessage(
             user = user,
             message = message,
             messageTimestampSec = resolvedMessageTimestampSec
@@ -3349,7 +3369,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             message = message
         )
 
-        appendChatView(tv, forceScroll = forceScroll, countAsUnread = true)
+        appendChatView(
+            view = tv,
+            forceScroll = forceScroll,
+            countAsUnread = true,
+            messageTimestampSec = resolvedMessageTimestampSec,
+            preservedTimelinePosition = preservedTimelinePosition
+        )
     }
 
     private fun scrollToBottom() {
