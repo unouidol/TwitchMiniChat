@@ -270,4 +270,9 @@
     <string name="pcg_notification_vibration_label">Vibration</string>
 
 
+
+    <string name="chat_send_pending">Sending???</string>
+    <string name="chat_send_unconfirmed">Not confirmed by Twitch</string>
+    <string name="chat_send_rejected">Not sent</string>
+    <string name="chat_send_write_failed">Message not sent. Check the connection and try again.</string>
 </resources>

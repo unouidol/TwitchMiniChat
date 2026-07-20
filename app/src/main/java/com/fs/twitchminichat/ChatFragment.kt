@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.text.Editable
 import android.text.SpannableStringBuilder
@@ -36,6 +38,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
@@ -76,14 +79,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var cfg: AccountConfig? = null
     private var accountId: String = ""
 
-    private var readClient: TwitchChatClient? = null
-    private var sendClient: TwitchChatClient? = null
+    private var ircClient: TwitchChatClient? = null
 
     @Volatile
     private var sendReady = false
 
     @Volatile
     private var connectInProgress = false
+
+    private val ircReconnectBackoff = TwitchIrcReconnectBackoff()
+    private val ircReconnectHandler = Handler(Looper.getMainLooper())
+    private var ircReconnectRunnable: Runnable? = null
+    private var ircConnectionGeneration = 0L
+    private var outgoingWriteInProgress = false
+
+    private val outgoingChatMessageTracker = OutgoingChatMessageTracker()
+    private val outgoingMessageHandler = Handler(Looper.getMainLooper())
+    private val pendingOutgoingViews = LinkedHashMap<String, PendingOutgoingView>()
+    private val pendingOutgoingTimeouts = HashMap<String, Runnable>()
 
     private var suppressComposerRestore = false
     private var composerTextVersion = 0L
@@ -181,6 +194,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val messageTimestampSec: Double
     )
 
+    private data class PendingOutgoingView(
+        val row: LinearLayout,
+        val status: TextView
+    )
+
 
     private fun requestBallPurchase(
         profileId: String,
@@ -236,8 +254,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     "shopBallName=$shopBallName " +
                     "quantity=$quantity " +
                     "sendReady=$sendReady " +
-                    "sendClientNull=${sendClient == null} " +
-                    "sendClientId=${sendClient?.let { System.identityHashCode(it) }}"
+                    "ircClientNull=${ircClient == null} " +
+                    "ircClientId=${ircClient?.let { System.identityHashCode(it) }}"
         )
 
         if (activeProfileId.isBlank()) {
@@ -1226,16 +1244,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         unseenMessages = 0
         stickToBottom = true
+        clearPendingOutgoingState(removeViews = false)
         chatContainer.removeAllViews()
         updateJumpToBottomButton()
 
-        readClient?.disconnect()
-        sendClient?.disconnect()
-        readClient = null
-        sendClient = null
-        sendReady = false
-        connectInProgress = false
-
+        closeIrcClient(resetBackoff = true)
         connectIfNeeded()
 
         return true
@@ -1738,6 +1751,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     override fun onDestroyView() {
+        clearPendingOutgoingState(removeViews = false)
+        cancelScheduledIrcReconnect()
         clearComposerFocusRestoreCallbacks()
         composerFocusGuardUntilMs = 0L
 
@@ -1756,11 +1771,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         cfg = newCfg
 
         if (oldChannel != null && !oldChannel.equals(newCfg.channel, ignoreCase = true)) {
-            readClient?.disconnect()
-            sendClient?.disconnect()
-            readClient = null
-            sendClient = null
-            sendReady = false
+            clearPendingOutgoingState(removeViews = true)
+            closeIrcClient(resetBackoff = true)
             historyLoaded = false
         }
 
@@ -1792,7 +1804,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val awaySec = ((System.currentTimeMillis() - pausedAt) / 1000).toInt()
         lastPausedAtMs = 0L
 
-        if (awaySec >= 1 || readClient == null) {
+        if (awaySec >= 1 || ircClient == null) {
             val refreshSec = (awaySec + 10).coerceIn(30, HISTORY_SECONDS)
             loadHistoryFromBot(c, seconds = refreshSec)
         }
@@ -1802,49 +1814,196 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         super.onStop()
 
         streamSession?.setActive(false)
+        closeIrcClient(resetBackoff = true)
 
-        readClient?.disconnect()
-        sendClient?.disconnect()
-        readClient = null
-        sendClient = null
-        sendReady = false
-        connectInProgress = false
-        historyLoaded = false
         textStatus.text = cfg?.let {
             getString(R.string.status_disconnected_account, it.username)
         } ?: getString(R.string.status_disconnected)
     }
 
-    private fun openIrcClients(chatUsername: String, ircToken: String, ch: String) {
-        val rc = TwitchChatClient(chatUsername, ircToken, ch)
-        val sc = TwitchChatClient(chatUsername, ircToken, ch)
+    /** Cancels one pending reconnect callback. */
+    private fun cancelScheduledIrcReconnect() {
+        val pending = ircReconnectRunnable ?: return
+        ircReconnectHandler.removeCallbacks(pending)
+        ircReconnectRunnable = null
+    }
 
-        Log.d("CHAT", "accountId=$accountId cfgChannel=$ch")
+    /** Closes the current IRC session and invalidates all callbacks from it. */
+    private fun closeIrcClient(resetBackoff: Boolean) {
+        cancelScheduledIrcReconnect()
+        ircConnectionGeneration += 1L
 
-        readClient = rc
-        sendClient = sc
+        val oldClient = ircClient
+
+        ircClient = null
+        sendReady = false
+        connectInProgress = false
+
+        oldClient?.disconnect()
+
+        if (resetBackoff) {
+            ircReconnectBackoff.reset()
+        }
+    }
+
+    /** Schedules one bounded reconnect while the chat Fragment is visible. */
+    private fun scheduleIrcReconnect(reason: String) {
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        if (ircReconnectRunnable != null || connectInProgress) return
+
+        val delayMs = ircReconnectBackoff.consumeDelayMs()
+        val reconnect = Runnable {
+            ircReconnectRunnable = null
+
+            if (!isAdded || view == null) return@Runnable
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                return@Runnable
+            }
+
+            Log.d(
+                "TWITCH_IRC",
+                "reconnect start accountId=$accountId reason=$reason"
+            )
+            connectIfNeeded()
+        }
+
+        ircReconnectRunnable = reconnect
+        ircReconnectHandler.postDelayed(reconnect, delayMs)
+
+        Log.w(
+            "TWITCH_IRC",
+            "reconnect scheduled accountId=$accountId delayMs=$delayMs reason=$reason"
+        )
+    }
+
+    /** Handles the terminal callback from the active bidirectional IRC session. */
+    private fun handleIrcConnectionEnded(
+        generation: Long,
+        source: String,
+        shouldReconnect: Boolean,
+        cause: Throwable?
+    ) {
+        runUiIfAlive {
+            if (generation != ircConnectionGeneration) return@runUiIfAlive
+
+            Log.w(
+                "TWITCH_IRC",
+                "connection ended accountId=$accountId source=$source " +
+                        "reconnect=$shouldReconnect error=${cause?.javaClass?.simpleName ?: "none"}"
+            )
+
+            closeIrcClient(resetBackoff = false)
+
+            if (shouldReconnect) {
+                scheduleIrcReconnect(reason = source)
+            }
+        }
+    }
+
+    private fun openIrcClient(
+        chatUsername: String,
+        ircToken: String,
+        ch: String
+    ) {
+        cancelScheduledIrcReconnect()
+
+        val generation = ircConnectionGeneration + 1L
+        ircConnectionGeneration = generation
+
+        val client = TwitchChatClient(
+            chatUsername,
+            ircToken,
+            ch
+        )
+
+        Log.d(
+            "CHAT",
+            "accountId=$accountId cfgChannel=$ch"
+        )
+
+        ircClient = client
+
         Log.d(
             "CHAT_INSTANCE",
-            "openIrcClients fragment=${System.identityHashCode(this)} " +
-                    "sendClient=${System.identityHashCode(sc)} " +
-                    "profile=${currentProfileId()}"
+            "openIrcClient fragment=${System.identityHashCode(this)} " +
+                    "ircClient=${System.identityHashCode(client)} " +
+                    "profile=${currentProfileId()} generation=$generation"
         )
+
         sendReady = false
 
-        rc.connect(
+        client.connect(
             onConnected = {
                 runUiIfAlive {
-                    val ctx = context ?: return@runUiIfAlive
-                    textStatus.text = ctx.getString(R.string.status_connected, chatUsername, ch)
+                    if (generation != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
+
+                    ircReconnectBackoff.reset()
+                    sendReady = true
+
+                    val ctx = context
+                        ?: return@runUiIfAlive
+
+                    textStatus.text = ctx.getString(
+                        R.string.status_connected,
+                        chatUsername,
+                        ch
+                    )
+
+                    Log.d(
+                        "TWITCH_IRC",
+                        "session ready accountId=$accountId " +
+                                "channel=$ch generation=$generation"
+                    )
                 }
             },
-            onMessage = { user, msg, emotesRaw, _, msgId, replyParentUserLogin ->
-                val key = msgId?.takeIf { it.isNotBlank() }?.let { "id:$it" }
-                    ?: "live:${System.nanoTime()}:${user.lowercase()}:${msg.hashCode()}"
+            onMessage = {
+                    user,
+                    msg,
+                    emotesRaw,
+                    _,
+                    msgId,
+                    replyParentUserLogin,
+                    messageTimestampSec ->
 
-                val forceScroll = user.equals(chatUsername, ignoreCase = true)
+                val resolvedTimestampSec = (
+                    messageTimestampSec
+                        ?: (
+                            System.currentTimeMillis()
+                                .toDouble()
+                                / 1000.0
+                            )
+                    )
+
+                val fallbackTimestampMs = (
+                    resolvedTimestampSec
+                        * 1000.0
+                    ).toLong()
+
+                val key = msgId
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
+                    ?.let {
+                        "id:$it"
+                    }
+                    ?: (
+                        "live:$fallbackTimestampMs:" +
+                                "${user.lowercase()}:" +
+                                msg.hashCode()
+                        )
+
+                val forceScroll = user.equals(
+                    chatUsername,
+                    ignoreCase = true
+                )
 
                 runUiIfAlive {
+                    if (generation != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
+
                     appendChatLine(
                         user = user,
                         message = msg,
@@ -1852,47 +2011,88 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         dedupKey = key,
                         replyParentUserLogin = replyParentUserLogin,
                         forceScroll = forceScroll,
-                        messageTimestampSec = System.currentTimeMillis().toDouble() / 1000.0
+                        messageTimestampSec = resolvedTimestampSec
                     )
                 }
             },
-            onError = { err ->
+            onError = { error ->
                 runUiIfAlive {
-                    val ctx = context ?: return@runUiIfAlive
-                    textStatus.text = ctx.getString(R.string.status_read_error, err.message ?: "unknown")
-                }
-            }
-        )
+                    if (generation != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
 
-        sc.connect(
-            onConnected = {
-                sendReady = true
-                runUiIfAlive {
-                    val ctx = context ?: return@runUiIfAlive
-                    textStatus.text = ctx.getString(R.string.status_connected, chatUsername, ch)
+                    sendReady = false
+
+                    val ctx = context
+                        ?: return@runUiIfAlive
+
+                    textStatus.text = ctx.getString(
+                        R.string.status_read_error,
+                        error.message ?: "unknown"
+                    )
                 }
             },
-            onMessage = null,
-            onError = { err ->
-                sendReady = false
+            onNotice = {
+                    msgId,
+                    noticeMessage ->
+
                 runUiIfAlive {
-                    val ctx = context ?: return@runUiIfAlive
-                    textStatus.text = ctx.getString(R.string.status_send_error, err.message ?: "unknown")
-                }
-            },
-            onNotice = { msgId, noticeMessage ->
-                runUiIfAlive {
+                    if (generation != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
+
                     showTwitchSendNoticeToast(
                         msgId = msgId,
                         noticeMessage = noticeMessage
                     )
                 }
+            },
+            onUserState = {
+                runUiIfAlive {
+                    if (generation != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
+
+                    confirmOldestPendingOutgoingFromUserState()
+                }
+            },
+            onSessionMetadata = { update ->
+                runUiIfAlive {
+                    if (generation != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
+
+                    val snapshot = TwitchIrcSessionMetadataStore.merge(
+                        accountId = accountId,
+                        update = update
+                    )
+
+                    Log.d(
+                        "TWITCH_EMOTES",
+                        "session metadata accountId=$accountId " +
+                                "userId=${snapshot.userId ?: "-"} " +
+                                "channel=$ch " +
+                                "roomId=${snapshot.roomIdFor(ch) ?: "-"} " +
+                                "emoteSetCount=${snapshot.emoteSetIds.size}"
+                    )
+                }
+            },
+            onDisconnected = {
+                    shouldReconnect,
+                    cause ->
+
+                handleIrcConnectionEnded(
+                    generation = generation,
+                    source = "session",
+                    shouldReconnect = shouldReconnect,
+                    cause = cause
+                )
             }
         )
     }
 
     private fun connectIfNeeded() {
-        if (readClient != null || sendClient != null || connectInProgress) return
+        if (ircClient != null || connectInProgress) return
 
         val c = cfg ?: return
 
@@ -1913,7 +2113,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 return
             }
 
-            openIrcClients(
+            openIrcClient(
                 chatUsername = c.username,
                 ircToken = localToken,
                 ch = ch
@@ -1922,6 +2122,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
 
         connectInProgress = true
+        val connectGeneration = ircConnectionGeneration
 
         thread {
             try {
@@ -1940,9 +2141,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 }
 
                 runUiIfAlive {
+                    if (connectGeneration != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
+
                     connectInProgress = false
 
-                    if (readClient != null || sendClient != null) return@runUiIfAlive
+                    if (ircClient != null) return@runUiIfAlive
 
                     if (ircToken.isBlank() || chatUsername.isBlank()) {
                         val ctx = context ?: return@runUiIfAlive
@@ -1950,7 +2155,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         return@runUiIfAlive
                     }
 
-                    openIrcClients(
+                    openIrcClient(
                         chatUsername = chatUsername,
                         ircToken = ircToken,
                         ch = ch
@@ -1958,9 +2163,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 }
             } catch (_: Exception) {
                 runUiIfAlive {
+                    if (connectGeneration != ircConnectionGeneration) {
+                        return@runUiIfAlive
+                    }
+
                     connectInProgress = false
 
-                    if (readClient != null || sendClient != null) return@runUiIfAlive
+                    if (ircClient != null) return@runUiIfAlive
 
                     if (localToken.isBlank()) {
                         val ctx = context ?: return@runUiIfAlive
@@ -1968,7 +2177,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         return@runUiIfAlive
                     }
 
-                    openIrcClients(
+                    openIrcClient(
                         chatUsername = c.username,
                         ircToken = localToken,
                         ch = ch
@@ -1976,6 +2185,147 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 }
             }
         }
+    }
+
+    /** Adds one immediate local echo after the socket write succeeds. */
+    private fun appendPendingOutgoingMessage(
+        pending: PendingOutgoingChatMessage,
+        replyParentUserLogin: String?
+    ) {
+        val row = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            alpha = 0.72f
+        }
+
+        val messageView = createMessageTextView(
+            user = cfg?.username.orEmpty(),
+            rawMessage = pending.message,
+            emotesRaw = null,
+            replyParentUserLogin = replyParentUserLogin
+        )
+
+        val statusView = TextView(requireContext()).apply {
+            text = getString(R.string.chat_send_pending)
+            setTextColor(colorOnSurfaceVariant())
+            textSize = 10f
+        }
+
+        row.addView(messageView)
+        row.addView(statusView)
+
+        pendingOutgoingViews[pending.localId] = PendingOutgoingView(
+            row = row,
+            status = statusView
+        )
+
+        appendChatView(
+            view = row,
+            forceScroll = true,
+            countAsUnread = false
+        )
+
+        val timeout = Runnable {
+            if (!outgoingChatMessageTracker.contains(pending.localId)) {
+                return@Runnable
+            }
+
+            pendingOutgoingViews[pending.localId]?.let { pendingView ->
+                pendingView.status.text = getString(
+                    R.string.chat_send_unconfirmed
+                )
+                pendingView.row.alpha = 0.62f
+            }
+        }
+
+        pendingOutgoingTimeouts[pending.localId] = timeout
+        outgoingMessageHandler.postDelayed(timeout, 10_000L)
+    }
+
+    /** Marks the oldest recent local echo as confirmed by Twitch USERSTATE. */
+    private fun confirmOldestPendingOutgoingFromUserState() {
+        val confirmed = outgoingChatMessageTracker.confirmOldestFromUserState(
+            channel = currentChannelNormalized(),
+            confirmedAtSec = System.currentTimeMillis().toDouble() / 1000.0
+        ) ?: return
+
+        cancelPendingOutgoingTimeout(confirmed.localId)
+
+        pendingOutgoingViews[confirmed.localId]?.let { pendingView ->
+            pendingView.status.visibility = View.GONE
+            pendingView.row.alpha = 1f
+        }
+
+        Log.d(
+            "TWITCH_IRC",
+            "outgoing confirmed accountId=$accountId localId=${confirmed.localId}"
+        )
+    }
+
+    /** Replaces one local echo when canonical live/history data becomes available. */
+    private fun reconcilePendingOutgoingMessage(
+        user: String,
+        message: String,
+        messageTimestampSec: Double
+    ) {
+        val confirmed = outgoingChatMessageTracker.confirmCanonical(
+            channel = currentChannelNormalized(),
+            username = user,
+            message = message,
+            messageTimestampSec = messageTimestampSec
+        ) ?: return
+
+        cancelPendingOutgoingTimeout(confirmed.localId)
+        pendingOutgoingViews.remove(confirmed.localId)?.row?.let { row ->
+            chatContainer.removeView(row)
+        }
+
+        Log.d(
+            "TWITCH_IRC",
+            "outgoing reconciled accountId=$accountId localId=${confirmed.localId}"
+        )
+    }
+
+    /** Marks the newest unresolved local echo as rejected by a Twitch NOTICE. */
+    private fun rejectNewestPendingOutgoing() {
+        val rejected = outgoingChatMessageTracker.removeNewestAwaiting(
+            currentChannelNormalized()
+        ) ?: return
+
+        cancelPendingOutgoingTimeout(rejected.localId)
+
+        pendingOutgoingViews[rejected.localId]?.let { pendingView ->
+            pendingView.status.text = getString(R.string.chat_send_rejected)
+            pendingView.row.alpha = 0.5f
+        }
+
+        if (editMessage.text.isNullOrBlank()) {
+            editMessage.setText(rejected.message)
+            editMessage.setSelection(editMessage.text?.length ?: 0)
+        }
+    }
+
+    /** Cancels one local outgoing status timeout. */
+    private fun cancelPendingOutgoingTimeout(localId: String) {
+        val timeout = pendingOutgoingTimeouts.remove(localId) ?: return
+        outgoingMessageHandler.removeCallbacks(timeout)
+    }
+
+    /** Clears pending outgoing state when the view or channel is replaced. */
+    private fun clearPendingOutgoingState(removeViews: Boolean) {
+        pendingOutgoingTimeouts.values.forEach { timeout ->
+            outgoingMessageHandler.removeCallbacks(timeout)
+        }
+        pendingOutgoingTimeouts.clear()
+        outgoingChatMessageTracker.clear()
+
+        if (removeViews && this::chatContainer.isInitialized) {
+            pendingOutgoingViews.values.forEach { pendingView ->
+                chatContainer.removeView(pendingView.row)
+            }
+        }
+
+        pendingOutgoingViews.clear()
+        outgoingWriteInProgress = false
     }
 
     private fun showTwitchSendNoticeToast(
@@ -2018,6 +2368,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
         }
 
+        rejectNewestPendingOutgoing()
+
         Toast.makeText(
             requireContext(),
             text,
@@ -2044,9 +2396,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         clearComposerOnSuccess: Boolean,
         allowPendingReply: Boolean
     ): Boolean {
-        val client = sendClient ?: return false
+        val client = ircClient ?: return false
         if (!sendReady) {
             appendSystemLine(getString(R.string.connection_not_ready))
+            return false
+        }
+
+        if (outgoingWriteInProgress) {
             return false
         }
 
@@ -2054,36 +2410,108 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (text.isBlank()) return false
 
         val replyParentId = pendingReplyMessageId
-        if (allowPendingReply && !replyParentId.isNullOrBlank()) {
-            client.sendReply(replyParentId, text)
-            clearPendingReply()
+        val shouldSendReply = allowPendingReply && !replyParentId.isNullOrBlank()
+        val localReplyParentUser = if (shouldSendReply) pendingReplyUser else null
+        val generation = ircConnectionGeneration
+
+        outgoingWriteInProgress = true
+
+        val onWriteResult: (TwitchChatWriteResult) -> Unit = { result ->
+            runUiIfAlive {
+                outgoingWriteInProgress = false
+
+                if (generation != ircConnectionGeneration || client !== ircClient) {
+                    return@runUiIfAlive
+                }
+
+                when (result) {
+                    TwitchChatWriteResult.Written -> {
+                        val sentAtSec = System.currentTimeMillis().toDouble() / 1000.0
+                        val pending = outgoingChatMessageTracker.register(
+                            channel = currentChannelNormalized(),
+                            username = cfg?.username.orEmpty(),
+                            message = text,
+                            sentAtSec = sentAtSec
+                        )
+
+                        appendPendingOutgoingMessage(
+                            pending = pending,
+                            replyParentUserLogin = localReplyParentUser
+                        )
+
+                        if (!replyParentId.isNullOrBlank()) {
+                            clearPendingReply()
+                        }
+
+                        if (
+                            clearComposerOnSuccess &&
+                            editMessage.text?.toString()?.trim() == text
+                        ) {
+                            suppressComposerRestore = true
+
+                            editMessage.text?.clear()
+                            editMessage.clearFocus()
+
+                            val imm = requireContext().getSystemService(
+                                Context.INPUT_METHOD_SERVICE
+                            ) as InputMethodManager
+                            imm.hideSoftInputFromWindow(
+                                editMessage.windowToken,
+                                0
+                            )
+
+                            view?.let { root ->
+                                ViewCompat.requestApplyInsets(root)
+                            }
+
+                            editMessage.postDelayed({
+                                suppressComposerRestore = false
+                            }, 400)
+                        }
+
+                        stickToBottom = true
+                        scrollToBottom()
+                    }
+
+                    TwitchChatWriteResult.NotConnected -> {
+                        sendReady = false
+                        Toast.makeText(
+                            requireContext(),
+                            getString(R.string.chat_send_write_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+
+                    is TwitchChatWriteResult.Failed -> {
+                        sendReady = false
+                        Log.w(
+                            "TWITCH_IRC",
+                            "write failed accountId=$accountId",
+                            result.cause
+                        )
+                        Toast.makeText(
+                            requireContext(),
+                            getString(R.string.chat_send_write_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        }
+
+        if (shouldSendReply) {
+            client.sendReply(
+                parentMsgId = requireNotNull(replyParentId),
+                text = text,
+                onResult = onWriteResult
+            )
         } else {
-            if (!replyParentId.isNullOrBlank()) {
-                clearPendingReply()
-            }
-            client.sendMessage(text)
+            client.sendMessage(
+                text = text,
+                onResult = onWriteResult
+            )
         }
 
-        if (clearComposerOnSuccess) {
-            suppressComposerRestore = true
-
-            editMessage.text?.clear()
-            editMessage.clearFocus()
-
-            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(editMessage.windowToken, 0)
-
-            view?.let { root ->
-                ViewCompat.requestApplyInsets(root)
-            }
-
-            editMessage.postDelayed({
-                suppressComposerRestore = false
-            }, 400)
-        }
-
-        stickToBottom = true
-        scrollToBottom()
         return true
     }
 
@@ -2863,6 +3291,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val resolvedMessageTimestampSec = messageTimestampSec
             ?: (System.currentTimeMillis().toDouble() / 1000.0)
+
+        reconcilePendingOutgoingMessage(
+            user = user,
+            message = message,
+            messageTimestampSec = resolvedMessageTimestampSec
+        )
 
         maybeCaptureBuddyInfoFromChat(user, message)
         maybeCaptureSpawnInfoFromChat(
