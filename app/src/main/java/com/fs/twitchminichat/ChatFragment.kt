@@ -4071,13 +4071,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val currentMode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
+        val currentSettings = PcgSpawnAlertSettings(
+            regularMode = PcgSpawnAlertModeStore.getMode(
+                requireContext(),
+                profileId
+            ),
+            eventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
+                requireContext(),
+                profileId
+            )
+        )
 
         PcgSpawnAlertModeMenu.show(
             anchor = btnTogglePush,
-            currentMode = currentMode
-        ) { selectedMode ->
-            applySpawnAlertMode(profileId, selectedMode)
+            currentSettings = currentSettings
+        ) { selectedSettings ->
+            applySpawnAlertSettings(profileId, selectedSettings)
         }
     }
 
@@ -4095,24 +4104,42 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * If the server update fails, the previous local value is restored so the UI
      * does not claim a mode that the backend did not actually accept.
      */
-    private fun applySpawnAlertMode(
+    private fun applySpawnAlertSettings(
         profileId: String,
-        mode: PcgSpawnAlertMode
+        settings: PcgSpawnAlertSettings
     ) {
         val previousMode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
+        val previousEventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
+            requireContext(),
+            profileId
+        )
 
-        PcgSpawnAlertModeStore.setMode(requireContext(), profileId, mode)
+        PcgSpawnAlertModeStore.setMode(
+            requireContext(),
+            profileId,
+            settings.regularMode
+        )
+        PcgEventSpawnAlertStore.setEnabled(
+            requireContext(),
+            profileId,
+            settings.eventSpawnsEnabled
+        )
         updateSpawnAlertBellUi(profileId)
 
         FcmRegistrationUploader.setProfileSpawnAlertMode(
             context = requireContext(),
             profileId = profileId,
-            mode = mode
+            settings = settings
         ) { ok ->
             if (!isAdded) return@setProfileSpawnAlertMode
 
             if (!ok) {
                 PcgSpawnAlertModeStore.setMode(requireContext(), profileId, previousMode)
+                PcgEventSpawnAlertStore.setEnabled(
+                    requireContext(),
+                    profileId,
+                    previousEventSpawnsEnabled
+                )
                 updateSpawnAlertBellUi(profileId)
 
                 Toast.makeText(
@@ -4125,7 +4152,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             Toast.makeText(
                 requireContext(),
-                getString(R.string.spawn_alert_mode_saved, getString(mode.titleRes)),
+                R.string.spawn_alert_settings_saved,
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -4139,15 +4166,38 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun updateSpawnAlertBellUi(profileId: String) {
         if (!this::btnTogglePush.isInitialized) return
 
-        val mode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
+        val settings = PcgSpawnAlertSettings(
+            regularMode = PcgSpawnAlertModeStore.getMode(
+                requireContext(),
+                profileId
+            ),
+            eventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
+                requireContext(),
+                profileId
+            )
+        )
 
-        btnTogglePush.alpha = if (mode == PcgSpawnAlertMode.NONE) {
-            0.45f
-        } else {
+        btnTogglePush.alpha = if (settings.isAnyAlertEnabled) {
             1.0f
+        } else {
+            0.45f
         }
 
-        btnTogglePush.contentDescription = getString(mode.titleRes)
+        btnTogglePush.contentDescription = when {
+            settings.eventSpawnsEnabled &&
+                    settings.regularMode == PcgSpawnAlertMode.NONE -> {
+                getString(R.string.pcg_event_spawn_alert_label)
+            }
+
+            settings.eventSpawnsEnabled -> {
+                getString(
+                    R.string.pcg_spawn_alert_bell_mode_and_event,
+                    getString(settings.regularMode.titleRes)
+                )
+            }
+
+            else -> getString(settings.regularMode.titleRes)
+        }
 
     }
 }

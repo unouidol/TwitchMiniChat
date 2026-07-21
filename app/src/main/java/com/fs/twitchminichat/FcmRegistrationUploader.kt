@@ -119,7 +119,7 @@ object FcmRegistrationUploader {
 
 
     /**
-     * Sends the selected Pokémon Community Game spawn alert mode to the backend.
+     * Sends the selected Pokémon Community Game spawn settings to the backend.
      *
      * This is the new 4-state preference used by the bell menu:
      *
@@ -128,13 +128,13 @@ object FcmRegistrationUploader {
      * 2 = All spawns
      * 3 = No spawns
      *
-     * The "enabled" field is also sent as a compatibility bridge:
-     * modes 0/1/2 behave like push enabled, while mode 3 behaves like push disabled.
+     * Event spawns are independent from the four ordinary modes. The legacy
+     * "enabled" field remains true whenever either category needs delivery.
      */
     fun setProfileSpawnAlertMode(
         context: Context,
         profileId: String,
-        mode: PcgSpawnAlertMode,
+        settings: PcgSpawnAlertSettings,
         onComplete: (Boolean) -> Unit
     ) {
         val appContext = context.applicationContext
@@ -163,7 +163,8 @@ object FcmRegistrationUploader {
                         put("device_name", buildDeviceName(appContext))
                         put("fcm_token", token)
                         put("profile_id", normalizedProfileId)
-                        put("spawn_alert_mode", mode.id)
+                        put("spawn_alert_mode", settings.regularMode.id)
+                        put("event_spawn_enabled", settings.eventSpawnsEnabled)
 
                         /*
                          * Compatibility bridge for the old registration model.
@@ -171,7 +172,7 @@ object FcmRegistrationUploader {
                          * The server can keep profile_ids aligned while also storing
                          * the more precise profile_spawn_alert_modes map.
                          */
-                        put("enabled", mode.isPushEnabledForCompatibility)
+                        put("enabled", settings.isAnyAlertEnabled)
                     },
                     logLabel = "set_spawn_alert_mode"
                 )
@@ -184,11 +185,11 @@ object FcmRegistrationUploader {
         val cachedToken = prefs.getString("latest_fcm_token", null).orEmpty()
 
         /*
-         * For mode NONE we can still send the request without forcing a fresh FCM
-         * token fetch, because the important part is disabling this profile's spawn
-         * notifications on the backend.
+         * When both categories are disabled, the request can be sent without
+         * forcing a fresh token fetch. Any enabled category requires a usable
+         * token because the backend must be able to deliver its notification.
          */
-        if (!mode.isPushEnabledForCompatibility) {
+        if (!settings.isAnyAlertEnabled) {
             sendRequest(cachedToken)
             return
         }

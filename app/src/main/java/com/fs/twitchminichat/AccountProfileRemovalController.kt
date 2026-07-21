@@ -51,6 +51,11 @@ object AccountProfileRemovalController {
                 profileId = profileId,
                 mode = PcgSpawnAlertMode.NONE
             )
+            PcgEventSpawnAlertStore.setEnabled(
+                context = appContext,
+                profileId = profileId,
+                enabled = false
+            )
 
             clearKnownLocalProfileData(
                 context = appContext,
@@ -89,7 +94,7 @@ object AccountProfileRemovalController {
             FcmRegistrationUploader.setProfileSpawnAlertMode(
                 context = appContext,
                 profileId = profileId,
-                mode = PcgSpawnAlertMode.NONE
+                settings = PcgSpawnAlertSettings.DISABLED
             ) { backendOk ->
                 Log.d(
                     TAG,
@@ -113,6 +118,7 @@ object AccountProfileRemovalController {
         InventoryBallStore.clearProfile(context, profileId)
         BuddyInfoStore.clearProfile(context, profileId)
         PcgSpawnAlertModeStore.clearProfile(context, profileId)
+        PcgEventSpawnAlertStore.clearProfile(context, profileId)
         PushSettingsStore.clearProfile(context, profileId)
     }
 

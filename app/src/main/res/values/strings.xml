@@ -246,6 +246,7 @@
 
 
     <string name="spawn_alert_mode_saved">Spawn notifications: %1$s</string>
+    <string name="spawn_alert_settings_saved">Spawn notification settings updated.</string>
     <string name="spawn_alert_mode_save_failed">Could not update spawn notification mode.</string>
 
     <string name="fcm_set_spawn_alert_mode_url">https://api.ircminichat.party/set_spawn_alert_mode</string>
@@ -265,6 +266,8 @@
 
     <string name="pcg_spawn_alert_dialog_title">PCG notifications</string>
     <string name="pcg_spawn_alert_modes_header">Notify me for</string>
+    <string name="pcg_event_spawn_alert_label">Notify current PCG event spawns</string>
+    <string name="pcg_spawn_alert_bell_mode_and_event">%1$s; event spawns enabled</string>
     <string name="pcg_notification_delivery_header">Alert style</string>
     <string name="pcg_notification_sound_label">Sound</string>
     <string name="pcg_notification_vibration_label">Vibration</string>

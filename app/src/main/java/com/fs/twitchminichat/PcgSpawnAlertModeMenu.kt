@@ -27,21 +27,21 @@ object PcgSpawnAlertModeMenu {
     /**
      * Shows the spawn alert mode dialog.
      *
-     * Only one spawn mode can be selected at a time. The caller remains
-     * responsible for saving the selected spawn mode locally and syncing it to
-     * the backend.
+     * Only one ordinary spawn mode can be selected at a time. Event spawns use
+     * a separate checkbox and may be enabled with any ordinary mode, including
+     * NONE. The caller saves and synchronizes the resulting settings together.
      *
      * Sound and vibration are local device preferences, so this dialog stores
      * them directly through PcgNotificationAlertPrefsStore when the user confirms.
      */
     fun show(
         anchor: View,
-        currentMode: PcgSpawnAlertMode,
-        onModeSelected: (PcgSpawnAlertMode) -> Unit
+        currentSettings: PcgSpawnAlertSettings,
+        onSettingsSelected: (PcgSpawnAlertSettings) -> Unit
     ) {
         val context = anchor.context
 
-        var selectedMode = currentMode
+        var selectedMode = currentSettings.regularMode
 
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -69,7 +69,7 @@ object PcgSpawnAlertModeMenu {
             val radioButton = RadioButton(context).apply {
                 id = View.generateViewId()
                 text = context.getString(mode.titleRes)
-                isChecked = mode == currentMode
+                isChecked = mode == currentSettings.regularMode
                 setPadding(0, dp(context, 2), 0, dp(context, 2))
 
                 /*
@@ -92,6 +92,14 @@ object PcgSpawnAlertModeMenu {
         }
 
         root.addView(modeRadioGroup)
+
+        val eventSpawnCheckBox = CheckBox(context).apply {
+            text = context.getString(R.string.pcg_event_spawn_alert_label)
+            isChecked = currentSettings.eventSpawnsEnabled
+            setPadding(0, dp(context, 8), 0, dp(context, 2))
+        }
+
+        root.addView(eventSpawnCheckBox)
 
         val divider = View(context).apply {
             setPadding(0, dp(context, 8), 0, dp(context, 8))
@@ -130,8 +138,13 @@ object PcgSpawnAlertModeMenu {
             .setTitle(R.string.pcg_spawn_alert_dialog_title)
             .setView(scrollView)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                if (selectedMode != currentMode) {
-                    onModeSelected(selectedMode)
+                val selectedSettings = PcgSpawnAlertSettings(
+                    regularMode = selectedMode,
+                    eventSpawnsEnabled = eventSpawnCheckBox.isChecked
+                )
+
+                if (selectedSettings != currentSettings) {
+                    onSettingsSelected(selectedSettings)
                 }
 
                 PcgNotificationAlertPrefsStore.setSoundEnabled(
