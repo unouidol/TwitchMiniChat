@@ -70,6 +70,8 @@ object AccountProfileRemovalController {
          * must not wait for network calls.
          */
         val removedAccount = AccountRepository(appContext).removeById(account.id) != null
+        TwitchEmoteCatalogStore(appContext).clearAccount(account.id)
+        TwitchIrcSessionMetadataStore.remove(account.id)
 
         Log.d(
             TAG,

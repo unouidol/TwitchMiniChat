@@ -2,7 +2,6 @@ package com.fs.twitchminichat
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,7 +11,6 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
-import android.text.style.ImageSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.HapticFeedbackConstants
@@ -40,8 +38,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import com.bumptech.glide.Glide
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 import com.fs.twitchminichat.pcg.PcgActivity
 import org.json.JSONArray
@@ -164,6 +160,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var chatContainer: LinearLayout
     /** Orders asynchronous history and live rows by Twitch timestamp. */
     private lateinit var chatTimelineController: ChatTimelineController
+    /** Owns inline emote requests and animated drawable lifecycles for chat rows. */
+    private var emoteImageLoader: TwitchEmoteImageLoader? = null
+    /** Resolves the authenticated account's own outgoing emotes from a cached catalog. */
+    private var emoteCatalogController: TwitchEmoteCatalogController? = null
     private lateinit var editMessage: ChatMessageInputView
     private lateinit var btnSend: Button
     private lateinit var btnStartPcg: Button
@@ -1347,6 +1347,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         scrollChat = view.findViewById(R.id.scrollChat)
         chatContainer = view.findViewById(R.id.chatContainer)
         chatTimelineController = ChatTimelineController(chatContainer)
+        emoteImageLoader = TwitchEmoteImageLoader(
+            requestManager = Glide.with(this),
+            chatPageView = view
+        )
+        emoteCatalogController = TwitchEmoteCatalogController(
+            context = requireContext(),
+            accountId = accountId
+        ).also { controller ->
+            controller.selectChannel(cfg?.channel.orEmpty())
+        }
         editMessage = view.findViewById(R.id.editMessage)
         btnSend = view.findViewById(R.id.btnSend)
         btnStartPcg = view.findViewById(R.id.btnStartPcg)
@@ -1763,6 +1773,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         clearComposerFocusRestoreCallbacks()
         composerFocusGuardUntilMs = 0L
 
+        emoteImageLoader?.clearAll()
+        emoteImageLoader = null
+        emoteCatalogController?.close()
+        emoteCatalogController = null
+
         keyboardLayoutController?.stop()
         keyboardLayoutController = null
 
@@ -1776,6 +1791,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val oldChannel = cfg?.channel
         cfg = newCfg
+        emoteCatalogController?.selectChannel(newCfg.channel)
 
         if (oldChannel != null && !oldChannel.equals(newCfg.channel, ignoreCase = true)) {
             clearPendingOutgoingState(removeViews = true)
@@ -2074,6 +2090,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         update = update
                     )
 
+                    snapshot.roomIdFor(ch)?.let { roomId ->
+                        emoteCatalogController?.refresh(
+                            accessToken = ircToken,
+                            channel = ch,
+                            broadcasterId = roomId
+                        )
+                    }
+
                     Log.d(
                         "TWITCH_EMOTES",
                         "session metadata accountId=$accountId " +
@@ -2207,7 +2231,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val messageView = createMessageTextView(
             user = cfg?.username.orEmpty(),
             rawMessage = pending.message,
-            emotesRaw = null,
+            emotesRaw = emoteCatalogController
+                ?.buildOutgoingIrcTag(pending.message),
             replyParentUserLogin = replyParentUserLogin
         )
 
@@ -3387,59 +3412,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private data class EmoteSpanInfo(val id: String, val start: Int, val endInclusive: Int)
-
-    private fun parseEmoteSpans(emotesRaw: String?): List<EmoteSpanInfo> {
-        if (emotesRaw.isNullOrBlank()) return emptyList()
-        val out = mutableListOf<EmoteSpanInfo>()
-
-        for (spec in emotesRaw.split('/')) {
-            val parts = spec.split(':')
-            if (parts.size < 2) continue
-            val id = parts[0]
-            for (p in parts[1].split(',')) {
-                val se = p.split('-')
-                if (se.size != 2) continue
-                val s = se[0].toIntOrNull() ?: continue
-                val e = se[1].toIntOrNull() ?: continue
-                out.add(EmoteSpanInfo(id, s, e))
-            }
-        }
-
-        return out.sortedBy { it.start }
-    }
-
-    private fun normalizeMessageForEmotes(raw: String, hasEmotes: Boolean): String {
-        if (raw.startsWith("\u0001ACTION ") && raw.endsWith("\u0001") && raw.length > 8) {
-            return raw.substring(8, raw.length - 1)
-        }
-        return if (!hasEmotes) raw.replace("\u0001", "") else raw
-    }
-
     private fun isDarkTheme(): Boolean {
         val nightMode = resources.configuration.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK
         return nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
-    }
-
-    private fun pickEmoteThemeMode(): String {
-        return if (isDarkTheme()) "dark" else "light"
-    }
-
-    private fun pickEmoteScale(textSizePx: Float): String {
-        return when {
-            textSizePx >= 54f -> "3.0"
-            textSizePx >= 34f -> "2.0"
-            else -> "3.0"
-        }
-    }
-
-    private fun buildTwitchEmoteUrl(
-        emoteId: String,
-        themeMode: String,
-        scale: String
-    ): String {
-        return "https://static-cdn.jtvnw.net/emoticons/v2/$emoteId/static/$themeMode/$scale"
     }
 
     private fun targetEmoteRenderSizePx(textSizePx: Float): Int {
@@ -3878,8 +3854,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             textSize = 14f
         }
 
-        val spans = parseEmoteSpans(emotesRaw)
-        val message = normalizeMessageForEmotes(rawMessage, spans.isNotEmpty())
+        val emoteLayout = TwitchEmoteMessageFormatter.format(
+            rawMessage = rawMessage,
+            emotesRaw = emotesRaw
+        )
+        val message = emoteLayout.text
 
         val lowerUser = user.lowercase()
         val lowerSelf = cfg?.username?.lowercase()
@@ -3893,7 +3872,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val prefix = "[$user] "
         val fullPrefix = replyHeader + prefix
 
-        if (spans.isEmpty()) {
+        if (emoteLayout.markers.isEmpty()) {
             val plain = SpannableStringBuilder(fullPrefix + message)
 
             if (replyHeader.isNotEmpty()) {
@@ -3925,22 +3904,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val builder = SpannableStringBuilder(fullPrefix + message)
 
-        for (s in spans.sortedByDescending { it.start }) {
-            val startInMsg = s.start
-            val endExclusiveInMsg = s.endInclusive + 1
-
-            if (startInMsg !in 0 until message.length || endExclusiveInMsg !in (startInMsg + 1)..message.length) {
-                continue
-            }
-
-            val start = fullPrefix.length + startInMsg
-            val end = fullPrefix.length + endExclusiveInMsg
-
-            if (start < fullPrefix.length || end > builder.length || start >= end) continue
-
-            builder.replace(start, end, EMOTE_MARKER.toString())
-        }
-
         if (replyHeader.isNotEmpty()) {
             builder.setSpan(
                 ForegroundColorSpan(colorOnSurfaceVariant()),
@@ -3966,57 +3929,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         tv.text = builder
 
-        val markerPositions = ArrayList<Int>()
-        for (i in 0 until builder.length) {
-            if (builder[i] == EMOTE_MARKER) markerPositions.add(i)
-        }
-
-        val spansInOrder = spans.sortedBy { it.start }
-        val count = minOf(markerPositions.size, spansInOrder.size)
-
-        for (i in 0 until count) {
-            val emoteId = spansInOrder[i].id
-            val idx = markerPositions[i]
-            val themeMode = pickEmoteThemeMode()
-            val scale = pickEmoteScale(tv.textSize)
-            val url = buildTwitchEmoteUrl(
-                emoteId = emoteId,
-                themeMode = themeMode,
-                scale = scale,
-            )
-
-            Glide.with(this)
-                .asDrawable()
-                .load(url)
-                .into(object : CustomTarget<Drawable>() {
-                    override fun onResourceReady(
-                        resource: Drawable,
-                        transition: Transition<in Drawable>?
-                    ) {
-                        val size = targetEmoteRenderSizePx(tv.textSize)
-                        resource.setBounds(0, 0, size, size)
-
-                        val imageSpan = ImageSpan(resource, ImageSpan.ALIGN_BOTTOM)
-                        if (idx >= 0 && idx + 1 <= builder.length) {
-                            builder.setSpan(
-                                imageSpan,
-                                idx,
-                                idx + 1,
-                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                            )
-                            tv.text = builder
-                        }
-                    }
-
-                    override fun onLoadCleared(placeholder: Drawable?) = Unit
-                })
-        }
+        emoteImageLoader?.loadInto(
+            textView = tv,
+            text = builder,
+            markers = emoteLayout.markers,
+            markerOffset = fullPrefix.length,
+            renderSizePx = targetEmoteRenderSizePx(tv.textSize),
+            darkTheme = isDarkTheme()
+        )
 
         return tv
     }
 
     companion object {
-        private const val EMOTE_MARKER: Char = '\u2063'
         private const val ARG_ACCOUNT_ID = "accountId"
 
         /**

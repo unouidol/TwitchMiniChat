@@ -40,6 +40,19 @@
     </LinearLayout>
 
     <ImageButton
+        android:id="@+id/btnReauthorize"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:contentDescription="@string/reauthorize_account"
+        android:focusable="true"
+        android:padding="8dp"
+        android:src="@android:drawable/ic_popup_sync"
+        app:tint="?android:attr/textColorPrimary" />
+
+    <ImageButton
         android:id="@+id/btnDelete"
         android:layout_width="48dp"
         android:layout_height="48dp"

@@ -55,6 +55,32 @@ class AccountRepository(ctx: Context) {
     fun getById(id: String): AccountConfig? = loadAccounts().firstOrNull { it.id == id }
 
     /**
+     * Replaces OAuth credentials for one existing account without changing its local identity.
+     *
+     * The account id, channel, list position, and all profile-scoped stores remain unchanged.
+     * Returns false when the requested local account no longer exists.
+     */
+    fun updateCredentialsInPlace(
+        accountId: String,
+        username: String,
+        accessToken: String,
+        profileId: String
+    ): Boolean {
+        val list = loadAccounts().toMutableList()
+        val index = list.indexOfFirst { it.id == accountId }
+        if (index == -1) return false
+
+        val current = list[index]
+        list[index] = current.copy(
+            username = username.trim(),
+            accessToken = accessToken.trim(),
+            profileId = profileId.trim().ifBlank { current.profileId }
+        )
+        saveAll(list)
+        return true
+    }
+
+    /**
      * Removes one saved account by id and returns the removed config.
      *
      * Returning the removed account keeps deletion flows safer because callers can

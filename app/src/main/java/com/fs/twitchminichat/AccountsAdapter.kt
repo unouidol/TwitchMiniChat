@@ -18,6 +18,8 @@ import androidx.recyclerview.widget.RecyclerView
  */
 class AccountsAdapter(
     private val onClick: (AccountConfig) -> Unit,
+    private val showReauthorize: Boolean,
+    private val onReauthorize: (AccountConfig) -> Unit,
     private val onDelete: (AccountConfig) -> Unit,
     private val onStartDragRequest: (RecyclerView.ViewHolder) -> Unit
 ) : RecyclerView.Adapter<AccountsAdapter.VH>() {
@@ -28,6 +30,7 @@ class AccountsAdapter(
         val accountContent: LinearLayout = v.findViewById(R.id.accountContent)
         val textUser: TextView = v.findViewById(R.id.textUser)
         val textChannel: TextView = v.findViewById(R.id.textChannel)
+        val btnReauthorize: ImageButton = v.findViewById(R.id.btnReauthorize)
         val btnDelete: ImageButton = v.findViewById(R.id.btnDelete)
     }
 
@@ -60,6 +63,8 @@ class AccountsAdapter(
         holder.itemView.setOnLongClickListener(null)
         holder.accountContent.setOnClickListener(null)
         holder.accountContent.setOnLongClickListener(null)
+        holder.btnReauthorize.setOnClickListener(null)
+        holder.btnReauthorize.setOnLongClickListener(null)
         holder.btnDelete.setOnClickListener(null)
         holder.btnDelete.setOnLongClickListener(null)
 
@@ -82,6 +87,21 @@ class AccountsAdapter(
          */
         holder.itemView.setOnLongClickListener {
             onStartDragRequest(holder)
+            true
+        }
+
+        holder.btnReauthorize.contentDescription =
+            context.getString(R.string.reauthorize_account_description, item.username)
+        holder.btnReauthorize.visibility = if (showReauthorize) View.VISIBLE else View.GONE
+
+        if (showReauthorize) {
+            holder.btnReauthorize.setOnClickListener {
+                onReauthorize(item)
+            }
+        }
+
+        holder.btnReauthorize.setOnLongClickListener {
+            /* Keep drag gestures attached to the account row, not to action buttons. */
             true
         }
 

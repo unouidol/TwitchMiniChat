@@ -23,6 +23,12 @@
     <string name="status_send_error">Send error: %1$s</string>
     <string name="status_disconnected_account">Disconnected (@%1$s)</string>
     <string name="delete_account">Delete account</string>
+    <string name="reauthorize_account">Reauthorize account</string>
+    <string name="reauthorize_account_description">Reauthorize Twitch account @%1$s</string>
+    <string name="account_reauthorize_done">Account @%1$s reauthorized.</string>
+    <string name="account_reauthorize_failed">Could not reauthorize this account.</string>
+    <string name="account_reauthorize_identity_mismatch">The authorized Twitch user does not match this account. No changes were made.</string>
+    <string name="oauth_finalize_failed">Twitch login could not be completed.</string>
     <string name="system_bullet">• %1$s</string>
     <string name="invalid_channel_name">Invalid Channel Name</string>
     <string name="channel_switch">Channel Switch → #%1$s</string>

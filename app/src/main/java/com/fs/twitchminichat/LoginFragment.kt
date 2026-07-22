@@ -1,12 +1,10 @@
 package com.fs.twitchminichat
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
-import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -24,12 +22,14 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     private lateinit var recycler: RecyclerView
     private lateinit var adapter: AccountsAdapter
     private lateinit var repo: AccountRepository
+    private lateinit var pendingRequestStore: OAuthPendingRequestStore
     private lateinit var itemTouchHelper: ItemTouchHelper
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         repo = AccountRepository(requireContext())
+        pendingRequestStore = OAuthPendingRequestStore(requireContext())
 
         editChannel = view.findViewById(R.id.editChannel)
         recycler = view.findViewById(R.id.recyclerAccounts)
@@ -41,6 +41,12 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             onClick = { cfg ->
                 ensureTermsAccepted {
                     (activity as? MainActivity)?.openAccount(cfg.id)
+                }
+            },
+            showReauthorize = BuildConfig.REQUEST_EMOTE_SCOPE,
+            onReauthorize = { cfg ->
+                ensureTermsAccepted {
+                    startTwitchReauthorization(cfg)
                 }
             },
             onDelete = { cfg ->
@@ -206,33 +212,39 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             .ifBlank { "" }
     }
 
-    private fun savePendingChannelForSlot(slot: Int, channel: String) {
-        val prefs = requireContext().getSharedPreferences("oauth_pending", Context.MODE_PRIVATE)
-        prefs.edit {
-            putString("pending_channel_slot_$slot", channel)
-        }
-    }
-
-    private fun allocateLoginSlot(): Int {
-        val prefs = requireContext().getSharedPreferences("oauth_pending", Context.MODE_PRIVATE)
-
-        for (slot in 0..99) {
-            if (!prefs.contains("pending_channel_slot_$slot")) {
-                return slot
-            }
-        }
-
-        return ((System.currentTimeMillis() / 1000L) % 100000L).toInt()
-    }
-
+    /** Starts OAuth for a new local account. */
     private fun startTwitchLogin(channel: String) {
-        val slot = allocateLoginSlot()
-        savePendingChannelForSlot(slot, channel)
+        val slot = pendingRequestStore.allocateSlot()
+        pendingRequestStore.saveNewAccount(slot, channel)
+        openTwitchAuthorization(slot = slot, profileId = "")
+    }
 
+    /**
+     * Starts an in-place OAuth refresh for an existing local account.
+     *
+     * The backend profile identifier keeps server data attached to the same profile,
+     * while callback metadata keeps the same local account id and channel.
+     */
+    private fun startTwitchReauthorization(account: AccountConfig) {
+        val profileId = account.profileId
+            .trim()
+            .ifBlank { ProfileIdUtil.fromUsername(account.username) }
+
+        val slot = pendingRequestStore.allocateSlot()
+        pendingRequestStore.saveReauthorization(slot, account, profileId)
+        openTwitchAuthorization(slot = slot, profileId = profileId)
+    }
+
+    /** Opens Twitch OAuth with the feature scopes enabled for the current flavor. */
+    private fun openTwitchAuthorization(slot: Int, profileId: String) {
         val authUrlBuilder = "https://api.ircminichat.party/oauth/start".toUri()
             .buildUpon()
             .appendQueryParameter("slot", slot.toString())
             .appendQueryParameter("return_scheme", "${BuildConfig.AUTH_SCHEME}://auth")
+
+        if (profileId.isNotBlank()) {
+            authUrlBuilder.appendQueryParameter("profile_id", profileId)
+        }
 
         TwitchOAuthRequestFeatures.queryParameters(
             requestEmoteScope = BuildConfig.REQUEST_EMOTE_SCOPE
