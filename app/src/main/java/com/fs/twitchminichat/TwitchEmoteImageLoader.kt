@@ -3,6 +3,7 @@ package com.fs.twitchminichat
 import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
+import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ImageSpan
@@ -45,9 +46,17 @@ class TwitchEmoteImageLoader(
     ) {
         if (markers.isEmpty() || renderSizePx <= 0) return
 
+        /*
+         * Keep one live Spannable buffer inside the TextView. Asynchronous Glide
+         * completions must update this buffer instead of repeatedly installing
+         * stale copies containing older ImageSpan instances.
+         */
+        textView.setText(text, TextView.BufferType.SPANNABLE)
+        val liveText = textView.text as? Spannable ?: return
+
         val session = LoadSession(
             textView = textView,
-            text = text,
+            text = liveText,
             onReleased = { releasedSession ->
                 sessions.remove(releasedSession)
             }
@@ -140,8 +149,14 @@ class TwitchEmoteImageLoader(
             }
 
             override fun onLoadCleared(placeholder: Drawable?) {
-                resource?.stop()
-                resource?.callback = null
+                /*
+                 * Glide may recycle this GIF after clearing the target. Remove the
+                 * matching ImageSpan first so the TextView never retains recycled frames.
+                 */
+                session.clearInstalledDrawable(
+                    drawable = resource,
+                    markerIndex = markerIndex
+                )
                 resource = null
             }
         }
@@ -215,7 +230,13 @@ class TwitchEmoteImageLoader(
             }
 
             override fun onLoadCleared(placeholder: Drawable?) {
-                resource?.callback = null
+                /*
+                 * Static resources follow the same Glide ownership contract as GIFs.
+                 */
+                session.clearInstalledDrawable(
+                    drawable = resource,
+                    markerIndex = markerIndex
+                )
                 resource = null
             }
         }
@@ -231,7 +252,7 @@ class TwitchEmoteImageLoader(
     /** Owns all requests and drawable callbacks attached to one chat TextView. */
     private inner class LoadSession(
         private val textView: TextView,
-        private val text: SpannableStringBuilder,
+        private val text: Spannable,
         private val onReleased: (LoadSession) -> Unit
     ) : View.OnAttachStateChangeListener {
         private val targets = mutableSetOf<Target<*>>()
@@ -249,7 +270,12 @@ class TwitchEmoteImageLoader(
                 what: Runnable,
                 whenMillis: Long
             ) {
-                val delayMillis = (whenMillis - SystemClock.uptimeMillis()).coerceAtLeast(0L)
+                /*
+                 * Drawable.Callback supplies an absolute uptime timestamp.
+                 * Convert it to the relative delay expected by View.postDelayed().
+                 */
+                val delayMillis =
+                    (whenMillis - SystemClock.uptimeMillis()).coerceAtLeast(0L)
                 textView.postDelayed(what, delayMillis)
             }
 
@@ -270,6 +296,38 @@ class TwitchEmoteImageLoader(
             targets += target
         }
 
+        /**
+         * Removes one Glide-owned drawable before its resource can be recycled.
+         *
+         * The identity check prevents a late clear callback from removing a newer
+         * drawable that has already been installed at the same marker.
+         */
+        fun clearInstalledDrawable(
+            drawable: Drawable?,
+            markerIndex: Int
+        ) {
+            if (drawable == null) return
+
+            (drawable as? Animatable)?.let { animatable ->
+                animatable.stop()
+                animatedDrawables.remove(animatable)
+            }
+
+            if (markerIndex in text.indices) {
+                text.getSpans(
+                    markerIndex,
+                    markerIndex + 1,
+                    ImageSpan::class.java
+                )
+                    .filter { span -> span.drawable === drawable }
+                    .forEach { span -> text.removeSpan(span) }
+            }
+
+            drawable.callback = null
+            textView.requestLayout()
+            textView.postInvalidateOnAnimation()
+        }
+
         /** Replaces one invisible marker with its loaded drawable. */
         fun installDrawable(
             drawable: Drawable,
@@ -277,6 +335,29 @@ class TwitchEmoteImageLoader(
             renderSizePx: Int
         ) {
             if (isReleased || markerIndex !in text.indices) return
+
+            /*
+             * A marker must own exactly one ImageSpan. Removing an older asynchronous
+             * result prevents a late Glide completion from visually overlapping or
+             * replacing another emote.
+             */
+            text.getSpans(
+                markerIndex,
+                markerIndex + 1,
+                ImageSpan::class.java
+            ).forEach { existingSpan ->
+                val existingDrawable = existingSpan.drawable
+
+                if (existingDrawable !== drawable) {
+                    (existingDrawable as? Animatable)?.let { animatable ->
+                        animatable.stop()
+                        animatedDrawables.remove(animatable)
+                    }
+                    existingDrawable.callback = null
+                }
+
+                text.removeSpan(existingSpan)
+            }
 
             drawable.setBounds(0, 0, renderSizePx, renderSizePx)
             drawable.callback = drawableCallback
@@ -287,12 +368,17 @@ class TwitchEmoteImageLoader(
                 markerIndex + 1,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            textView.text = text
+
+            textView.requestLayout()
+            textView.postInvalidateOnAnimation()
 
             if (drawable is Animatable) {
                 animatedDrawables += drawable
+
                 if (isAttachedToWindow) {
+                    drawable.setVisible(true, true)
                     drawable.start()
+                    textView.postInvalidateOnAnimation()
                 } else {
                     drawable.stop()
                 }
@@ -304,7 +390,11 @@ class TwitchEmoteImageLoader(
             if (isReleased) return
 
             isAttachedToWindow = true
-            animatedDrawables.forEach { drawable -> drawable.start() }
+            animatedDrawables.forEach { drawable ->
+                (drawable as? Drawable)?.setVisible(true, false)
+                drawable.start()
+            }
+            textView.postInvalidateOnAnimation()
         }
 
         /** Pauses animations without releasing rows that ViewPager2 may reattach. */

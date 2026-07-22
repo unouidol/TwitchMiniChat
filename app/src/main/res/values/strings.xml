@@ -284,4 +284,17 @@
     <string name="chat_send_unconfirmed">Not confirmed by Twitch</string>
     <string name="chat_send_rejected">Not sent</string>
     <string name="chat_send_write_failed">Message not sent. Check the connection and try again.</string>
+
+    <!-- Twitch emote picker -->
+    <string name="emote_picker_open">Open emotes</string>
+    <string name="emote_picker_close">Close emotes</string>
+    <string name="emote_picker_search_hint">Search emotes</string>
+    <string name="emote_picker_empty">No emotes are available. Reauthorize this account if Twitch emote access is missing.</string>
+    <string name="emote_picker_no_results">No emotes match your search.</string>
+    <string name="emote_picker_preview">Emote preview</string>
+    <string name="emote_picker_item_description">%1$s emote</string>
+    <string name="emote_picker_section_recent">Recent</string>
+    <string name="emote_picker_section_channel">Channel emotes</string>
+    <string name="emote_picker_section_other">Other emotes</string>
+    <string name="emote_picker_section_global">Global emotes</string>
 </resources>

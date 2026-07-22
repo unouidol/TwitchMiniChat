@@ -1,6 +1,8 @@
 package com.fs.twitchminichat
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import kotlin.concurrent.thread
 
@@ -12,6 +14,13 @@ class TwitchEmoteCatalogController(
 ) {
     private val store = TwitchEmoteCatalogStore(context)
     private val lock = Any()
+
+    /** Main-thread dispatcher used for catalog UI notifications. */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Optional observer owned by the current chat view. */
+    @Volatile
+    private var catalogListener: ((TwitchEmoteCatalog) -> Unit)? = null
 
     @Volatile
     private var currentChannel: String = ""
@@ -31,6 +40,8 @@ class TwitchEmoteCatalogController(
         currentChannel = normalizedChannel
         currentCatalog = store.load(accountId, normalizedChannel)
             ?: TwitchEmoteCatalog.EMPTY
+
+        notifyCatalogChanged(currentCatalog)
     }
 
     /**
@@ -98,6 +109,7 @@ class TwitchEmoteCatalogController(
 
                     if (currentChannel == normalizedChannel) {
                         currentCatalog = result.catalog
+                        notifyCatalogChanged(result.catalog)
                     }
 
                     synchronized(lock) {
@@ -137,9 +149,46 @@ class TwitchEmoteCatalogController(
         )
     }
 
+    /**
+     * Registers the observer used by the emote picker.
+     *
+     * Notifications are dispatched on the Android main thread. Passing null removes
+     * the observer without changing the cached catalog.
+     */
+    fun setOnCatalogChangedListener(
+        listener: ((TwitchEmoteCatalog) -> Unit)?
+    ) {
+        catalogListener = listener
+
+        if (listener != null) {
+            notifyCatalogChanged(currentCatalog)
+        }
+    }
+
+    /**
+     * Returns the immutable catalog currently selected for this account and channel.
+     *
+     * The picker receives only catalog data and never obtains the OAuth access token.
+     */
+    fun currentCatalogSnapshot(): TwitchEmoteCatalog {
+        return currentCatalog
+    }
     /** Invalidates future asynchronous results when the chat view is destroyed. */
     fun close() {
         isClosed = true
+        catalogListener = null
+        mainHandler.removeCallbacksAndMessages(null)
+    }
+
+    /**
+     * Delivers one catalog only while it is still the selected snapshot.
+     */
+    private fun notifyCatalogChanged(catalog: TwitchEmoteCatalog) {
+        mainHandler.post {
+            if (!isClosed && currentCatalog == catalog) {
+                catalogListener?.invoke(catalog)
+            }
+        }
     }
 
     /** Normalizes one channel exactly as the chat and history layers do. */

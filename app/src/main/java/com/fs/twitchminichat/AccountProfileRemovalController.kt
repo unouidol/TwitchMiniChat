@@ -71,6 +71,7 @@ object AccountProfileRemovalController {
          */
         val removedAccount = AccountRepository(appContext).removeById(account.id) != null
         TwitchEmoteCatalogStore(appContext).clearAccount(account.id)
+        TwitchEmoteRecentStore(appContext).clearAccount(account.id)
         TwitchIrcSessionMetadataStore.remove(account.id)
 
         Log.d(

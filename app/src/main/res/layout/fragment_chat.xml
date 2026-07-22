@@ -183,6 +183,8 @@
             android:text="@string/reply_cancel"/>
     </LinearLayout>
 
+    <include layout="@layout/view_twitch_emote_picker" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -204,6 +206,19 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:singleLine="true" />
+
+        <ImageButton
+            android:id="@+id/btnEmotes"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/emote_picker_open"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:padding="11dp"
+            android:src="@drawable/ic_emote_24"
+            app:tint="?attr/colorOnSurface" />
 
         <Button
             android:id="@+id/btnSend"

@@ -164,8 +164,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var emoteImageLoader: TwitchEmoteImageLoader? = null
     /** Resolves the authenticated account's own outgoing emotes from a cached catalog. */
     private var emoteCatalogController: TwitchEmoteCatalogController? = null
+
+    /** Owns the visible emote grid without adding picker logic to ChatFragment. */
+    private var emotePickerController: TwitchEmotePickerController? = null
     private lateinit var editMessage: ChatMessageInputView
     private lateinit var btnSend: Button
+    private lateinit var btnEmotes: ImageButton
     private lateinit var btnStartPcg: Button
     private lateinit var btnJumpToBottom: Button
 
@@ -1211,6 +1215,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
+    /**
+     * Releases all channel-bound emote rendering before the timeline is replaced.
+     *
+     * Clearing Glide targets stops animated drawables from the previous channel.
+     * Closing the picker also prevents its previous adapter requests from remaining
+     * visible while the next channel catalog is selected.
+     */
+    private fun resetChannelBoundChatUi() {
+        emotePickerController?.closeIfOpen()
+        emoteImageLoader?.clearAll()
+
+        if (this::chatTimelineController.isInitialized) {
+            chatTimelineController.clear()
+        }
+    }
+
     private fun joinChannelFromChat(channelRaw: String): Boolean {
         val ch = channelRaw.trim().removePrefix("#").lowercase()
 
@@ -1230,6 +1250,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         AccountRepository(requireContext()).updateChannel(accountId, ch)
         cfg = AccountRepository(requireContext()).getById(accountId)
+
+        /*
+         * Select the new channel immediately. If OAuth lacks user:read:emotes,
+         * the picker now shows this channel's cache or an empty catalog instead
+         * of retaining emotes belonging to the previous channel.
+         */
+        emoteCatalogController?.selectChannel(ch)
+
         reloadStreamForCurrentChannel()
 
         Log.d("CHAN", "JOIN-> add recent accountId=$accountId ch=$ch")
@@ -1247,7 +1275,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         unseenMessages = 0
         stickToBottom = true
         clearPendingOutgoingState(removeViews = false)
-        chatTimelineController.clear()
+        resetChannelBoundChatUi()
         updateJumpToBottomButton()
 
         closeIrcClient(resetBackoff = true)
@@ -1359,6 +1387,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
         editMessage = view.findViewById(R.id.editMessage)
         btnSend = view.findViewById(R.id.btnSend)
+        btnEmotes = view.findViewById(R.id.btnEmotes)
         btnStartPcg = view.findViewById(R.id.btnStartPcg)
         btnRefreshChat = view.findViewById(R.id.btnRefreshChat)
         btnTogglePush = view.findViewById(R.id.btnTogglePush)
@@ -1372,9 +1401,63 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
         btnCatchPresets = view.findViewById(R.id.btnCatchPresets)
+
+        emotePickerController = TwitchEmotePickerController(
+            panel = view.findViewById(R.id.emotePickerPanel),
+            recyclerView = view.findViewById(R.id.recyclerEmotes),
+            searchInput = view.findViewById(R.id.editEmoteSearch),
+            emptyText = view.findViewById(R.id.textEmotePickerEmpty),
+            toggleButton = btnEmotes,
+            closeButton = view.findViewById(R.id.btnCloseEmotePicker),
+            composer = editMessage,
+            requestManager = Glide.with(this),
+            accountId = accountId,
+            recentStore = TwitchEmoteRecentStore(requireContext()),
+            catalogProvider = {
+                emoteCatalogController?.currentCatalogSnapshot()
+                    ?: TwitchEmoteCatalog.EMPTY
+            },
+            onBeforeOpen = {
+                editMessage.clearFocus()
+
+                val inputMethodManager = requireContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+                inputMethodManager.hideSoftInputFromWindow(
+                    editMessage.windowToken,
+                    0
+                )
+
+                view.requestFocus()
+            },
+            onAfterClose = { keepInputMethod ->
+                if (!keepInputMethod) {
+                    val inputMethodManager = requireContext()
+                        .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+                    inputMethodManager.hideSoftInputFromWindow(
+                        view.windowToken,
+                        0
+                    )
+
+                    view.requestFocus()
+                }
+            }
+        )
+
+        emoteCatalogController?.setOnCatalogChangedListener { catalog ->
+            emotePickerController?.submitCatalog(catalog)
+        }
+
         setupChatTopBarInsets()
 
         editMessage.onComposerTouchDown = {
+            /*
+             * Close the picker without hiding the Input Method Editor because this
+             * touch is immediately transferring focus back to the composer.
+             */
+            emotePickerController?.closeForComposerTouch()
+
             val wasAlreadyFocused = editMessage.hasFocus()
             lastComposerTouchDownAtMs = SystemClock.elapsedRealtime()
 
@@ -1749,6 +1832,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             viewLifecycleOwner,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (emotePickerController?.closeIfOpen() == true) {
+                        return
+                    }
+
                     (activity as? MainActivity)?.goToLoginPage()
                 }
             }
@@ -1773,6 +1860,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         clearComposerFocusRestoreCallbacks()
         composerFocusGuardUntilMs = 0L
 
+        emotePickerController?.release()
+        emotePickerController = null
+
         emoteImageLoader?.clearAll()
         emoteImageLoader = null
         emoteCatalogController?.close()
@@ -1795,6 +1885,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         if (oldChannel != null && !oldChannel.equals(newCfg.channel, ignoreCase = true)) {
             clearPendingOutgoingState(removeViews = true)
+            resetChannelBoundChatUi()
             closeIrcClient(resetBackoff = true)
             historyLoaded = false
         }
