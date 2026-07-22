@@ -229,15 +229,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         Log.d(
             "CHAT_BUY",
-            "buy host fragment=${System.identityHashCode(this)} " +
-                    "activeProfileId=$activeProfileId " +
-                    "requestProfileId=$requestedProfileId " +
-                    "ballId=$ballId " +
-                    "shopBallName=$shopBallName " +
+            "buy requested " +
+                    "hasActiveProfile=${activeProfileId.isNotBlank()} " +
+                    "profileMatches=${activeProfileId == requestedProfileId} " +
+                    "hasBallId=${ballId.isNotBlank()} " +
                     "quantity=$quantity " +
                     "sendReady=$sendReady " +
-                    "sendClientNull=${sendClient == null} " +
-                    "sendClientId=${sendClient?.let { System.identityHashCode(it) }}"
+                    "hasSendClient=${sendClient != null}"
         )
 
         if (activeProfileId.isBlank()) {
@@ -246,10 +244,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
 
         if (activeProfileId != requestedProfileId) {
-            Log.w(
-                "CHAT_BUY",
-                "reject: profile mismatch active=$activeProfileId requested=$requestedProfileId"
-            )
+            Log.w("CHAT_BUY", "reject: profile mismatch")
             return false
         }
 
@@ -717,7 +712,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 "show requested hasFocus=${editChannel.hasFocus()} " +
                         "popup=${editChannel.isPopupShowing} " +
                         "adapterCount=${channelsAdapter.count} " +
-                        "text='${editChannel.text}'"
+                        "hasText=${!editChannel.text.isNullOrBlank()} " +
+                        "textLength=${editChannel.text?.length ?: 0}"
             )
         }
     }
@@ -1212,9 +1208,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         cfg = AccountRepository(requireContext()).getById(accountId)
         reloadStreamForCurrentChannel()
 
-        Log.d("CHAN", "JOIN-> add recent accountId=$accountId ch=$ch")
+        Log.d(
+            "CHAN",
+            "recent channel update requested hasAccountId=${accountId.isNotBlank()} hasChannel=${ch.isNotBlank()}"
+        )
         channelHistory.add(accountId, ch)
-        Log.d("CHAN", "AFTER add recent list=" + channelHistory.get(accountId).joinToString())
+
+        Log.d(
+            "CHAN",
+            "recent channel updated recentCount=${channelHistory.get(accountId).size}"
+        )
         refreshChannelsDropdown()
 
         historyLoaded = false
@@ -1322,9 +1325,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         Log.d(
             "CHAT_INSTANCE",
             "onViewCreated fragment=${System.identityHashCode(this)} " +
-                    "accountId=$accountId " +
-                    "username=${cfg?.username.orEmpty()} " +
-                    "profile=${currentProfileId()}"
+                    "hasAccountId=${accountId.isNotBlank()} " +
+                    "hasConfig=${cfg != null} " +
+                    "hasProfile=${currentProfileId().isNotBlank()}"
         )
 
         channelSwitchBox = view.findViewById(R.id.channelSwitchBox)
@@ -1819,15 +1822,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val rc = TwitchChatClient(chatUsername, ircToken, ch)
         val sc = TwitchChatClient(chatUsername, ircToken, ch)
 
-        Log.d("CHAT", "accountId=$accountId cfgChannel=$ch")
+        Log.d(
+            "CHAT",
+            "opening IRC clients hasAccountId=${accountId.isNotBlank()} hasChannel=${ch.isNotBlank()}"
+        )
 
         readClient = rc
         sendClient = sc
         Log.d(
             "CHAT_INSTANCE",
             "openIrcClients fragment=${System.identityHashCode(this)} " +
-                    "sendClient=${System.identityHashCode(sc)} " +
-                    "profile=${currentProfileId()}"
+                    "hasSendClient=true " +
+                    "hasProfile=${currentProfileId().isNotBlank()}"
         )
         sendReady = false
 
@@ -2026,7 +2032,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         Log.d(
             "TWITCH_NOTICE",
-            "send notice msgId=$msgId message=$noticeMessage"
+            "send notice hasMsgId=${!msgId.isNullOrBlank()} " +
+                    "messageLength=${noticeMessage.length}"
         )
     }
 
@@ -2427,7 +2434,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     ) {
         Log.d(
             "CHAT_LONG_PRESS",
-            "messageId=$messageId user=$user message=$message ts=$messageTimestampSec"
+            "message action opened " +
+                    "hasMessageId=${!messageId.isNullOrBlank()} " +
+                    "messageLength=${message.length} " +
+                    "hasTimestamp=${messageTimestampSec > 0.0}"
         )
 
         showMessageActions(
@@ -2485,7 +2495,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun onHideUserRequested(user: String) {
         val added = HiddenUsersStore.add(requireContext(), user)
 
-        Log.d("CHAT_ACTION", "hide user requested user=$user added=$added")
+        Log.d("CHAT_ACTION", "hide user requested added=$added")
 
         removeMessagesOfHiddenUser(user)
 
@@ -2512,8 +2522,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         Log.d(
             "CHAT_ACTION",
             "report message requested " +
-                    "reporterProfileId=$reporterProfileId " +
-                    "channel=$channel messageId=$messageId user=$user ts=$messageTimestampSec"
+                    "hasReporterProfile=${reporterProfileId.isNotBlank()} " +
+                    "hasChannel=${channel.isNotBlank()} " +
+                    "hasMessageId=${!messageId.isNullOrBlank()} " +
+                    "messageLength=${message.length} " +
+                    "hasTimestamp=${messageTimestampSec > 0.0}"
         )
 
         FcmRegistrationUploader.reportMessage(
@@ -2689,15 +2702,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val parsed = BuddyMessageParser.parse(message)
         if (parsed == null) {
-            Log.d("BUDDY_PARSE", "unparsed buddy response: $message")
+            Log.d("BUDDY_PARSE", "unparsed buddy response messageLength=${message.length}")
             return
         }
 
         if (parsed.addressedUsername != expectedUsername) {
-            Log.d(
-                "BUDDY_PARSE",
-                "ignored buddy response for other user expected=$expectedUsername actual=${parsed.addressedUsername}"
-            )
+            Log.d("BUDDY_PARSE", "ignored buddy response for other user")
             return
         }
 
@@ -2722,9 +2732,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         Log.d(
             "BUDDY_PARSE",
-            "saved profileId=$profileId username=$expectedUsername " +
-                    "rawName=${info.rawName} level=${info.level} avgIv=${info.avgIv} " +
-                    "knownPokemon=${info.isKnownPokemon} type1=${info.primaryType} type2=${info.secondaryType}"
+            "buddy info saved " +
+                    "hasProfile=${profileId.isNotBlank()} " +
+                    "knownPokemon=${info.isKnownPokemon} " +
+                    "hasLevel=${info.level != null} " +
+                    "hasAvgIv=${info.avgIv != null} " +
+                    "hasPrimaryType=${!info.primaryType.isNullOrBlank()} " +
+                    "hasSecondaryType=${!info.secondaryType.isNullOrBlank()}"
         )
     }
 
@@ -2736,7 +2750,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val normalizedUser = user.trim().lowercase()
         if (normalizedUser != "pokemoncommunitygame") return
 
-        Log.d("SPAWN_PARSE", "candidate message=$message")
+        Log.d("SPAWN_PARSE", "candidate PCG message messageLength=${message.length}")
 
         val parsed = SpawnMessageParser.parse(message)
         if (parsed == null) {
@@ -2744,7 +2758,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        Log.d("SPAWN_PARSE", "parsed rawName=${parsed.rawName}")
+        Log.d("SPAWN_PARSE", "spawn parsed hasName=${parsed.rawName.isNotBlank()}")
 
         val dexEntry = resolveDexEntryForSpawnName(parsed.rawName)
 
@@ -2786,7 +2800,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (ageMs < 0L) {
             Log.d(
                 "SPAWN_PARSE",
-                "ignored future spawn rawName=${newSnapshot.rawName} seenAtMs=${newSnapshot.seenAtMs} ageMs=$ageMs"
+                "ignored future spawn ageMs=$ageMs"
             )
             return
         }
@@ -2800,7 +2814,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (ageMs > 90_000L) {
             Log.d(
                 "SPAWN_PARSE",
-                "ignored expired spawn rawName=${newSnapshot.rawName} seenAtMs=${newSnapshot.seenAtMs} ageMs=$ageMs"
+                "ignored future spawn ageMs=$ageMs"
             )
             return
         }
@@ -2816,8 +2830,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (existing != null && existing.seenAtMs > newSnapshot.seenAtMs) {
             Log.d(
                 "SPAWN_PARSE",
-                "ignored older spawn rawName=${newSnapshot.rawName} existing=${existing.rawName} " +
-                        "existingSeenAtMs=${existing.seenAtMs} newSeenAtMs=${newSnapshot.seenAtMs}"
+                "ignored older spawn existingIsNewer=true"
             )
             return
         }
@@ -2829,7 +2842,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         Log.d(
             "SPAWN_PARSE",
-            "saved global spawn rawName=${newSnapshot.rawName} displayName=${newSnapshot.displayName} ageMs=$ageMs"
+            "saved global spawn hasName=${newSnapshot.rawName.isNotBlank()} ageMs=$ageMs"
         )
 
         /**
@@ -2872,7 +2885,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         if (isUserHidden(user)) {
-            Log.d("CHAT_HIDE", "skip hidden user=$user")
+            Log.d("CHAT_HIDE", "skip hidden user message")
             return
         }
 

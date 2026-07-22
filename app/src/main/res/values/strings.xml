@@ -98,12 +98,30 @@
     <string name="report_message_url">https://api.ircminichat.party/report_message</string>
     <string name="safety_privacy">Safety &amp; Privacy</string>
 
-    <string name="privacy_policy_coming_soon">Privacy policy coming soon</string>
 
-    <string name="delete_account_all_data_title">Delete app account and all data</string>
-    <string name="delete_account_all_data_message">This will delete app data on the server for this device and known profiles, including device registrations, dex lists, and stored app OAuth/account records when found, then erase all local app data from this device. You will need to log in again.</string>
-    <string name="delete_account_all_data_confirm">Delete app account and all data</string>
+    <string name="delete_account_all_data_title">Remove this device and server profile data?</string>
+    <string name="delete_account_all_data_message">This removes all TMC data from this Android device and asks the server to delete data for the profiles saved here, including notification registrations, uploaded PCG Dex data, and OAuth/login data where available. Other devices keep their local app storage, but these profiles may be logged out or lose server-synced PCG data.</string>
+    <string name="delete_account_all_data_confirm">Remove device and server profile data</string>
+
     <string name="cancel">Cancel</string>
+
+    <string name="data_deletion_title">Data deletion</string>
+    <string name="data_deletion_message">Choose how TMC should remove data from this device or from the server.</string>
+    <string name="data_deletion_ask">Ask for data deletion</string>
+
+    <string name="data_deletion_remove_this_device">Remove this device data</string>
+    <string name="remove_this_device_data_title">Remove this device data?</string>
+    <string name="remove_this_device_data_message">This removes all TMC data from this Android device and removes this device from server notification registration. Other devices keep their local data, and shared server profile data such as Dex lists and OAuth/login data will not be deleted.</string>
+    <string name="remove_this_device_data_confirm">Remove this device data</string>
+
+    <string name="data_deletion_remove_device_and_server_profiles">Remove this device and server profile data</string>
+    <string name="remove_device_server_profiles_title">Remove this device and server profile data?</string>
+    <string name="remove_device_server_profiles_message">This removes all TMC data from this Android device and asks the server to delete data for the profiles saved here, including notification registrations, uploaded PCG Dex data, and OAuth/login data where available. Other devices keep their local app storage, but these profiles may be logged out or lose server-synced PCG data.</string>
+    <string name="remove_device_server_profiles_confirm">Remove device and server profile data</string>
+
+    <string name="data_deletion_server_failed">Server deletion failed: %1$s</string>
+    <string name="data_deletion_gecko_failed">Server deletion completed, but PCG web data cleanup failed: %1$s</string>
+    <string name="data_deletion_done">TMC data removed. Restarting…</string>
 
     <string name="server_delete_ok_gecko_failed">Server delete OK, but Gecko wipe failed: %1$s</string>
 
@@ -111,6 +129,7 @@
     <string name="reset_local_data_message">Choose what local data to reset on this device.</string>
     <string name="reset_local_data_keep_accounts">Reset local data, keep accounts</string>
     <string name="reset_local_data_full">Erase everything on this device</string>
+    <string name="delete_device_data_url">https://api.ircminichat.party/delete_device_data</string>
 
     <string name="local_data_cleared_accounts_kept">Local data cleared, accounts kept</string>
     <string name="all_local_data_cleared">All local data cleared</string>

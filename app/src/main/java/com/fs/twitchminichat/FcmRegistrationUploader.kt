@@ -35,6 +35,16 @@ object FcmRegistrationUploader {
         val rawResponse: String
     )
 
+    data class DeleteDeviceDataResult(
+        val ok: Boolean,
+        val message: String,
+        val removedDevice: Boolean,
+        val removedDeviceProfiles: List<String>,
+        val requestId: String?,
+        val auditLogPath: String?,
+        val rawResponse: String
+    )
+
     data class ProfileDeletionStateResult(
         val ok: Boolean,
         val deletedProfileIds: List<String>,
@@ -89,7 +99,9 @@ object FcmRegistrationUploader {
 
             Log.d(
                 TAG,
-                "get_profile_deletion_state ok=$ok deleted=$deleted raw=$rawBody"
+                "get_profile_deletion_state ok=$ok " +
+                        "knownProfileCount=${normalizedProfiles.size} " +
+                        "deletedProfileCount=${deleted.distinct().size}"
             )
 
             Handler(Looper.getMainLooper()).post {
@@ -198,18 +210,18 @@ object FcmRegistrationUploader {
             return
         }
 
-        Log.d(TAG, "No cached FCM token, fetching a fresh one for spawn mode profileId=$normalizedProfileId")
+        Log.d(TAG, "No cached FCM token, fetching a fresh one for spawn mode")
 
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
-                Log.w(TAG, "Unable to fetch fresh FCM token for spawn mode profileId=$normalizedProfileId", task.exception)
+                Log.w(TAG, "Unable to fetch fresh FCM token for spawn mode", task.exception)
                 finish(false)
                 return@addOnCompleteListener
             }
 
             val freshToken = task.result?.trim().orEmpty()
             if (freshToken.isBlank()) {
-                Log.w(TAG, "Fresh FCM token is blank for spawn mode profileId=$normalizedProfileId")
+                Log.w(TAG, "Fresh FCM token is blank for spawn mode")
                 finish(false)
                 return@addOnCompleteListener
             }
@@ -218,7 +230,7 @@ object FcmRegistrationUploader {
                 putString("latest_fcm_token", freshToken)
             }
 
-            Log.d(TAG, "Fetched fresh FCM token for spawn mode profileId=$normalizedProfileId")
+            Log.d(TAG, "Fetched fresh FCM token for spawn mode")
             sendRequest(freshToken)
         }
     }
@@ -318,12 +330,11 @@ object FcmRegistrationUploader {
                 TAG,
                 "delete_server_data ok=$ok " +
                         "removedDevice=$removedDevice " +
-                        "deletedDexProfiles=$deletedDexProfiles " +
+                        "knownProfileCount=${normalizedProfiles.size} " +
+                        "deletedDexCount=${deletedDexProfiles.size} " +
                         "oauthDeletedRows=$oauthDeletedRows " +
-                        "oauthDeletedTables=$oauthDeletedTables " +
-                        "requestId=$requestId " +
-                        "auditLogPath=$auditLogPath " +
-                        "raw=$rawBody"
+                        "oauthDeletedTableCount=${oauthDeletedTables.size} " +
+                        "requestId=$requestId"
             )
 
             Handler(Looper.getMainLooper()).post {
@@ -335,6 +346,90 @@ object FcmRegistrationUploader {
                         deletedDexProfiles = deletedDexProfiles,
                         oauthDeletedRows = oauthDeletedRows,
                         oauthDeletedTables = oauthDeletedTables,
+                        requestId = requestId,
+                        auditLogPath = auditLogPath,
+                        rawResponse = rawBody
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * Removes only this Android install/device from the backend registry.
+     *
+     * This is intentionally weaker than deleteServerData(...):
+     * - it removes the current device registration;
+     * - it does not ask the server to delete Dex lists;
+     * - it does not ask the server to delete OAuth/profile data.
+     */
+    fun deleteDeviceData(
+        context: Context,
+        knownProfileIds: Collection<String>,
+        onComplete: (DeleteDeviceDataResult) -> Unit
+    ) {
+        val appContext = context.applicationContext
+
+        thread(start = true, name = "delete-device-data") {
+            val normalizedProfiles = knownProfileIds
+                .map { normalizeProfileId(it) }
+                .filter { it.isNotBlank() }
+                .distinct()
+
+            val result = postJson(
+                urlString = appContext.getString(R.string.delete_device_data_url),
+                payload = JSONObject().apply {
+                    put("key", BuildConfig.HISTORY_SECRET_KEY)
+                    put("device_id", getInstallId(appContext))
+                    put("known_profile_ids", JSONArray(normalizedProfiles))
+                },
+                logLabel = "delete_device_data"
+            )
+
+            val rawBody = result?.responseBody.orEmpty()
+            val body = runCatching {
+                if (rawBody.isNotBlank()) JSONObject(rawBody) else null
+            }.getOrNull()
+
+            fun jsonStringList(array: JSONArray?): List<String> {
+                if (array == null) return emptyList()
+                val out = mutableListOf<String>()
+                for (i in 0 until array.length()) {
+                    val v = array.optString(i).trim()
+                    if (v.isNotEmpty()) out += v
+                }
+                return out
+            }
+
+            val ok = result?.responseCode in 200..299 && (body?.optBoolean("ok", false) == true)
+            val removedDevice = body?.optBoolean("removed_device", false) == true
+            val removedDeviceProfiles = jsonStringList(body?.optJSONArray("removed_device_profiles"))
+            val requestId = body?.optString("request_id")?.takeIf { it.isNotBlank() }
+            val auditLogPath = body?.optString("audit_log_path")?.takeIf { it.isNotBlank() }
+
+            val message = when {
+                result == null -> "Device deletion failed"
+                ok -> "Device delete ok"
+                else -> body?.optString("error")?.takeIf { it.isNotBlank() }
+                    ?: "Device deletion failed"
+            }
+
+            Log.d(
+                TAG,
+                "delete_device_data ok=$ok " +
+                        "removedDevice=$removedDevice " +
+                        "knownProfileCount=${normalizedProfiles.size} " +
+                        "removedDeviceProfileCount=${removedDeviceProfiles.size} " +
+                        "requestId=$requestId"
+            )
+
+            Handler(Looper.getMainLooper()).post {
+                onComplete(
+                    DeleteDeviceDataResult(
+                        ok = ok,
+                        message = message,
+                        removedDevice = removedDevice,
+                        removedDeviceProfiles = removedDeviceProfiles,
                         requestId = requestId,
                         auditLogPath = auditLogPath,
                         rawResponse = rawBody
@@ -437,7 +532,10 @@ object FcmRegistrationUploader {
                 if (responseCode in 200..299) conn.inputStream else conn.errorStream
             )
 
-            Log.d(TAG, "$logLabel responseCode=$responseCode body=$responseText")
+            Log.d(
+                TAG,
+                "$logLabel responseCode=$responseCode responseBodyBytes=${responseText.length}"
+            )
             PostJsonResult(responseCode, responseText)
         } catch (t: Throwable) {
             Log.e(TAG, "Error $logLabel", t)
@@ -528,9 +626,9 @@ object FcmRegistrationUploader {
 
             Log.d(
                 TAG,
-                "report_message ok=$ok reporterProfileId=$normalizedReporterProfileId " +
-                        "channel=$normalizedChannel messageUser=$messageUser messageId=$messageId " +
-                        "raw=$rawBody"
+                "report_message ok=$ok " +
+                        "hasMessageId=${!messageId.isNullOrBlank()} " +
+                        "error=${error ?: "none"}"
             )
 
             Handler(Looper.getMainLooper()).post {

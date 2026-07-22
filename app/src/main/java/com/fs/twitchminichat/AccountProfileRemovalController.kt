@@ -36,8 +36,7 @@ object AccountProfileRemovalController {
 
         Log.d(
             TAG,
-            "removeAccountFromDevice requested accountId=${account.id} " +
-                    "username=${account.username} profileId=$profileId"
+            "removeAccountFromDevice requested hasProfileId=${profileId.isNotBlank()}"
         )
 
         if (profileId.isNotBlank()) {
@@ -93,7 +92,7 @@ object AccountProfileRemovalController {
             ) { backendOk ->
                 Log.d(
                     TAG,
-                    "backend notification disable completed profileId=$profileId ok=$backendOk"
+                    "backend notification disable completed ok=$backendOk"
                 )
             }
         }

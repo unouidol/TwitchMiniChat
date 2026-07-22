@@ -53,7 +53,8 @@ object RemoteDeletionChecker {
 
             Log.d(
                 TAG,
-                "app-open check ok=${result.ok} deleted=${result.deletedProfileIds} raw=${result.rawResponse}"
+                "app-open check ok=${result.ok} " +
+                        "deletedProfileCount=${result.deletedProfileIds.size}"
             )
 
             if (!result.ok) {
@@ -72,7 +73,7 @@ object RemoteDeletionChecker {
 
             Log.w(
                 TAG,
-                "remote delete detected on app open deletedProfileIds=${result.deletedProfileIds}"
+                "remote delete detected on app open deletedProfileCount=${result.deletedProfileIds.size}"
             )
 
             GeckoSessionManager.clearAllWebData(appContext) { geckoOk: Boolean, geckoMessage: String ->
@@ -85,8 +86,9 @@ object RemoteDeletionChecker {
                         TAG,
                         "local wipe deletedSharedPrefs=${localResult.deletedSharedPrefs} " +
                                 "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
+                                "failedSharedPrefs=${localResult.failedSharedPrefs} " +
                                 "clearedCacheDirs=${localResult.clearedCacheDirs} " +
-                                "deletedPrefNames=${localResult.deletedPrefNames}"
+                                "failedCacheDirs=${localResult.failedCacheDirs}"
                     )
                 } catch (t: Throwable) {
                     Log.e(TAG, "local wipe failed", t)

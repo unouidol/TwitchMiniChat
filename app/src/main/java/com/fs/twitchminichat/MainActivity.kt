@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
                 return openAccountFromIntent(accountId)
             }
 
-            Log.w("MAIN", "Notification target profile not found locally profileId=$normalizedProfileId")
+            Log.w("MAIN", "Notification target profile not found locally")
         }
 
         return false
@@ -134,11 +134,11 @@ class MainActivity : AppCompatActivity() {
         val index = adapter.pageIndexForAccountId(accountId)
         if (index >= 0) {
             pager.setCurrentItem(index, true)
-            Log.d("MAIN", "Opened account from intent accountId=$accountId")
+            Log.d("MAIN", "Opened account from notification intent")
             return true
         }
 
-        Log.w("MAIN", "Account from intent not found accountId=$accountId")
+        Log.w("MAIN", "Account from notification intent not found")
         return false
     }
 
@@ -327,7 +327,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val token = task.result
-            Log.d("FCM", "Current token: $token")
+            Log.d("FCM", "Current FCM token fetched")
 
             val accounts = repo.loadAccounts()
             if (accounts.isEmpty()) {
@@ -343,14 +343,17 @@ class MainActivity : AppCompatActivity() {
             for (profileId in profileIds) {
                 val pushEnabled = PushSettingsStore.isPushEnabled(applicationContext, profileId)
 
-                Log.d("FCM", "Boot check profileId=$profileId pushEnabled=$pushEnabled")
+                Log.d(
+                    "FCM",
+                    "Boot push check hasProfile=${profileId.isNotBlank()} pushEnabled=$pushEnabled"
+                )
 
                 if (!pushEnabled) {
-                    Log.d("FCM", "Skip token registration for muted profileId=$profileId")
+                    Log.d("FCM", "Skip token registration for muted profile")
                     continue
                 }
 
-                Log.d("FCM", "Registering token for profileId=$profileId")
+                Log.d("FCM", "Registering token for active profile")
                 FcmRegistrationUploader.uploadToken(applicationContext, token, profileId)
             }
         }

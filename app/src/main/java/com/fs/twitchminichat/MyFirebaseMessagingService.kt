@@ -23,8 +23,8 @@ import com.fs.twitchminichat.pcg.PcgNotificationAlertPrefsStore
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
-        Log.d(TAG, "Refreshed token: $token")
-        Log.d(TAG, "Token received, local save before profiles registration")
+        Log.d(TAG, "FCM token refreshed")
+        Log.d(TAG, "FCM token saved locally before profile registration")
 
         val prefs = applicationContext.getSharedPreferences(PREFS_FCM_REGISTRATION, MODE_PRIVATE)
         prefs.edit {
@@ -34,16 +34,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         try {
-            Log.d(TAG, "From: ${remoteMessage.from}")
-            Log.d(TAG, "Data: ${remoteMessage.data}")
-
-            remoteMessage.notification?.let { notification ->
-                Log.d(
-                    TAG,
-                    "Notification title=${notification.title}, body=${notification.body}"
-                )
-            }
-
             val data = remoteMessage.data
 
             val title = data["title"]
@@ -66,9 +56,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 ?: data["matched_profile_id"]
                 ?: inferSingleProfileIdFromProfiles(profiles)
 
+            /*
+             * Production-safe diagnostic log.
+             *
+             * Do not log the raw FCM payload, profile ids, Pokémon name, notification
+             * title/body, or matched profile list. Those values can identify user activity.
+             */
             Log.d(
                 TAG,
-                "Resolved notification targetProfileId=$targetProfileId pokemon=$pokemon profiles=$profiles"
+                "spawn notification received " +
+                        "hasPokemon=${pokemon.isNotBlank()} " +
+                        "hasProfiles=${profiles.isNotBlank()} " +
+                        "hasTargetProfile=${!targetProfileId.isNullOrBlank()}"
             )
 
             showSpawnNotification(
@@ -269,9 +268,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(
             TAG,
-            "Notification posted: title=$title body=$body pokemon=$pokemon " +
-                    "profiles=$profiles targetProfileId=$targetProfileId " +
-                    "notificationId=$notificationId channelId=$channelId"
+            "spawn notification posted " +
+                    "notificationId=$notificationId " +
+                    "channelId=$channelId " +
+                    "hasTargetProfile=${targetProfileId.isNotBlank()}"
         )
     }
 
