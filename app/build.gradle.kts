@@ -29,9 +29,8 @@ android {
         applicationId = "com.fs.twitchminichat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "4.0.0"
-
+        versionCode = 5
+        versionName = "5.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "HISTORY_SECRET_KEY", "\"$historyKey\"")
