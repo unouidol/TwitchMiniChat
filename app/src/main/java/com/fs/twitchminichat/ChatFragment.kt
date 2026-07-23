@@ -1993,7 +1993,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /** Handles the terminal callback from the active bidirectional IRC session. */
     private fun handleIrcConnectionEnded(
         generation: Long,
-        source: String,
         shouldReconnect: Boolean,
         cause: Throwable?
     ) {
@@ -2002,14 +2001,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             Log.w(
                 "TWITCH_IRC",
-                "connection ended accountId=$accountId source=$source " +
+                "connection ended accountId=$accountId source=session " +
                         "reconnect=$shouldReconnect error=${cause?.javaClass?.simpleName ?: "none"}"
             )
 
             closeIrcClient(resetBackoff = false)
 
             if (shouldReconnect) {
-                scheduleIrcReconnect(reason = source)
+                scheduleIrcReconnect(reason = "session")
             }
         }
     }
@@ -2205,7 +2204,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                 handleIrcConnectionEnded(
                     generation = generation,
-                    source = "session",
+
                     shouldReconnect = shouldReconnect,
                     cause = cause
                 )
