@@ -5,10 +5,10 @@ import androidx.core.content.edit
 import org.json.JSONArray
 
 /**
- * Persists the ten most recently selected Twitch emotes for each local account.
+ * Persists the eighteen most recently selected Twitch emotes for each local account.
  *
- * Stable visual slots and chronological replacement order are stored separately.
- * Selecting an emote never sends or queues a Twitch chat message.
+ * Emote identifiers are ordered from newest to oldest. Selecting an emote only
+ * updates local picker history and never sends or queues a Twitch chat message.
  */
 class TwitchEmoteRecentStore(context: Context) {
 
@@ -18,21 +18,40 @@ class TwitchEmoteRecentStore(context: Context) {
         Context.MODE_PRIVATE
     )
 
-    /** Loads recent emote identifiers in their stable visual-slot order. */
+    /**
+     * Loads recent emote identifiers from newest to oldest.
+     *
+     * Data created by the previous stable-slot policy is converted using its
+     * chronological replacement order before being displayed.
+     */
     fun load(accountId: String): List<String> {
-        val key = recentKey(accountId) ?: return emptyList()
-        val raw = preferences.getString(key, null) ?: return emptyList()
+        val recentKey = recentKey(accountId) ?: return emptyList()
+        val raw = preferences.getString(recentKey, null) ?: return emptyList()
 
-        return parseEmoteIds(raw)
+        val storedEmoteIds = parseEmoteIds(raw)
             .distinct()
             .take(MAX_RECENT_EMOTES)
+
+        val replacementOrderKey =
+            replacementOrderKey(accountId) ?: return storedEmoteIds
+
+        val replacementOrderRaw = preferences.getString(
+            replacementOrderKey,
+            null
+        ) ?: return storedEmoteIds
+
+        return TwitchEmoteRecentOrderPolicy.migrateFromStableSlots(
+            stableEmoteIds = storedEmoteIds,
+            oldestToNewestOrder = parseEmoteIds(replacementOrderRaw),
+            maxSize = MAX_RECENT_EMOTES
+        )
     }
 
     /**
-     * Records one manually selected emote and returns the stable visual slots.
+     * Moves one manually selected emote to the first visual position.
      *
-     * Existing emotes retain their positions. Once all slots are occupied, the
-     * oldest added emote is replaced without moving the remaining entries.
+     * All older entries shift forward by one position. Once eighteen entries are
+     * retained, the last and oldest entry leaves the recent section.
      */
     fun record(accountId: String, emoteId: String): List<String> {
         val recentKey = recentKey(accountId) ?: return emptyList()
@@ -42,14 +61,8 @@ class TwitchEmoteRecentStore(context: Context) {
         val normalizedEmoteId = emoteId.trim()
         if (normalizedEmoteId.isBlank()) return load(accountId)
 
-        val currentEmoteIds = load(accountId)
-
-        val update = TwitchEmoteRecentSlotPolicy.record(
-            currentEmoteIds = currentEmoteIds,
-            currentReplacementOrder = loadReplacementOrder(
-                accountId = accountId,
-                currentEmoteIds = currentEmoteIds
-            ),
+        val updatedEmoteIds = TwitchEmoteRecentOrderPolicy.record(
+            currentEmoteIds = load(accountId),
             selectedEmoteId = normalizedEmoteId,
             maxSize = MAX_RECENT_EMOTES
         )
@@ -57,15 +70,17 @@ class TwitchEmoteRecentStore(context: Context) {
         preferences.edit {
             putString(
                 recentKey,
-                JSONArray(update.emoteIds).toString()
+                JSONArray(updatedEmoteIds).toString()
             )
-            putString(
-                replacementOrderKey,
-                JSONArray(update.replacementOrder).toString()
-            )
+
+            /*
+             * The new list directly stores newest-to-oldest order, so the legacy
+             * stable-slot replacement queue is no longer required.
+             */
+            remove(replacementOrderKey)
         }
 
-        return update.emoteIds
+        return updatedEmoteIds
     }
 
     /** Removes recent-emote data belonging to one deleted local account. */
@@ -76,31 +91,6 @@ class TwitchEmoteRecentStore(context: Context) {
         preferences.edit {
             remove(recentKey)
             remove(replacementOrderKey)
-        }
-    }
-
-    /**
-     * Loads the chronological order used to choose the next emote to replace.
-     *
-     * Legacy lists were stored from newest to oldest. When no separate order is
-     * available, reversing the visual list preserves the existing chronology.
-     */
-    private fun loadReplacementOrder(
-        accountId: String,
-        currentEmoteIds: List<String>
-    ): List<String> {
-        val key = replacementOrderKey(accountId)
-            ?: return currentEmoteIds.reversed()
-
-        val raw = preferences.getString(key, null)
-            ?: return currentEmoteIds.reversed()
-
-        val storedOrder = parseEmoteIds(raw)
-
-        return if (storedOrder.isEmpty() && currentEmoteIds.isNotEmpty()) {
-            currentEmoteIds.reversed()
-        } else {
-            storedOrder
         }
     }
 
@@ -122,7 +112,7 @@ class TwitchEmoteRecentStore(context: Context) {
         }
     }
 
-    /** Builds the account-scoped key containing stable visual slots. */
+    /** Builds the account-scoped key containing newest-to-oldest recent emotes. */
     private fun recentKey(accountId: String): String? {
         val normalizedAccountId = accountId.trim()
         if (normalizedAccountId.isBlank()) return null
@@ -130,7 +120,7 @@ class TwitchEmoteRecentStore(context: Context) {
         return "$RECENT_KEY_PREFIX$normalizedAccountId"
     }
 
-    /** Builds the account-scoped key containing chronological replacement order. */
+    /** Builds the key used only to migrate the previous stable-slot policy. */
     private fun replacementOrderKey(accountId: String): String? {
         val normalizedAccountId = accountId.trim()
         if (normalizedAccountId.isBlank()) return null
@@ -141,15 +131,15 @@ class TwitchEmoteRecentStore(context: Context) {
     companion object {
 
         /** Maximum number of distinct recent emotes retained per account. */
-        private const val MAX_RECENT_EMOTES = 10
+        private const val MAX_RECENT_EMOTES = 18
 
         /** SharedPreferences file containing recent non-secret emote identifiers. */
         private const val PREFERENCES_NAME = "twitch_emote_recents"
 
-        /** Prefix used for stable recent-emote visual slots. */
+        /** Prefix used for newest-to-oldest recent-emote lists. */
         private const val RECENT_KEY_PREFIX = "recent:"
 
-        /** Prefix used for chronological replacement queues. */
+        /** Prefix retained only for migration from the previous slot policy. */
         private const val REPLACEMENT_ORDER_KEY_PREFIX =
             "replacement_order:"
     }

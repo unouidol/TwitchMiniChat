@@ -70,19 +70,19 @@ class TwitchEmotePickerController(
     init {
         val gridLayoutManager = GridLayoutManager(
             recyclerView.context,
-            GRID_SPAN_COUNT
+            GRID_COLUMN_COUNT
         )
 
         /*
          * Section headers occupy the complete grid row while emotes continue to
-         * occupy one of the four regular cells.
+         * occupy one of the six regular cells.
          */
         gridLayoutManager.spanSizeLookup =
             object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int {
                     return adapter.spanSizeAt(
                         position = position,
-                        spanCount = GRID_SPAN_COUNT
+                        spanCount = GRID_COLUMN_COUNT
                     )
                 }
             }
@@ -239,6 +239,6 @@ class TwitchEmotePickerController(
 
     companion object {
         /** Number of emote cells displayed on each picker row. */
-        private const val GRID_SPAN_COUNT = 4
+        private const val GRID_COLUMN_COUNT = 6
     }
 }
