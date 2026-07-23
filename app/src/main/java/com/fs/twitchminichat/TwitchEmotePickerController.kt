@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.RequestManager
+import androidx.core.view.isVisible
 
 /**
  * Coordinates the Twitch emote panel, filtering and composer insertion.
@@ -65,7 +66,7 @@ class TwitchEmotePickerController(
 
     /** True while the integrated emote panel is visible. */
     val isOpen: Boolean
-        get() = panel.visibility == View.VISIBLE
+        get() = panel.isVisible
 
     init {
         val gridLayoutManager = GridLayoutManager(

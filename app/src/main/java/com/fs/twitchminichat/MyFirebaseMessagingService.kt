@@ -242,22 +242,19 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            val channel = notificationManager.getNotificationChannel(channelId)
+        val notificationManager =
+            getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val channel = notificationManager.getNotificationChannel(channelId)
 
-            Log.d(
-                TAG,
-                "channelId=$channelId exists=${channel != null} " +
-                        "importance=${channel?.importance} " +
-                        "canBypassDnd=${channel?.canBypassDnd()} " +
-                        "sound=${channel?.sound} " +
-                        "shouldVibrate=${channel?.shouldVibrate()} " +
-                        "vibrationPattern=${channel?.vibrationPattern?.joinToString()}"
-            )
-        } else {
-            Log.d(TAG, "legacy notification behavior channelId=$channelId")
-        }
+        Log.d(
+            TAG,
+            "channelId=$channelId exists=${channel != null} " +
+                    "importance=${channel?.importance} " +
+                    "canBypassDnd=${channel?.canBypassDnd()} " +
+                    "sound=${channel?.sound} " +
+                    "shouldVibrate=${channel?.shouldVibrate()} " +
+                    "vibrationPattern=${channel?.vibrationPattern?.joinToString()}"
+        )
 
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
         Log.d(TAG, "notificationsEnabled=$notificationsEnabled")

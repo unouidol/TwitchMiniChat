@@ -109,7 +109,7 @@ object TwitchEmoteMessageFormatter {
 
                 val start = rawPosition.substring(0, dashIndex).toIntOrNull() ?: continue
                 val endInclusive = rawPosition.substring(dashIndex + 1).toIntOrNull() ?: continue
-                if (start < 0 || endInclusive < start) continue
+                if (start !in 0..endInclusive) continue
 
                 ranges += TwitchEmoteRange(
                     emoteId = emoteId,

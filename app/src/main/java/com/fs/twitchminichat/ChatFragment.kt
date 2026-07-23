@@ -1961,7 +1961,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     /** Schedules one bounded reconnect while the chat Fragment is visible. */
-    private fun scheduleIrcReconnect(reason: String) {
+    private fun scheduleIrcReconnect() {
         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         if (ircReconnectRunnable != null || connectInProgress) return
 
@@ -1976,7 +1976,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             Log.d(
                 "TWITCH_IRC",
-                "reconnect start accountId=$accountId reason=$reason"
+                "reconnect start accountId=$accountId reason=session"
             )
             connectIfNeeded()
         }
@@ -1986,7 +1986,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         Log.w(
             "TWITCH_IRC",
-            "reconnect scheduled accountId=$accountId delayMs=$delayMs reason=$reason"
+            "reconnect scheduled accountId=$accountId delayMs=$delayMs reason=session"
         )
     }
 
@@ -2008,7 +2008,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             closeIrcClient(resetBackoff = false)
 
             if (shouldReconnect) {
-                scheduleIrcReconnect(reason = "session")
+                scheduleIrcReconnect()
             }
         }
     }
@@ -2626,7 +2626,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         if (shouldSendReply) {
             client.sendReply(
-                parentMsgId = requireNotNull(replyParentId),
+                parentMsgId = replyParentId,
                 text = text,
                 onResult = onWriteResult
             )
