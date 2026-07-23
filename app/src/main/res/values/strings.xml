@@ -289,7 +289,7 @@
     <string name="emote_picker_open">Open emotes</string>
     <string name="emote_picker_close">Close emotes</string>
     <string name="emote_picker_search_hint">Search emotes</string>
-    <string name="emote_picker_empty">No emotes are available. Reauthorize this account if Twitch emote access is missing.</string>
+    <string name="emote_picker_empty">No emotes are available. Emotes missing? Return to the main page and tap Refresh next to the account list to reauthorize this account.</string>
     <string name="emote_picker_no_results">No emotes match your search.</string>
     <string name="emote_picker_preview">Emote preview</string>
     <string name="emote_picker_item_description">%1$s emote</string>

@@ -57,7 +57,7 @@ android {
             resValue("string", "app_name", "TwitchMiniChat")
             manifestPlaceholders["authScheme"] = "ircminichat"
             buildConfigField("String", "AUTH_SCHEME", "\"ircminichat\"")
-            buildConfigField("boolean", "REQUEST_EMOTE_SCOPE", "false")
+            buildConfigField("boolean", "REQUEST_EMOTE_SCOPE", "true")
 
             buildConfigField("String", "FCM_REGISTER_URL", "\"https://api.ircminichat.party/register_fcm\"")
         }

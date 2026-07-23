@@ -397,17 +397,30 @@ class TwitchEmoteImageLoader(
             textView.postInvalidateOnAnimation()
         }
 
-        /** Pauses animations without releasing rows that ViewPager2 may reattach. */
+        /**
+         * Pauses animations while a chat row is detached.
+         *
+         * The release decision is deferred until the current detach traversal
+         * completes. This prevents a child row from being released immediately
+         * before its ViewPager2 account page is detached and later reattached.
+         */
         override fun onViewDetachedFromWindow(view: View) {
             if (isReleased) return
 
-            if (chatPageView.isAttachedToWindow) {
-                release()
-                return
-            }
-
             isAttachedToWindow = false
             animatedDrawables.forEach { drawable -> drawable.stop() }
+
+            textView.post {
+                if (isReleased || textView.isAttachedToWindow) return@post
+
+                /*
+                 * Release a permanently removed row only while its account page
+                 * remains attached. ChatFragment owns final page cleanup.
+                 */
+                if (chatPageView.isAttachedToWindow) {
+                    release()
+                }
+            }
         }
 
         /** Clears requests, stops GIFs through their targets, and releases the row. */
