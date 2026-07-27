@@ -40,12 +40,8 @@ import androidx.lifecycle.Lifecycle
 import com.bumptech.glide.Glide
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 import com.fs.twitchminichat.pcg.PcgActivity
-import org.json.JSONArray
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 import kotlin.concurrent.thread
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -60,12 +56,14 @@ import android.text.style.StyleSpan
 import android.graphics.drawable.GradientDrawable
 import com.fs.twitchminichat.ui.input.ChatMessageInputView
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
+import java.net.URLEncoder
 
 
 
 
-private const val HISTORY_BASE_URL = "https://api.ircminichat.party"
 private const val HISTORY_SECONDS = 3600
+/** Logcat tag for non-sensitive backend history diagnostics. */
+private const val HISTORY_LOG_TAG = "TMC_HISTORY"
 
 
 
@@ -174,6 +172,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var btnJumpToBottom: Button
 
     private lateinit var channelHistory: ChannelHistoryStore
+    /** Loads profile-scoped history without legacy-key fallback. */
+    private lateinit var backendHistoryClient: BackendHistoryClient
     private lateinit var btnRefreshChat: ImageButton
     private lateinit var btnSafetyPrivacy: ImageButton
 
@@ -1360,6 +1360,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (accountId.isBlank()) return
 
         channelHistory = ChannelHistoryStore(requireContext())
+        backendHistoryClient = BackendHistoryClient(
+            sessionReader = BackendSessionStore(requireContext())
+        )
         cfg = AccountRepository(requireContext()).getById(accountId)
 
         Log.d(
@@ -2625,65 +2628,63 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return true
     }
 
+    /** Loads history with the backend session bound to [config]. */
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
-        if (HISTORY_BASE_URL.isBlank()) return
-
-        val channelNorm = config.channel.trim().removePrefix("#").lowercase()
-        val secondsSafe = seconds.coerceIn(30, HISTORY_SECONDS)
+        val profileId = config.profileId.trim().ifBlank {
+            ProfileIdUtil.fromUsername(config.username)
+        }
 
         thread {
-            try {
-                val chan = URLEncoder.encode(channelNorm, "UTF-8")
-                val urlString = "$HISTORY_BASE_URL/history" +
-                        "?channel=$chan" +
-                        "&seconds=$secondsSafe" +
-                        "&key=${BuildConfig.HISTORY_SECRET_KEY}"
+            when (
+                val result = backendHistoryClient.load(
+                    profileId = profileId,
+                    channel = config.channel,
+                    seconds = seconds
+                )
+            ) {
+                is BackendHistoryResult.Success -> {
+                    result.messages.forEach { message ->
+                        val key = message.messageId?.let { messageId ->
+                            "id:$messageId"
+                        } ?: run {
+                            "hist:${(message.timestampSec * 1000).toLong()}:" +
+                                    "${message.user.lowercase()}:${message.text.hashCode()}"
+                        }
 
-                val conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 5000
-                    readTimeout = 5000
-                    requestMethod = "GET"
-                }
-
-                if (conn.responseCode != HttpURLConnection.HTTP_OK) {
-                    conn.disconnect()
-                    return@thread
-                }
-
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
-                conn.disconnect()
-
-                val arr = JSONArray(body)
-                for (i in 0 until arr.length()) {
-                    val obj = arr.getJSONObject(i)
-                    val user = obj.optString("user", "unknown")
-                    val text = obj.optString("text", "")
-                    if (text.isBlank()) continue
-
-                    val emotesRaw = obj.optString("emotes", "")
-                        .takeIf { it.isNotBlank() && it != "null" }
-
-                    val msgId = obj.optString("id", "").takeIf { it.isNotBlank() && it != "null" }
-                    val key = msgId?.let { "id:$it" } ?: run {
-                        val ts = obj.optDouble("timestamp", 0.0)
-                        "hist:${(ts * 1000).toLong()}:${user.lowercase()}:${text.hashCode()}"
-                    }
-
-                    val timestampSec = obj.optDouble("timestamp", 0.0)
-
-                    runUiIfAlive {
-                        appendChatLine(
-                            user = user,
-                            message = text,
-                            emotesRaw = emotesRaw,
-                            dedupKey = key,
-                            replyParentUserLogin = null,
-                            messageTimestampSec = if (timestampSec > 0.0) timestampSec else null
-                        )
+                        runUiIfAlive {
+                            appendChatLine(
+                                user = message.user,
+                                message = message.text,
+                                emotesRaw = message.emotesRaw,
+                                dedupKey = key,
+                                replyParentUserLogin = null,
+                                messageTimestampSec = message.timestampSec
+                                    .takeIf { timestamp -> timestamp > 0.0 }
+                            )
+                        }
                     }
                 }
-            } catch (_: Exception) {
-                // ignore
+
+                BackendHistoryResult.SessionRequired -> {
+                    Log.w(
+                        HISTORY_LOG_TAG,
+                        "History skipped: backend session missing accountId=$accountId"
+                    )
+                }
+
+                BackendHistoryResult.ReauthorizationRequired -> {
+                    Log.w(
+                        HISTORY_LOG_TAG,
+                        "History rejected: manual reauthorization required accountId=$accountId"
+                    )
+                }
+
+                BackendHistoryResult.Failed -> {
+                    Log.w(
+                        HISTORY_LOG_TAG,
+                        "History request failed accountId=$accountId"
+                    )
+                }
             }
         }
     }
