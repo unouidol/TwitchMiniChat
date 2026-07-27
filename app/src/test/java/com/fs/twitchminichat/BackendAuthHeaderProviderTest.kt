@@ -29,4 +29,34 @@ class BackendAuthHeaderProviderTest {
             provider.resolve("profile-a")
         )
     }
+
+    /** A missing session keeps temporary legacy compatibility available. */
+    @Test
+    fun missingSessionSelectsLegacyAuthentication() {
+        val provider = BackendAuthHeaderProvider(
+            sessionReader = BackendSessionReader {
+                BackendSessionLookup.Missing
+            }
+        )
+
+        assertEquals(
+            BackendSessionAuthDecision.Legacy,
+            provider.resolve("profile-a")
+        )
+    }
+
+    /** Untrusted local session state never falls back to legacy authentication. */
+    @Test
+    fun unavailableSessionBlocksBackendRequest() {
+        val provider = BackendAuthHeaderProvider(
+            sessionReader = BackendSessionReader {
+                BackendSessionLookup.Unavailable
+            }
+        )
+
+        assertEquals(
+            BackendSessionAuthDecision.Unavailable,
+            provider.resolve("profile-a")
+        )
+    }
 }

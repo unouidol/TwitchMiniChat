@@ -155,26 +155,56 @@ object FcmRegistrationUploader {
 
         fun sendRequest(token: String) {
             thread(start = true, name = "spawn-alert-mode") {
+                val authDecision = BackendAuthHeaderProvider(
+                    sessionReader = BackendSessionStore(appContext)
+                ).resolve(normalizedProfileId)
+
+                val payload = JSONObject().apply {
+                    put("device_id", getInstallId(appContext))
+                    put("device_name", buildDeviceName(appContext))
+                    put("fcm_token", token)
+                    put("profile_id", normalizedProfileId)
+                    put("spawn_alert_mode", settings.regularMode.id)
+                    put("event_spawn_enabled", settings.eventSpawnsEnabled)
+
+                    /*
+                     * Compatibility bridge for the old registration model.
+                     *
+                     * The server can keep profile_ids aligned while also storing
+                     * the more precise profile_spawn_alert_modes map.
+                     */
+                    put("enabled", settings.isAnyAlertEnabled)
+                }
+
+                val authorizationHeader = when (authDecision) {
+                    BackendSessionAuthDecision.Legacy -> {
+                        /* Temporary compatibility for profiles without a backend session. */
+                        payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
+                        Log.d(TAG, "set_spawn_alert_mode authMode=legacy_key")
+                        null
+                    }
+
+                    is BackendSessionAuthDecision.Bearer -> {
+                        Log.d(TAG, "set_spawn_alert_mode authMode=backend_session")
+                        authDecision.authorizationHeader
+                    }
+
+                    BackendSessionAuthDecision.Unavailable -> {
+                        /*
+                         * An unreadable or invalid local session must not be downgraded
+                         * to profile-only legacy authentication.
+                         */
+                        Log.w(TAG, "set_spawn_alert_mode skipped: backend session unavailable")
+                        finish(false)
+                        return@thread
+                    }
+                }
+
                 val result = postJson(
                     urlString = appContext.getString(R.string.fcm_set_spawn_alert_mode_url),
-                    payload = JSONObject().apply {
-                        put("key", BuildConfig.HISTORY_SECRET_KEY)
-                        put("device_id", getInstallId(appContext))
-                        put("device_name", buildDeviceName(appContext))
-                        put("fcm_token", token)
-                        put("profile_id", normalizedProfileId)
-                        put("spawn_alert_mode", settings.regularMode.id)
-                        put("event_spawn_enabled", settings.eventSpawnsEnabled)
-
-                        /*
-                         * Compatibility bridge for the old registration model.
-                         *
-                         * The server can keep profile_ids aligned while also storing
-                         * the more precise profile_spawn_alert_modes map.
-                         */
-                        put("enabled", settings.isAnyAlertEnabled)
-                    },
-                    logLabel = "set_spawn_alert_mode"
+                    payload = payload,
+                    logLabel = "set_spawn_alert_mode",
+                    authorizationHeader = authorizationHeader
                 )
 
                 val ok = result?.responseCode in 200..299
@@ -348,17 +378,59 @@ object FcmRegistrationUploader {
     private fun normalizeProfileId(value: String?): String {
         return value?.trim()?.lowercase().orEmpty()
     }
+
+    /**
+     * Registers one Firebase Cloud Messaging token using the profile's preselected
+     * backend authentication mode.
+     *
+     * A failed or unreadable backend session is never downgraded to the legacy key.
+     */
     private fun uploadTokenBlocking(context: Context, token: String, profileId: String) {
+        val normalizedProfileId = normalizeProfileId(profileId)
+        if (normalizedProfileId.isBlank()) {
+            Log.w(TAG, "Blank profileId, skip register_fcm")
+            return
+        }
+
+        val authDecision = BackendAuthHeaderProvider(
+            sessionReader = BackendSessionStore(context)
+        ).resolve(normalizedProfileId)
+
+        val payload = JSONObject().apply {
+            put("device_id", getInstallId(context))
+            put("device_name", buildDeviceName(context))
+            put("fcm_token", token)
+            put("profile_id", normalizedProfileId)
+        }
+
+        val authorizationHeader = when (authDecision) {
+            BackendSessionAuthDecision.Legacy -> {
+                /* Temporary compatibility for profiles that have not been refreshed yet. */
+                payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
+                Log.d(TAG, "register_fcm authMode=legacy_key")
+                null
+            }
+
+            is BackendSessionAuthDecision.Bearer -> {
+                Log.d(TAG, "register_fcm authMode=backend_session")
+                authDecision.authorizationHeader
+            }
+
+            BackendSessionAuthDecision.Unavailable -> {
+                /*
+                 * Do not downgrade to the legacy key when local session state exists
+                 * but cannot be trusted.
+                 */
+                Log.w(TAG, "register_fcm skipped: backend session unavailable")
+                return
+            }
+        }
+
         postJson(
             urlString = context.getString(R.string.fcm_register_url),
-            payload = JSONObject().apply {
-                put("key", BuildConfig.HISTORY_SECRET_KEY)
-                put("device_id", getInstallId(context))
-                put("device_name", buildDeviceName(context))
-                put("fcm_token", token)
-                put("profile_id", normalizeProfileId(profileId))
-            },
-            logLabel = "register_fcm"
+            payload = payload,
+            logLabel = "register_fcm",
+            authorizationHeader = authorizationHeader
         )
     }
 
@@ -414,7 +486,16 @@ object FcmRegistrationUploader {
         val responseBody: String
     )
 
-    private fun postJson(urlString: String, payload: JSONObject, logLabel: String): PostJsonResult? {
+    /**
+     * Sends one JavaScript Object Notation (JSON) request with an optional
+     * prevalidated Authorization header.
+     */
+    private fun postJson(
+        urlString: String,
+        payload: JSONObject,
+        logLabel: String,
+        authorizationHeader: String? = null
+    ): PostJsonResult? {
         var conn: HttpURLConnection? = null
 
         return try {
@@ -426,6 +507,10 @@ object FcmRegistrationUploader {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("Accept", "application/json")
+
+                authorizationHeader?.let { header ->
+                    setRequestProperty("Authorization", header)
+                }
             }
 
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
@@ -435,7 +520,11 @@ object FcmRegistrationUploader {
 
             val responseCode = conn.responseCode
             val responseText = readStream(
-                if (responseCode in 200..299) conn.inputStream else conn.errorStream
+                if (responseCode in 200..299) {
+                    conn.inputStream
+                } else {
+                    conn.errorStream
+                }
             )
 
             Log.d(TAG, "$logLabel responseCode=$responseCode body=$responseText")
