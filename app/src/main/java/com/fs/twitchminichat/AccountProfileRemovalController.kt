@@ -36,8 +36,7 @@ object AccountProfileRemovalController {
 
         Log.d(
             TAG,
-            "removeAccountFromDevice requested accountId=${account.id} " +
-                    "username=${account.username} profileId=$profileId"
+            "removeAccountFromDevice requested accountId=${account.id}"
         )
 
         if (profileId.isNotBlank()) {
@@ -73,10 +72,12 @@ object AccountProfileRemovalController {
         TwitchEmoteCatalogStore(appContext).clearAccount(account.id)
         TwitchEmoteRecentStore(appContext).clearAccount(account.id)
         TwitchIrcSessionMetadataStore.remove(account.id)
+        val backendSessionRemoved = BackendSessionStore(appContext).removeProfile(profileId)
 
         Log.d(
             TAG,
-            "local removal finished removedAccount=$removedAccount profileId=$profileId"
+            "local removal finished removedAccount=$removedAccount " +
+                    "backendSessionRemoved=$backendSessionRemoved"
         )
 
         onComplete(
@@ -101,7 +102,7 @@ object AccountProfileRemovalController {
             ) { backendOk ->
                 Log.d(
                     TAG,
-                    "backend notification disable completed profileId=$profileId ok=$backendOk"
+                    "backend notification disable completed ok=$backendOk"
                 )
             }
         }

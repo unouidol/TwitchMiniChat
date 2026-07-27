@@ -19,6 +19,8 @@
     <string name="status_loading">Loading @%1$s on #%2$s…</string>
     <string name="status_connected">Connected as @%1$s on #%2$s</string>
     <string name="status_missing_token">Missing token for @%1$s (login again)</string>
+    <string name="status_backend_session_reauthorize">Session expired for @%1$s. Return to Accounts and tap Refresh to reauthorize.</string>
+    <string name="status_backend_auth_failed">Could not authenticate @%1$s. Check the connection or reauthorize the account manually.</string>
     <string name="status_read_error">Read error: %1$s</string>
     <string name="status_send_error">Send error: %1$s</string>
     <string name="status_disconnected_account">Disconnected (@%1$s)</string>
@@ -29,6 +31,7 @@
     <string name="account_reauthorize_failed">Could not reauthorize this account.</string>
     <string name="account_reauthorize_identity_mismatch">The authorized Twitch user does not match this account. No changes were made.</string>
     <string name="oauth_finalize_failed">Twitch login could not be completed.</string>
+    <string name="backend_session_persist_failed">Twitch login completed, but the secure backend session could not be saved. Please try again.</string>
     <string name="system_bullet">• %1$s</string>
     <string name="invalid_channel_name">Invalid Channel Name</string>
     <string name="channel_switch">Channel Switch → #%1$s</string>

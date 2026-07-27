@@ -11,6 +11,8 @@ object LocalDataCleaner {
         val failedSharedPrefs: Int,
         val clearedCacheDirs: Int,
         val failedCacheDirs: Int,
+        val backendSessionClearAttempted: Boolean,
+        val backendSessionClearSucceeded: Boolean,
         val processedPrefNames: List<String>,
         val deletedPrefNames: List<String>,
         val skippedPrefNames: List<String>,
@@ -20,7 +22,8 @@ object LocalDataCleaner {
     fun clearAllLocalData(context: Context): Result {
         return clearInternal(
             context = context,
-            excludedSharedPrefs = emptySet()
+            excludedSharedPrefs = emptySet(),
+            clearBackendSessions = true
         )
     }
 
@@ -34,7 +37,8 @@ object LocalDataCleaner {
                 .asSequence()
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
-                .toSet()
+                .toSet(),
+            clearBackendSessions = false
         )
     }
 
@@ -44,7 +48,8 @@ object LocalDataCleaner {
 
     private fun clearInternal(
         context: Context,
-        excludedSharedPrefs: Set<String>
+        excludedSharedPrefs: Set<String>,
+        clearBackendSessions: Boolean
     ): Result {
         val appContext = context.applicationContext
 
@@ -94,12 +99,20 @@ object LocalDataCleaner {
             DirectoryClearResult.SKIPPED -> Unit
         }
 
+        val backendSessionClearSucceeded = if (clearBackendSessions) {
+            BackendSessionStore(appContext).clearAll()
+        } else {
+            false
+        }
+
         return Result(
             deletedSharedPrefs = deletedSharedPrefs,
             skippedSharedPrefs = skippedSharedPrefs,
             failedSharedPrefs = failedSharedPrefs,
             clearedCacheDirs = clearedCacheDirs,
             failedCacheDirs = failedCacheDirs,
+            backendSessionClearAttempted = clearBackendSessions,
+            backendSessionClearSucceeded = backendSessionClearSucceeded,
             processedPrefNames = prefNames,
             deletedPrefNames = deletedPrefNames,
             skippedPrefNames = skippedPrefNames,

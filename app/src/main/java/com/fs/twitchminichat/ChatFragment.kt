@@ -2244,65 +2244,50 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         connectInProgress = true
         val connectGeneration = ircConnectionGeneration
+        val ircTokenProvider = BackendIrcTokenProvider(
+            sessionReader = BackendSessionStore(requireContext())
+        )
 
         thread {
-            try {
-                val fresh = OAuthBackendApi.tokenForIrc(profileId)
+            val tokenResult = ircTokenProvider.acquire(
+                profileId = profileId,
+                legacyAccessToken = localToken,
+                legacyUsername = c.username
+            )
 
-                val ircToken = when {
-                    fresh?.accessToken?.isNotBlank() == true -> fresh.accessToken
-                    localToken.isNotBlank() -> localToken
-                    else -> ""
+            runUiIfAlive {
+                if (connectGeneration != ircConnectionGeneration) {
+                    return@runUiIfAlive
                 }
 
-                val chatUsername = when {
-                    fresh?.username?.isNotBlank() == true -> fresh.username
-                    c.username.isNotBlank() -> c.username
-                    else -> ""
-                }
+                connectInProgress = false
 
-                runUiIfAlive {
-                    if (connectGeneration != ircConnectionGeneration) {
-                        return@runUiIfAlive
+                if (ircClient != null) return@runUiIfAlive
+
+                when (tokenResult) {
+                    is BackendIrcTokenResult.Success -> {
+                        openIrcClient(
+                            chatUsername = tokenResult.username,
+                            ircToken = tokenResult.accessToken,
+                            ch = ch
+                        )
                     }
 
-                    connectInProgress = false
-
-                    if (ircClient != null) return@runUiIfAlive
-
-                    if (ircToken.isBlank() || chatUsername.isBlank()) {
+                    BackendIrcTokenResult.ReauthorizationRequired -> {
                         val ctx = context ?: return@runUiIfAlive
-                        textStatus.text = ctx.getString(R.string.status_missing_token, c.username)
-                        return@runUiIfAlive
+                        textStatus.text = ctx.getString(
+                            R.string.status_backend_session_reauthorize,
+                            c.username
+                        )
                     }
 
-                    openIrcClient(
-                        chatUsername = chatUsername,
-                        ircToken = ircToken,
-                        ch = ch
-                    )
-                }
-            } catch (_: Exception) {
-                runUiIfAlive {
-                    if (connectGeneration != ircConnectionGeneration) {
-                        return@runUiIfAlive
-                    }
-
-                    connectInProgress = false
-
-                    if (ircClient != null) return@runUiIfAlive
-
-                    if (localToken.isBlank()) {
+                    BackendIrcTokenResult.Failed -> {
                         val ctx = context ?: return@runUiIfAlive
-                        textStatus.text = ctx.getString(R.string.status_missing_token, c.username)
-                        return@runUiIfAlive
+                        textStatus.text = ctx.getString(
+                            R.string.status_backend_auth_failed,
+                            c.username
+                        )
                     }
-
-                    openIrcClient(
-                        chatUsername = c.username,
-                        ircToken = localToken,
-                        ch = ch
-                    )
                 }
             }
         }

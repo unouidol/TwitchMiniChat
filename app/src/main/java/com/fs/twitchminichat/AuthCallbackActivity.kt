@@ -88,15 +88,21 @@ class AuthCallbackActivity : AppCompatActivity() {
         val accountId = UUID.randomUUID().toString()
         val repo = AccountRepository(this)
 
-        repo.addAccount(
-            AccountConfig(
-                id = accountId,
-                username = result.username,
-                channel = pendingRequest.channel,
-                accessToken = result.accessToken,
-                profileId = finalProfileId
-            )
+        val account = AccountConfig(
+            id = accountId,
+            username = result.username,
+            channel = pendingRequest.channel,
+            accessToken = result.accessToken,
+            profileId = finalProfileId
         )
+        repo.addAccount(account)
+
+        if (!persistBackendSession(result, finalProfileId)) {
+            repo.removeById(accountId)
+            pendingStore.clear(pendingRequest.slot)
+            finishWithToast(R.string.backend_session_persist_failed)
+            return
+        }
 
         pendingStore.clear(pendingRequest.slot)
         openAccount(
@@ -135,11 +141,7 @@ class AuthCallbackActivity : AppCompatActivity() {
 
         if (!identityMatches) {
             pendingStore.clear(pendingRequest.slot)
-            Log.w(
-                TAG,
-                "Reauthorization identity mismatch accountId=${pendingRequest.accountId} " +
-                        "expectedUser=${pendingRequest.expectedUsername} actualUser=${result.username}"
-            )
+            Log.w(TAG, "Reauthorization identity mismatch accountId=${pendingRequest.accountId}")
             finishWithToast(R.string.account_reauthorize_identity_mismatch)
             return
         }
@@ -150,21 +152,60 @@ class AuthCallbackActivity : AppCompatActivity() {
             accessToken = result.accessToken,
             profileId = finalProfileId
         )
-        pendingStore.clear(pendingRequest.slot)
 
         if (!updated) {
+            pendingStore.clear(pendingRequest.slot)
             finishWithToast(R.string.account_reauthorize_failed)
             return
         }
 
-        Log.i(
-            TAG,
-            "Reauthorization completed accountId=${pendingRequest.accountId} " +
-                    "profileId=${finalProfileId.ifBlank { pendingRequest.expectedProfileId }}"
-        )
+        if (!persistBackendSession(result, finalProfileId)) {
+            restoreAccountSnapshot(repo, existingAccount)
+            pendingStore.clear(pendingRequest.slot)
+            finishWithToast(R.string.backend_session_persist_failed)
+            return
+        }
+
+        pendingStore.clear(pendingRequest.slot)
+        Log.i(TAG, "Reauthorization completed accountId=${pendingRequest.accountId}")
         openAccount(
             accountId = pendingRequest.accountId,
             toastMessage = getString(R.string.account_reauthorize_done, result.username)
+        )
+    }
+
+    /**
+     * Stores a returned backend session for the finalized profile.
+     *
+     * Older dual-mode responses without a session remain valid during the migration
+     * window. A present session must be stored successfully before login completes.
+     */
+    private fun persistBackendSession(
+        result: OAuthFinalizeResult,
+        finalProfileId: String
+    ): Boolean {
+        val backendSessionToken = result.desktopSessionToken.trim()
+        if (backendSessionToken.isBlank()) return true
+        if (finalProfileId.isBlank()) return false
+
+        return BackendSessionStore(applicationContext).putSession(
+            profileId = finalProfileId,
+            sessionToken = backendSessionToken
+        )
+    }
+
+    /** Restores the exact account snapshot when backend-session persistence fails. */
+    private fun restoreAccountSnapshot(
+        repo: AccountRepository,
+        existingAccount: AccountConfig
+    ) {
+        val accounts = repo.loadAccounts()
+        if (accounts.none { account -> account.id == existingAccount.id }) return
+
+        repo.saveAll(
+            accounts.map { account ->
+                if (account.id == existingAccount.id) existingAccount else account
+            }
         )
     }
 
