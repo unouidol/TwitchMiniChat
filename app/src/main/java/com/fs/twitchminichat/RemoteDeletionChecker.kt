@@ -8,9 +8,13 @@ import android.util.Log
 import android.widget.Toast
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 
+/**
+ * Checks whether a locally configured account was deleted remotely.
+ */
 object RemoteDeletionChecker {
 
     private const val TAG = "REMOTE_DELETE"
+    private const val RESTART_DELAY_MS = 500L
 
     @Volatile
     private var checkInFlight = false
@@ -20,6 +24,9 @@ object RemoteDeletionChecker {
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /**
+     * Performs at most one remote deletion check during the current process.
+     */
     fun checkOnceOnAppOpen(
         context: Context,
         onNoDeletionDetected: (() -> Unit)? = null
@@ -35,9 +42,17 @@ object RemoteDeletionChecker {
             return
         }
 
-        val profileIds = buildKnownProfileIds(appContext)
+        /*
+         * A fresh installation has no local account requiring a deletion check.
+         * Profile identifiers are not included in the backend request.
+         */
+        val hasLocalAccounts = runCatching {
+            AccountRepository(appContext)
+                .loadAccounts()
+                .isNotEmpty()
+        }.getOrDefault(false)
 
-        if (profileIds.isEmpty()) {
+        if (!hasLocalAccounts) {
             checkedThisProcess = true
             postNoDeletionDetected(onNoDeletionDetected)
             return
@@ -45,94 +60,96 @@ object RemoteDeletionChecker {
 
         checkInFlight = true
 
-        FcmRegistrationUploader.fetchProfileDeletionState(
-            context = appContext,
-            knownProfileIds = profileIds
-        ) { result ->
+        ProfileDeletionStateClient(appContext).fetch { result ->
             checkInFlight = false
+            checkedThisProcess = true
 
             Log.d(
                 TAG,
-                "app-open check ok=${result.ok} deleted=${result.deletedProfileIds} raw=${result.rawResponse}"
+                "app-open check ok=${result.ok} " +
+                    "responseCode=${result.responseCode} " +
+                    "deletedCount=${result.deletedProfileIds.size} " +
+                    "error=${result.error}"
             )
 
-            if (!result.ok) {
-                checkedThisProcess = true
+            if (!result.ok || result.deletedProfileIds.isEmpty()) {
                 postNoDeletionDetected(onNoDeletionDetected)
-                return@fetchProfileDeletionState
+                return@fetch
             }
-
-            if (result.deletedProfileIds.isEmpty()) {
-                checkedThisProcess = true
-                postNoDeletionDetected(onNoDeletionDetected)
-                return@fetchProfileDeletionState
-            }
-
-            checkedThisProcess = true
 
             Log.w(
                 TAG,
-                "remote delete detected on app open deletedProfileIds=${result.deletedProfileIds}"
+                "remote deletion detected deletedCount=" +
+                    result.deletedProfileIds.size
             )
 
-            GeckoSessionManager.clearAllWebData(appContext) { geckoOk: Boolean, geckoMessage: String ->
-                Log.d(TAG, "gecko ok=$geckoOk message=$geckoMessage")
+            GeckoSessionManager.clearAllWebData(appContext) {
+                    geckoOk: Boolean,
+                    geckoMessage: String ->
+
+                Log.d(
+                    TAG,
+                    "gecko clear ok=$geckoOk message=$geckoMessage"
+                )
 
                 try {
-                    val localResult = LocalDataCleaner.clearAllLocalData(appContext)
+                    val localResult =
+                        LocalDataCleaner.clearAllLocalData(appContext)
 
                     Log.d(
                         TAG,
-                        "local wipe deletedSharedPrefs=${localResult.deletedSharedPrefs} " +
-                                "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
-                                "clearedCacheDirs=${localResult.clearedCacheDirs} " +
-                                "deletedPrefNames=${localResult.deletedPrefNames}"
+                        "local wipe deletedSharedPrefs=" +
+                            localResult.deletedSharedPrefs +
+                            " skippedSharedPrefs=" +
+                            localResult.skippedSharedPrefs +
+                            " clearedCacheDirs=" +
+                            localResult.clearedCacheDirs
                     )
-                } catch (t: Throwable) {
-                    Log.e(TAG, "local wipe failed", t)
+                } catch (error: Throwable) {
+                    Log.e(TAG, "local wipe failed", error)
                 }
 
                 mainHandler.post {
                     Toast.makeText(
                         appContext,
-                        "This app account was deleted on another device. Local data has been reset.",
+                        appContext.getString(
+                            R.string.remote_account_deleted_message
+                        ),
                         Toast.LENGTH_LONG
                     ).show()
 
                     mainHandler.postDelayed(
                         { restartApp(appContext) },
-                        500L
+                        RESTART_DELAY_MS
                     )
                 }
             }
         }
     }
 
-    private fun postNoDeletionDetected(callback: (() -> Unit)?) {
-        if (callback == null) return
-        mainHandler.post { callback.invoke() }
+    /** Posts the normal app-start continuation on the main thread. */
+    private fun postNoDeletionDetected(
+        callback: (() -> Unit)?
+    ) {
+        if (callback == null) {
+            return
+        }
+
+        mainHandler.post {
+            callback.invoke()
+        }
     }
 
-    private fun buildKnownProfileIds(context: Context): List<String> {
-        return AccountRepository(context)
-            .loadAccounts()
-            .map {
-                // IMPORTANTE:
-                // se il tuo modello account ha già il vero profile_id server-side,
-                // usa quello qui al posto di derivarlo dallo username.
-                ProfileIdUtil.fromUsername(it.username)
-            }
-            .map { it.trim().lowercase() }
-            .filter { it.isNotBlank() }
-            .distinct()
-    }
-
+    /** Restarts the application after all local state has been cleared. */
     private fun restartApp(context: Context) {
         try {
             val launchIntent = context.packageManager
                 .getLaunchIntentForPackage(context.packageName)
                 ?.apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    )
                 }
 
             if (launchIntent == null) {
@@ -142,8 +159,8 @@ object RemoteDeletionChecker {
 
             context.startActivity(launchIntent)
             Runtime.getRuntime().exit(0)
-        } catch (t: Throwable) {
-            Log.e(TAG, "restart failed", t)
+        } catch (error: Throwable) {
+            Log.e(TAG, "restart failed", error)
         }
     }
 }

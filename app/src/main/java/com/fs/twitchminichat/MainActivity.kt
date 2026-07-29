@@ -327,7 +327,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val token = task.result
-            Log.d("FCM", "Current token: $token")
+            Log.d("FCM", "Current registration token fetched")
 
             val accounts = repo.loadAccounts()
             if (accounts.isEmpty()) {

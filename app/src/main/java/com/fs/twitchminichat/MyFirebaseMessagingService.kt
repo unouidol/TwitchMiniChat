@@ -23,7 +23,7 @@ import com.fs.twitchminichat.pcg.PcgNotificationAlertPrefsStore
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
-        Log.d(TAG, "Refreshed token: $token")
+        Log.d(TAG, "Refreshed registration token received")
         Log.d(TAG, "Token received, local save before profiles registration")
 
         val prefs = applicationContext.getSharedPreferences(PREFS_FCM_REGISTRATION, MODE_PRIVATE)

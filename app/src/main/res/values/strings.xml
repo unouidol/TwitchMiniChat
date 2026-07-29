@@ -103,6 +103,11 @@
 
 
     <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
+    <string name="server_deletion_failed">Server deletion failed</string>
+    <string name="server_delete_ok">Server data deleted</string>
+    <string name="server_deletion_session_required">Refresh at least one account login before deleting server data.</string>
+    <string name="server_deletion_auth_unavailable">The secure account session is unavailable. Refresh an account login and try again.</string>
+    <string name="server_deletion_device_credential_missing">The device security credential is unavailable. Refresh an account login and try again.</string>
     <string name="profile_deletion_state_url">https://api.ircminichat.party/get_profile_deletion_state</string>
     <string name="report_message_url">https://api.ircminichat.party/report_message</string>
     <string name="safety_privacy">Safety &amp; Privacy</string>
@@ -300,4 +305,5 @@
     <string name="emote_picker_section_channel">Channel emotes</string>
     <string name="emote_picker_section_other">Other emotes</string>
     <string name="emote_picker_section_global">Global emotes</string>
+    <string name="remote_account_deleted_message">This app account was deleted on another device. Local data has been reset.</string>
 </resources>

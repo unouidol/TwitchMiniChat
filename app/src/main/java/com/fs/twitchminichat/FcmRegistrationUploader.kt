@@ -12,7 +12,6 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.UUID
 import kotlin.concurrent.thread
 import android.os.Handler
 import android.os.Looper
@@ -35,74 +34,11 @@ object FcmRegistrationUploader {
         val rawResponse: String
     )
 
-    data class ProfileDeletionStateResult(
-        val ok: Boolean,
-        val deletedProfileIds: List<String>,
-        val rawResponse: String
-    )
-
     data class ReportMessageResult(
         val ok: Boolean,
         val rawResponse: String,
         val error: String?
     )
-
-    fun fetchProfileDeletionState(
-        context: Context,
-        knownProfileIds: Collection<String>,
-        onComplete: (ProfileDeletionStateResult) -> Unit
-    ) {
-        val appContext = context.applicationContext
-
-        thread(start = true, name = "profile-deletion-state") {
-            val normalizedProfiles = knownProfileIds
-                .map { normalizeProfileId(it) }
-                .filter { it.isNotBlank() }
-                .distinct()
-
-            val result = postJson(
-                urlString = appContext.getString(R.string.profile_deletion_state_url),
-                payload = JSONObject().apply {
-                    put("key", BuildConfig.HISTORY_SECRET_KEY)
-                    put("known_profile_ids", JSONArray(normalizedProfiles))
-                },
-                logLabel = "get_profile_deletion_state"
-            )
-
-            val rawBody = result?.responseBody.orEmpty()
-            val body = runCatching {
-                if (rawBody.isNotBlank()) JSONObject(rawBody) else null
-            }.getOrNull()
-
-            val deleted = mutableListOf<String>()
-            val deletedArray = body?.optJSONArray("deleted_profile_ids")
-            if (deletedArray != null) {
-                for (i in 0 until deletedArray.length()) {
-                    val v = deletedArray.optString(i).trim().lowercase()
-                    if (v.isNotEmpty()) {
-                        deleted += v
-                    }
-                }
-            }
-
-            val ok = result?.responseCode in 200..299 && (body?.optBoolean("ok", false) == true)
-
-            Log.d(
-                TAG,
-                "get_profile_deletion_state ok=$ok deleted=$deleted raw=$rawBody"
-            )
-
-            Handler(Looper.getMainLooper()).post {
-                onComplete(
-                    ProfileDeletionStateResult(
-                        ok = ok,
-                        deletedProfileIds = deleted.distinct(),
-                        rawResponse = rawBody
-                    )
-                )
-            }
-        }
-    }
 
     fun uploadToken(context: Context, token: String, profileId: String) {
         val appContext = context.applicationContext
@@ -160,7 +96,7 @@ object FcmRegistrationUploader {
                 ).resolve(normalizedProfileId)
 
                 val payload = JSONObject().apply {
-                    put("device_id", getInstallId(appContext))
+                    put("device_id", DeviceCredentialStore.getOrCreateDeviceId(appContext))
                     put("device_name", buildDeviceName(appContext))
                     put("fcm_token", token)
                     put("profile_id", normalizedProfileId)
@@ -272,75 +208,203 @@ object FcmRegistrationUploader {
         }
     }
 
-    private fun getInstallId(context: Context): String {
-        val prefs = context.getSharedPreferences("fcm_registration", Context.MODE_PRIVATE)
-        var installId = prefs.getString("install_id", null)
-        if (installId.isNullOrBlank()) {
-            installId = UUID.randomUUID().toString()
-            prefs.edit { putString("install_id", installId) }
-        }
-        return installId
-    }
-
+    /**
+     * Deletes this device's server-side app data with dual authentication.
+     *
+     * [candidateProfileIds] is used only to select a local backend session.
+     * The backend derives the authoritative scope from the device record.
+     */
     fun deleteServerData(
         context: Context,
-        knownProfileIds: Collection<String>,
+        candidateProfileIds: Collection<String>,
         onComplete: (DeleteServerDataResult) -> Unit
     ) {
         val appContext = context.applicationContext
 
         thread(start = true, name = "delete-server-data") {
-            val normalizedProfiles = knownProfileIds
-                .map { normalizeProfileId(it) }
-                .filter { it.isNotBlank() }
-                .distinct()
+            val authDecision = ServerDeletionAuthProvider(
+                sessionReader = BackendSessionStore(appContext)
+            ).resolve(candidateProfileIds)
+
+            val authorizationHeader = when (authDecision) {
+                is ServerDeletionAuthDecision.Bearer -> {
+                    Log.d(
+                        TAG,
+                        "delete_server_data authMode=backend_session"
+                    )
+                    authDecision.authorizationHeader
+                }
+
+                ServerDeletionAuthDecision.SessionMissing -> {
+                    Log.w(
+                        TAG,
+                        "delete_server_data skipped: " +
+                            "backend session missing"
+                    )
+                    postDeleteServerDataResult(
+                        onComplete,
+                        failedDeleteServerDataResult(
+                            appContext.getString(
+                                R.string.server_deletion_session_required
+                            )
+                        )
+                    )
+                    return@thread
+                }
+
+                ServerDeletionAuthDecision.SessionUnavailable -> {
+                    Log.w(
+                        TAG,
+                        "delete_server_data skipped: " +
+                            "backend session unavailable"
+                    )
+                    postDeleteServerDataResult(
+                        onComplete,
+                        failedDeleteServerDataResult(
+                            appContext.getString(
+                                R.string.server_deletion_auth_unavailable
+                            )
+                        )
+                    )
+                    return@thread
+                }
+            }
+
+            val deviceSecret = runCatching {
+                DeviceCredentialStore.getExistingDeviceSecret(
+                    appContext
+                )
+            }.getOrElse { error ->
+                Log.e(
+                    TAG,
+                    "delete_server_data skipped: " +
+                        "invalid device credential",
+                    error
+                )
+                null
+            }
+
+            if (deviceSecret.isNullOrBlank()) {
+                Log.w(
+                    TAG,
+                    "delete_server_data skipped: " +
+                        "device credential missing"
+                )
+                postDeleteServerDataResult(
+                    onComplete,
+                    failedDeleteServerDataResult(
+                        appContext.getString(
+                            R.string
+                                .server_deletion_device_credential_missing
+                        )
+                    )
+                )
+                return@thread
+            }
 
             val result = postJson(
-                urlString = appContext.getString(R.string.delete_server_data_url),
+                urlString = appContext.getString(
+                    R.string.delete_server_data_url
+                ),
                 payload = JSONObject().apply {
-                    put("key", BuildConfig.HISTORY_SECRET_KEY)
-                    put("device_id", getInstallId(appContext))
-                    put("known_profile_ids", JSONArray(normalizedProfiles))
-                    put("delete_dex_lists", true)
+                    put(
+                        "device_id",
+                        DeviceCredentialStore.getOrCreateDeviceId(
+                            appContext
+                        )
+                    )
+                    put("device_secret", deviceSecret)
                 },
-                logLabel = "delete_server_data"
+                logLabel = "delete_server_data",
+                authorizationHeader = authorizationHeader
             )
 
             val rawBody = result?.responseBody.orEmpty()
 
             val body = runCatching {
-                if (rawBody.isNotBlank()) JSONObject(rawBody) else null
+                if (rawBody.isNotBlank()) {
+                    JSONObject(rawBody)
+                } else {
+                    null
+                }
             }.getOrNull()
 
             fun jsonStringList(array: JSONArray?): List<String> {
-                if (array == null) return emptyList()
-                val out = mutableListOf<String>()
-                for (i in 0 until array.length()) {
-                    val v = array.optString(i).trim()
-                    if (v.isNotEmpty()) out += v
+                if (array == null) {
+                    return emptyList()
                 }
-                return out
+
+                val output = mutableListOf<String>()
+
+                for (index in 0 until array.length()) {
+                    val value = array
+                        .optString(index)
+                        .trim()
+
+                    if (value.isNotEmpty()) {
+                        output += value
+                    }
+                }
+
+                return output
             }
 
-            val removedDevice = body?.optBoolean("removed_device", false) == true
-            val deletedDexProfiles = jsonStringList(body?.optJSONArray("deleted_dex_profiles"))
-            val oauthDeletedRows = body?.optInt("oauth_deleted_rows", 0) ?: 0
-            val oauthDeletedTables = jsonStringList(body?.optJSONArray("oauth_deleted_tables"))
-            val requestId = body?.optString("request_id")?.takeIf { it.isNotBlank() }
-            val auditLogPath = body?.optString("audit_log_path")?.takeIf { it.isNotBlank() }
+            val removedDevice =
+                body?.optBoolean("removed_device", false) == true
 
-            val ok = result?.responseCode in 200..299 && (body?.optBoolean("ok", false) == true)
+            val deletedDexProfiles = jsonStringList(
+                body?.optJSONArray("deleted_dex_profiles")
+            )
+
+            val oauthDeletedRows =
+                body?.optInt("oauth_deleted_rows", 0) ?: 0
+
+            val oauthDeletedTables = jsonStringList(
+                body?.optJSONArray("oauth_deleted_tables")
+            )
+
+            val requestId = body
+                ?.optString("request_id")
+                ?.takeIf(String::isNotBlank)
+
+            val auditLogPath = body
+                ?.optString("audit_log_path")
+                ?.takeIf(String::isNotBlank)
+
+            val ok =
+                result?.responseCode in 200..299 &&
+                    body?.optBoolean("ok", false) == true
 
             val message = when {
-                result == null -> "Server deletion failed"
-                ok -> "Server delete ok"
+                result == null -> appContext.getString(
+                    R.string.server_deletion_failed
+                )
+
+                ok -> appContext.getString(
+                    R.string.server_delete_ok
+                )
+
                 else -> {
                     val errors = body?.optJSONArray("errors")
-                    if (errors != null && errors.length() > 0) {
-                        errors.optString(0).ifBlank { "Server deletion failed" }
+
+                    if (
+                        errors != null &&
+                        errors.length() > 0
+                    ) {
+                        errors
+                            .optString(0)
+                            .ifBlank {
+                                appContext.getString(
+                                    R.string.server_deletion_failed
+                                )
+                            }
                     } else {
-                        body?.optString("error")?.takeIf { it.isNotBlank() }
-                            ?: "Server deletion failed"
+                        body
+                            ?.optString("error")
+                            ?.takeIf(String::isNotBlank)
+                            ?: appContext.getString(
+                                R.string.server_deletion_failed
+                            )
                     }
                 }
             }
@@ -348,33 +412,57 @@ object FcmRegistrationUploader {
             Log.d(
                 TAG,
                 "delete_server_data ok=$ok " +
-                        "removedDevice=$removedDevice " +
-                        "deletedDexProfiles=$deletedDexProfiles " +
-                        "oauthDeletedRows=$oauthDeletedRows " +
-                        "oauthDeletedTables=$oauthDeletedTables " +
-                        "requestId=$requestId " +
-                        "auditLogPath=$auditLogPath " +
-                        "raw=$rawBody"
+                    "removedDevice=$removedDevice " +
+                    "deletedDexProfiles=$deletedDexProfiles " +
+                    "oauthDeletedRows=$oauthDeletedRows " +
+                    "oauthDeletedTables=$oauthDeletedTables " +
+                    "requestId=$requestId " +
+                    "auditLogPath=$auditLogPath"
             )
 
-            Handler(Looper.getMainLooper()).post {
-                onComplete(
-                    DeleteServerDataResult(
-                        ok = ok,
-                        message = message,
-                        removedDevice = removedDevice,
-                        deletedDexProfiles = deletedDexProfiles,
-                        oauthDeletedRows = oauthDeletedRows,
-                        oauthDeletedTables = oauthDeletedTables,
-                        requestId = requestId,
-                        auditLogPath = auditLogPath,
-                        rawResponse = rawBody
-                    )
+            postDeleteServerDataResult(
+                onComplete,
+                DeleteServerDataResult(
+                    ok = ok,
+                    message = message,
+                    removedDevice = removedDevice,
+                    deletedDexProfiles = deletedDexProfiles,
+                    oauthDeletedRows = oauthDeletedRows,
+                    oauthDeletedTables = oauthDeletedTables,
+                    requestId = requestId,
+                    auditLogPath = auditLogPath,
+                    rawResponse = rawBody
                 )
-            }
+            )
         }
     }
 
+    /** Builds a typed pre-network deletion failure. */
+    private fun failedDeleteServerDataResult(
+        message: String
+    ): DeleteServerDataResult {
+        return DeleteServerDataResult(
+            ok = false,
+            message = message,
+            removedDevice = false,
+            deletedDexProfiles = emptyList(),
+            oauthDeletedRows = 0,
+            oauthDeletedTables = emptyList(),
+            requestId = null,
+            auditLogPath = null,
+            rawResponse = ""
+        )
+    }
+
+    /** Delivers one deletion result on the Android main thread. */
+    private fun postDeleteServerDataResult(
+        callback: (DeleteServerDataResult) -> Unit,
+        result: DeleteServerDataResult
+    ) {
+        Handler(Looper.getMainLooper()).post {
+            callback(result)
+        }
+    }
     private fun normalizeProfileId(value: String?): String {
         return value?.trim()?.lowercase().orEmpty()
     }
@@ -397,7 +485,7 @@ object FcmRegistrationUploader {
         ).resolve(normalizedProfileId)
 
         val payload = JSONObject().apply {
-            put("device_id", getInstallId(context))
+            put("device_id", DeviceCredentialStore.getOrCreateDeviceId(context))
             put("device_name", buildDeviceName(context))
             put("fcm_token", token)
             put("profile_id", normalizedProfileId)
@@ -412,6 +500,23 @@ object FcmRegistrationUploader {
             }
 
             is BackendSessionAuthDecision.Bearer -> {
+                val deviceSecret = runCatching {
+                    DeviceCredentialStore.getOrCreateDeviceSecret(context)
+                }.getOrElse { error ->
+                    Log.e(
+                        TAG,
+                        "register_fcm skipped: device credential unavailable",
+                        error
+                    )
+                    return
+                }
+
+                /*
+                 * Device credential enrollment is allowed only when this profile
+                 * is authenticated by its backend Bearer session.
+                 */
+                payload.put("device_secret", deviceSecret)
+
                 Log.d(TAG, "register_fcm authMode=backend_session")
                 authDecision.authorizationHeader
             }
@@ -434,26 +539,68 @@ object FcmRegistrationUploader {
         )
     }
 
+    /**
+     * Uploads one profile's missing Pokédex entries using a preselected authentication mode.
+     *
+     * A present but unreadable backend session is never downgraded to the legacy key.
+     */
     private fun uploadDexListBlocking(
         context: Context,
         profileId: String,
         profileLabel: String,
         wantedPokemon: List<String>
     ) {
+        val normalizedProfileId = normalizeProfileId(profileId)
+        if (normalizedProfileId.isBlank()) {
+            Log.w(TAG, "Blank profileId, skip upload_dex_list")
+            showToast(context, "Error updating dex list for $profileLabel")
+            return
+        }
+
+        val authDecision = BackendAuthHeaderProvider(
+            sessionReader = BackendSessionStore(context)
+        ).resolve(normalizedProfileId)
+
         val wantedArray = JSONArray()
         for (name in wantedPokemon) {
             wantedArray.put(name)
         }
 
+        val payload = JSONObject().apply {
+            put("profile_id", normalizedProfileId)
+            put("profile_label", profileLabel)
+            put("wanted_pokemon", wantedArray)
+        }
+
+        val authorizationHeader = when (authDecision) {
+            BackendSessionAuthDecision.Legacy -> {
+                /* Temporary compatibility for profiles without a backend session. */
+                payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
+                Log.d(TAG, "upload_dex_list authMode=legacy_key")
+                null
+            }
+
+            is BackendSessionAuthDecision.Bearer -> {
+                Log.d(TAG, "upload_dex_list authMode=backend_session")
+                authDecision.authorizationHeader
+            }
+
+            BackendSessionAuthDecision.Unavailable -> {
+                /*
+                 * Do not downgrade to the legacy key when local session state exists
+                 * but cannot be trusted.
+                 */
+                Log.w(TAG, "upload_dex_list skipped: backend session unavailable")
+                showToast(context, "Error updating dex list for $profileLabel")
+                return
+            }
+        }
+
         val result = postJson(
             urlString = context.getString(R.string.dex_upload_url),
-            payload = JSONObject().apply {
-                put("key", BuildConfig.HISTORY_SECRET_KEY)
-                put("profile_id", normalizeProfileId(profileId))
-                put("profile_label", profileLabel)
-                put("wanted_pokemon", wantedArray)
-            },
-            logLabel = "upload_dex_list"
+            payload = payload,
+            logLabel = "upload_dex_list",
+            authorizationHeader = authorizationHeader
         )
 
         if (result == null) {
@@ -527,7 +674,7 @@ object FcmRegistrationUploader {
                 }
             )
 
-            Log.d(TAG, "$logLabel responseCode=$responseCode body=$responseText")
+            Log.d(TAG, "$logLabel responseCode=$responseCode")
             PostJsonResult(responseCode, responseText)
         } catch (t: Throwable) {
             Log.e(TAG, "Error $logLabel", t)
@@ -538,15 +685,8 @@ object FcmRegistrationUploader {
     }
 
     private fun buildDeviceName(context: Context): String {
-        val prefs = context.getSharedPreferences("fcm_registration", Context.MODE_PRIVATE)
-
-        var installId = prefs.getString("install_id", null)
-        if (installId.isNullOrBlank()) {
-            installId = UUID.randomUUID().toString()
-            prefs.edit {
-                putString("install_id", installId)
-            }
-        }
+        val installId =
+            DeviceCredentialStore.getOrCreateDeviceId(context)
 
         val manufacturer = Build.MANUFACTURER.orEmpty().trim()
         val model = Build.MODEL.orEmpty().trim()
@@ -571,6 +711,11 @@ object FcmRegistrationUploader {
             Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
         }
     }
+    /**
+     * Submits one user-triggered message report using the selected authentication mode.
+     *
+     * A present but unreadable backend session is never downgraded to the legacy key.
+     */
     fun reportMessage(
         context: Context,
         reporterProfileId: String,
@@ -583,24 +728,80 @@ object FcmRegistrationUploader {
         onComplete: (ReportMessageResult) -> Unit
     ) {
         val appContext = context.applicationContext
+        val normalizedReporterProfileId = normalizeProfileId(reporterProfileId)
+        val normalizedChannel = channel.trim().removePrefix("#").lowercase()
+
+        /**
+         * Delivers the result on the main thread.
+         */
+        fun finish(result: ReportMessageResult) {
+            Handler(Looper.getMainLooper()).post {
+                onComplete(result)
+            }
+        }
+
+        if (normalizedReporterProfileId.isBlank()) {
+            Log.w(TAG, "report_message skipped: blank reporter profile")
+            finish(
+                ReportMessageResult(
+                    ok = false,
+                    rawResponse = "",
+                    error = "invalid_reporter_profile"
+                )
+            )
+            return
+        }
 
         thread(start = true, name = "report-message") {
-            val normalizedReporterProfileId = normalizeProfileId(reporterProfileId)
-            val normalizedChannel = channel.trim().removePrefix("#").lowercase()
+            val authDecision = BackendAuthHeaderProvider(
+                sessionReader = BackendSessionStore(appContext)
+            ).resolve(normalizedReporterProfileId)
+
+            val payload = JSONObject().apply {
+                put("reporter_profile_id", normalizedReporterProfileId)
+                put("channel", normalizedChannel)
+                put("message_user", messageUser.trim())
+                put("message_text", messageText)
+                put("message_id", messageId ?: JSONObject.NULL)
+                put("message_timestamp", messageTimestampSec ?: JSONObject.NULL)
+                put("reason", reason)
+            }
+
+            val authorizationHeader = when (authDecision) {
+                BackendSessionAuthDecision.Legacy -> {
+                    /* Temporary compatibility for profiles without a backend session. */
+                    payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
+                    Log.d(TAG, "report_message authMode=legacy_key")
+                    null
+                }
+
+                is BackendSessionAuthDecision.Bearer -> {
+                    Log.d(TAG, "report_message authMode=backend_session")
+                    authDecision.authorizationHeader
+                }
+
+                BackendSessionAuthDecision.Unavailable -> {
+                    /*
+                     * Do not downgrade to the legacy key when local session state exists
+                     * but cannot be trusted.
+                     */
+                    Log.w(TAG, "report_message skipped: backend session unavailable")
+                    finish(
+                        ReportMessageResult(
+                            ok = false,
+                            rawResponse = "",
+                            error = "authentication_unavailable"
+                        )
+                    )
+                    return@thread
+                }
+            }
 
             val result = postJson(
                 urlString = appContext.getString(R.string.report_message_url),
-                payload = JSONObject().apply {
-                    put("key", BuildConfig.HISTORY_SECRET_KEY)
-                    put("reporter_profile_id", normalizedReporterProfileId)
-                    put("channel", normalizedChannel)
-                    put("message_user", messageUser.trim())
-                    put("message_text", messageText)
-                    put("message_id", messageId ?: JSONObject.NULL)
-                    put("message_timestamp", messageTimestampSec ?: JSONObject.NULL)
-                    put("reason", reason)
-                },
-                logLabel = "report_message"
+                payload = payload,
+                logLabel = "report_message",
+                authorizationHeader = authorizationHeader
             )
 
             val rawBody = result?.responseBody.orEmpty()
@@ -608,30 +809,37 @@ object FcmRegistrationUploader {
                 if (rawBody.isNotBlank()) JSONObject(rawBody) else null
             }.getOrNull()
 
-            val ok = result?.responseCode in 200..299 && (body?.optBoolean("ok", false) == true)
+            val ok =
+                result?.responseCode in 200..299 &&
+                        body?.optBoolean("ok", false) == true
 
             val error = when {
                 result == null -> "network_error"
                 ok -> null
-                else -> body?.optString("error")?.takeIf { it.isNotBlank() } ?: "report_failed"
+                else -> body
+                    ?.optString("error")
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "report_failed"
             }
 
+            /*
+             * Do not log the reported text, author, message identifier,
+             * backend response body, or authentication credentials.
+             */
             Log.d(
                 TAG,
-                "report_message ok=$ok reporterProfileId=$normalizedReporterProfileId " +
-                        "channel=$normalizedChannel messageUser=$messageUser messageId=$messageId " +
-                        "raw=$rawBody"
+                "report_message ok=$ok " +
+                        "reporterProfileId=$normalizedReporterProfileId " +
+                        "channel=$normalizedChannel"
             )
 
-            Handler(Looper.getMainLooper()).post {
-                onComplete(
-                    ReportMessageResult(
-                        ok = ok,
-                        rawResponse = rawBody,
-                        error = error
-                    )
+            finish(
+                ReportMessageResult(
+                    ok = ok,
+                    rawResponse = rawBody,
+                    error = error
                 )
-            }
+            )
         }
     }
 }

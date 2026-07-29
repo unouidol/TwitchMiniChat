@@ -43,12 +43,7 @@ class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy
         }
 
         findViewById<Button>(R.id.btnDataControl).setOnClickListener {
-            PolicyPageActivity.open(
-                context = this,
-                title = "Data & Account Control",
-                asset = "data_control.html",
-                webUrl = WebPolicies.DATA_DELETION_URL
-            )
+            DataAccountControlActivity.start(this)
         }
 
         findViewById<Button>(R.id.btnCredits).setOnClickListener {

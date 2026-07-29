@@ -53,15 +53,25 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         }
     }
 
-    private fun knownProfileIdsForServerDeletion(): List<String> {
+    /**
+     * Returns local candidates used only to select a deletion Bearer session.
+     */
+    private fun profileIdsForServerDeletionAuthorization(): List<String> {
         return AccountRepository(requireContext())
             .loadAccounts()
-            .map { ProfileIdUtil.fromUsername(it.username) }
-            .map { it.trim().lowercase() }
-            .filter { it.isNotBlank() }
+            .map { account ->
+                account.profileId
+                    .trim()
+                    .ifBlank {
+                        ProfileIdUtil.fromUsername(account.username)
+                    }
+            }
+            .map { profileId ->
+                profileId.trim().lowercase()
+            }
+            .filter(String::isNotBlank)
             .distinct()
     }
-
     private fun showTotalDeleteDialog() {
         showStackedActionDialog(
             titleRes = R.string.delete_account_all_data_title,
@@ -102,17 +112,17 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
     private fun performTotalDeleteNow() {
         val ctx = requireContext()
-        val profileIds = knownProfileIdsForServerDeletion()
+        val profileIds = profileIdsForServerDeletionAuthorization()
         logLocalSnapshot("TOTAL_DELETE", ctx, "before")
 
         Log.d(
             "TOTAL_DELETE",
-            "start profileIds=$profileIds"
+            "start profileCandidateCount=${profileIds.size}"
         )
 
         FcmRegistrationUploader.deleteServerData(
             context = ctx,
-            knownProfileIds = profileIds
+            candidateProfileIds = profileIds
         ) { serverResult: FcmRegistrationUploader.DeleteServerDataResult ->
             if (!isAdded) return@deleteServerData
 

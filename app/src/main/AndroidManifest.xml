@@ -49,6 +49,10 @@
         </activity>
 
         <activity android:name=".SafetyPrivacyActivity" />
+        <activity
+            android:name=".DataAccountControlActivity"
+            android:exported="false"
+            android:label="@string/data_account_control" />
         <activity android:name=".BlockedUsersActivity" />
         <activity android:name=".PolicyPageActivity" />
 
