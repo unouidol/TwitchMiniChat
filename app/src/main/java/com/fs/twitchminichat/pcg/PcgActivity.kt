@@ -57,11 +57,11 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Keeps the manual PokémonCommunityGame update controls below the Android status bar.
+     * Keeps the manual PokÃ©monCommunityGame update controls below the Android status bar.
      *
      * Modern Android versions can draw this Activity edge-to-edge. Only the top
      * manual update row receives the safe offset, so the GeckoView content and
-     * PokémonCommunityGame page behaviour remain unchanged.
+     * PokÃ©monCommunityGame page behaviour remain unchanged.
      */
     private fun setupManualUpdateBarInsets() {
         findViewById<View>(R.id.layoutPcgManualUpdateBar)?.let { manualUpdateBar ->
@@ -73,7 +73,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
      * Connects the visible manual PCG data update buttons.
      *
      * These buttons live above the PCG GeckoView container, so the user clearly
-     * chooses when to register Inventory data, Pokédex data, or refresh the PCG
+     * chooses when to register Inventory data, PokÃ©dex data, or refresh the PCG
      * extension surface.
      */
     private fun setupManualPcgDataUpdateButtons() {
@@ -135,6 +135,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
             refreshPcgExtensionFromUserTap()
         }
 
+
         if (accountId.isNotBlank()) {
             GeckoSessionManager.setManualUpdateButtonStateListener(
                 accountId = accountId
@@ -161,7 +162,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     /**
      * Applies the latest PCG tab state to the manual update buttons.
      *
-     * Inventory and Pokédex are mutually exclusive: only the button matching the
+     * Inventory and PokÃ©dex are mutually exclusive: only the button matching the
      * confirmed active PCG tab can be enabled. Button progress feedback still wins
      * temporarily, so a button stays disabled while its checking animation is shown.
      */
@@ -213,7 +214,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
      * Handles the user-triggered PCG extension refresh button.
      *
      * This refreshes only the visible PCG Gecko session. It does not automatically
-     * register Inventory or Pokédex data; those remain separate manual actions.
+     * register Inventory or PokÃ©dex data; those remain separate manual actions.
      */
     private fun refreshPcgExtensionFromUserTap() {
         if (accountId.isBlank()) {
@@ -241,7 +242,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Shows Inventory checking feedback with the same visual pattern used by Pokédex.
+     * Shows Inventory checking feedback with the same visual pattern used by PokÃ©dex.
      *
      * This is UI-only. The actual Inventory result is still handled by
      * GeckoSessionManager and the passive PCG probe.
@@ -322,11 +323,11 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Shows the longer Pokédex checking feedback.
+     * Shows the longer PokÃ©dex checking feedback.
      *
      * This is UI-only. The real result is still controlled by GeckoSessionManager
      * and the passive PCG probe. The duration is intentionally a little longer
-     * than the manual Pokédex update timeout so the button does not become
+     * than the manual PokÃ©dex update timeout so the button does not become
      * clickable again while the probe result/toast is still pending.
      */
     private fun showPokedexButtonProgressFeedback(
@@ -364,7 +365,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Restores the Pokédex button and progress bar after the visual checking
+     * Restores the PokÃ©dex button and progress bar after the visual checking
      * window finishes.
      */
     private fun restorePokedexButtonFeedback(
@@ -386,7 +387,7 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Cancels pending Pokédex button feedback work.
+     * Cancels pending PokÃ©dex button feedback work.
      *
      * This only stops delayed/animated feedback. The progress bar itself is still
      * managed by showPokedexButtonProgressFeedback(...) and
@@ -446,9 +447,9 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         private const val DISABLED_BUTTON_ALPHA = 0.45f
 
         /**
-         * Visual window for Register Pokédex.
+         * Visual window for Register PokÃ©dex.
          *
-         * GeckoSessionManager waits around 6 seconds for a fresh valid Pokédex
+         * GeckoSessionManager waits around 6 seconds for a fresh valid PokÃ©dex
          * snapshot/toast result, so the button feedback should not end earlier.
          */
         private const val POKEDEX_BUTTON_FEEDBACK_MS = 6_500L

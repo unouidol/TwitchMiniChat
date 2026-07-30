@@ -3,7 +3,7 @@ package com.fs.twitchminichat
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Verifies newest-first Twitch recent-emote ordering. */
+/** Verifies stable Twitch recent-emote visual ordering. */
 class TwitchEmoteRecentOrderPolicyTest {
 
     /** A new emote enters the first slot and shifts older entries forward. */
@@ -21,9 +21,9 @@ class TwitchEmoteRecentOrderPolicyTest {
         )
     }
 
-    /** Selecting an existing emote moves it to the first position once. */
+    /** Selecting an existing emote keeps it in its current visual position. */
     @Test
-    fun record_movesExistingEmoteToFirstPosition() {
+    fun record_keepsExistingEmoteInCurrentPosition() {
         val updated = TwitchEmoteRecentOrderPolicy.record(
             currentEmoteIds = listOf("A", "B", "C", "D"),
             selectedEmoteId = "C",
@@ -31,7 +31,7 @@ class TwitchEmoteRecentOrderPolicyTest {
         )
 
         assertEquals(
-            listOf("C", "A", "B", "D"),
+            listOf("A", "B", "C", "D"),
             updated
         )
     }

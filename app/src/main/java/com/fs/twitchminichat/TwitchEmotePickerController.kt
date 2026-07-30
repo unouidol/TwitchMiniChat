@@ -40,7 +40,7 @@ class TwitchEmotePickerController(
     /** Account-and-channel catalog currently displayed by the picker. */
     private var currentCatalog: TwitchEmoteCatalog = TwitchEmoteCatalog.EMPTY
 
-    /** Most-recently-used emote identifiers, ordered from newest to oldest. */
+    /** Recent emote identifiers with stable slots; unseen emotes enter first. */
     private var recentEmoteIds: List<String> = recentStore.load(accountId)
 
     /** Watches the local search box without performing network requests. */
@@ -170,7 +170,7 @@ class TwitchEmotePickerController(
         panel.visibility = View.GONE
     }
 
-    /** Inserts one selected emote and moves it to the recent section. */
+    /** Inserts one selected emote and records it without moving an existing slot. */
     private fun insertEntry(entry: TwitchEmoteCatalogEntry) {
         val currentText = composer.text?.toString().orEmpty()
         val selectionStart = composer.selectionStart
@@ -193,18 +193,39 @@ class TwitchEmotePickerController(
         )
 
         /*
-         * A picker tap is the local usage event. This changes only picker ordering;
-         * it never sends or retries a Twitch chat command.
+         * A picker tap records a new local favorite. Existing favorites keep their
+         * visual slots, and no Twitch chat command is sent or retried here.
          */
-        recentEmoteIds = recentStore.record(
+        val updatedRecentEmoteIds = recentStore.record(
             accountId = accountId,
             emoteId = entry.id
         )
-        applyFilter()
+
+        /*
+         * Rebuilding an unchanged list is unnecessary and could disturb the
+         * RecyclerView while the user repeatedly taps the same favorite.
+         */
+        if (updatedRecentEmoteIds != recentEmoteIds) {
+            recentEmoteIds = updatedRecentEmoteIds
+            applyFilter(preserveScrollPosition = true)
+        }
     }
 
-    /** Applies the current query and rebuilds the ordered picker sections. */
-    private fun applyFilter() {
+    /**
+     * Applies the current query and rebuilds the ordered picker sections.
+     *
+     * When requested, the first visible item keeps the same screen offset while
+     * the recent-emote section grows above the underlying catalog.
+     */
+    private fun applyFilter(
+        preserveScrollPosition: Boolean = false
+    ) {
+        val visibleScrollAnchor = if (preserveScrollPosition) {
+            captureVisibleScrollAnchor()
+        } else {
+            null
+        }
+
         val query = searchInput.text?.toString()?.trim().orEmpty()
 
         val sections = TwitchEmotePickerSectionBuilder.build(
@@ -214,6 +235,7 @@ class TwitchEmotePickerController(
         )
 
         adapter.submitSections(sections)
+        restoreVisibleScrollAnchor(visibleScrollAnchor)
 
         val visibleEntryCount = sections.sumOf { section ->
             section.entries.size
@@ -237,6 +259,59 @@ class TwitchEmotePickerController(
             )
         }
     }
+
+    /**
+     * Captures the first visible adapter item and its offset from the grid start.
+     */
+    private fun captureVisibleScrollAnchor(): VisibleScrollAnchor? {
+        val layoutManager = recyclerView.layoutManager as? GridLayoutManager
+            ?: return null
+        val position = layoutManager.findFirstVisibleItemPosition()
+
+        if (position == RecyclerView.NO_POSITION) {
+            return null
+        }
+
+        val itemView = layoutManager.findViewByPosition(position)
+            ?: return null
+        val itemAnchor = adapter.scrollAnchorAt(position)
+            ?: return null
+
+        return VisibleScrollAnchor(
+            itemAnchor = itemAnchor,
+            offsetFromStartPx = itemView.top - recyclerView.paddingTop
+        )
+    }
+
+    /**
+     * Restores a captured item after the adapter sections have been rebuilt.
+     */
+    private fun restoreVisibleScrollAnchor(
+        visibleScrollAnchor: VisibleScrollAnchor?
+    ) {
+        if (visibleScrollAnchor == null) return
+
+        val layoutManager = recyclerView.layoutManager as? GridLayoutManager
+            ?: return
+        val position = adapter.positionOfScrollAnchor(
+            visibleScrollAnchor.itemAnchor
+        )
+
+        if (position == RecyclerView.NO_POSITION) {
+            return
+        }
+
+        layoutManager.scrollToPositionWithOffset(
+            position,
+            visibleScrollAnchor.offsetFromStartPx
+        )
+    }
+
+    /** Visible picker position retained across one adapter update. */
+    private data class VisibleScrollAnchor(
+        val itemAnchor: TwitchEmotePickerAdapter.ScrollAnchor,
+        val offsetFromStartPx: Int
+    )
 
     companion object {
         /** Number of emote cells displayed on each picker row. */

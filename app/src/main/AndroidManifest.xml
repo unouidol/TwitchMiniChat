@@ -4,6 +4,24 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Allows TMC to present only installed external web browsers. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_BROWSER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
 
     <application
         android:allowBackup="true"
@@ -18,6 +36,11 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_notification_bell" />
+
+        <activity
+            android:name="com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity"
+            android:exported="false"
+            android:label="@string/pcg_most_wanted_title" />
 
         <activity
             android:name="com.fs.twitchminichat.pcg.PcgActivity"

@@ -136,6 +136,23 @@
 
     <string name="safety_privacy_title">Safety &amp; Privacy</string>
     <string name="safety_privacy_subtitle">Manage reporting, blocking, privacy information, and data controls.</string>
+
+    <!-- External chat links -->
+    <string name="external_link_warning_title">Open external link?</string>
+    <string name="external_link_warning_message">This link will leave TMC and open in an external browser:\n\n%1$s</string>
+    <string name="external_link_do_not_show_again">Don’t show this warning again</string>
+    <string name="external_link_continue">Choose browser</string>
+    <string name="external_link_browser_title">Choose a browser</string>
+    <string name="external_link_browser_message">Choose which external browser TMC should use for this link.</string>
+    <string name="external_link_remember_browser">Remember this browser</string>
+    <string name="external_link_invalid">This link cannot be opened.</string>
+    <string name="external_link_no_browser">No external browser is available.</string>
+    <string name="external_link_open_failed">The selected browser could not open this link.</string>
+    <string name="external_links_title">External chat links</string>
+    <string name="external_links_subtitle">Restore the leave-app warning and forget the browser selected for chat links.</string>
+    <string name="external_link_reset_preferences">Reset external link choices</string>
+    <string name="external_link_preferences_reset">External link choices reset.</string>
+
     <string name="report_block">Report &amp; Block</string>
     <string name="blocked_users">Blocked Users</string>
     <string name="privacy_policy">Privacy Policy</string>
@@ -306,4 +323,145 @@
     <string name="emote_picker_section_other">Other emotes</string>
     <string name="emote_picker_section_global">Global emotes</string>
     <string name="remote_account_deleted_message">This app account was deleted on another device. Local data has been reset.</string>
+
+
+    <!-- PCG Most Wanted -->
+    <string name="pcg_most_wanted_title">Most Wanted</string>
+    <string name="pcg_most_wanted_accessibility">Open PCG Most Wanted</string>
+    <string name="pcg_most_wanted_enabled">Enable Most Wanted alerts</string>
+    <string name="pcg_most_wanted_subtitle">Choose Pok&#233;mon for this profile. This list is separate from your Pok&#233;dex.</string>
+    <string name="pcg_most_wanted_search_hint">Name or filters: es gen + type + tier </string>
+    <string name="pcg_most_wanted_filters">Filters</string>
+    <string name="pcg_most_wanted_filters_active">Filters (%1$d)</string>
+    <string name="pcg_most_wanted_filters_title">Catalog filters</string>
+    <string name="pcg_most_wanted_apply_filters">Apply</string>
+    <string name="pcg_most_wanted_reset_filters">Reset filters</string>
+    <string name="pcg_most_wanted_filter_tier">Tier</string>
+    <string name="pcg_most_wanted_filter_type">Type</string>
+    <string name="pcg_most_wanted_filter_generation">Generation</string>
+    <string name="pcg_most_wanted_filter_stage">Evolution stage</string>
+    <string name="pcg_most_wanted_filter_variant">Regional and PCG variants</string>
+    <string name="pcg_most_wanted_filter_availability">Availability</string>
+    <string name="pcg_most_wanted_filter_starter">Starter families only</string>
+    <string name="pcg_most_wanted_filter_legendary">Legendary only</string>
+    <string name="pcg_most_wanted_filter_mythical">Mythical only</string>
+    <string name="pcg_most_wanted_filter_selected">Selected only</string>
+    <string name="pcg_most_wanted_selection_count">%1$d selected &#183; %2$d shown</string>
+    <string name="pcg_most_wanted_selection_count_initial">0 selected &#183; 0 shown</string>
+    <string name="pcg_most_wanted_no_results">No Pok&#233;mon match these filters.</string>
+    <string name="pcg_most_wanted_load_failed">Could not load the PCG catalog.</string>
+    <string name="pcg_most_wanted_save">Save Most Wanted</string>
+    <string name="pcg_most_wanted_saved">Most Wanted saved for this profile.</string>
+    <string name="pcg_most_wanted_save_failed">Could not save Most Wanted.</string>
+    <string name="pcg_most_wanted_missing_profile">Open Most Wanted from an active PCG profile.</string>
+    <string name="pcg_most_wanted_unsaved_title">Discard changes?</string>
+    <string name="pcg_most_wanted_unsaved_message">Your Most Wanted changes have not been saved.</string>
+    <string name="pcg_most_wanted_discard">Discard</string>
+    <string name="pcg_most_wanted_item_metadata">%1$s &#183; %2$s &#183; %3$s &#183; %4$s</string>
+    <string name="pcg_generation_label">Gen %1$d</string>
+    <string name="pcg_availability_normal">Normally spawnable</string>
+    <string name="pcg_availability_special">Special availability</string>
+    <string name="pcg_type_separator"> / </string>
+    <string name="pcg_tier_s">Tier S</string>
+    <string name="pcg_tier_a">Tier A</string>
+    <string name="pcg_tier_b">Tier B</string>
+    <string name="pcg_tier_c">Tier C</string>
+    <string name="pcg_type_normal">Normal</string>
+    <string name="pcg_type_fire">Fire</string>
+    <string name="pcg_type_water">Water</string>
+    <string name="pcg_type_electric">Electric</string>
+    <string name="pcg_type_grass">Grass</string>
+    <string name="pcg_type_ice">Ice</string>
+    <string name="pcg_type_fighting">Fighting</string>
+    <string name="pcg_type_poison">Poison</string>
+    <string name="pcg_type_ground">Ground</string>
+    <string name="pcg_type_flying">Flying</string>
+    <string name="pcg_type_psychic">Psychic</string>
+    <string name="pcg_type_bug">Bug</string>
+    <string name="pcg_type_rock">Rock</string>
+    <string name="pcg_type_ghost">Ghost</string>
+    <string name="pcg_type_dragon">Dragon</string>
+    <string name="pcg_type_dark">Dark</string>
+    <string name="pcg_type_steel">Steel</string>
+    <string name="pcg_type_fairy">Fairy</string>
+
+    <string-array name="pcg_most_wanted_tier_filter_labels">
+        <item>All tiers</item>
+        <item>Tier S</item>
+        <item>Tier A</item>
+        <item>Tier B</item>
+        <item>Tier C</item>
+    </string-array>
+
+    <string-array name="pcg_most_wanted_type_filter_labels">
+        <item>All types</item>
+        <item>Normal</item>
+        <item>Fire</item>
+        <item>Water</item>
+        <item>Electric</item>
+        <item>Grass</item>
+        <item>Ice</item>
+        <item>Fighting</item>
+        <item>Poison</item>
+        <item>Ground</item>
+        <item>Flying</item>
+        <item>Psychic</item>
+        <item>Bug</item>
+        <item>Rock</item>
+        <item>Ghost</item>
+        <item>Dragon</item>
+        <item>Dark</item>
+        <item>Steel</item>
+        <item>Fairy</item>
+    </string-array>
+
+    <string-array name="pcg_most_wanted_generation_filter_labels">
+        <item>All generations</item>
+        <item>Generation 1</item>
+        <item>Generation 2</item>
+        <item>Generation 3</item>
+        <item>Generation 4</item>
+        <item>Generation 5</item>
+        <item>Generation 6</item>
+        <item>Generation 7</item>
+        <item>Generation 8</item>
+        <item>Generation 9</item>
+    </string-array>
+
+    <string-array name="pcg_most_wanted_stage_filter_labels">
+        <item>All evolution stages</item>
+        <item>Base stage</item>
+        <item>Middle stage</item>
+        <item>Final stage</item>
+        <item>Single-stage</item>
+    </string-array>
+
+    <string-array name="pcg_most_wanted_variant_filter_labels">
+        <item>All variants</item>
+        <item>Base species</item>
+        <item>Gender variants</item>
+        <item>Official forms</item>
+        <item>Regional forms</item>
+        <item>PCG variants</item>
+    </string-array>
+
+    <string-array name="pcg_most_wanted_availability_filter_labels">
+        <item>Any availability</item>
+        <item>Normally spawnable</item>
+        <item>Special availability</item>
+    </string-array>
+    <string name="pcg_most_wanted_sync_url">https://api.ircminichat.party/set_custom_watchlist</string>
+    <string name="pcg_most_wanted_saved_and_synced">Most Wanted List saved and synced.</string>
+    <string name="pcg_most_wanted_saved_sync_pending">Saved on this device, but server sync failed. Tap Save to retry.</string>
+
+    <!-- PCG Most Wanted combined stage filters -->
+    <string name="pcg_most_wanted_stage_filter_hint">Evolution stage (select one or more)</string>
+    <string name="pcg_most_wanted_stage_base">Base form</string>
+    <string name="pcg_most_wanted_stage_middle">Middle stage</string>
+    <string name="pcg_most_wanted_stage_final">Final stage</string>
+    <string name="pcg_most_wanted_stage_single">Single-stage</string>
+    <string name="pcg_most_wanted_alert_label">Most Wanted alerts</string>
+
+    <!-- PCG Most Wanted navigation -->
+    <string name="pcg_most_wanted_back_to_alerts">Back to alerts</string>
 </resources>

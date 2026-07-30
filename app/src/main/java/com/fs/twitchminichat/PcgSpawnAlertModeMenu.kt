@@ -14,33 +14,26 @@ import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 /**
  * Dialog anchored conceptually to the bell button.
  *
- * It exposes:
- * - the mutually exclusive Pokémon Community Game spawn alert modes;
- * - local delivery preferences for how notifications should alert the user.
- *
- * Spawn alert modes decide which notifications can arrive.
- * Sound/vibration preferences decide how those notifications are delivered on
- * this device.
+ * It exposes spawn alert modes, Most Wanted alerts and local notification
+ * delivery preferences. It never sends chat or gameplay commands.
  */
 object PcgSpawnAlertModeMenu {
 
     /**
-     * Shows the spawn alert mode dialog.
+     * Shows the complete informative alert menu.
      *
-     * Only one ordinary spawn mode can be selected at a time. Event spawns use
-     * a separate checkbox and may be enabled with any ordinary mode, including
-     * NONE. The caller saves and synchronizes the resulting settings together.
-     *
-     * Sound and vibration are local device preferences, so this dialog stores
-     * them directly through PcgNotificationAlertPrefsStore when the user confirms.
+     * Most Wanted is independent from ordinary and event spawn alerts. All
+     * changed values are applied only after the explicit OK tap.
      */
     fun show(
         anchor: View,
         currentSettings: PcgSpawnAlertSettings,
+        currentMostWantedEnabled: Boolean,
+        onMostWantedRequested: () -> Unit,
+        onMostWantedEnabledSelected: (Boolean) -> Unit,
         onSettingsSelected: (PcgSpawnAlertSettings) -> Unit
     ) {
         val context = anchor.context
-
         var selectedMode = currentSettings.regularMode
 
         val root = LinearLayout(context).apply {
@@ -58,7 +51,6 @@ object PcgSpawnAlertModeMenu {
             textSize = 14f
             setPadding(0, 0, 0, dp(context, 8))
         }
-
         root.addView(modeHeader)
 
         val modeRadioGroup = RadioGroup(context).apply {
@@ -73,24 +65,21 @@ object PcgSpawnAlertModeMenu {
                 setPadding(0, dp(context, 2), 0, dp(context, 2))
 
                 /*
-                 * Store the enum directly on the view so the checked-change
-                 * listener does not need to rely on menu item IDs.
+                 * Store the enum on the view so selection does not depend on
+                 * generated menu identifiers.
                  */
                 tag = mode
             }
-
             modeRadioGroup.addView(radioButton)
         }
 
         modeRadioGroup.setOnCheckedChangeListener { group, checkedId ->
             val checked = group.findViewById<RadioButton>(checkedId)
             val mode = checked?.tag as? PcgSpawnAlertMode
-
             if (mode != null) {
                 selectedMode = mode
             }
         }
-
         root.addView(modeRadioGroup)
 
         val eventSpawnCheckBox = CheckBox(context).apply {
@@ -98,13 +87,18 @@ object PcgSpawnAlertModeMenu {
             isChecked = currentSettings.eventSpawnsEnabled
             setPadding(0, dp(context, 8), 0, dp(context, 2))
         }
-
         root.addView(eventSpawnCheckBox)
+
+        val mostWantedCheckBox = CheckBox(context).apply {
+            text = context.getString(R.string.pcg_most_wanted_enabled)
+            isChecked = currentMostWantedEnabled
+            setPadding(0, dp(context, 2), 0, dp(context, 2))
+        }
+        root.addView(mostWantedCheckBox)
 
         val divider = View(context).apply {
             setPadding(0, dp(context, 8), 0, dp(context, 8))
         }
-
         root.addView(divider)
 
         val deliveryHeader = TextView(context).apply {
@@ -112,7 +106,6 @@ object PcgSpawnAlertModeMenu {
             textSize = 14f
             setPadding(0, dp(context, 12), 0, dp(context, 8))
         }
-
         root.addView(deliveryHeader)
 
         val soundCheckBox = CheckBox(context).apply {
@@ -122,8 +115,11 @@ object PcgSpawnAlertModeMenu {
         }
 
         val vibrationCheckBox = CheckBox(context).apply {
-            text = context.getString(R.string.pcg_notification_vibration_label)
-            isChecked = PcgNotificationAlertPrefsStore.isVibrationEnabled(context)
+            text = context.getString(
+                R.string.pcg_notification_vibration_label
+            )
+            isChecked =
+                PcgNotificationAlertPrefsStore.isVibrationEnabled(context)
             setPadding(0, dp(context, 2), 0, dp(context, 2))
         }
 
@@ -147,29 +143,38 @@ object PcgSpawnAlertModeMenu {
                     onSettingsSelected(selectedSettings)
                 }
 
+                if (
+                    mostWantedCheckBox.isChecked !=
+                    currentMostWantedEnabled
+                ) {
+                    onMostWantedEnabledSelected(
+                        mostWantedCheckBox.isChecked
+                    )
+                }
+
                 PcgNotificationAlertPrefsStore.setSoundEnabled(
                     context = context,
                     enabled = soundCheckBox.isChecked
                 )
-
                 PcgNotificationAlertPrefsStore.setVibrationEnabled(
                     context = context,
                     enabled = vibrationCheckBox.isChecked
                 )
 
                 /*
-                 * Safe to call repeatedly. The next notification will resolve
-                 * the channel matching the updated sound/vibration preferences.
+                 * Safe to call repeatedly. The next notification resolves the
+                 * channel matching the updated local delivery preferences.
                  */
                 PcgNotificationChannelManager.ensureChannels(context)
+            }
+            .setNeutralButton(R.string.pcg_most_wanted_title) { _, _ ->
+                onMostWantedRequested()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    /**
-     * Converts density-independent pixels to raw pixels for programmatic layouts.
-     */
+    /** Converts density-independent pixels to raw pixels. */
     private fun dp(
         context: android.content.Context,
         value: Int

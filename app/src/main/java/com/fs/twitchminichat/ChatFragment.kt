@@ -40,6 +40,8 @@ import androidx.lifecycle.Lifecycle
 import com.bumptech.glide.Glide
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 import com.fs.twitchminichat.pcg.PcgActivity
+import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
+import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 import kotlin.concurrent.thread
@@ -57,6 +59,7 @@ import android.graphics.drawable.GradientDrawable
 import com.fs.twitchminichat.ui.input.ChatMessageInputView
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 import java.net.URLEncoder
+import androidx.activity.result.contract.ActivityResultContracts
 
 
 
@@ -165,6 +168,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     /** Owns the visible emote grid without adding picker logic to ChatFragment. */
     private var emotePickerController: TwitchEmotePickerController? = null
+    /** Owns warnings and explicit external-browser launches for chat links. */
+    private var externalBrowserLinkController: ExternalBrowserLinkController? = null
     private lateinit var editMessage: ChatMessageInputView
     private lateinit var btnSend: Button
     private lateinit var btnEmotes: ImageButton
@@ -329,6 +334,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         private var swiping = false
         private var replyGestureEnabled = false
         private var longPressTriggered = false
+        private var clickableSpanGestureInProgress = false
 
         private val longPressRunnable = Runnable {
             if (!swiping && isPressed) {
@@ -346,6 +352,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                clickableSpanGestureInProgress =
+                    hasClickableSpanAt(event)
+            }
+
+            if (clickableSpanGestureInProgress) {
+                val handled = super.onTouchEvent(event)
+
+                if (
+                    event.actionMasked == MotionEvent.ACTION_UP ||
+                    event.actionMasked == MotionEvent.ACTION_CANCEL
+                ) {
+                    clickableSpanGestureInProgress = false
+                }
+
+                return handled
+            }
+
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downRawX = event.rawX
@@ -464,6 +488,50 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
 
             return super.onTouchEvent(event)
+        }
+
+        /**
+         * Returns true when the initial touch targets one clickable text span.
+         */
+        private fun hasClickableSpanAt(event: MotionEvent): Boolean {
+            val spannedText = text as? Spanned
+                ?: return false
+            val textLayout = layout
+                ?: return false
+            val localX = event.x - totalPaddingLeft + scrollX
+            val localY = event.y - totalPaddingTop + scrollY
+
+            if (
+                localX < 0f ||
+                localY < 0f ||
+                localY > textLayout.height.toFloat()
+            ) {
+                return false
+            }
+
+            val line = textLayout.getLineForVertical(
+                localY.toInt()
+            )
+
+            if (
+                localX < textLayout.getLineLeft(line) ||
+                localX > textLayout.getLineRight(line)
+            ) {
+                return false
+            }
+
+            val characterOffset = textLayout.getOffsetForHorizontal(
+                line,
+                localX
+            )
+
+            return spannedText
+                .getSpans(
+                    characterOffset,
+                    characterOffset,
+                    android.text.style.ClickableSpan::class.java
+                )
+                .isNotEmpty()
         }
 
         override fun performClick(): Boolean {
@@ -1363,6 +1431,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         backendHistoryClient = BackendHistoryClient(
             sessionReader = BackendSessionStore(requireContext())
         )
+        externalBrowserLinkController = ExternalBrowserLinkController(
+            context = requireContext()
+        )
         cfg = AccountRepository(requireContext()).getById(accountId)
 
         Log.d(
@@ -1865,6 +1936,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         emotePickerController?.release()
         emotePickerController = null
+
+        externalBrowserLinkController?.release()
+        externalBrowserLinkController = null
 
         emoteImageLoader?.clearAll()
         emoteImageLoader = null
@@ -2554,6 +2628,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                         if (!replyParentId.isNullOrBlank()) {
                             clearPendingReply()
+                        }
+
+                        if (clearComposerOnSuccess) {
+                            /*
+                             * A successful manual composer send closes the emote
+                             * picker just like the Input Method Editor.
+                             */
+                            emotePickerController?.closeIfOpen()
                         }
 
                         if (
@@ -3928,6 +4010,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val tv = SwipeReplyTextView(requireContext()).apply {
             setTextColor(colorOnSurface())
             textSize = 14f
+            linksClickable = true
+            movementMethod =
+                android.text.method.LinkMovementMethod.getInstance()
         }
 
         val emoteLayout = TwitchEmoteMessageFormatter.format(
@@ -3973,6 +4058,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             val hasMention = applyMentionHighlightSpans(plain)
             applyMentionRowHighlight(tv, hasMention)
+            ChatMessageLinkifier.addWebLinks(
+                text = plain,
+                messageStartIndex = fullPrefix.length
+            ) { url ->
+                externalBrowserLinkController?.openLink(url)
+            }
 
             tv.text = plain
             return tv
@@ -4002,6 +4093,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val hasMention = applyMentionHighlightSpans(builder)
         applyMentionRowHighlight(tv, hasMention)
+        ChatMessageLinkifier.addWebLinks(
+            text = builder,
+            messageStartIndex = fullPrefix.length
+        ) { url ->
+            externalBrowserLinkController?.openLink(url)
+        }
 
         tv.text = builder
 
@@ -4060,6 +4157,31 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * Each Twitch profile can have its own spawn alert mode, so the current
      * profile id is used as the key for local storage and backend sync.
      */
+    /**
+     * Opens Most Wanted and handles only its explicit navigation result.
+     *
+     * Returning from the editor reopens the existing bell menu. It does not
+     * save data, retry synchronization or send gameplay commands.
+     */
+    private val mostWantedActivityLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            val shouldReopenAlertMenu =
+                PcgMostWantedActivity.shouldReturnToAlertMenu(
+                    resultCode = result.resultCode,
+                    data = result.data
+                )
+
+            if (shouldReopenAlertMenu) {
+                view?.post {
+                    if (isAdded && view != null) {
+                        showSpawnAlertModeMenu()
+                    }
+                }
+            }
+        }
+
     private fun showSpawnAlertModeMenu() {
         val profileId = currentProfileId().trim().lowercase()
 
@@ -4083,9 +4205,28 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             )
         )
 
+        val mostWantedStore = PcgMostWantedStore(requireContext())
+
         PcgSpawnAlertModeMenu.show(
             anchor = btnTogglePush,
-            currentSettings = currentSettings
+            currentSettings = currentSettings,
+            currentMostWantedEnabled =
+                mostWantedStore.isEnabled(profileId),
+            onMostWantedRequested = {
+                mostWantedActivityLauncher.launch(
+                    PcgMostWantedActivity.createIntent(
+                        context = requireContext(),
+                        profileId = profileId
+                    )
+                )
+            },
+            onMostWantedEnabledSelected = { enabled ->
+                mostWantedStore.updateEnabled(
+                    profileId = profileId,
+                    enabled = enabled
+                )
+                updateSpawnAlertBellUi(profileId)
+            }
         ) { selectedSettings ->
             applySpawnAlertSettings(profileId, selectedSettings)
         }
@@ -4178,13 +4319,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             )
         )
 
-        btnTogglePush.alpha = if (settings.isAnyAlertEnabled) {
+        val mostWantedEnabled = PcgMostWantedStore(
+            requireContext()
+        ).isEnabled(profileId)
+
+        btnTogglePush.alpha = if (
+            settings.isAnyAlertEnabled || mostWantedEnabled
+        ) {
             1.0f
         } else {
             0.45f
         }
 
         btnTogglePush.contentDescription = when {
+            mostWantedEnabled &&
+                !settings.isAnyAlertEnabled -> {
+                getString(R.string.pcg_most_wanted_alert_label)
+            }
+
             settings.eventSpawnsEnabled &&
                     settings.regularMode == PcgSpawnAlertMode.NONE -> {
                 getString(R.string.pcg_event_spawn_alert_label)

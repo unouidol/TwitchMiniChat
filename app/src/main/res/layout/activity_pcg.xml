@@ -28,6 +28,7 @@
             android:scaleType="center"
             android:src="@drawable/ic_refresh_24" />
 
+
         <LinearLayout
             android:id="@+id/containerRegisterInventory"
             android:layout_width="0dp"

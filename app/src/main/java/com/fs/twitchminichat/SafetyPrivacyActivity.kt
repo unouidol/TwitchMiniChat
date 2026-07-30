@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy) {
@@ -46,6 +47,12 @@ class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy
             DataAccountControlActivity.start(this)
         }
 
+        findViewById<Button>(
+            R.id.btnResetExternalLinkPreferences
+        ).setOnClickListener {
+            resetExternalLinkPreferences()
+        }
+
         findViewById<Button>(R.id.btnCredits).setOnClickListener {
             PolicyPageActivity.open(
                 context = this,
@@ -54,6 +61,17 @@ class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy
                 webUrl = WebPolicies.CREDITS_URL
             )
         }
+    }
+
+    /** Restores the warning and browser chooser for future chat links. */
+    private fun resetExternalLinkPreferences() {
+        ExternalLinkPreferences(this).reset()
+
+        Toast.makeText(
+            this,
+            R.string.external_link_preferences_reset,
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     companion object {

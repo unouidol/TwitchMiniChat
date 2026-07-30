@@ -1,18 +1,19 @@
 package com.fs.twitchminichat
 
 /**
- * Maintains Twitch recent-emote ordering from newest to oldest.
+ * Maintains Twitch recent-emote ordering with stable visual positions.
  *
- * The first identifier maps to the top-left picker cell. Subsequent identifiers
- * are displayed from left to right before continuing on the next grid row.
+ * The first identifier maps to the top-left picker cell. A previously unseen
+ * identifier enters first, while an existing identifier keeps its current slot.
  */
 object TwitchEmoteRecentOrderPolicy {
 
     /**
-     * Moves one manually selected emote to the beginning of the recent list.
+     * Adds one previously unseen emote to the beginning of the recent list.
      *
-     * Duplicate and blank identifiers are removed. When capacity is exceeded,
-     * the final and oldest identifier is discarded.
+     * Selecting an existing emote keeps every visual slot unchanged. Duplicate
+     * and blank identifiers are removed. When capacity is exceeded, the final
+     * and oldest identifier is discarded.
      */
     fun record(
         currentEmoteIds: List<String>,
@@ -24,25 +25,22 @@ object TwitchEmoteRecentOrderPolicy {
         }
 
         val normalizedSelectedEmoteId = selectedEmoteId.trim()
+        val normalizedCurrentEmoteIds = normalize(
+            emoteIds = currentEmoteIds,
+            maxSize = maxSize
+        )
 
         if (normalizedSelectedEmoteId.isBlank()) {
-            return normalize(
-                emoteIds = currentEmoteIds,
-                maxSize = maxSize
-            )
+            return normalizedCurrentEmoteIds
+        }
+
+        if (normalizedSelectedEmoteId in normalizedCurrentEmoteIds) {
+            return normalizedCurrentEmoteIds
         }
 
         return buildList {
             add(normalizedSelectedEmoteId)
-
-            currentEmoteIds
-                .asSequence()
-                .map { emoteId -> emoteId.trim() }
-                .filter { emoteId -> emoteId.isNotBlank() }
-                .filterNot { emoteId ->
-                    emoteId == normalizedSelectedEmoteId
-                }
-                .distinct()
+            normalizedCurrentEmoteIds
                 .take(maxSize - 1)
                 .forEach(::add)
         }

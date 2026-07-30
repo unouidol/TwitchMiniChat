@@ -60,6 +60,29 @@
             android:layout_marginTop="8dp"
             android:text="@string/data_account_control" />
 
+        <TextView
+            android:id="@+id/textExternalLinksTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/external_links_title"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/textExternalLinksSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/external_links_subtitle"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnResetExternalLinkPreferences"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/external_link_reset_preferences" />
+
         <Button
             android:id="@+id/btnCredits"
             android:layout_width="match_parent"

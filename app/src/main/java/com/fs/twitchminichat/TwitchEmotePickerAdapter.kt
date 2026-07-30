@@ -30,12 +30,51 @@ class TwitchEmotePickerAdapter(
                 add(PickerItem.Header(section.kind))
 
                 section.entries.forEach { entry ->
-                    add(PickerItem.Emote(entry))
+                    add(
+                        PickerItem.Emote(
+                            kind = section.kind,
+                            entry = entry
+                        )
+                    )
                 }
             }
         }
 
         notifyDataSetChanged()
+    }
+
+    /**
+     * Returns the stable identity of one currently displayed adapter item.
+     */
+    fun scrollAnchorAt(position: Int): ScrollAnchor? {
+        return items
+            .getOrNull(position)
+            ?.toScrollAnchor()
+    }
+
+    /**
+     * Finds the current adapter position belonging to a previous scroll anchor.
+     */
+    fun positionOfScrollAnchor(scrollAnchor: ScrollAnchor): Int {
+        return items.indexOfFirst { item ->
+            item.toScrollAnchor() == scrollAnchor
+        }
+    }
+
+    /** Converts one internal adapter item into its stable scroll identity. */
+    private fun PickerItem.toScrollAnchor(): ScrollAnchor {
+        return when (this) {
+            is PickerItem.Header -> {
+                ScrollAnchor.Header(kind)
+            }
+
+            is PickerItem.Emote -> {
+                ScrollAnchor.Emote(
+                    kind = kind,
+                    emoteId = entry.id
+                )
+            }
+        }
     }
 
     /** Returns a full-width span for headers and a regular span for emotes. */
@@ -203,6 +242,25 @@ class TwitchEmotePickerAdapter(
         val nameView: TextView = itemView.findViewById(R.id.textEmoteName)
     }
 
+    /**
+     * Stable identity used to preserve the visible scroll position.
+     *
+     * The section is included because recent emotes are also displayed in their
+     * original Channel, Other, or Global section.
+     */
+    sealed interface ScrollAnchor {
+        /** Identity of one full-width section header. */
+        data class Header(
+            val kind: TwitchEmotePickerSectionKind
+        ) : ScrollAnchor
+
+        /** Identity of one emote inside a specific picker section. */
+        data class Emote(
+            val kind: TwitchEmotePickerSectionKind,
+            val emoteId: String
+        ) : ScrollAnchor
+    }
+
     /** Internal row displayed by the heterogeneous adapter. */
     private sealed interface PickerItem {
         /** Full-width group title. */
@@ -212,6 +270,7 @@ class TwitchEmotePickerAdapter(
 
         /** Regular emote grid cell. */
         data class Emote(
+            val kind: TwitchEmotePickerSectionKind,
             val entry: TwitchEmoteCatalogEntry
         ) : PickerItem
     }

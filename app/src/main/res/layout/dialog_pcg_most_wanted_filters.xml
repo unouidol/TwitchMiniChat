@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:labelFor="@id/spinnerMostWantedTier"
+            android:text="@string/pcg_most_wanted_filter_tier"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <Spinner
+            android:id="@+id/spinnerMostWantedTier"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:labelFor="@id/spinnerMostWantedType"
+            android:text="@string/pcg_most_wanted_filter_type"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <Spinner
+            android:id="@+id/spinnerMostWantedType"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:labelFor="@id/spinnerMostWantedGeneration"
+            android:text="@string/pcg_most_wanted_filter_generation"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <Spinner
+            android:id="@+id/spinnerMostWantedGeneration"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:labelFor="@id/spinnerMostWantedVariant"
+            android:text="@string/pcg_most_wanted_filter_variant"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <Spinner
+            android:id="@+id/spinnerMostWantedVariant"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:labelFor="@id/spinnerMostWantedAvailability"
+            android:text="@string/pcg_most_wanted_filter_availability"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <Spinner
+            android:id="@+id/spinnerMostWantedAvailability"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
+        <CheckBox
+            android:id="@+id/checkMostWantedStarter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/pcg_most_wanted_filter_starter" />
+
+        <CheckBox
+            android:id="@+id/checkMostWantedLegendary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/pcg_most_wanted_filter_legendary" />
+
+        <CheckBox
+            android:id="@+id/checkMostWantedMythical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/pcg_most_wanted_filter_mythical" />
+
+        <CheckBox
+            android:id="@+id/checkMostWantedSelected"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/pcg_most_wanted_filter_selected" />
+
+        <Button
+            android:id="@+id/btnResetMostWantedFilters"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:minHeight="48dp"
+            android:text="@string/pcg_most_wanted_reset_filters" />
+
+    </LinearLayout>
+
+</ScrollView>

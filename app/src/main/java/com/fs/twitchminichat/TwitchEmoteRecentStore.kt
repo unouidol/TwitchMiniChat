@@ -5,10 +5,10 @@ import androidx.core.content.edit
 import org.json.JSONArray
 
 /**
- * Persists the eighteen most recently selected Twitch emotes for each local account.
+ * Persists up to eighteen manually selected Twitch emotes for each local account.
  *
- * Emote identifiers are ordered from newest to oldest. Selecting an emote only
- * updates local picker history and never sends or queues a Twitch chat message.
+ * A previously unseen emote enters first. Selecting an existing emote keeps all
+ * visual slots stable and never sends or queues a Twitch chat message.
  */
 class TwitchEmoteRecentStore(context: Context) {
 
@@ -19,7 +19,7 @@ class TwitchEmoteRecentStore(context: Context) {
     )
 
     /**
-     * Loads recent emote identifiers from newest to oldest.
+     * Loads recent emote identifiers from newest added to oldest.
      *
      * Data created by the previous stable-slot policy is converted using its
      * chronological replacement order before being displayed.
@@ -48,10 +48,10 @@ class TwitchEmoteRecentStore(context: Context) {
     }
 
     /**
-     * Moves one manually selected emote to the first visual position.
+     * Adds one previously unseen emote to the first visual position.
      *
-     * All older entries shift forward by one position. Once eighteen entries are
-     * retained, the last and oldest entry leaves the recent section.
+     * Existing entries keep their positions. Once eighteen entries are retained,
+     * adding a new emote removes the last and oldest entry.
      */
     fun record(accountId: String, emoteId: String): List<String> {
         val recentKey = recentKey(accountId) ?: return emptyList()
