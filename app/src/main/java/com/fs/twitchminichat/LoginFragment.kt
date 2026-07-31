@@ -226,9 +226,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
      * while callback metadata keeps the same local account id and channel.
      */
     private fun startTwitchReauthorization(account: AccountConfig) {
-        val profileId = account.profileId
-            .trim()
-            .ifBlank { ProfileIdUtil.fromUsername(account.username) }
+        val profileId = AccountProfileIdResolver.resolve(account)
 
         val slot = pendingRequestStore.allocateSlot()
         pendingRequestStore.saveReauthorization(slot, account, profileId)

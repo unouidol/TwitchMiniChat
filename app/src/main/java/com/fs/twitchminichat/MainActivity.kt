@@ -142,20 +142,18 @@ class MainActivity : AppCompatActivity() {
         return false
     }
 
+    /**
+     * Finds the saved account whose canonical profile matches [profileId].
+     *
+     * A migrated account is never matched through its username when an explicit
+     * backend profile identifier is available.
+     */
     private fun findAccountIdForProfileId(profileId: String): String? {
-        val normalizedTarget = profileId.trim().lowercase()
+        val normalizedTarget = AccountProfileIdResolver.normalize(profileId)
         if (normalizedTarget.isBlank()) return null
 
         return repo.loadAccounts().firstOrNull { account ->
-            val explicitProfileId = account.profileId
-                .trim()
-                .lowercase()
-
-            val derivedProfileId = ProfileIdUtil.fromUsername(account.username)
-                .trim()
-                .lowercase()
-
-            explicitProfileId == normalizedTarget || derivedProfileId == normalizedTarget
+            AccountProfileIdResolver.resolve(account) == normalizedTarget
         }?.id
     }
 
@@ -336,8 +334,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             val profileIds = accounts
-                .map { ProfileIdUtil.fromUsername(it.username).trim().lowercase() }
-                .filter { it.isNotBlank() }
+                .map(AccountProfileIdResolver::resolve)
+                .filter(String::isNotBlank)
                 .distinct()
 
             for (profileId in profileIds) {

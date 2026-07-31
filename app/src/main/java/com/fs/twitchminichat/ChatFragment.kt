@@ -1381,14 +1381,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         loadHistoryFromBot(c, 120)
     }
 
+    /** Returns the canonical backend profile identifier for the active account. */
     private fun currentProfileId(): String {
-        val explicit = cfg?.profileId?.trim().orEmpty()
-        if (explicit.isNotBlank()) return explicit.lowercase()
-
-        val username = cfg?.username?.trim().orEmpty()
-        if (username.isBlank()) return ""
-
-        return ProfileIdUtil.fromUsername(username).trim().lowercase()
+        return cfg
+            ?.let(AccountProfileIdResolver::resolve)
+            .orEmpty()
     }
 
     private fun refreshPushToggleUi() {
@@ -2712,9 +2709,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     /** Loads history with the backend session bound to [config]. */
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
-        val profileId = config.profileId.trim().ifBlank {
-            ProfileIdUtil.fromUsername(config.username)
-        }
+        val profileId = AccountProfileIdResolver.resolve(config)
 
         thread {
             when (

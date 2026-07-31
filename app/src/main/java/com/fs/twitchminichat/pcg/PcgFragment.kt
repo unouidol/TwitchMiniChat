@@ -3,8 +3,8 @@ package com.fs.twitchminichat.pcg
 import android.os.Bundle
 import android.view.View
 import androidx.fragment.app.Fragment
+import com.fs.twitchminichat.AccountProfileIdResolver
 import com.fs.twitchminichat.AccountRepository
-import com.fs.twitchminichat.ProfileIdUtil
 import com.fs.twitchminichat.R
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
@@ -40,7 +40,7 @@ class PcgFragment : Fragment(R.layout.fragment_pcg) {
             .lowercase()
             .ifBlank { "unouidol" }
 
-        profileId = ProfileIdUtil.fromUsername(cfg.username)
+        profileId = AccountProfileIdResolver.resolve(cfg)
         profileLabel = cfg.username.trim().ifBlank { profileId }
 
         attachOrResumePcgSession()

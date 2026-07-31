@@ -2,6 +2,7 @@ package com.fs.twitchminichat
 
 import android.content.Context
 import android.util.Log
+import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 
 /**
  * Handles removal of one saved login account and the local data tied to its PCG profile.
@@ -12,8 +13,10 @@ import android.util.Log
  */
 object AccountProfileRemovalController {
 
+    /** Logcat tag for account-removal diagnostics without sensitive credentials. */
     private const val TAG = "ACCOUNT_REMOVE"
 
+    /** Result delivered after the local account has been removed. */
     data class Result(
         val removedAccount: Boolean,
         val profileId: String
@@ -22,9 +25,10 @@ object AccountProfileRemovalController {
     /**
      * Removes one account from this device and deletes local data for the same profile.
      *
-     * Local deletion is performed first and completes immediately from the user's point
-     * of view. Server notification cleanup is then started as a best-effort request so
-     * a slow network call cannot make the X button feel broken.
+     * Local deletion remains immediate from the user's point of view. The backend
+     * session is retained only until the best-effort notification-disable request has
+     * finished, so a migrated account can authenticate that request with its Bearer
+     * session. Backend failure never prevents local account removal.
      */
     fun removeAccountFromDevice(
         context: Context,
@@ -32,7 +36,7 @@ object AccountProfileRemovalController {
         onComplete: (Result) -> Unit
     ) {
         val appContext = context.applicationContext
-        val profileId = resolveProfileId(account)
+        val profileId = AccountProfileIdResolver.resolve(account)
 
         Log.d(
             TAG,
@@ -41,9 +45,8 @@ object AccountProfileRemovalController {
 
         if (profileId.isNotBlank()) {
             /*
-             * First disable the local notification state. This guarantees that if any
-             * screen reads the setting after removal, it does not still see the profile
-             * as notification-enabled.
+             * Disable and clear every known local profile preference before the
+             * account disappears from the visible list.
              */
             PcgSpawnAlertModeStore.setMode(
                 context = appContext,
@@ -64,20 +67,14 @@ object AccountProfileRemovalController {
             Log.w(TAG, "Profile id is blank; removing account without profile-scoped cleanup")
         }
 
-        /*
-         * Remove the account immediately. This is the main user-visible action, so it
-         * must not wait for network calls.
-         */
         val removedAccount = AccountRepository(appContext).removeById(account.id) != null
         TwitchEmoteCatalogStore(appContext).clearAccount(account.id)
         TwitchEmoteRecentStore(appContext).clearAccount(account.id)
         TwitchIrcSessionMetadataStore.remove(account.id)
-        val backendSessionRemoved = BackendSessionStore(appContext).removeProfile(profileId)
 
         Log.d(
             TAG,
-            "local removal finished removedAccount=$removedAccount " +
-                    "backendSessionRemoved=$backendSessionRemoved"
+            "local removal finished removedAccount=$removedAccount"
         )
 
         onComplete(
@@ -87,33 +84,34 @@ object AccountProfileRemovalController {
             )
         )
 
+        if (profileId.isBlank()) {
+            BackendSessionStore(appContext).removeProfile(profileId)
+            return
+        }
+
         /*
-         * Backend notification cleanup is intentionally best-effort.
-         *
-         * We do it after local deletion so the login page updates immediately. If this
-         * request fails, the future Privacy & Safety "remove device and server data"
-         * flow can still clean server-side data explicitly.
+         * Keep the backend session until this request has selected and used its
+         * authentication mode. Removing it earlier would force a migrated account
+         * into the temporary legacy-key branch.
          */
-        if (profileId.isNotBlank()) {
-            FcmRegistrationUploader.setProfileSpawnAlertMode(
-                context = appContext,
-                profileId = profileId,
-                settings = PcgSpawnAlertSettings.DISABLED
-            ) { backendOk ->
-                Log.d(
-                    TAG,
-                    "backend notification disable completed ok=$backendOk"
-                )
-            }
+        FcmRegistrationUploader.setProfileSpawnAlertMode(
+            context = appContext,
+            profileId = profileId,
+            settings = PcgSpawnAlertSettings.DISABLED
+        ) { backendOk ->
+            val backendSessionRemoved =
+                BackendSessionStore(appContext).removeProfile(profileId)
+
+            Log.d(
+                TAG,
+                "backend notification disable completed ok=$backendOk " +
+                    "backendSessionRemoved=$backendSessionRemoved"
+            )
         }
     }
 
     /**
-     * Clears local stores that we have already inspected and confirmed are profile-scoped.
-     *
-     * More stores can be added here after inspecting their implementations, for example
-     * catch preset storage, current spawn state, local Dex storage, and sound/vibration
-     * notification preferences.
+     * Clears local stores that are confirmed to be profile-scoped.
      */
     private fun clearKnownLocalProfileData(
         context: Context,
@@ -124,19 +122,6 @@ object AccountProfileRemovalController {
         PcgSpawnAlertModeStore.clearProfile(context, profileId)
         PcgEventSpawnAlertStore.clearProfile(context, profileId)
         PushSettingsStore.clearProfile(context, profileId)
-    }
-
-    /**
-     * Resolves the profile id used by local PCG stores and notification backend calls.
-     *
-     * New OAuth accounts should already have AccountConfig.profileId. The username
-     * fallback keeps account removal useful for older saved accounts created before
-     * profileId was persisted.
-     */
-    private fun resolveProfileId(account: AccountConfig): String {
-        val explicitProfileId = account.profileId.trim().lowercase()
-        if (explicitProfileId.isNotBlank()) return explicitProfileId
-
-        return account.username.trim().lowercase()
+        PcgMostWantedStore(context).clearProfile(profileId)
     }
 }
