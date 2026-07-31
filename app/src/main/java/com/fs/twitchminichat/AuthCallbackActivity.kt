@@ -177,16 +177,15 @@ class AuthCallbackActivity : AppCompatActivity() {
     /**
      * Stores a returned backend session for the finalized profile.
      *
-     * Older dual-mode responses without a session remain valid during the migration
-     * window. A present session must be stored successfully before login completes.
+     * The current app accepts only finalization responses containing both a canonical
+     * profile identifier and a revocable backend session.
      */
     private fun persistBackendSession(
         result: OAuthFinalizeResult,
         finalProfileId: String
     ): Boolean {
         val backendSessionToken = result.desktopSessionToken.trim()
-        if (backendSessionToken.isBlank()) return true
-        if (finalProfileId.isBlank()) return false
+        if (backendSessionToken.isBlank() || finalProfileId.isBlank()) return false
 
         return BackendSessionStore(applicationContext).putSession(
             profileId = finalProfileId,

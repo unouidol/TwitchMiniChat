@@ -42,7 +42,7 @@ fun interface BackendIrcTokenApi {
     /** Performs exactly one request with the authentication decision made by the caller. */
     fun tokenForIrc(
         profileId: String,
-        authorizationHeader: String?
+        authorizationHeader: String
     ): BackendIrcTokenApiResult
 }
 
@@ -131,14 +131,10 @@ object OAuthBackendApi : BackendIrcTokenApi {
         }
     }
 
-    /**
-     * Acquires fresh IRC credentials with an optional preselected Bearer header.
-     *
-     * A null header intentionally selects the temporary legacy profile-only mode.
-     */
+    /** Acquires fresh IRC credentials with a mandatory preselected Bearer header. */
     override fun tokenForIrc(
         profileId: String,
-        authorizationHeader: String?
+        authorizationHeader: String
     ): BackendIrcTokenApiResult {
         var conn: HttpURLConnection? = null
         return try {
@@ -150,9 +146,7 @@ object OAuthBackendApi : BackendIrcTokenApi {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
                 setRequestProperty("Accept", "application/json")
-                if (!authorizationHeader.isNullOrBlank()) {
-                    setRequestProperty("Authorization", authorizationHeader)
-                }
+                setRequestProperty("Authorization", authorizationHeader)
             }
             conn = connection
 

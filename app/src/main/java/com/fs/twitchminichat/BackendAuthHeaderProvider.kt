@@ -3,13 +3,12 @@ package com.fs.twitchminichat
 /**
  * Authentication mode selected before a backend request is opened.
  *
- * The mode cannot change in response to an HTTP error, which prevents a failed Bearer
- * request from being retried through the legacy profile-only path.
+ * Missing or unreadable session state never authorizes a backend request.
  */
 sealed interface BackendSessionAuthDecision {
 
-    /** No local backend session exists, so temporary legacy compatibility is allowed. */
-    data object Legacy : BackendSessionAuthDecision
+    /** No local backend session exists for the requested profile. */
+    data object Missing : BackendSessionAuthDecision
 
     /** A backend session exists and must be sent as this Authorization header. */
     data class Bearer(val authorizationHeader: String) : BackendSessionAuthDecision
@@ -23,10 +22,10 @@ class BackendAuthHeaderProvider(
     private val sessionReader: BackendSessionReader
 ) {
 
-    /** Resolves Bearer, legacy, or unavailable authentication for [profileId]. */
+    /** Resolves Bearer, missing, or unavailable authentication for [profileId]. */
     fun resolve(profileId: String): BackendSessionAuthDecision {
         return when (val lookup = sessionReader.lookup(profileId)) {
-            BackendSessionLookup.Missing -> BackendSessionAuthDecision.Legacy
+            BackendSessionLookup.Missing -> BackendSessionAuthDecision.Missing
             BackendSessionLookup.Unavailable -> BackendSessionAuthDecision.Unavailable
             is BackendSessionLookup.Present -> {
                 val header = bearerHeader(lookup.token)

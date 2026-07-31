@@ -113,11 +113,10 @@ object FcmRegistrationUploader {
                 }
 
                 val authorizationHeader = when (authDecision) {
-                    BackendSessionAuthDecision.Legacy -> {
-                        /* Temporary compatibility for profiles without a backend session. */
-                        payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
-                        Log.d(TAG, "set_spawn_alert_mode authMode=legacy_key")
-                        null
+                    BackendSessionAuthDecision.Missing -> {
+                        Log.w(TAG, "set_spawn_alert_mode skipped: backend session missing")
+                        finish(false)
+                        return@thread
                     }
 
                     is BackendSessionAuthDecision.Bearer -> {
@@ -471,7 +470,7 @@ object FcmRegistrationUploader {
      * Registers one Firebase Cloud Messaging token using the profile's preselected
      * backend authentication mode.
      *
-     * A failed or unreadable backend session is never downgraded to the legacy key.
+     * Missing or unreadable backend sessions never authorize a request.
      */
     private fun uploadTokenBlocking(context: Context, token: String, profileId: String) {
         val normalizedProfileId = normalizeProfileId(profileId)
@@ -492,11 +491,9 @@ object FcmRegistrationUploader {
         }
 
         val authorizationHeader = when (authDecision) {
-            BackendSessionAuthDecision.Legacy -> {
-                /* Temporary compatibility for profiles that have not been refreshed yet. */
-                payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
-                Log.d(TAG, "register_fcm authMode=legacy_key")
-                null
+            BackendSessionAuthDecision.Missing -> {
+                Log.w(TAG, "register_fcm skipped: backend session missing")
+                return
             }
 
             is BackendSessionAuthDecision.Bearer -> {
@@ -542,7 +539,7 @@ object FcmRegistrationUploader {
     /**
      * Uploads one profile's missing Pokédex entries using a preselected authentication mode.
      *
-     * A present but unreadable backend session is never downgraded to the legacy key.
+     * Missing or unreadable backend sessions never authorize a request.
      */
     private fun uploadDexListBlocking(
         context: Context,
@@ -573,11 +570,10 @@ object FcmRegistrationUploader {
         }
 
         val authorizationHeader = when (authDecision) {
-            BackendSessionAuthDecision.Legacy -> {
-                /* Temporary compatibility for profiles without a backend session. */
-                payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
-                Log.d(TAG, "upload_dex_list authMode=legacy_key")
-                null
+            BackendSessionAuthDecision.Missing -> {
+                Log.w(TAG, "upload_dex_list skipped: backend session missing")
+                showToast(context, "Error updating dex list for $profileLabel")
+                return
             }
 
             is BackendSessionAuthDecision.Bearer -> {
@@ -634,14 +630,14 @@ object FcmRegistrationUploader {
     )
 
     /**
-     * Sends one JavaScript Object Notation (JSON) request with an optional
+     * Sends one JavaScript Object Notation (JSON) request with a mandatory,
      * prevalidated Authorization header.
      */
     private fun postJson(
         urlString: String,
         payload: JSONObject,
         logLabel: String,
-        authorizationHeader: String? = null
+        authorizationHeader: String
     ): PostJsonResult? {
         var conn: HttpURLConnection? = null
 
@@ -655,9 +651,7 @@ object FcmRegistrationUploader {
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("Accept", "application/json")
 
-                authorizationHeader?.let { header ->
-                    setRequestProperty("Authorization", header)
-                }
+                setRequestProperty("Authorization", authorizationHeader)
             }
 
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
@@ -714,7 +708,7 @@ object FcmRegistrationUploader {
     /**
      * Submits one user-triggered message report using the selected authentication mode.
      *
-     * A present but unreadable backend session is never downgraded to the legacy key.
+     * Missing or unreadable backend sessions never authorize a request.
      */
     fun reportMessage(
         context: Context,
@@ -768,11 +762,16 @@ object FcmRegistrationUploader {
             }
 
             val authorizationHeader = when (authDecision) {
-                BackendSessionAuthDecision.Legacy -> {
-                    /* Temporary compatibility for profiles without a backend session. */
-                    payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
-                    Log.d(TAG, "report_message authMode=legacy_key")
-                    null
+                BackendSessionAuthDecision.Missing -> {
+                    Log.w(TAG, "report_message skipped: backend session missing")
+                    finish(
+                        ReportMessageResult(
+                            ok = false,
+                            rawResponse = "",
+                            error = "backend_session_missing"
+                        )
+                    )
+                    return@thread
                 }
 
                 is BackendSessionAuthDecision.Bearer -> {

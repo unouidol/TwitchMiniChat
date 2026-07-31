@@ -22,8 +22,8 @@ class BackendIrcTokenProviderTest {
 
         val result = provider.acquire(
             profileId = " Profile-A ",
-            legacyAccessToken = "legacy-twitch-token",
-            legacyUsername = "legacy-user"
+            localAccessToken = "local-twitch-token",
+            localUsername = "local-user"
         )
 
         assertEquals(BackendIrcTokenResult.ReauthorizationRequired, result)
@@ -47,17 +47,17 @@ class BackendIrcTokenProviderTest {
 
         val result = provider.acquire(
             profileId = "profile-a",
-            legacyAccessToken = "legacy-twitch-token",
-            legacyUsername = "legacy-user"
+            localAccessToken = "local-twitch-token",
+            localUsername = "local-user"
         )
 
         assertEquals(BackendIrcTokenResult.ReauthorizationRequired, result)
         assertEquals(1, api.requestCount)
     }
 
-    /** An account without a backend session makes one legacy request without a header. */
+    /** A missing backend session uses local Twitch credentials without a backend request. */
     @Test
-    fun missingSessionUsesSingleLegacyRequest() {
+    fun missingSessionUsesLocalCredentialsWithoutBackendRequest() {
         val api = RecordingTokenApi(
             result = BackendIrcTokenApiResult.Success(
                 OAuthTokenForIrcResult(
@@ -75,12 +75,19 @@ class BackendIrcTokenProviderTest {
 
         val result = provider.acquire(
             profileId = "profile-a",
-            legacyAccessToken = "legacy-token",
-            legacyUsername = "legacy-user"
+            localAccessToken = "local-token",
+            localUsername = "local-user"
         )
 
         assertTrue(result is BackendIrcTokenResult.Success)
-        assertEquals(1, api.requestCount)
+        assertEquals(
+            BackendIrcTokenResult.Success(
+                accessToken = "local-token",
+                username = "local-user"
+            ),
+            result
+        )
+        assertEquals(0, api.requestCount)
         assertEquals(null, api.lastAuthorizationHeader)
     }
 
@@ -104,7 +111,7 @@ class BackendIrcTokenProviderTest {
         /** Returns the configured result while recording the one request. */
         override fun tokenForIrc(
             profileId: String,
-            authorizationHeader: String?
+            authorizationHeader: String
         ): BackendIrcTokenApiResult {
             requestCount += 1
             lastProfileId = profileId

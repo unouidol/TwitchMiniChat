@@ -5,7 +5,6 @@ import android.util.Log
 import com.fs.twitchminichat.BackendAuthHeaderProvider
 import com.fs.twitchminichat.BackendSessionAuthDecision
 import com.fs.twitchminichat.BackendSessionStore
-import com.fs.twitchminichat.BuildConfig
 import com.fs.twitchminichat.DeviceCredentialStore
 import com.fs.twitchminichat.R
 import org.json.JSONObject
@@ -68,10 +67,16 @@ class PcgMostWantedSyncClient(context: Context) {
         )
 
         val authorizationHeader = when (authDecision) {
-            BackendSessionAuthDecision.Legacy -> {
-                payload.put("key", BuildConfig.HISTORY_SECRET_KEY)
-                Log.d(TAG, "set_custom_watchlist authMode=legacy_key")
-                null
+            BackendSessionAuthDecision.Missing -> {
+                Log.w(
+                    TAG,
+                    "set_custom_watchlist skipped: backend session missing"
+                )
+                return PcgMostWantedSyncResult(
+                    ok = false,
+                    error =
+                        PcgMostWantedSyncError.AUTHENTICATION_UNAVAILABLE
+                )
             }
 
             is BackendSessionAuthDecision.Bearer -> {
@@ -101,7 +106,7 @@ class PcgMostWantedSyncClient(context: Context) {
     /** Executes one JavaScript Object Notation request without retrying. */
     private fun postOnce(
         payload: JSONObject,
-        authorizationHeader: String?
+        authorizationHeader: String
     ): PcgMostWantedSyncResult {
         var connection: HttpURLConnection? = null
 
@@ -122,9 +127,10 @@ class PcgMostWantedSyncClient(context: Context) {
                     "application/json; charset=utf-8"
                 )
                 setRequestProperty("Accept", "application/json")
-                authorizationHeader?.let { header ->
-                    setRequestProperty("Authorization", header)
-                }
+                setRequestProperty(
+                    "Authorization",
+                    authorizationHeader
+                )
             }
             connection = activeConnection
 

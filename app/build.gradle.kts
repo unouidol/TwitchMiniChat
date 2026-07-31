@@ -13,8 +13,6 @@ val localProps = Properties().apply {
     }
 }
 
-val historyKey: String = localProps.getProperty("historySecretKey", "")
-
 val hasReleaseSigning =
     !localProps.getProperty("RELEASE_STORE_FILE").isNullOrBlank() &&
             !localProps.getProperty("RELEASE_STORE_PASSWORD").isNullOrBlank() &&
@@ -33,7 +31,6 @@ android {
         versionName = "5.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "HISTORY_SECRET_KEY", "\"$historyKey\"")
         resValue("string", "fcm_register_url", "https://api.ircminichat.party/register_fcm")
         resValue("string", "dex_upload_url", "https://api.ircminichat.party/upload_dex_list")
     }

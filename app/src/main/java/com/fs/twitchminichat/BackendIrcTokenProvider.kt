@@ -21,8 +21,8 @@ sealed interface BackendIrcTokenResult {
 /**
  * Acquires IRC credentials using one authentication decision and one backend request.
  *
- * Legacy local-token fallback is available only when no backend session existed before
- * the request. A Bearer error never changes the decision or triggers another request.
+ * A missing backend session may use already stored local Twitch credentials without
+ * contacting the backend. Every backend request itself is Bearer-authenticated.
  */
 class BackendIrcTokenProvider(
     sessionReader: BackendSessionReader,
@@ -35,22 +35,21 @@ class BackendIrcTokenProvider(
     /** Returns credentials or a typed failure without retrying through another mode. */
     fun acquire(
         profileId: String,
-        legacyAccessToken: String,
-        legacyUsername: String
+        localAccessToken: String,
+        localUsername: String
     ): BackendIrcTokenResult {
         val normalizedProfileId = BackendSessionStore.normalizeProfileId(profileId)
         if (normalizedProfileId.isBlank()) {
-            return legacyCredentials(legacyAccessToken, legacyUsername)
+            return localCredentials(localAccessToken, localUsername)
         }
 
-        val authDecision = authHeaderProvider.resolve(normalizedProfileId)
-        if (authDecision == BackendSessionAuthDecision.Unavailable) {
-            return BackendIrcTokenResult.Failed
-        }
-
-        val authorizationHeader = when (authDecision) {
+        val authorizationHeader = when (
+            val authDecision = authHeaderProvider.resolve(normalizedProfileId)
+        ) {
             is BackendSessionAuthDecision.Bearer -> authDecision.authorizationHeader
-            BackendSessionAuthDecision.Legacy -> null
+            BackendSessionAuthDecision.Missing ->
+                return localCredentials(localAccessToken, localUsername)
+
             BackendSessionAuthDecision.Unavailable -> return BackendIrcTokenResult.Failed
         }
 
@@ -69,8 +68,6 @@ class BackendIrcTokenProvider(
                         accessToken = freshToken,
                         username = freshUsername
                     )
-                } else if (authDecision == BackendSessionAuthDecision.Legacy) {
-                    legacyCredentials(legacyAccessToken, legacyUsername)
                 } else {
                     BackendIrcTokenResult.Failed
                 }
@@ -78,34 +75,25 @@ class BackendIrcTokenProvider(
 
             is BackendIrcTokenApiResult.HttpError -> {
                 if (
-                    authDecision is BackendSessionAuthDecision.Bearer &&
                     response.statusCode in AUTHENTICATION_ERROR_CODES
                 ) {
                     BackendIrcTokenResult.ReauthorizationRequired
-                } else if (authDecision == BackendSessionAuthDecision.Legacy) {
-                    legacyCredentials(legacyAccessToken, legacyUsername)
                 } else {
                     BackendIrcTokenResult.Failed
                 }
             }
 
-            BackendIrcTokenApiResult.NetworkError -> {
-                if (authDecision == BackendSessionAuthDecision.Legacy) {
-                    legacyCredentials(legacyAccessToken, legacyUsername)
-                } else {
-                    BackendIrcTokenResult.Failed
-                }
-            }
+            BackendIrcTokenApiResult.NetworkError -> BackendIrcTokenResult.Failed
         }
     }
 
-    /** Builds the temporary compatibility result from an existing local account. */
-    private fun legacyCredentials(
-        legacyAccessToken: String,
-        legacyUsername: String
+    /** Builds a direct IRC result from already stored local Twitch credentials. */
+    private fun localCredentials(
+        localAccessToken: String,
+        localUsername: String
     ): BackendIrcTokenResult {
-        val token = legacyAccessToken.trim()
-        val username = legacyUsername.trim()
+        val token = localAccessToken.trim()
+        val username = localUsername.trim()
         if (token.isBlank() || username.isBlank()) {
             return BackendIrcTokenResult.Failed
         }

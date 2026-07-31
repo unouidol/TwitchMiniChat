@@ -2325,8 +2325,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         thread {
             val tokenResult = ircTokenProvider.acquire(
                 profileId = profileId,
-                legacyAccessToken = localToken,
-                legacyUsername = c.username
+                localAccessToken = localToken,
+                localUsername = c.username
             )
 
             runUiIfAlive {

@@ -30,9 +30,9 @@ class BackendAuthHeaderProviderTest {
         )
     }
 
-    /** A missing session keeps temporary legacy compatibility available. */
+    /** A missing session cannot authorize a backend request. */
     @Test
-    fun missingSessionSelectsLegacyAuthentication() {
+    fun missingSessionBlocksBackendRequest() {
         val provider = BackendAuthHeaderProvider(
             sessionReader = BackendSessionReader {
                 BackendSessionLookup.Missing
@@ -40,7 +40,7 @@ class BackendAuthHeaderProviderTest {
         )
 
         assertEquals(
-            BackendSessionAuthDecision.Legacy,
+            BackendSessionAuthDecision.Missing,
             provider.resolve("profile-a")
         )
     }
