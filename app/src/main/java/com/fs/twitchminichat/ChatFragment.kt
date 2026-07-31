@@ -2228,10 +2228,33 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         return@runUiIfAlive
                     }
 
-                    showTwitchSendNoticeToast(
-                        msgId = msgId,
-                        noticeMessage = noticeMessage
-                    )
+                    when (
+                        TwitchIrcNoticeClassifier.classify(
+                            msgId = msgId,
+                            message = noticeMessage
+                        )
+                    ) {
+                        TwitchIrcNoticeCategory.AUTHENTICATION_FAILED -> {
+                            Log.w(
+                                "TWITCH_NOTICE",
+                                "authentication failed accountId=$accountId " +
+                                        "msgId=${msgId ?: "-"} reconnect=false"
+                            )
+
+                            closeIrcClient(resetBackoff = true)
+                            textStatus.text = getString(
+                                R.string.status_backend_session_reauthorize,
+                                chatUsername
+                            )
+                        }
+
+                        TwitchIrcNoticeCategory.OTHER -> {
+                            showTwitchSendNoticeToast(
+                                msgId = msgId,
+                                noticeMessage = noticeMessage
+                            )
+                        }
+                    }
                 }
             },
             onUserState = {
@@ -2720,6 +2743,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 )
             ) {
                 is BackendHistoryResult.Success -> {
+                    Log.d(
+                        HISTORY_LOG_TAG,
+                        "History loaded accountId=$accountId " +
+                                "messageCount=${result.messages.size} seconds=$seconds"
+                    )
+
                     result.messages.forEach { message ->
                         val key = message.messageId?.let { messageId ->
                             "id:$messageId"

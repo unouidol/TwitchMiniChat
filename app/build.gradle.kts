@@ -27,8 +27,8 @@ android {
         applicationId = "com.fs.twitchminichat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "5.4.0"
+        versionCode = 6
+        versionName = "5.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         resValue("string", "fcm_register_url", "https://api.ircminichat.party/register_fcm")
