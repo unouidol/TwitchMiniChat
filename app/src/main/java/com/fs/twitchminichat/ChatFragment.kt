@@ -132,7 +132,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var channelDropdownManuallyClosed = false
     private var pendingOpenChannelDropdownAfterIme = false
     private var lastImeVisible = false
-    private var lastImeBottomInsetPx = 0
 
     private var keyboardLayoutController: ChatKeyboardLayoutController? = null
 
@@ -650,8 +649,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * Keeps the chat top controls below the Android status bar.
      *
      * This mirrors the PCG screen behaviour, where only the top manual controls row
-     * receives the status bar inset. Bottom keyboard/navigation handling stays owned
-     * by ChatKeyboardLayoutController, so the message composer logic is not disturbed.
+     * receives the status bar inset. Android's native resize handles the Input Method
+     * Editor (IME), while ChatKeyboardLayoutController protects the navigation-bar edge.
      */
     private fun setupChatTopBarInsets() {
         if (!this::channelSwitchBox.isInitialized) return
@@ -662,8 +661,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun updateChannelDropdownHeight() {
         if (!this::editChannel.isInitialized) return
 
-        // With ADJUST_NOTHING the keyboard covers the bottom part of the screen.
-        // Limiting the dropdown height avoids it to end behind the keyboard.
+        /*
+         * With adjustResize, the Fragment root already ends above a docked keyboard.
+         * Limiting the popup to that visible root keeps its actions reachable.
+         */
 
         val root = view ?: return
 
@@ -674,10 +675,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         editChannel.getLocationOnScreen(fieldLocation)
 
         val rootBottom = rootLocation[1] + root.height
-        val safeBottom = rootBottom - lastImeBottomInsetPx
-
         val fieldBottom = fieldLocation[1] + editChannel.height
-        val availableBelow = safeBottom - fieldBottom - dp(8)
+        val availableBelow = rootBottom - fieldBottom - dp(8)
 
         editChannel.dropDownHeight = availableBelow
             .coerceAtLeast(dp(96))
@@ -687,9 +686,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Positions and sizes the chat mention dropdown above the message input.
      *
-     * With windowSoftInputMode="adjustNothing", the keyboard does not resize the Activity
-     * window. The composer bar is lifted manually, but AutoCompleteTextView may still
-     * try to place its popup below the input field, where the keyboard can cover it.
+     * The popup is kept above the composer for consistent placement while Android
+     * resizes the Activity around the Input Method Editor (IME).
      */
     private fun updateMessageMentionDropdownGeometry(
         visibleItemCount: Int = mentionAdapter.count
@@ -735,15 +733,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     /**
-     * Prepares the composer layout while the Input Method Editor is opening.
-     *
-     * This prevents the message input from falling behind the keyboard when the user
-     * taps the field and starts typing before the keyboard animation has settled.
+     * Refreshes composer-dependent geometry after Android has scheduled a layout pass.
      */
-    private fun scheduleComposerKeyboardWarmUp() {
+    private fun scheduleComposerLayoutRefresh() {
         if (!this::editMessage.isInitialized) return
-
-        keyboardLayoutController?.prepareForKeyboardOpen()
 
         editMessage.post {
             if (!isAdded) return@post
@@ -1528,7 +1521,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             lastComposerTouchDownAtMs = SystemClock.elapsedRealtime()
 
             armComposerFocusGuard()
-            keyboardLayoutController?.prepareForKeyboardOpen()
 
             /*
              * Request focus immediately on ACTION_DOWN, before regular click dispatch.
@@ -1548,38 +1540,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             imm.showSoftInput(editMessage, InputMethodManager.SHOW_IMPLICIT)
         }
 
-        /*
-         * The composer container is the parent of the message input.
-         *
-         * We move this whole bar above the keyboard instead of moving only editMessage,
-         * so the send button and the text field stay aligned.
-         */
-        val chatComposerBar = editMessage.parent as? View
-
-        if (chatComposerBar != null) {
-            keyboardLayoutController = ChatKeyboardLayoutController(
-                root = view,
-                composerBar = chatComposerBar,
-                chatScroll = scrollChat,
-                shouldLiftComposer = {
-                    this::editMessage.isInitialized &&
-                            this::editChannel.isInitialized &&
-                            (
-                                    editMessage.hasFocus() ||
-                                            editMessage.isPressed ||
-                                            currentMentionQuery() != null
-                                    ) &&
-                            !editChannel.hasFocus()
-                },
-                onKeyboardShown = {
-                    if (stickToBottom) {
-                        scrollToBottom()
-                    }
+        keyboardLayoutController = ChatKeyboardLayoutController(
+            root = view,
+            onKeyboardShown = {
+                if (stickToBottom) {
+                    scrollToBottom()
                 }
-            ).also { controller ->
-                controller.start()
             }
-        }
+        )
 
         view.isFocusable = true
         view.isFocusableInTouchMode = true
@@ -1612,11 +1580,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             override fun afterTextChanged(s: Editable?) {
                 composerTextVersion++
 
-                /*
-                 * If the user types immediately while the keyboard is still opening, force a
-                 * few layout passes so the composer does not remain behind the IME.
-                 */
-                scheduleComposerKeyboardWarmUp()
+                scheduleComposerLayoutRefresh()
 
                 val query = currentMentionQuery()
                 if (query == null) {
@@ -1742,8 +1706,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             editMessage.requestFocus()
 
-            keyboardLayoutController?.prepareForKeyboardOpen()
-            scheduleComposerKeyboardWarmUp()
+            scheduleComposerLayoutRefresh()
             updateMessageMentionDropdownGeometry()
             ViewCompat.requestApplyInsets(view)
         }
@@ -1752,8 +1715,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             if (hasFocus) {
                 clearChannelFieldUi(hideKeyboard = false)
 
-                keyboardLayoutController?.prepareForKeyboardOpen()
-                scheduleComposerKeyboardWarmUp()
+                scheduleComposerLayoutRefresh()
                 updateMessageMentionDropdownGeometry()
                 ViewCompat.requestApplyInsets(view)
             } else {
@@ -1826,6 +1788,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
 
+            keyboardLayoutController?.applyWindowInsets(insets)
+
             Log.d(
                 "CHAT_IME",
                 "insets imeVisible=${insets.isVisible(WindowInsetsCompat.Type.ime())} " +
@@ -1833,13 +1797,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         "systemBottom=${systemInsets.bottom} " +
                         "editMessageFocus=${this::editMessage.isInitialized && editMessage.hasFocus()} " +
                         "editChannelFocus=${this::editChannel.isInitialized && editChannel.hasFocus()} " +
-                        "composer=${chatComposerBar?.javaClass?.simpleName} " +
-                        "composerHeight=${chatComposerBar?.height} " +
-                        "composerParent=${(chatComposerBar?.parent as? View)?.javaClass?.simpleName}"
+                        "rootHeight=${view.height} " +
+                        "rootBottomPadding=${view.paddingBottom}"
             )
 
             lastImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            lastImeBottomInsetPx = imeInsets.bottom
 
             if (this::editMessage.isInitialized && editMessage.hasFocus()) {
                 updateMessageMentionDropdownGeometry(
@@ -2898,7 +2860,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             )
         }
 
-        keyboardLayoutController?.prepareForKeyboardOpen()
+        scheduleComposerLayoutRefresh()
         updateMessageMentionDropdownGeometry()
 
         view?.let { root ->
