@@ -20,6 +20,7 @@ import com.fs.twitchminichat.R
 import com.fs.twitchminichat.pcg.catalog.PcgEvolutionStage
 import com.fs.twitchminichat.pcg.catalog.PcgPokemonCatalogEntry
 import com.fs.twitchminichat.pcg.catalog.PcgPokemonCatalogRepository
+import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButtonToggleGroup
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +120,10 @@ class PcgMostWantedActivity :
             return
         }
 
+        SystemBarsInsetHelper.enableEdgeToEdgeWithSafePadding(
+            window = window,
+            rootView = findViewById(R.id.mostWantedRoot)
+        )
         bindViews()
         setupInteractions()
         loadProfileState()

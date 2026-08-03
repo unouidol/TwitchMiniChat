@@ -39,7 +39,10 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
         accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID).orEmpty()
 
-        setupManualUpdateBarInsets()
+        SystemBarsInsetHelper.enableEdgeToEdgeWithSafePadding(
+            window = window,
+            rootView = findViewById(R.id.pcgActivityRoot)
+        )
         setupManualPcgDataUpdateButtons()
 
         if (savedInstanceState == null) {
@@ -53,19 +56,6 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
                     }
                 )
                 .commit()
-        }
-    }
-
-    /**
-     * Keeps the manual PokÃ©monCommunityGame update controls below the Android status bar.
-     *
-     * Modern Android versions can draw this Activity edge-to-edge. Only the top
-     * manual update row receives the safe offset, so the GeckoView content and
-     * PokÃ©monCommunityGame page behaviour remain unchanged.
-     */
-    private fun setupManualUpdateBarInsets() {
-        findViewById<View>(R.id.layoutPcgManualUpdateBar)?.let { manualUpdateBar ->
-            SystemBarsInsetHelper.keepBelowStatusBar(manualUpdateBar)
         }
     }
 

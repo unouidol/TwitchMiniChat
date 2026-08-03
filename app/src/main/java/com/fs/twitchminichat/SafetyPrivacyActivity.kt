@@ -6,11 +6,17 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 
 class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        SystemBarsInsetHelper.enableEdgeToEdgeWithSafePadding(
+            window = window,
+            rootView = findViewById(R.id.safetyPrivacyRoot)
+        )
 
         findViewById<Button>(R.id.btnReportBlock).setOnClickListener {
             PolicyPageActivity.open(

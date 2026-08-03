@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 
 /**
  * Screen used to review and manage locally blocked chat users.
@@ -25,6 +26,11 @@ class BlockedUsersActivity : AppCompatActivity() {
         setResult(RESULT_CANCELED)
 
         setContentView(R.layout.activity_blocked_users)
+
+        SystemBarsInsetHelper.enableEdgeToEdgeWithSafePadding(
+            window = window,
+            rootView = findViewById(R.id.blockedUsersContainer)
+        )
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
