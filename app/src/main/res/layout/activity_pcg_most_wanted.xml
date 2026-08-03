@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mostWantedRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -185,18 +186,24 @@
             android:id="@+id/btnBackToMostWantedAlerts"
             style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:gravity="center"
+            android:maxLines="2"
+            android:minHeight="48dp"
             android:text="@string/pcg_most_wanted_back_to_alerts" />
 
         <Button
             android:id="@+id/btnSaveMostWanted"
             style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:enabled="false"
+            android:gravity="center"
+            android:maxLines="2"
+            android:minHeight="48dp"
             android:text="@string/pcg_most_wanted_save" />
 
     </LinearLayout>

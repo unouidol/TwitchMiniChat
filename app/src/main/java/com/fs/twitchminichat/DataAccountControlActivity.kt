@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 
 /**
  * Hosts the operational local-data and server-data controls.
@@ -17,6 +18,11 @@ class DataAccountControlActivity :
     /** Adds the operational data-control fragment on first creation only. */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        SystemBarsInsetHelper.enableEdgeToEdgeWithSafePadding(
+            window = window,
+            rootView = findViewById(R.id.dataAccountControlContainer)
+        )
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()

@@ -2,7 +2,9 @@ package com.fs.twitchminichat.ui.insets
 
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnAttach
 import kotlin.math.max
@@ -11,10 +13,52 @@ import kotlin.math.max
  * Applies Android system-bar Window Insets to views that are visually anchored
  * near screen edges.
  *
- * This helper keeps floating controls away from the Android status bar and
- * display cutout without changing the rest of the screen layout.
+ * This helper keeps edge-anchored content away from Android system bars and
+ * display cutouts without consuming insets needed by descendant views.
  */
 object SystemBarsInsetHelper {
+
+    /**
+     * Enables backward-compatible edge-to-edge rendering and keeps [rootView]
+     * outside every visible system bar and display cutout.
+     */
+    fun enableEdgeToEdgeWithSafePadding(
+        window: Window,
+        rootView: View
+    ) {
+        WindowCompat.enableEdgeToEdge(window)
+        applySystemBarsPadding(rootView)
+    }
+
+    /**
+     * Adds system-bar and display-cutout insets to the original padding of [view].
+     *
+     * The listener does not consume the insets, so child views can still react to
+     * them when needed. Repeated inset dispatches are idempotent because every
+     * update starts from the padding captured before the listener was installed.
+     */
+    fun applySystemBarsPadding(view: View) {
+        val originalPaddingLeft = view.paddingLeft
+        val originalPaddingTop = view.paddingTop
+        val originalPaddingRight = view.paddingRight
+        val originalPaddingBottom = view.paddingBottom
+
+        ViewCompat.setOnApplyWindowInsetsListener(view) { targetView, insets ->
+            val systemBarInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val cutoutInsets = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+
+            targetView.setPadding(
+                originalPaddingLeft + max(systemBarInsets.left, cutoutInsets.left),
+                originalPaddingTop + max(systemBarInsets.top, cutoutInsets.top),
+                originalPaddingRight + max(systemBarInsets.right, cutoutInsets.right),
+                originalPaddingBottom + max(systemBarInsets.bottom, cutoutInsets.bottom)
+            )
+
+            insets
+        }
+
+        requestApplyInsetsWhenAttached(view)
+    }
 
     /**
      * Adds the current status-bar or display-cutout top inset to the original top
@@ -43,10 +87,6 @@ object SystemBarsInsetHelper {
         requestApplyInsetsWhenAttached(view)
     }
 
-    /**
-     * Requests Window Insets immediately when "view" is already attached, or waits
-     * for attachment when the view is still being inflated.
-     */
     /**
      * Requests Window Insets immediately when [view] is already attached, or waits
      * for attachment when the view is still being inflated.

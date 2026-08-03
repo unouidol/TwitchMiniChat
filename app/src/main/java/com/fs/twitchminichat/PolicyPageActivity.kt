@@ -9,11 +9,17 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
+import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 
 class PolicyPageActivity : AppCompatActivity(R.layout.activity_policy_page) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        SystemBarsInsetHelper.enableEdgeToEdgeWithSafePadding(
+            window = window,
+            rootView = findViewById(R.id.policyPageRoot)
+        )
 
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val assetPath = intent.getStringExtra(EXTRA_ASSET).orEmpty()
