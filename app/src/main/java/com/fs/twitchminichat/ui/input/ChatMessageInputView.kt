@@ -12,7 +12,7 @@ import kotlin.math.abs
  *
  * This view exposes ACTION_DOWN without requiring an external OnTouchListener.
  * Keeping touch handling inside the custom view avoids accessibility lint warnings
- * and lets ChatFragment prepare keyboard/focus state before the normal click/focus
+ * and lets ChatFragment prepare input focus before the normal click/focus
  * pipeline runs.
  */
 class ChatMessageInputView @JvmOverloads constructor(
@@ -38,8 +38,8 @@ class ChatMessageInputView @JvmOverloads constructor(
     /**
      * Handles touch events while preserving the platform text input behavior.
      *
-     * ACTION_DOWN is forwarded to ChatFragment early so it can prepare keyboard
-     * layout and input focus before the Input Method Editor animation settles.
+     * ACTION_DOWN is forwarded to ChatFragment early so it can prepare input focus
+     * before the Input Method Editor animation settles.
      */
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
