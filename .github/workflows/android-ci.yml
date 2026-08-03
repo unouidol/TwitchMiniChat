@@ -1,0 +1,103 @@
+name: Android CI
+
+on:
+  pull_request:
+    branches:
+      - main-v5
+  push:
+    branches:
+      - main-v5
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test, lint, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Create non-production Firebase configuration
+        shell: bash
+        run: |
+          create_firebase_config() {
+            local flavor="$1"
+            local package_name="$2"
+            local output="app/src/${flavor}/google-services.json"
+
+            mkdir -p "$(dirname "$output")"
+            printf '%s\n' \
+              '{' \
+              '  "project_info": {' \
+              '    "project_number": "123456789012",' \
+              '    "project_id": "tmc-ci-placeholder",' \
+              '    "storage_bucket": "tmc-ci-placeholder.appspot.com"' \
+              '  },' \
+              '  "client": [' \
+              '    {' \
+              '      "client_info": {' \
+              '        "mobilesdk_app_id": "1:123456789012:android:0000000000000000000000",' \
+              '        "android_client_info": {' \
+              "          \"package_name\": \"${package_name}\"" \
+              '        }' \
+              '      },' \
+              '      "oauth_client": [],' \
+              '      "api_key": [' \
+              '        {' \
+              '          "current_key": "ci-placeholder-not-a-real-api-key"' \
+              '        }' \
+              '      ],' \
+              '      "services": {' \
+              '        "appinvite_service": {' \
+              '          "other_platform_oauth_client": []' \
+              '        }' \
+              '      }' \
+              '    }' \
+              '  ],' \
+              '  "configuration_version": "1"' \
+              '}' > "$output"
+          }
+
+          create_firebase_config stable com.fs.twitchminichat
+          create_firebase_config dev com.fs.twitchminichat.dev
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew
+          :app:testStableDebugUnitTest
+          :app:testDevDebugUnitTest
+          --stacktrace
+
+      - name: Run Android lint
+        run: >-
+          ./gradlew
+          :app:lintStableDebug
+          :app:lintDevDebug
+          --stacktrace
+
+      - name: Build debug APKs
+        run: >-
+          ./gradlew
+          :app:assembleStableDebug
+          :app:assembleDevDebug
+          --stacktrace
