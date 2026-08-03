@@ -2,4 +2,5 @@
 <full-backup-content>
     <exclude domain="sharedpref" path="v2_accounts.xml" />
     <exclude domain="sharedpref" path="fcm_registration.xml" />
+    <exclude domain="sharedpref" path="oauth_pending.xml" />
 </full-backup-content>

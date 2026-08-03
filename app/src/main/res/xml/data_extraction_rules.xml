@@ -2,11 +2,13 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="v2_accounts.xml" />
-    <exclude domain="sharedpref" path="fcm_registration.xml" />
+        <exclude domain="sharedpref" path="fcm_registration.xml" />
+        <exclude domain="sharedpref" path="oauth_pending.xml" />
     </cloud-backup>
 
     <device-transfer>
         <exclude domain="sharedpref" path="v2_accounts.xml" />
-    <exclude domain="sharedpref" path="fcm_registration.xml" />
+        <exclude domain="sharedpref" path="fcm_registration.xml" />
+        <exclude domain="sharedpref" path="oauth_pending.xml" />
     </device-transfer>
 </data-extraction-rules>

@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -15,64 +16,56 @@ class AuthCallbackActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val data = intent?.data ?: run {
-            finish()
-            return
-        }
-
-        val loginToken = data.getQueryParameter("login_token")?.trim().orEmpty()
-        val slot = data.getQueryParameter("slot")?.trim()?.toIntOrNull()
-        val deepLinkProfileId = data.getQueryParameter("profile_id")?.trim().orEmpty()
+        val callbackPayload = readCallbackPayload(intent?.data)
         val pendingStore = OAuthPendingRequestStore(this)
 
-        if (loginToken.isBlank() || slot == null) {
-            if (slot != null) pendingStore.clear(slot)
-            Toast.makeText(this, "Login callback invalid", Toast.LENGTH_LONG).show()
+        if (callbackPayload == null) {
+            Toast.makeText(this, R.string.oauth_callback_invalid, Toast.LENGTH_LONG).show()
             finish()
             return
         }
 
-        val pendingRequest = pendingStore.load(slot)
+        val pendingRequest = pendingStore.consume(callbackPayload.slot)
         if (pendingRequest == null) {
-            Toast.makeText(this, "Missing Twitch Channel.", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this,
+                R.string.oauth_request_missing_or_expired,
+                Toast.LENGTH_LONG
+            ).show()
             finish()
             return
         }
 
-        Toast.makeText(this, "Logging-in...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.oauth_login_completing, Toast.LENGTH_SHORT).show()
 
         thread(name = "tmc-oauth-finalize") {
-            val result = OAuthBackendApi.finalizeLogin(loginToken)
+            val result = OAuthBackendApi.finalizeLogin(callbackPayload.loginToken)
 
             if (
                 result == null ||
-                result.username.isBlank() ||
-                result.accessToken.isBlank()
+                !OAuthFlowSecurityPolicy.isValidFinalizeResult(
+                    pendingRequest = pendingRequest,
+                    result = result
+                )
             ) {
-                pendingStore.clear(slot)
+                Log.w(TAG, "OAuth finalization response rejected")
                 finishWithToast(R.string.oauth_finalize_failed)
                 return@thread
             }
 
-            val finalProfileId = when {
-                result.profileId.isNotBlank() -> result.profileId
-                deepLinkProfileId.isNotBlank() -> deepLinkProfileId
-                else -> ""
-            }
+            val finalProfileId = result.profileId
 
             if (pendingRequest.isReauthorization) {
                 finishReauthorization(
                     pendingRequest = pendingRequest,
                     result = result,
-                    finalProfileId = finalProfileId,
-                    pendingStore = pendingStore
+                    finalProfileId = finalProfileId
                 )
             } else {
                 finishNewAccount(
                     pendingRequest = pendingRequest,
                     result = result,
-                    finalProfileId = finalProfileId,
-                    pendingStore = pendingStore
+                    finalProfileId = finalProfileId
                 )
             }
         }
@@ -82,8 +75,7 @@ class AuthCallbackActivity : AppCompatActivity() {
     private fun finishNewAccount(
         pendingRequest: OAuthPendingRequest,
         result: OAuthFinalizeResult,
-        finalProfileId: String,
-        pendingStore: OAuthPendingRequestStore
+        finalProfileId: String
     ) {
         val accountId = UUID.randomUUID().toString()
         val repo = AccountRepository(this)
@@ -99,15 +91,17 @@ class AuthCallbackActivity : AppCompatActivity() {
 
         if (!persistBackendSession(result, finalProfileId)) {
             repo.removeById(accountId)
-            pendingStore.clear(pendingRequest.slot)
             finishWithToast(R.string.backend_session_persist_failed)
             return
         }
 
-        pendingStore.clear(pendingRequest.slot)
         openAccount(
             accountId = accountId,
-            toastMessage = "Added account @${result.username} (#${pendingRequest.channel})"
+            toastMessage = getString(
+                R.string.oauth_account_added,
+                result.username,
+                pendingRequest.channel
+            )
         )
     }
 
@@ -119,15 +113,13 @@ class AuthCallbackActivity : AppCompatActivity() {
     private fun finishReauthorization(
         pendingRequest: OAuthPendingRequest,
         result: OAuthFinalizeResult,
-        finalProfileId: String,
-        pendingStore: OAuthPendingRequestStore
+        finalProfileId: String
     ) {
         val repo = AccountRepository(this)
         val existingAccount = repo.getById(pendingRequest.accountId)
 
         if (existingAccount == null) {
-            pendingStore.clear(pendingRequest.slot)
-            Log.w(TAG, "Reauthorization target no longer exists accountId=${pendingRequest.accountId}")
+            Log.w(TAG, "Reauthorization target no longer exists")
             finishWithToast(R.string.account_reauthorize_failed)
             return
         }
@@ -140,8 +132,7 @@ class AuthCallbackActivity : AppCompatActivity() {
         )
 
         if (!identityMatches) {
-            pendingStore.clear(pendingRequest.slot)
-            Log.w(TAG, "Reauthorization identity mismatch accountId=${pendingRequest.accountId}")
+            Log.w(TAG, "Reauthorization identity mismatch")
             finishWithToast(R.string.account_reauthorize_identity_mismatch)
             return
         }
@@ -154,20 +145,17 @@ class AuthCallbackActivity : AppCompatActivity() {
         )
 
         if (!updated) {
-            pendingStore.clear(pendingRequest.slot)
             finishWithToast(R.string.account_reauthorize_failed)
             return
         }
 
         if (!persistBackendSession(result, finalProfileId)) {
             restoreAccountSnapshot(repo, existingAccount)
-            pendingStore.clear(pendingRequest.slot)
             finishWithToast(R.string.backend_session_persist_failed)
             return
         }
 
-        pendingStore.clear(pendingRequest.slot)
-        Log.i(TAG, "Reauthorization completed accountId=${pendingRequest.accountId}")
+        Log.i(TAG, "Reauthorization completed")
         openAccount(
             accountId = pendingRequest.accountId,
             toastMessage = getString(R.string.account_reauthorize_done, result.username)
@@ -234,8 +222,54 @@ class AuthCallbackActivity : AppCompatActivity() {
         }
     }
 
+    /** Converts one untrusted deep link into a validated callback payload. */
+    private fun readCallbackPayload(data: Uri?): OAuthCallbackPayload? {
+        if (data == null) return null
+
+        val loginTokens = if (data.isHierarchical) {
+            readQueryParameters(data, LOGIN_TOKEN_PARAMETER)
+        } else {
+            emptyList()
+        }
+        val slots = if (data.isHierarchical) {
+            readQueryParameters(data, SLOT_PARAMETER)
+        } else {
+            emptyList()
+        }
+
+        return OAuthFlowSecurityPolicy.validateCallback(
+            input = OAuthCallbackInput(
+                isHierarchical = data.isHierarchical,
+                scheme = data.scheme,
+                host = data.host,
+                port = data.port,
+                path = data.path,
+                userInfo = data.userInfo,
+                fragment = data.fragment,
+                loginTokens = loginTokens,
+                slots = slots
+            ),
+            expectedScheme = BuildConfig.AUTH_SCHEME
+        )
+    }
+
+    /** Reads one repeated query parameter without trusting malformed URI implementations. */
+    private fun readQueryParameters(data: Uri, name: String): List<String> {
+        return try {
+            data.getQueryParameters(name)
+        } catch (_: UnsupportedOperationException) {
+            emptyList()
+        }
+    }
+
     private companion object {
         /** Logcat tag for non-sensitive OAuth account refresh events. */
         const val TAG = "TMC_OAUTH"
+
+        /** Critical one-time token parameter returned by the backend callback. */
+        const val LOGIN_TOKEN_PARAMETER = "login_token"
+
+        /** Integer correlation parameter returned by the backend callback. */
+        const val SLOT_PARAMETER = "slot"
     }
 }

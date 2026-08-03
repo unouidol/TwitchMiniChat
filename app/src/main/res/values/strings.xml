@@ -30,6 +30,12 @@
     <string name="account_reauthorize_done">Account @%1$s reauthorized.</string>
     <string name="account_reauthorize_failed">Could not reauthorize this account.</string>
     <string name="account_reauthorize_identity_mismatch">The authorized Twitch user does not match this account. No changes were made.</string>
+    <string name="oauth_callback_invalid">The Twitch login callback was invalid. Please start the login again.</string>
+    <string name="oauth_request_missing_or_expired">This Twitch login request is missing, expired, or was already used. Please start again.</string>
+    <string name="oauth_login_completing">Completing Twitch login…</string>
+    <string name="oauth_account_added">Added account @%1$s (#%2$s)</string>
+    <string name="oauth_start_failed">Twitch login could not be started safely. Please try again.</string>
+    <string name="oauth_browser_unavailable">No web browser is available for Twitch login.</string>
     <string name="oauth_finalize_failed">Twitch login could not be completed.</string>
     <string name="backend_session_persist_failed">Twitch login completed, but the secure backend session could not be saved. Please try again.</string>
     <string name="system_bullet">• %1$s</string>

@@ -1,5 +1,6 @@
 package com.fs.twitchminichat
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -214,9 +215,17 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
 
     /** Starts OAuth for a new local account. */
     private fun startTwitchLogin(channel: String) {
-        val slot = pendingRequestStore.allocateSlot()
-        pendingRequestStore.saveNewAccount(slot, channel)
-        openTwitchAuthorization(slot = slot, profileId = "")
+        val pendingRequest = pendingRequestStore.createNewAccount(channel)
+        if (pendingRequest == null) {
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_start_failed,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        openTwitchAuthorization(slot = pendingRequest.slot, profileId = "")
     }
 
     /**
@@ -228,9 +237,17 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     private fun startTwitchReauthorization(account: AccountConfig) {
         val profileId = AccountProfileIdResolver.resolve(account)
 
-        val slot = pendingRequestStore.allocateSlot()
-        pendingRequestStore.saveReauthorization(slot, account, profileId)
-        openTwitchAuthorization(slot = slot, profileId = profileId)
+        val pendingRequest = pendingRequestStore.createReauthorization(account, profileId)
+        if (pendingRequest == null) {
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_start_failed,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        openTwitchAuthorization(slot = pendingRequest.slot, profileId = profileId)
     }
 
     /** Opens Twitch OAuth with the feature scopes enabled for the current flavor. */
@@ -250,7 +267,16 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             authUrlBuilder.appendQueryParameter(name, value)
         }
 
-        startActivity(Intent(Intent.ACTION_VIEW, authUrlBuilder.build()))
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, authUrlBuilder.build()))
+        } catch (_: ActivityNotFoundException) {
+            pendingRequestStore.clear(slot)
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_browser_unavailable,
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun ensureTermsAccepted(onAccepted: () -> Unit) {

@@ -56,12 +56,12 @@ object OAuthBackendResponseParser {
         return runCatching {
             val json = JSONObject(body)
             OAuthFinalizeResult(
-                profileId = json.optString("profile_id", ""),
+                profileId = json.optString("profile_id", "").trim(),
                 slot = json.optInt("slot", -1),
-                username = json.optString("username", ""),
-                userId = json.optString("user_id", ""),
-                accessToken = json.optString("access_token", ""),
-                desktopSessionToken = json.optString("desktop_session_token", "")
+                username = json.optString("username", "").trim(),
+                userId = json.optString("user_id", "").trim(),
+                accessToken = json.optString("access_token", "").trim(),
+                desktopSessionToken = json.optString("desktop_session_token", "").trim()
             )
         }.getOrNull()
     }
@@ -73,10 +73,10 @@ object OAuthBackendResponseParser {
         return runCatching {
             val json = JSONObject(body)
             OAuthTokenForIrcResult(
-                profileId = json.optString("profile_id", ""),
-                username = json.optString("username", ""),
-                userId = json.optString("user_id", ""),
-                accessToken = json.optString("access_token", "")
+                profileId = json.optString("profile_id", "").trim(),
+                username = json.optString("username", "").trim(),
+                userId = json.optString("user_id", "").trim(),
+                accessToken = json.optString("access_token", "").trim()
             )
         }.getOrNull()
     }
