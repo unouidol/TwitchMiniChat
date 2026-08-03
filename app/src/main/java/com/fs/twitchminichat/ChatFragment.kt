@@ -42,6 +42,7 @@ import com.fs.twitchminichat.pcg.GeckoSessionManager
 import com.fs.twitchminichat.pcg.PcgActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
+import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 import kotlin.concurrent.thread
@@ -576,12 +577,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private val bottomThresholdPx: Int
         get() = (72 * resources.displayMetrics.density).toInt()
 
-    private var lastDedupKey: String? = null
-    private var lastDedupAtMs: Long = 0L
-    private val dedupWindowMs = 1500L
-
-    private val seenKeys = LinkedHashMap<String, Unit>(1024, 0.75f, true)
-    private val seenMax = 800
+    /** Owns bounded duplicate-delivery state independently from Fragment UI state. */
+    private val chatMessageDeduplicator = ChatMessageDeduplicator()
 
     private var historyLoaded = false
     private var lastPausedAtMs: Long = 0L
@@ -1334,9 +1331,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         refreshChannelsDropdown()
 
         historyLoaded = false
-        lastDedupKey = null
-        lastDedupAtMs = 0L
-        seenKeys.clear()
+        chatMessageDeduplicator.clear()
 
         resetMentionUsersForCurrentChannel()
 
@@ -3292,19 +3287,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         streamSession?.loadUri(buildStreamUrl())
     }
 
-    private fun rememberKey(key: String): Boolean {
-        if (seenKeys.containsKey(key)) return true
-        seenKeys[key] = Unit
-        if (seenKeys.size > seenMax) {
-            val it = seenKeys.entries.iterator()
-            if (it.hasNext()) {
-                it.next()
-                it.remove()
-            }
-        }
-        return false
-    }
-
     private inline fun runUiIfAlive(crossinline action: () -> Unit) {
         val act = activity ?: return
         act.runOnUiThread {
@@ -3504,15 +3486,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         forceScroll: Boolean = false,
         messageTimestampSec: Double? = null
     ) {
-        val now = System.currentTimeMillis()
-
-        if (dedupKey == lastDedupKey && (now - lastDedupAtMs) < dedupWindowMs) return
-        lastDedupKey = dedupKey
-        lastDedupAtMs = now
+        if (chatMessageDeduplicator.shouldSuppress(dedupKey)) return
 
         val stable = dedupKey.startsWith("id:")
-        if (stable && rememberKey(dedupKey)) return
-
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
         addMentionUser(user)
 
