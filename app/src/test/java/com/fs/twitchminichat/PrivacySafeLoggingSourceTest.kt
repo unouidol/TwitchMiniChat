@@ -20,7 +20,7 @@ class PrivacySafeLoggingSourceTest {
         val violations = mutableListOf<String>()
 
         sourceFiles(sourceRoot, setOf("kt", "java")).forEach { path ->
-            val source = Files.readString(path)
+            val source = readUtf8(path)
 
             extractCalls(source, ANDROID_LOG_CALL).forEach { call ->
                 if (topLevelArgumentCount(call.text) > 2) {
@@ -45,7 +45,7 @@ class PrivacySafeLoggingSourceTest {
         val violations = mutableListOf<String>()
 
         sourceFiles(assetRoot, setOf("js")).forEach { path ->
-            val source = Files.readString(path)
+            val source = readUtf8(path)
 
             extractCalls(source, CONSOLE_LOG_CALL).forEach { call ->
                 val argument = call.text
@@ -89,9 +89,14 @@ class PrivacySafeLoggingSourceTest {
                 .filter { path ->
                     path.fileName.toString().substringAfterLast('.', "") in extensions
                 }
-                .forEach { path -> files += path }
+                .forEach { path -> files.add(path) }
         }
         return files
+    }
+
+    /** Reads one source file as UTF-8 without depending on the Java 11 Files API. */
+    private fun readUtf8(path: Path): String {
+        return String(Files.readAllBytes(path), Charsets.UTF_8)
     }
 
     /** Extracts balanced function calls beginning with [callStart]. */
