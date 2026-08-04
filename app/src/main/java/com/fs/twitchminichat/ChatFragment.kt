@@ -43,6 +43,7 @@ import com.fs.twitchminichat.pcg.PcgActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
+import com.fs.twitchminichat.chat.ChatMentionUserTracker
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 import kotlin.concurrent.thread
@@ -192,11 +193,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var mentionAdapter: ArrayAdapter<String>
     private lateinit var btnTogglePush: ImageButton
     private lateinit var btnCatchPresets: ImageButton
-
-    private data class MentionUserEntry(
-        var displayName: String,
-        var lastSeenAtMs: Long
-    )
 
     private data class ChatViewMeta(
         val usernameLower: String,
@@ -535,8 +531,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private val mentionUsers = LinkedHashMap<String, MentionUserEntry>()
-    private val mentionTimeoutMs = 10 * 60 * 1000L
+    /** Owns channel-scoped mention candidates and their inactivity expiry. */
+    private val mentionUserTracker = ChatMentionUserTracker(
+        monotonicTimeMillis = { SystemClock.elapsedRealtime() }
+    )
 
     private val swipeReplyTriggerPx: Float
         get() = 72f * resources.displayMetrics.density
@@ -992,58 +990,25 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun addMentionUser(user: String) {
-        val trimmed = user.trim()
-        if (trimmed.isBlank()) return
+        val recorded = mentionUserTracker.record(
+            username = user,
+            authenticatedUsername = cfg?.username
+        )
+        if (!recorded) return
 
-        val key = trimmed.lowercase()
-        val now = SystemClock.elapsedRealtime()
-
-        val existing = mentionUsers[key]
-        if (existing == null) {
-            mentionUsers[key] = MentionUserEntry(
-                displayName = trimmed,
-                lastSeenAtMs = now
-            )
-        } else {
-            existing.displayName = trimmed
-            existing.lastSeenAtMs = now
-        }
-
-        pruneMentionUsers()
         refreshMentionSuggestions()
     }
 
-    private fun pruneMentionUsers() {
-        val now = SystemClock.elapsedRealtime()
-        val selfKey = cfg?.username?.trim()?.lowercase()
-
-        val it = mentionUsers.entries.iterator()
-        while (it.hasNext()) {
-            val entry = it.next()
-
-            val isSelf = entry.key == selfKey
-            val expired = (now - entry.value.lastSeenAtMs) > mentionTimeoutMs
-
-            if (!isSelf && expired) {
-                it.remove()
-            }
-        }
-    }
-
     private fun resetMentionUsersForCurrentChannel() {
-        mentionUsers.clear()
-        cfg?.username?.let { addMentionUser(it) }
+        mentionUserTracker.reset(authenticatedUsername = cfg?.username)
         refreshMentionSuggestions()
     }
 
     private fun refreshMentionSuggestions() {
         if (!this::mentionAdapter.isInitialized) return
 
-        pruneMentionUsers()
-
-        val items = mentionUsers.values
-            .map { it.displayName }
-            .sortedBy { it.lowercase() }
+        val items = mentionUserTracker
+            .activeDisplayNames(authenticatedUsername = cfg?.username)
             .map { "@$it" }
 
         mentionAdapter.clear()
