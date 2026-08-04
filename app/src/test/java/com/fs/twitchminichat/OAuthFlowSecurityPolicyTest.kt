@@ -52,6 +52,7 @@ class OAuthFlowSecurityPolicyTest {
             validCallbackInput().copy(loginTokens = listOf("first", "second")),
             validCallbackInput().copy(loginTokens = listOf(" token ")),
             validCallbackInput().copy(loginTokens = listOf("line\nbreak")),
+            validCallbackInput().copy(loginTokens = listOf("a".repeat(257))),
             validCallbackInput().copy(slots = emptyList()),
             validCallbackInput().copy(slots = listOf("1", "2")),
             validCallbackInput().copy(slots = listOf("0")),
@@ -135,6 +136,20 @@ class OAuthFlowSecurityPolicyTest {
         }
     }
 
+    /** Pending-request diagnostics never reveal the verifier or account metadata. */
+    @Test
+    fun pendingRequestStringIsRedacted() {
+        val pending = pendingRequest(slot = 123).copy(
+            channel = "private-channel",
+            expectedProfileId = "private-profile"
+        )
+        val rendered = pending.toString()
+
+        assertFalse(rendered.contains(pending.codeVerifier))
+        assertFalse(rendered.contains(pending.channel))
+        assertFalse(rendered.contains(pending.expectedProfileId))
+    }
+
     /** The random allocator skips invalid and occupied values without falling back to zero. */
     @Test
     fun slotAllocatorRetriesInvalidAndOccupiedCandidates() {
@@ -179,6 +194,7 @@ class OAuthFlowSecurityPolicyTest {
             accountId = "",
             expectedUsername = "",
             expectedProfileId = "",
+            codeVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
             createdAtEpochMs = 1_000_000L
         )
     }

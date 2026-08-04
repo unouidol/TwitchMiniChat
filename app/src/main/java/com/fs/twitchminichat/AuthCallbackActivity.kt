@@ -39,7 +39,10 @@ class AuthCallbackActivity : AppCompatActivity() {
         Toast.makeText(this, R.string.oauth_login_completing, Toast.LENGTH_SHORT).show()
 
         thread(name = "tmc-oauth-finalize") {
-            val result = OAuthBackendApi.finalizeLogin(callbackPayload.loginToken)
+            val result = OAuthBackendApi.finalizeLogin(
+                loginToken = callbackPayload.loginToken,
+                codeVerifier = pendingRequest.codeVerifier
+            )
 
             if (
                 result == null ||

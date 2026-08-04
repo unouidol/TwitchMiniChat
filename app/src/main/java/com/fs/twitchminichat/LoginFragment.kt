@@ -225,7 +225,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             return
         }
 
-        openTwitchAuthorization(slot = pendingRequest.slot, profileId = "")
+        openTwitchAuthorization(pendingRequest = pendingRequest, profileId = "")
     }
 
     /**
@@ -247,15 +247,36 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             return
         }
 
-        openTwitchAuthorization(slot = pendingRequest.slot, profileId = profileId)
+        openTwitchAuthorization(pendingRequest = pendingRequest, profileId = profileId)
     }
 
-    /** Opens Twitch OAuth with the feature scopes enabled for the current flavor. */
-    private fun openTwitchAuthorization(slot: Int, profileId: String) {
+    /** Opens Twitch OAuth with an S256 proof and the scopes enabled for this flavor. */
+    private fun openTwitchAuthorization(
+        pendingRequest: OAuthPendingRequest,
+        profileId: String
+    ) {
+        val codeChallenge = OAuthProofKeyPolicy.deriveS256CodeChallenge(
+            pendingRequest.codeVerifier
+        )
+        if (codeChallenge == null) {
+            pendingRequestStore.clear(pendingRequest.slot)
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_start_failed,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         val authUrlBuilder = "https://api.ircminichat.party/oauth/start".toUri()
             .buildUpon()
-            .appendQueryParameter("slot", slot.toString())
+            .appendQueryParameter("slot", pendingRequest.slot.toString())
             .appendQueryParameter("return_scheme", "${BuildConfig.AUTH_SCHEME}://auth")
+            .appendQueryParameter("code_challenge", codeChallenge)
+            .appendQueryParameter(
+                "code_challenge_method",
+                OAuthProofKeyPolicy.CODE_CHALLENGE_METHOD
+            )
 
         if (profileId.isNotBlank()) {
             authUrlBuilder.appendQueryParameter("profile_id", profileId)
@@ -270,7 +291,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, authUrlBuilder.build()))
         } catch (_: ActivityNotFoundException) {
-            pendingRequestStore.clear(slot)
+            pendingRequestStore.clear(pendingRequest.slot)
             Toast.makeText(
                 requireContext(),
                 R.string.oauth_browser_unavailable,

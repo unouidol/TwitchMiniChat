@@ -15,11 +15,17 @@ internal data class OAuthPendingRequest(
     val accountId: String,
     val expectedUsername: String,
     val expectedProfileId: String,
+    val codeVerifier: String,
     val createdAtEpochMs: Long
 ) {
     /** Returns true when the callback must update an existing account. */
     val isReauthorization: Boolean
         get() = accountId.isNotBlank()
+
+    /** Prevents the short-lived verifier and account metadata from entering logs. */
+    override fun toString(): String {
+        return "OAuthPendingRequest(slot=$slot, isReauthorization=$isReauthorization)"
+    }
 }
 
 /**
@@ -31,7 +37,8 @@ internal data class OAuthPendingRequest(
 internal class OAuthPendingRequestStore(
     context: Context,
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
-    private val slotAllocator: OAuthCallbackSlotAllocator = OAuthCallbackSlotAllocator()
+    private val slotAllocator: OAuthCallbackSlotAllocator = OAuthCallbackSlotAllocator(),
+    private val codeVerifierGenerator: OAuthCodeVerifierGenerator = OAuthCodeVerifierGenerator()
 ) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -45,6 +52,7 @@ internal class OAuthPendingRequestStore(
                 accountId = "",
                 expectedUsername = "",
                 expectedProfileId = "",
+                codeVerifier = "",
                 createdAtEpochMs = 0L
             )
         )
@@ -73,6 +81,7 @@ internal class OAuthPendingRequestStore(
                 accountId = accountId,
                 expectedUsername = expectedUsername,
                 expectedProfileId = expectedProfileId,
+                codeVerifier = "",
                 createdAtEpochMs = 0L
             )
         )
@@ -105,8 +114,14 @@ internal class OAuthPendingRequestStore(
     private fun load(slot: Int): OAuthPendingRequest? {
         val channel = readString(channelKey(slot))
             .let(::normalizeChannel)
+        val codeVerifier = readString(codeVerifierKey(slot))
 
-        if (channel.isBlank()) return null
+        if (
+            channel.isBlank() ||
+            !OAuthProofKeyPolicy.isValidCodeVerifier(codeVerifier)
+        ) {
+            return null
+        }
 
         return OAuthPendingRequest(
             slot = slot,
@@ -114,6 +129,7 @@ internal class OAuthPendingRequestStore(
             accountId = readString(accountIdKey(slot)).trim(),
             expectedUsername = readString(expectedUsernameKey(slot)).trim(),
             expectedProfileId = readString(expectedProfileIdKey(slot)).trim(),
+            codeVerifier = codeVerifier,
             createdAtEpochMs = readLong(createdAtKey(slot))
         )
     }
@@ -137,12 +153,16 @@ internal class OAuthPendingRequestStore(
             val createdAtEpochMs = nowEpochMs()
             if (createdAtEpochMs <= 0L) return@synchronized null
 
+            val codeVerifier = codeVerifierGenerator.generate()
+                ?: return@synchronized null
+
             val slot = slotAllocator.allocate { candidate ->
                 prefs.contains(channelKey(candidate))
             } ?: return@synchronized null
 
             val request = template.copy(
                 slot = slot,
+                codeVerifier = codeVerifier,
                 createdAtEpochMs = createdAtEpochMs
             )
             if (save(request)) {
@@ -185,6 +205,7 @@ internal class OAuthPendingRequestStore(
             .remove(accountIdKey(slot))
             .remove(expectedUsernameKey(slot))
             .remove(expectedProfileIdKey(slot))
+            .remove(codeVerifierKey(slot))
             .remove(createdAtKey(slot))
             .commit()
     }
@@ -192,11 +213,14 @@ internal class OAuthPendingRequestStore(
     /** Persists all fields durably before the browser receives the request slot. */
     @SuppressLint("ApplySharedPref")
     private fun save(request: OAuthPendingRequest): Boolean {
+        if (!OAuthProofKeyPolicy.isValidCodeVerifier(request.codeVerifier)) return false
+
         return prefs.edit()
             .putString(channelKey(request.slot), request.channel)
             .putString(accountIdKey(request.slot), request.accountId)
             .putString(expectedUsernameKey(request.slot), request.expectedUsername)
             .putString(expectedProfileIdKey(request.slot), request.expectedProfileId)
+            .putString(codeVerifierKey(request.slot), request.codeVerifier)
             .putLong(createdAtKey(request.slot), request.createdAtEpochMs)
             .commit()
     }
@@ -237,6 +261,9 @@ internal class OAuthPendingRequestStore(
 
     /** Builds the expected backend profile identifier key for one slot. */
     private fun expectedProfileIdKey(slot: Int): String = "pending_profile_id_slot_$slot"
+
+    /** Builds the private Proof Key for Code Exchange verifier key for one slot. */
+    private fun codeVerifierKey(slot: Int): String = "pending_code_verifier_slot_$slot"
 
     /** Builds the creation-time key used to enforce the short callback lifetime. */
     private fun createdAtKey(slot: Int): String = "pending_created_at_slot_$slot"

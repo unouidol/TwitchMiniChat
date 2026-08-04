@@ -37,7 +37,7 @@ internal object OAuthFlowSecurityPolicy {
     private const val MAX_FUTURE_CLOCK_SKEW_MS = 60L * 1000L
 
     /** Defensive upper bound for the opaque one-time backend login token. */
-    private const val MAX_LOGIN_TOKEN_LENGTH = 2048
+    private const val MAX_LOGIN_TOKEN_LENGTH = 256
 
     /** Defensive upper bound for backend identity and credential fields. */
     private const val MAX_BACKEND_FIELD_LENGTH = 8192
@@ -56,7 +56,7 @@ internal object OAuthFlowSecurityPolicy {
         if (input.loginTokens.size != 1 || input.slots.size != 1) return null
 
         val loginToken = input.loginTokens.single()
-        if (!isValidOpaqueLoginToken(loginToken)) return null
+        if (!isValidLoginToken(loginToken)) return null
 
         val slotText = input.slots.single()
         if (slotText != slotText.trim()) return null
@@ -111,8 +111,8 @@ internal object OAuthFlowSecurityPolicy {
             }
     }
 
-    /** Validates the opaque token shape without assuming a backend encoding. */
-    private fun isValidOpaqueLoginToken(value: String): Boolean {
+    /** Validates the opaque login-token shape without assuming a backend encoding. */
+    fun isValidLoginToken(value: String): Boolean {
         return value.isNotBlank() &&
             value == value.trim() &&
             value.length <= MAX_LOGIN_TOKEN_LENGTH &&
@@ -125,11 +125,10 @@ internal object OAuthFlowSecurityPolicy {
 }
 
 /**
- * Allocates unpredictable positive integer slots for the legacy backend contract.
+ * Allocates unpredictable positive integer slots for callback correlation.
  *
- * The random slot prevents the previous trivial `slot=0` callback fixation. It is
- * defense in depth and does not replace a future backend-bound 128-bit nonce or
- * Proof Key for Code Exchange (PKCE) verifier.
+ * The random slot prevents the previous trivial `slot=0` callback fixation. The
+ * separately generated S256 proof remains the authoritative request binding.
  */
 internal class OAuthCallbackSlotAllocator(
     private val nextCandidate: () -> Int = {
