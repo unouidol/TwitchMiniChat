@@ -34,8 +34,8 @@
         type,
         payload,
       });
-    } catch (e) {
-      console.error("PCG collector send error", e);
+    } catch {
+      console.error("PCG collector send failed");
     }
   }
 

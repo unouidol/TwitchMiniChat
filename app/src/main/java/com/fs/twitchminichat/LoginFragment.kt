@@ -157,7 +157,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     private fun showRemoveAccountDialog(account: AccountConfig) {
         Log.d(
             "LOGIN_REMOVE",
-            "showRemoveAccountDialog accountId=${account.id} username=${account.username} profileId=${account.profileId}"
+            "Account removal dialog opened"
         )
         val label = account.username
             .trim()
@@ -177,7 +177,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     private fun removeAccount(account: AccountConfig) {
         Log.d(
             "LOGIN_REMOVE",
-            "removeAccount confirmed accountId=${account.id} username=${account.username} profileId=${account.profileId}"
+            "Account removal confirmed"
         )
         AccountProfileRemovalController.removeAccountFromDevice(
             context = requireContext(),

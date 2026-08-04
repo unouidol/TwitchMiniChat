@@ -30,8 +30,8 @@
         type,
         payload
       });
-    } catch (e) {
-      console.error("PCG tab-state scout send error", e);
+    } catch {
+      console.error("PCG tab-state scout send failed");
     }
   }
 

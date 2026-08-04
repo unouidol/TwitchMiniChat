@@ -5,6 +5,7 @@ import java.io.File
 
 object LocalDataCleaner {
 
+    /** Aggregate cleanup outcome without preference names or stored values. */
     data class Result(
         val deletedSharedPrefs: Int,
         val skippedSharedPrefs: Int,
@@ -12,11 +13,7 @@ object LocalDataCleaner {
         val clearedCacheDirs: Int,
         val failedCacheDirs: Int,
         val backendSessionClearAttempted: Boolean,
-        val backendSessionClearSucceeded: Boolean,
-        val processedPrefNames: List<String>,
-        val deletedPrefNames: List<String>,
-        val skippedPrefNames: List<String>,
-        val failedPrefNames: List<String>
+        val backendSessionClearSucceeded: Boolean
     )
 
     fun clearAllLocalData(context: Context): Result {
@@ -42,10 +39,6 @@ object LocalDataCleaner {
         )
     }
 
-    fun debugListSharedPrefs(context: Context): List<String> {
-        return listSharedPreferenceNames(context.applicationContext)
-    }
-
     private fun clearInternal(
         context: Context,
         excludedSharedPrefs: Set<String>,
@@ -58,14 +51,9 @@ object LocalDataCleaner {
         var skippedSharedPrefs = 0
         var failedSharedPrefs = 0
 
-        val deletedPrefNames = mutableListOf<String>()
-        val skippedPrefNames = mutableListOf<String>()
-        val failedPrefNames = mutableListOf<String>()
-
         for (name in prefNames) {
             if (name in excludedSharedPrefs) {
                 skippedSharedPrefs++
-                skippedPrefNames += name
                 continue
             }
 
@@ -77,10 +65,8 @@ object LocalDataCleaner {
 
             if (deleted) {
                 deletedSharedPrefs++
-                deletedPrefNames += name
             } else {
                 failedSharedPrefs++
-                failedPrefNames += name
             }
         }
 
@@ -112,11 +98,7 @@ object LocalDataCleaner {
             clearedCacheDirs = clearedCacheDirs,
             failedCacheDirs = failedCacheDirs,
             backendSessionClearAttempted = clearBackendSessions,
-            backendSessionClearSucceeded = backendSessionClearSucceeded,
-            processedPrefNames = prefNames,
-            deletedPrefNames = deletedPrefNames,
-            skippedPrefNames = skippedPrefNames,
-            failedPrefNames = failedPrefNames
+            backendSessionClearSucceeded = backendSessionClearSucceeded
         )
     }
 

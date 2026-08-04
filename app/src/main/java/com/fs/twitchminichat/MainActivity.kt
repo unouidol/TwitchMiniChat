@@ -86,10 +86,10 @@ class MainActivity : AppCompatActivity() {
 
         if (index >= 0) {
             pager.setCurrentItem(index, false)
-            Log.d("MAIN", "Opening single saved account on startup id=${onlyAccount.id}")
+            Log.d("MAIN", "Opening the single saved account on startup")
         } else {
             pager.setCurrentItem(0, false)
-            Log.w("MAIN", "Single account exists but page index not found id=${onlyAccount.id}")
+            Log.w("MAIN", "Single saved account has no page index")
         }
     }
 
@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
                 return openAccountFromIntent(accountId)
             }
 
-            Log.w("MAIN", "Notification target profile not found locally profileId=$normalizedProfileId")
+            Log.w("MAIN", "Notification target profile not found locally")
         }
 
         return false
@@ -134,11 +134,11 @@ class MainActivity : AppCompatActivity() {
         val index = adapter.pageIndexForAccountId(accountId)
         if (index >= 0) {
             pager.setCurrentItem(index, true)
-            Log.d("MAIN", "Opened account from intent accountId=$accountId")
+            Log.d("MAIN", "Opened account requested by intent")
             return true
         }
 
-        Log.w("MAIN", "Account from intent not found accountId=$accountId")
+        Log.w("MAIN", "Account requested by intent not found")
         return false
     }
 
@@ -320,7 +320,11 @@ class MainActivity : AppCompatActivity() {
     private fun fetchFcmToken() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
-                Log.w("FCM", "Fetching FCM registration token failed", task.exception)
+                Log.w(
+                    "FCM",
+                    "Fetching Firebase Cloud Messaging registration token failed " +
+                        "errorType=${DiagnosticError.typeOf(task.exception)}"
+                )
                 return@addOnCompleteListener
             }
 
@@ -341,14 +345,14 @@ class MainActivity : AppCompatActivity() {
             for (profileId in profileIds) {
                 val pushEnabled = PushSettingsStore.isPushEnabled(applicationContext, profileId)
 
-                Log.d("FCM", "Boot check profileId=$profileId pushEnabled=$pushEnabled")
+                Log.d("FCM", "Boot registration check pushEnabled=$pushEnabled")
 
                 if (!pushEnabled) {
-                    Log.d("FCM", "Skip token registration for muted profileId=$profileId")
+                    Log.d("FCM", "Skip token registration for muted profile")
                     continue
                 }
 
-                Log.d("FCM", "Registering token for profileId=$profileId")
+                Log.d("FCM", "Registering token for enabled profile")
                 FcmRegistrationUploader.uploadToken(applicationContext, token, profileId)
             }
         }

@@ -29,8 +29,8 @@
         type,
         payload
       });
-    } catch (e) {
-      console.error("PCG inventory collector send error", e);
+    } catch {
+      console.error("PCG inventory collector send failed");
     }
   }
 

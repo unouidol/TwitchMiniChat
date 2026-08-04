@@ -68,8 +68,7 @@ object RemoteDeletionChecker {
                 TAG,
                 "app-open check ok=${result.ok} " +
                     "responseCode=${result.responseCode} " +
-                    "deletedCount=${result.deletedProfileIds.size} " +
-                    "error=${result.error}"
+                    "deletedCount=${result.deletedProfileIds.size}"
             )
 
             if (!result.ok || result.deletedProfileIds.isEmpty()) {
@@ -85,11 +84,11 @@ object RemoteDeletionChecker {
 
             GeckoSessionManager.clearAllWebData(appContext) {
                     geckoOk: Boolean,
-                    geckoMessage: String ->
+                    _: String ->
 
                 Log.d(
                     TAG,
-                    "gecko clear ok=$geckoOk message=$geckoMessage"
+                    "Gecko data clear completed ok=$geckoOk"
                 )
 
                 try {
@@ -106,7 +105,10 @@ object RemoteDeletionChecker {
                             localResult.clearedCacheDirs
                     )
                 } catch (error: Throwable) {
-                    Log.e(TAG, "local wipe failed", error)
+                    Log.e(
+                        TAG,
+                        "Local wipe failed errorType=${DiagnosticError.typeOf(error)}"
+                    )
                 }
 
                 mainHandler.post {
@@ -160,7 +162,10 @@ object RemoteDeletionChecker {
             context.startActivity(launchIntent)
             Runtime.getRuntime().exit(0)
         } catch (error: Throwable) {
-            Log.e(TAG, "restart failed", error)
+            Log.e(
+                TAG,
+                "Restart failed errorType=${DiagnosticError.typeOf(error)}"
+            )
         }
     }
 }
