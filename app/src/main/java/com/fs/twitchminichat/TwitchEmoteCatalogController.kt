@@ -87,7 +87,11 @@ class TwitchEmoteCatalogController(
                     broadcasterId = normalizedBroadcasterId
                 )
             } catch (error: Exception) {
-                Log.w(TAG, "unexpected catalog refresh failure accountId=$accountId", error)
+                Log.w(
+                    TAG,
+                    "Unexpected catalog refresh failure " +
+                        "errorType=${DiagnosticError.typeOf(error)}"
+                )
                 TwitchEmoteCatalogLoadResult.Failed()
             }
 
@@ -118,23 +122,21 @@ class TwitchEmoteCatalogController(
 
                     Log.d(
                         TAG,
-                        "catalog ready accountId=$accountId channel=$normalizedChannel " +
-                                "count=${result.catalog.entries.size}"
+                        "Catalog ready count=${result.catalog.entries.size}"
                     )
                 }
 
                 TwitchEmoteCatalogLoadResult.MissingScope -> {
                     Log.i(
                         TAG,
-                        "catalog unavailable accountId=$accountId missingScope=user:read:emotes"
+                        "Catalog unavailable missingScope=user:read:emotes"
                     )
                 }
 
                 is TwitchEmoteCatalogLoadResult.Failed -> {
                     Log.w(
                         TAG,
-                        "catalog refresh failed accountId=$accountId " +
-                                "status=${result.httpStatus ?: "network"}"
+                        "Catalog refresh failed hasHttpStatus=${result.httpStatus != null}"
                     )
                 }
             }

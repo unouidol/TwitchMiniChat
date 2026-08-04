@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.StringRes
+import com.fs.twitchminichat.DiagnosticError
 import com.fs.twitchminichat.FcmRegistrationUploader
 import com.fs.twitchminichat.InventoryBallItem
 import com.fs.twitchminichat.InventoryBallStore
@@ -342,8 +343,7 @@ object GeckoSessionManager {
         if (previousAtMs != null && now - previousAtMs <= MANUAL_POKEDEX_UPLOAD_DEDUP_MS) {
             Log.d(
                 "PCG_PROBE",
-                "skip duplicate manual pokedex upload sessionKey=$sessionKey " +
-                        "profileId=${snapshot.profileId} count=${snapshot.wantedPokemon.size}"
+                "skip duplicate manual pokedex upload count=${snapshot.wantedPokemon.size}"
             )
             return true
         }
@@ -378,8 +378,7 @@ object GeckoSessionManager {
                 Log.d(
                     "PCG_PROBE",
                     "invalidated older pokedex snapshot after inventory extract success " +
-                            "sessionKey=$sessionKey oldCapturedAtMs=${oldSnapshot.capturedAtMs} " +
-                            "newerCapturedAtMs=$newerCapturedAtMs"
+                            "ageDeltaMs=${newerCapturedAtMs - oldSnapshot.capturedAtMs}"
                 )
             }
         }
@@ -404,8 +403,7 @@ object GeckoSessionManager {
                 Log.d(
                     "PCG_PROBE",
                     "invalidated older inventory snapshot after pokedex extract success " +
-                            "sessionKey=$sessionKey oldCapturedAtMs=${oldSnapshot.capturedAtMs} " +
-                            "newerCapturedAtMs=$newerCapturedAtMs"
+                            "ageDeltaMs=${newerCapturedAtMs - oldSnapshot.capturedAtMs}"
                 )
             }
         }
@@ -609,16 +607,15 @@ object GeckoSessionManager {
      * matching PCG tab is confirmed active.
      */
     private fun isRecentPassiveSnapshot(
-        capturedAtMs: Long,
-        sessionKey: String
+        capturedAtMs: Long
     ): Boolean {
         val ageMs = SystemClock.elapsedRealtime() - capturedAtMs
         val fresh = ageMs in 0L..RECENT_PASSIVE_SNAPSHOT_MAX_AGE_MS
 
         Log.d(
             "PCG_PROBE",
-            "recent passive snapshot check sessionKey=$sessionKey " +
-                    "ageMs=$ageMs maxAgeMs=$RECENT_PASSIVE_SNAPSHOT_MAX_AGE_MS fresh=$fresh"
+            "recent passive snapshot check ageMs=$ageMs " +
+                    "maxAgeMs=$RECENT_PASSIVE_SNAPSHOT_MAX_AGE_MS fresh=$fresh"
         )
 
         return fresh
@@ -633,9 +630,8 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "tab state check sessionKey=$sessionKey " +
-                    "ageMs=$ageMs maxAgeMs=$PCG_TAB_STATE_MAX_AGE_MS fresh=$fresh " +
-                    "activeTab=${state.activeTab} " +
+            "tab state check ageMs=$ageMs maxAgeMs=$PCG_TAB_STATE_MAX_AGE_MS fresh=$fresh " +
+                    "knownActiveTab=${state.hasKnownActiveTab} " +
                     "pokedexVisible=${state.pokedexVisible} " +
                     "inventoryVisible=${state.inventoryVisible} " +
                     "anyLoadedSurface=${state.anyLoadedSurface}"
@@ -656,11 +652,11 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "pokedex state check sessionKey=$sessionKey " +
-                    "ageMs=$ageMs fresh=$fresh onPokedexTab=${state.onPokedexTab} " +
+            "pokedex state check ageMs=$ageMs fresh=$fresh " +
+                    "onPokedexTab=${state.onPokedexTab} " +
                     "spawnable=${state.spawnable} obtained=${state.obtained} " +
-                    "otherFilters=${state.activeNonSpawnableFilters} " +
-                    "valid=${state.validForMissingDexUpload} reason=${state.reason}"
+                    "otherFilterCount=${state.activeNonSpawnableFilters.size} " +
+                    "valid=${state.validForMissingDexUpload}"
         )
 
         return if (fresh) state else null
@@ -697,22 +693,19 @@ object GeckoSessionManager {
                 Log.d(
                     "PCG_PROBE",
                     "invalidated cached pokedex snapshot because passive state is not uploadable " +
-                            "sessionKey=$sessionKey reason=${state.reason} " +
                             "onPokedexTab=${state.onPokedexTab} spawnable=${state.spawnable} " +
-                            "otherFilters=${state.activeNonSpawnableFilters}"
+                            "otherFilterCount=${state.activeNonSpawnableFilters.size}"
                 )
             }
         }
 
         Log.d(
             "PCG_PROBE",
-            "pokedex state updated sessionKey=$sessionKey " +
-                    "valid=${state.validForMissingDexUpload} " +
+            "pokedex state updated valid=${state.validForMissingDexUpload} " +
                     "onPokedexTab=${state.onPokedexTab} " +
                     "spawnable=${state.spawnable} " +
                     "obtained=${state.obtained} " +
-                    "otherFilters=${state.activeNonSpawnableFilters} " +
-                    "reason=${state.reason}"
+                    "otherFilterCount=${state.activeNonSpawnableFilters.size}"
         )
 
         completeOrRejectPendingManualPokedexUpdateFromState(
@@ -745,8 +738,7 @@ object GeckoSessionManager {
                 if (removedAtMs != null) {
                     Log.d(
                         "PCG_PROBE",
-                        "manual pokedex rejected because passive state says tab is not Pokédex " +
-                                "sessionKey=$sessionKey reason=${state.reason}"
+                        "manual pokedex rejected because passive state says tab is not Pokédex"
                     )
 
                     showManualUpdateResultToastOnMain(
@@ -764,8 +756,7 @@ object GeckoSessionManager {
                     Log.d(
                         "PCG_PROBE",
                         "manual pokedex rejected because Spawnable-only filter is required " +
-                                "sessionKey=$sessionKey reason=${state.reason} " +
-                                "otherFilters=${state.activeNonSpawnableFilters}"
+                                "otherFilterCount=${state.activeNonSpawnableFilters.size}"
                     )
 
                     showManualUpdateResultToastOnMain(
@@ -783,8 +774,7 @@ object GeckoSessionManager {
                 if (
                     snapshot != null &&
                     isRecentPassiveSnapshot(
-                        capturedAtMs = snapshot.capturedAtMs,
-                        sessionKey = sessionKey
+                        capturedAtMs = snapshot.capturedAtMs
                     ) &&
                     consumeManualUpdateRequest(
                         sessionKey = sessionKey,
@@ -795,14 +785,12 @@ object GeckoSessionManager {
                     uploadManualPokedexSnapshot(
                         appContext = appContext,
                         sessionKey = sessionKey,
-                        snapshot = snapshot,
-                        source = "cached_after_pokedex_state_confirmed"
+                        snapshot = snapshot
                     )
                 } else {
                     Log.d(
                         "PCG_PROBE",
-                        "manual pokedex still pending; valid state received but no fresh snapshot yet " +
-                                "sessionKey=$sessionKey"
+                        "manual pokedex still pending; valid state received but no fresh snapshot yet"
                     )
                 }
             }
@@ -810,8 +798,7 @@ object GeckoSessionManager {
             else -> {
                 Log.d(
                     "PCG_PROBE",
-                    "manual pokedex still pending; passive state not decisive yet " +
-                            "sessionKey=$sessionKey reason=${state.reason}"
+                    "manual pokedex still pending; passive state not decisive yet"
                 )
             }
         }
@@ -861,8 +848,7 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "tab state updated sessionKey=$sessionKey " +
-                    "activeTab=${state.activeTab} " +
+            "tab state updated knownActiveTab=${state.hasKnownActiveTab} " +
                     "pokedexVisible=${state.pokedexVisible} " +
                     "inventoryVisible=${state.inventoryVisible} " +
                     "anyLoadedSurface=${state.anyLoadedSurface}"
@@ -912,9 +898,9 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "confirmed PCG tab state from $source sessionKey=$sessionKey " +
-                    "previousActiveTab=${previousState?.activeTab} " +
-                    "newActiveTab=${state.activeTab} " +
+            "confirmed PCG tab state from $source " +
+                    "activeTabChanged=${previousState?.activeTab != state.activeTab} " +
+                    "knownActiveTab=${state.hasKnownActiveTab} " +
                     "inventoryVisible=${state.inventoryVisible} " +
                     "pokedexVisible=${state.pokedexVisible}"
         )
@@ -953,8 +939,7 @@ object GeckoSessionManager {
             if (removedInventory != null || removedPokedex != null) {
                 Log.d(
                     "PCG_PROBE",
-                    "invalidated all cached PCG snapshots because no PCG surface is loaded " +
-                            "sessionKey=$sessionKey activeTab=${state.activeTab}"
+                    "invalidated all cached PCG snapshots because no PCG surface is loaded"
                 )
             }
 
@@ -972,7 +957,7 @@ object GeckoSessionManager {
             Log.d(
                 "PCG_PROBE",
                 "skip snapshot invalidation because active tab is unknown " +
-                        "sessionKey=$sessionKey inventoryVisible=${state.inventoryVisible} " +
+                        "inventoryVisible=${state.inventoryVisible} " +
                         "pokedexVisible=${state.pokedexVisible}"
             )
             return
@@ -984,8 +969,7 @@ object GeckoSessionManager {
             if (removed != null) {
                 Log.d(
                     "PCG_PROBE",
-                    "invalidated cached inventory snapshot because active tab is ${state.activeTab} " +
-                            "sessionKey=$sessionKey"
+                    "invalidated cached inventory snapshot because another tab is active"
                 )
             }
         }
@@ -996,8 +980,7 @@ object GeckoSessionManager {
             if (removed != null) {
                 Log.d(
                     "PCG_PROBE",
-                    "invalidated cached pokedex snapshot because active tab is ${state.activeTab} " +
-                            "sessionKey=$sessionKey"
+                    "invalidated cached pokedex snapshot because another tab is active"
                 )
             }
         }
@@ -1020,8 +1003,7 @@ object GeckoSessionManager {
                     if (
                         snapshot != null &&
                         isRecentPassiveSnapshot(
-                            capturedAtMs = snapshot.capturedAtMs,
-                            sessionKey = sessionKey
+                            capturedAtMs = snapshot.capturedAtMs
                         ) &&
                         consumeManualUpdateRequest(
                             sessionKey = sessionKey,
@@ -1031,9 +1013,7 @@ object GeckoSessionManager {
                     ) {
                         saveManualInventorySnapshot(
                             appContext = appContext,
-                            sessionKey = sessionKey,
-                            snapshot = snapshot,
-                            source = "cached_after_tab_confirmed"
+                            snapshot = snapshot
                         )
                     }
                 }
@@ -1043,7 +1023,7 @@ object GeckoSessionManager {
                     if (removedAtMs != null) {
                         Log.d(
                             "PCG_PROBE",
-                            "manual inventory rejected because active tab is Pokédex sessionKey=$sessionKey"
+                            "manual inventory rejected because active tab is Pokédex"
                         )
 
                         showManualUpdateResultToastOnMain(
@@ -1058,7 +1038,7 @@ object GeckoSessionManager {
                 else -> {
                     Log.d(
                         "PCG_PROBE",
-                        "manual inventory still pending because active tab is unknown sessionKey=$sessionKey"
+                        "manual inventory still pending because active tab is unknown"
                     )
                 }
             }
@@ -1072,8 +1052,7 @@ object GeckoSessionManager {
                     if (
                         snapshot != null &&
                         isRecentPassiveSnapshot(
-                            capturedAtMs = snapshot.capturedAtMs,
-                            sessionKey = sessionKey
+                            capturedAtMs = snapshot.capturedAtMs
                         ) &&
                         consumeManualUpdateRequest(
                             sessionKey = sessionKey,
@@ -1084,8 +1063,7 @@ object GeckoSessionManager {
                         uploadManualPokedexSnapshot(
                             appContext = appContext,
                             sessionKey = sessionKey,
-                            snapshot = snapshot,
-                            source = "cached_after_tab_confirmed"
+                            snapshot = snapshot
                         )
                     }
                 }
@@ -1095,7 +1073,7 @@ object GeckoSessionManager {
                     if (removedAtMs != null) {
                         Log.d(
                             "PCG_PROBE",
-                            "manual pokedex rejected because active tab is Inventory sessionKey=$sessionKey"
+                            "manual pokedex rejected because active tab is Inventory"
                         )
 
                         showManualUpdateResultToastOnMain(
@@ -1110,7 +1088,7 @@ object GeckoSessionManager {
                 else -> {
                     Log.d(
                         "PCG_PROBE",
-                        "manual pokedex still pending because active tab is unknown sessionKey=$sessionKey"
+                        "manual pokedex still pending because active tab is unknown"
                     )
                 }
             }
@@ -1130,7 +1108,7 @@ object GeckoSessionManager {
 
             Log.d(
                 "PCG_PROBE",
-                "ignore expired manual $debugLabel snapshot sessionKey=$sessionKey ageMs=$ageMs"
+                "ignore expired manual $debugLabel snapshot ageMs=$ageMs"
             )
 
             return false
@@ -1140,7 +1118,7 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "manual $debugLabel snapshot accepted sessionKey=$sessionKey ageMs=$ageMs"
+            "manual $debugLabel snapshot accepted ageMs=$ageMs"
         )
 
         return true
@@ -1159,7 +1137,7 @@ object GeckoSessionManager {
         if (requestedAtMs == null) {
             Log.d(
                 "PCG_PROBE",
-                "ignore $debugLabel wrong-tab message because no manual request is pending sessionKey=$sessionKey"
+                "ignore $debugLabel wrong-tab message because no manual request is pending"
             )
             return
         }
@@ -1168,7 +1146,7 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "manual $debugLabel wrong-tab message accepted sessionKey=$sessionKey ageMs=$ageMs"
+            "manual $debugLabel wrong-tab message accepted ageMs=$ageMs"
         )
 
         showManualUpdateResultToastOnMain(
@@ -1243,8 +1221,7 @@ object GeckoSessionManager {
 
             Log.w(
                 "PCG_PROBE",
-                "pokedex extract failed; cached pokedex snapshot invalidated " +
-                        "sessionKey=$sessionKey reason=${payload.optString("reason")} payload=$payload"
+                "pokedex extract failed; cached pokedex snapshot invalidated"
             )
             return
         }
@@ -1254,8 +1231,7 @@ object GeckoSessionManager {
 
             Log.w(
                 "PCG_PROBE",
-                "reject pokedex snapshot because it was not captured with Spawnable-only filters " +
-                        "sessionKey=$sessionKey profileId=$profileId payload=$payload"
+                "reject pokedex snapshot because it was not captured with Spawnable-only filters"
             )
 
             return
@@ -1273,13 +1249,15 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "extract success profileId=$profileId profileLabel=$profileLabel wantedCount=${wantedPokemon.size} payloadCount=$payloadCount lockedCount=$lockedCount"
+            "pokedex extract success wantedCount=${wantedPokemon.size} " +
+                    "payloadCount=$payloadCount lockedCount=$lockedCount"
         )
 
         if (shouldRejectAsClearlyBrokenSnapshot(rawNames, wantedPokemon)) {
             Log.w(
                 "PCG_PROBE",
-                "reject suspicious snapshot profileId=$profileId wantedCount=${wantedPokemon.size} payloadCount=$payloadCount lockedCount=$lockedCount"
+                "reject suspicious pokedex snapshot wantedCount=${wantedPokemon.size} " +
+                        "payloadCount=$payloadCount lockedCount=$lockedCount"
             )
             return
         }
@@ -1304,7 +1282,7 @@ object GeckoSessionManager {
             Log.d(
                 "PCG_PROBE",
                 "pokedex snapshot cached but not uploaded because no manual request is pending " +
-                        "sessionKey=$sessionKey profileId=$profileId count=${wantedPokemon.size}"
+                        "count=${wantedPokemon.size}"
             )
             return
         }
@@ -1312,8 +1290,7 @@ object GeckoSessionManager {
         uploadManualPokedexSnapshot(
             appContext = appContext,
             sessionKey = sessionKey,
-            snapshot = snapshot,
-            source = "live"
+            snapshot = snapshot
         )
     }
 
@@ -1341,9 +1318,7 @@ object GeckoSessionManager {
 
             Log.d(
                 "PCG_PROBE",
-                "inventory extract ignored because active tab is not Inventory " +
-                        "sessionKey=$sessionKey activeTab=${tabState.activeTab} " +
-                        "profileId=$profileId profileLabel=$profileLabel"
+                "inventory extract ignored because active tab is not Inventory"
             )
 
             return
@@ -1361,9 +1336,7 @@ object GeckoSessionManager {
 
             Log.w(
                 "PCG_PROBE",
-                "inventory extract failed; cached inventory snapshot invalidated " +
-                        "sessionKey=$sessionKey profileId=$profileId profileLabel=$profileLabel " +
-                        "reason=${payload.optString("reason")} payload=$payload"
+                "inventory extract failed; cached inventory snapshot invalidated"
             )
             return
         }
@@ -1381,7 +1354,7 @@ object GeckoSessionManager {
 
             Log.w(
                 "PCG_PROBE",
-                "inventory extract empty profileId=$profileId profileLabel=$profileLabel payload=$payload"
+                "inventory extract returned no usable items"
             )
             return
         }
@@ -1427,21 +1400,19 @@ object GeckoSessionManager {
             Log.d(
                 "PCG_PROBE",
                 "inventory snapshot cached but not saved because no manual request is pending " +
-                        "sessionKey=$sessionKey profileId=$profileId count=${balls.size}"
+                        "itemTypeCount=${balls.size}"
             )
             return
         }
 
         saveManualInventorySnapshot(
             appContext = appContext,
-            sessionKey = sessionKey,
-            snapshot = snapshot,
-            source = "live"
+            snapshot = snapshot
         )
 
         Log.d(
             "PCG_PROBE",
-            "inventory extract success profileId=$profileId profileLabel=$profileLabel balls=$balls"
+            "inventory extract success itemTypeCount=${balls.size}"
         )
     }
 
@@ -1487,7 +1458,7 @@ object GeckoSessionManager {
                         return@accept
                     }
 
-                    Log.d("PCG_PROBE", "Extension ready: $extension")
+                    Log.d("PCG_PROBE", "Extension ready")
 
                     Handler(Looper.getMainLooper()).post {
                         session.webExtensionController.setMessageDelegate(
@@ -1502,17 +1473,17 @@ object GeckoSessionManager {
                                         val json = messageToJsonObject(message) ?: run {
                                             Log.w(
                                                 "PCG_PROBE",
-                                                "onMessage: unable to parse message=$message"
+                                                "Unable to parse WebExtension message"
                                             )
                                             return null
                                         }
 
-                                        Log.d("PCG_PROBE", "nativeApp=$nativeApp message=$json")
+                                        Log.d("PCG_PROBE", "WebExtension message parsed")
 
                                         if (nativeApp != PCG_NATIVE_APP) {
                                             Log.d(
                                                 "PCG_PROBE",
-                                                "ignored: nativeApp mismatch ($nativeApp)"
+                                                "ignored: native application mismatch"
                                             )
                                             return null
                                         }
@@ -1532,35 +1503,35 @@ object GeckoSessionManager {
                                             "pcg_probe_boot_debug" -> {
                                                 Log.d(
                                                     "PCG_PROBE",
-                                                    "boot debug payload=$payload"
+                                                    "probe boot diagnostic received"
                                                 )
                                             }
 
                                             "pcg_content_absolute_boot" -> {
                                                 Log.d(
                                                     "PCG_PROBE",
-                                                    "content absolute boot payload=$payload"
+                                                    "content probe boot received"
                                                 )
                                             }
 
                                             "pcg_inventory_absolute_boot" -> {
                                                 Log.d(
                                                     "PCG_PROBE",
-                                                    "inventory absolute boot payload=$payload"
+                                                    "inventory probe boot received"
                                                 )
                                             }
 
                                             "pcg_probe_boot" -> {
                                                 Log.d(
                                                     "PCG_PROBE",
-                                                    "probe boot from frame=${payload.optJSONObject("frame")}"
+                                                    "probe boot hasFrame=${payload.optJSONObject("frame") != null}"
                                                 )
                                             }
 
                                             "pcg_probe_found_pokedex" -> {
                                                 Log.d(
                                                     "PCG_PROBE",
-                                                    "pokedex found, filters=${payload.optJSONArray("filterTexts")}"
+                                                    "pokedex found filterCount=${payload.optJSONArray("filterTexts")?.length() ?: 0}"
                                                 )
                                             }
 
@@ -1584,12 +1555,9 @@ object GeckoSessionManager {
                                                     "PCG_PROBE",
                                                     "progress " +
                                                             "step=${payload.optInt("step", -1)} " +
-                                                            "phase=${payload.optString("phase")} " +
-                                                            "reason=${payload.optString("reason")} " +
                                                             "collected=${payload.optInt("collected", -1)} " +
-                                                            "scrollTop=${payload.optInt("scrollTop", -1)}/${payload.optInt("scrollHeight", -1)} " +
-                                                            "href=${payload.optString("href")} " +
-                                                            "host=${payload.optString("host")}"
+                                                            "scrollTop=${payload.optInt("scrollTop", -1)}/" +
+                                                            payload.optInt("scrollHeight", -1)
                                                 )
                                             }
 
@@ -1602,11 +1570,11 @@ object GeckoSessionManager {
                                             }
 
                                             TYPE_PCG_INVENTORY_WRONG_TAB -> {
-                                                Log.d("PCG_PROBE", "ignored JS inventory wrong-tab payload=$payload")
+                                                Log.d("PCG_PROBE", "ignored JavaScript inventory wrong-tab signal")
                                             }
 
                                             TYPE_PCG_POKEDEX_WRONG_TAB -> {
-                                                Log.d("PCG_PROBE", "ignored JS pokedex wrong-tab payload=$payload")
+                                                Log.d("PCG_PROBE", "ignored JavaScript pokedex wrong-tab signal")
                                             }
 
                                             "pcg_missing_spawnable_extract" -> {
@@ -1630,11 +1598,15 @@ object GeckoSessionManager {
                                             }
 
                                             else -> {
-                                                Log.d("PCG_PROBE", "ignored type=$type")
+                                                Log.d("PCG_PROBE", "ignored unsupported WebExtension message type")
                                             }
                                         }
                                     } catch (t: Throwable) {
-                                        Log.e("PCG_PROBE", "onMessage error", t)
+                                        Log.e(
+                                            "PCG_PROBE",
+                                            "WebExtension message handling failed " +
+                                                    "errorType=${DiagnosticError.typeOf(t)}"
+                                        )
                                     }
 
                                     return null
@@ -1645,7 +1617,10 @@ object GeckoSessionManager {
                     }
                 },
                 { error ->
-                    Log.e("PCG_PROBE", "Extension install error", error)
+                    Log.e(
+                        "PCG_PROBE",
+                        "Extension install failed errorType=${DiagnosticError.typeOf(error)}"
+                    )
                 }
             )
 
@@ -1712,7 +1687,7 @@ object GeckoSessionManager {
         if (!sessions.containsKey(sessionKey)) {
             Log.w(
                 "PCG_PROBE",
-                "manual inventory registration ignored, PCG session not ready sessionKey=$sessionKey"
+                "manual inventory registration ignored, PCG session not ready"
             )
             return false
         }
@@ -1730,7 +1705,7 @@ object GeckoSessionManager {
             Log.d(
                 "PCG_PROBE",
                 "manual inventory rejected because Inventory tab is not confirmed active " +
-                        "sessionKey=$sessionKey activeTab=${tabState?.activeTab} " +
+                        "knownActiveTab=${tabState?.hasKnownActiveTab == true} " +
                         "inventoryVisible=${tabState?.inventoryVisible} " +
                         "pokedexVisible=${tabState?.pokedexVisible}"
             )
@@ -1750,21 +1725,17 @@ object GeckoSessionManager {
         if (
             cachedSnapshot != null &&
             isRecentPassiveSnapshot(
-                capturedAtMs = cachedSnapshot.capturedAtMs,
-                sessionKey = sessionKey
+                capturedAtMs = cachedSnapshot.capturedAtMs
             )
         ) {
             Log.d(
                 "PCG_PROBE",
-                "manual inventory registration completed from recent passive Inventory snapshot " +
-                        "sessionKey=$sessionKey"
+                "manual inventory registration completed from recent passive Inventory snapshot"
             )
 
             saveManualInventorySnapshot(
                 appContext = appContext,
-                sessionKey = sessionKey,
-                snapshot = cachedSnapshot,
-                source = "recent_passive_inventory_snapshot"
+                snapshot = cachedSnapshot
             )
 
             return true
@@ -1775,8 +1746,7 @@ object GeckoSessionManager {
 
             Log.d(
                 "PCG_PROBE",
-                "stale inventory passive snapshot dropped before arming manual registration " +
-                        "sessionKey=$sessionKey"
+                "stale inventory passive snapshot dropped before arming manual registration"
             )
         }
 
@@ -1785,7 +1755,6 @@ object GeckoSessionManager {
         Log.d(
             "PCG_PROBE",
             "manual inventory registration armed; waiting for next valid recent inventory snapshot " +
-                    "sessionKey=$sessionKey requestedAtMs=$requestedAtMs " +
                     "timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
         )
 
@@ -1810,7 +1779,7 @@ object GeckoSessionManager {
         if (!sessions.containsKey(sessionKey)) {
             Log.w(
                 "PCG_PROBE",
-                "manual pokedex registration ignored, PCG session not ready sessionKey=$sessionKey"
+                "manual pokedex registration ignored, PCG session not ready"
             )
             return false
         }
@@ -1834,7 +1803,7 @@ object GeckoSessionManager {
             Log.d(
                 "PCG_PROBE",
                 "manual pokedex rejected because Pokédex tab is not confirmed active " +
-                        "sessionKey=$sessionKey activeTab=${tabState?.activeTab} " +
+                        "knownActiveTab=${tabState?.hasKnownActiveTab == true} " +
                         "pokedexVisible=${tabState?.pokedexVisible} " +
                         "inventoryVisible=${tabState?.inventoryVisible}"
             )
@@ -1865,8 +1834,7 @@ object GeckoSessionManager {
 
                     Log.d(
                         "PCG_PROBE",
-                        "manual pokedex rejected because Pokédex probe does not confirm the tab " +
-                                "sessionKey=$sessionKey reason=${pokedexState.reason}"
+                        "manual pokedex rejected because Pokédex probe does not confirm the tab"
                     )
 
                     showManualUpdateResultToastOnMain(
@@ -1889,8 +1857,7 @@ object GeckoSessionManager {
                     Log.d(
                         "PCG_PROBE",
                         "manual pokedex rejected because Spawnable-only filter is required " +
-                                "sessionKey=$sessionKey reason=${pokedexState.reason} " +
-                                "otherFilters=${pokedexState.activeNonSpawnableFilters}"
+                                "otherFilterCount=${pokedexState.activeNonSpawnableFilters.size}"
                     )
 
                     showManualUpdateResultToastOnMain(
@@ -1909,21 +1876,18 @@ object GeckoSessionManager {
                     if (
                         cachedSnapshot != null &&
                         isRecentPassiveSnapshot(
-                            capturedAtMs = cachedSnapshot.capturedAtMs,
-                            sessionKey = sessionKey
+                            capturedAtMs = cachedSnapshot.capturedAtMs
                         )
                     ) {
                         Log.d(
                             "PCG_PROBE",
-                            "manual pokedex registration completed from recent passive Spawnable-only snapshot " +
-                                    "sessionKey=$sessionKey"
+                            "manual pokedex registration completed from recent passive Spawnable-only snapshot"
                         )
 
                         uploadManualPokedexSnapshot(
                             appContext = appContext,
                             sessionKey = sessionKey,
-                            snapshot = cachedSnapshot,
-                            source = "recent_passive_spawnable_only_snapshot"
+                            snapshot = cachedSnapshot
                         )
 
                         return true
@@ -1938,8 +1902,7 @@ object GeckoSessionManager {
 
                         Log.d(
                             "PCG_PROBE",
-                            "stale pokedex passive snapshot dropped before arming manual registration " +
-                                    "sessionKey=$sessionKey"
+                            "stale pokedex passive snapshot dropped before arming manual registration"
                         )
                     }
                 }
@@ -1952,8 +1915,7 @@ object GeckoSessionManager {
              */
             Log.d(
                 "PCG_PROBE",
-                "manual pokedex registration has confirmed Pokédex tab but no fresh Pokédex state yet " +
-                        "sessionKey=$sessionKey"
+                "manual pokedex registration has confirmed Pokédex tab but no fresh Pokédex state yet"
             )
         }
 
@@ -1967,7 +1929,6 @@ object GeckoSessionManager {
         Log.d(
             "PCG_PROBE",
             "manual pokedex registration armed; waiting for next valid recent Spawnable-only pokedex snapshot " +
-                    "sessionKey=$sessionKey requestedAtMs=$requestedAtMs " +
                     "timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
         )
 
@@ -1999,7 +1960,7 @@ object GeckoSessionManager {
         if (session == null) {
             Log.w(
                 "PCG_PROBE",
-                "PCG refresh ignored, session not ready sessionKey=$sessionKey"
+                "PCG refresh ignored, session not ready"
             )
             return false
         }
@@ -2016,15 +1977,14 @@ object GeckoSessionManager {
 
             Log.d(
                 "PCG_PROBE",
-                "PCG extension refresh requested sessionKey=$sessionKey"
+                "PCG extension refresh requested"
             )
 
             true
         } catch (t: Throwable) {
             Log.e(
                 "PCG_PROBE",
-                "PCG extension refresh failed sessionKey=$sessionKey",
-                t
+                "PCG extension refresh failed errorType=${DiagnosticError.typeOf(t)}"
             )
             false
         }
@@ -2063,7 +2023,7 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "cleared cached PCG probe state for sessionKey=$sessionKey"
+            "cleared cached PCG probe state"
         )
 
         notifyManualUpdateButtonStateChanged(sessionKey)
@@ -2092,7 +2052,8 @@ object GeckoSessionManager {
 
                 Log.d(
                     "PCG_PROBE",
-                    "manual $debugLabel registration timed out sessionKey=$sessionKey timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
+                    "manual $debugLabel registration timed out " +
+                            "timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
                 )
 
                 showManualUpdateResultToastOnMain(
@@ -2107,9 +2068,7 @@ object GeckoSessionManager {
 
     private fun saveManualInventorySnapshot(
         appContext: Context,
-        sessionKey: String,
-        snapshot: CachedInventorySnapshot,
-        source: String
+        snapshot: CachedInventorySnapshot
     ) {
         InventoryBallStore.saveRealSnapshot(
             context = appContext,
@@ -2128,26 +2087,21 @@ object GeckoSessionManager {
 
         Log.d(
             "PCG_PROBE",
-            "manual inventory extract success source=$source sessionKey=$sessionKey " +
-                    "profileId=${snapshot.profileId} profileLabel=${snapshot.profileLabel} " +
-                    "balls=${snapshot.balls}"
+            "manual inventory extract success itemTypeCount=${snapshot.balls.size}"
         )
     }
 
     private fun uploadManualPokedexSnapshot(
         appContext: Context,
         sessionKey: String,
-        snapshot: CachedPokedexSnapshot,
-        source: String
+        snapshot: CachedPokedexSnapshot
     ) {
         if (shouldSkipDuplicateManualPokedexUpload(sessionKey, snapshot)) {
             return
         }
         Log.d(
             "PCG_PROBE",
-            "manual pokedex upload accepted source=$source sessionKey=$sessionKey " +
-                    "profileId=${snapshot.profileId} profileLabel=${snapshot.profileLabel} " +
-                    "count=${snapshot.wantedPokemon.size}"
+            "manual pokedex upload accepted count=${snapshot.wantedPokemon.size}"
         )
 
         val pushEnabled = PushSettingsStore.isPushEnabled(appContext, snapshot.profileId)
@@ -2158,12 +2112,12 @@ object GeckoSessionManager {
 
             if (!token.isNullOrBlank()) {
                 FcmRegistrationUploader.uploadToken(appContext, token, snapshot.profileId)
-                Log.d("PCG_PROBE", "FCM token registration started for profileId=${snapshot.profileId}")
+                Log.d("PCG_PROBE", "Firebase Cloud Messaging token registration started")
             } else {
-                Log.w("PCG_PROBE", "No cached FCM token available for profileId=${snapshot.profileId}")
+                Log.w("PCG_PROBE", "No cached Firebase Cloud Messaging token available")
             }
         } else {
-            Log.d("PCG_PROBE", "Push muted for profileId=${snapshot.profileId}, skip FCM registration")
+            Log.d("PCG_PROBE", "Push muted; skip Firebase Cloud Messaging registration")
         }
 
         FcmRegistrationUploader.uploadDexList(
@@ -2286,12 +2240,20 @@ object GeckoSessionManager {
                             onComplete(true, "Gecko web data cleared")
                         },
                         { error ->
-                            Log.e("GECKO_CLEAR", "clearData(ALL) failed", error)
+                            Log.e(
+                                "GECKO_CLEAR",
+                                "clearData(ALL) failed " +
+                                        "errorType=${DiagnosticError.typeOf(error)}"
+                            )
                             onComplete(false, error?.message ?: "Gecko clear failed")
                         }
                     )
             } catch (t: Throwable) {
-                Log.e("GECKO_CLEAR", "unexpected error during Gecko clear", t)
+                Log.e(
+                    "GECKO_CLEAR",
+                    "unexpected error during Gecko clear " +
+                            "errorType=${DiagnosticError.typeOf(t)}"
+                )
                 onComplete(false, t.message ?: "Unexpected Gecko clear error")
             }
         }
@@ -2326,7 +2288,11 @@ object GeckoSessionManager {
                 runCatching {
                     geckoView.releaseSession()
                 }.onFailure { t ->
-                    Log.w("PCG_PROBE", "release previous GeckoView session failed", t)
+                    Log.w(
+                        "PCG_PROBE",
+                        "release previous GeckoView session failed " +
+                                "errorType=${DiagnosticError.typeOf(t)}"
+                    )
                 }
             }
 
@@ -2361,7 +2327,11 @@ object GeckoSessionManager {
             runCatching {
                 geckoView.releaseSession()
             }.onFailure { t ->
-                Log.w("PCG_PROBE", "release PCG GeckoView session failed", t)
+                Log.w(
+                    "PCG_PROBE",
+                    "release PCG GeckoView session failed " +
+                            "errorType=${DiagnosticError.typeOf(t)}"
+                )
             }
         }
 
@@ -2387,14 +2357,14 @@ object GeckoSessionManager {
         val previousUrl = loadedPcgUrls[sessionKey]
 
         if (previousUrl == url) {
-            Log.d("PCG_PROBE", "skip PCG reload, already loaded url=$url")
+            Log.d("PCG_PROBE", "skip PCG reload, requested page is already loaded")
             return
         }
 
         loadedPcgUrls[sessionKey] = url
         session.loadUri(url)
 
-        Log.d("PCG_PROBE", "load PCG url=$url")
+        Log.d("PCG_PROBE", "load PCG page")
     }
 
     fun isPcgUriAlreadyLoaded(
@@ -2428,16 +2398,20 @@ object GeckoSessionManager {
             runCatching {
                 session.close()
             }.onFailure { t ->
-                Log.w("PCG_PROBE", "idle PCG session close failed accountId=$accountId", t)
+                Log.w(
+                    "PCG_PROBE",
+                    "idle PCG session close failed " +
+                            "errorType=${DiagnosticError.typeOf(t)}"
+                )
             }
 
-            Log.d("PCG_PROBE", "idle PCG session closed accountId=$accountId")
+            Log.d("PCG_PROBE", "idle PCG session closed")
         }
 
         pendingPcgDestroyRunnables[sessionKey] = runnable
         mainHandler.postDelayed(runnable, PCG_SESSION_KEEP_ALIVE_MS)
 
-        Log.d("PCG_PROBE", "scheduled PCG session idle close accountId=$accountId")
+        Log.d("PCG_PROBE", "scheduled PCG session idle close")
     }
 
     private fun cancelScheduledPcgDestroy(accountId: String) {
@@ -2446,7 +2420,7 @@ object GeckoSessionManager {
         val oldRunnable = pendingPcgDestroyRunnables.remove(sessionKey)
         if (oldRunnable != null) {
             mainHandler.removeCallbacks(oldRunnable)
-            Log.d("PCG_PROBE", "cancelled PCG session idle close accountId=$accountId")
+            Log.d("PCG_PROBE", "cancelled PCG session idle close")
         }
     }
 }

@@ -40,7 +40,7 @@ object AccountProfileRemovalController {
 
         Log.d(
             TAG,
-            "removeAccountFromDevice requested accountId=${account.id}"
+            "removeAccountFromDevice requested"
         )
 
         if (profileId.isNotBlank()) {

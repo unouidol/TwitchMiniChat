@@ -22,22 +22,15 @@ object FcmRegistrationUploader {
 
     private const val TAG = "FCM_REGISTER"
 
+    /** UI-facing deletion outcome that deliberately excludes raw backend metadata. */
     data class DeleteServerDataResult(
         val ok: Boolean,
-        val message: String,
-        val removedDevice: Boolean,
-        val deletedDexProfiles: List<String>,
-        val oauthDeletedRows: Int,
-        val oauthDeletedTables: List<String>,
-        val requestId: String?,
-        val auditLogPath: String?,
-        val rawResponse: String
+        val message: String
     )
 
+    /** UI-facing report outcome that deliberately excludes the reported content. */
     data class ReportMessageResult(
-        val ok: Boolean,
-        val rawResponse: String,
-        val error: String?
+        val ok: Boolean
     )
 
     fun uploadToken(context: Context, token: String, profileId: String) {
@@ -164,18 +157,22 @@ object FcmRegistrationUploader {
             return
         }
 
-        Log.d(TAG, "No cached FCM token, fetching a fresh one for spawn mode profileId=$normalizedProfileId")
+        Log.d(TAG, "No cached Firebase Cloud Messaging token; fetching one for spawn mode")
 
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
-                Log.w(TAG, "Unable to fetch fresh FCM token for spawn mode profileId=$normalizedProfileId", task.exception)
+                Log.w(
+                    TAG,
+                    "Unable to fetch a Firebase Cloud Messaging token for spawn mode " +
+                        "errorType=${DiagnosticError.typeOf(task.exception)}"
+                )
                 finish(false)
                 return@addOnCompleteListener
             }
 
             val freshToken = task.result?.trim().orEmpty()
             if (freshToken.isBlank()) {
-                Log.w(TAG, "Fresh FCM token is blank for spawn mode profileId=$normalizedProfileId")
+                Log.w(TAG, "Fresh Firebase Cloud Messaging token is blank for spawn mode")
                 finish(false)
                 return@addOnCompleteListener
             }
@@ -184,7 +181,7 @@ object FcmRegistrationUploader {
                 putString("latest_fcm_token", freshToken)
             }
 
-            Log.d(TAG, "Fetched fresh FCM token for spawn mode profileId=$normalizedProfileId")
+            Log.d(TAG, "Fetched a Firebase Cloud Messaging token for spawn mode")
             sendRequest(freshToken)
         }
     }
@@ -277,8 +274,8 @@ object FcmRegistrationUploader {
                 Log.e(
                     TAG,
                     "delete_server_data skipped: " +
-                        "invalid device credential",
-                    error
+                        "invalid device credential " +
+                        "errorType=${DiagnosticError.typeOf(error)}"
                 )
                 null
             }
@@ -328,48 +325,6 @@ object FcmRegistrationUploader {
                 }
             }.getOrNull()
 
-            fun jsonStringList(array: JSONArray?): List<String> {
-                if (array == null) {
-                    return emptyList()
-                }
-
-                val output = mutableListOf<String>()
-
-                for (index in 0 until array.length()) {
-                    val value = array
-                        .optString(index)
-                        .trim()
-
-                    if (value.isNotEmpty()) {
-                        output += value
-                    }
-                }
-
-                return output
-            }
-
-            val removedDevice =
-                body?.optBoolean("removed_device", false) == true
-
-            val deletedDexProfiles = jsonStringList(
-                body?.optJSONArray("deleted_dex_profiles")
-            )
-
-            val oauthDeletedRows =
-                body?.optInt("oauth_deleted_rows", 0) ?: 0
-
-            val oauthDeletedTables = jsonStringList(
-                body?.optJSONArray("oauth_deleted_tables")
-            )
-
-            val requestId = body
-                ?.optString("request_id")
-                ?.takeIf(String::isNotBlank)
-
-            val auditLogPath = body
-                ?.optString("audit_log_path")
-                ?.takeIf(String::isNotBlank)
-
             val ok =
                 result?.responseCode in 200..299 &&
                     body?.optBoolean("ok", false) == true
@@ -410,27 +365,14 @@ object FcmRegistrationUploader {
 
             Log.d(
                 TAG,
-                "delete_server_data ok=$ok " +
-                    "removedDevice=$removedDevice " +
-                    "deletedDexProfiles=$deletedDexProfiles " +
-                    "oauthDeletedRows=$oauthDeletedRows " +
-                    "oauthDeletedTables=$oauthDeletedTables " +
-                    "requestId=$requestId " +
-                    "auditLogPath=$auditLogPath"
+                "delete_server_data completed ok=$ok"
             )
 
             postDeleteServerDataResult(
                 onComplete,
                 DeleteServerDataResult(
                     ok = ok,
-                    message = message,
-                    removedDevice = removedDevice,
-                    deletedDexProfiles = deletedDexProfiles,
-                    oauthDeletedRows = oauthDeletedRows,
-                    oauthDeletedTables = oauthDeletedTables,
-                    requestId = requestId,
-                    auditLogPath = auditLogPath,
-                    rawResponse = rawBody
+                    message = message
                 )
             )
         }
@@ -442,14 +384,7 @@ object FcmRegistrationUploader {
     ): DeleteServerDataResult {
         return DeleteServerDataResult(
             ok = false,
-            message = message,
-            removedDevice = false,
-            deletedDexProfiles = emptyList(),
-            oauthDeletedRows = 0,
-            oauthDeletedTables = emptyList(),
-            requestId = null,
-            auditLogPath = null,
-            rawResponse = ""
+            message = message
         )
     }
 
@@ -502,8 +437,8 @@ object FcmRegistrationUploader {
                 }.getOrElse { error ->
                     Log.e(
                         TAG,
-                        "register_fcm skipped: device credential unavailable",
-                        error
+                        "register_fcm skipped: device credential unavailable " +
+                            "errorType=${DiagnosticError.typeOf(error)}"
                     )
                     return
                 }
@@ -671,7 +606,10 @@ object FcmRegistrationUploader {
             Log.d(TAG, "$logLabel responseCode=$responseCode")
             PostJsonResult(responseCode, responseText)
         } catch (t: Throwable) {
-            Log.e(TAG, "Error $logLabel", t)
+            Log.e(
+                TAG,
+                "$logLabel failed errorType=${DiagnosticError.typeOf(t)}"
+            )
             null
         } finally {
             conn?.disconnect()
@@ -738,9 +676,7 @@ object FcmRegistrationUploader {
             Log.w(TAG, "report_message skipped: blank reporter profile")
             finish(
                 ReportMessageResult(
-                    ok = false,
-                    rawResponse = "",
-                    error = "invalid_reporter_profile"
+                    ok = false
                 )
             )
             return
@@ -766,9 +702,7 @@ object FcmRegistrationUploader {
                     Log.w(TAG, "report_message skipped: backend session missing")
                     finish(
                         ReportMessageResult(
-                            ok = false,
-                            rawResponse = "",
-                            error = "backend_session_missing"
+                            ok = false
                         )
                     )
                     return@thread
@@ -787,9 +721,7 @@ object FcmRegistrationUploader {
                     Log.w(TAG, "report_message skipped: backend session unavailable")
                     finish(
                         ReportMessageResult(
-                            ok = false,
-                            rawResponse = "",
-                            error = "authentication_unavailable"
+                            ok = false
                         )
                     )
                     return@thread
@@ -812,31 +744,18 @@ object FcmRegistrationUploader {
                 result?.responseCode in 200..299 &&
                         body?.optBoolean("ok", false) == true
 
-            val error = when {
-                result == null -> "network_error"
-                ok -> null
-                else -> body
-                    ?.optString("error")
-                    ?.takeIf { it.isNotBlank() }
-                    ?: "report_failed"
-            }
-
             /*
              * Do not log the reported text, author, message identifier,
              * backend response body, or authentication credentials.
              */
             Log.d(
                 TAG,
-                "report_message ok=$ok " +
-                        "reporterProfileId=$normalizedReporterProfileId " +
-                        "channel=$normalizedChannel"
+                "report_message completed ok=$ok"
             )
 
             finish(
                 ReportMessageResult(
-                    ok = ok,
-                    rawResponse = rawBody,
-                    error = error
+                    ok = ok
                 )
             )
         }

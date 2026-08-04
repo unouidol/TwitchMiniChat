@@ -27,8 +27,7 @@ class ProfileDeletionStateClient(
     data class Result(
         val ok: Boolean,
         val deletedProfileIds: List<String>,
-        val responseCode: Int?,
-        val error: String?
+        val responseCode: Int?
     )
 
     private val appContext = context.applicationContext
@@ -49,8 +48,7 @@ class ProfileDeletionStateClient(
                     Result(
                         ok = false,
                         deletedProfileIds = emptyList(),
-                        responseCode = null,
-                        error = "device_credential_missing"
+                        responseCode = null
                     )
                 )
                 return@thread
@@ -95,15 +93,6 @@ class ProfileDeletionStateClient(
                 result?.responseCode in 200..299 &&
                     body?.optBoolean("ok", false) == true
 
-            val error = when {
-                result == null -> "network_error"
-                ok -> null
-                else -> body
-                    ?.optString("error")
-                    ?.takeIf { it.isNotBlank() }
-                    ?: "deletion_state_failed"
-            }
-
             Log.d(
                 TAG,
                 "completed responseCode=${result?.responseCode} " +
@@ -115,8 +104,7 @@ class ProfileDeletionStateClient(
                 Result(
                     ok = ok,
                     deletedProfileIds = deletedProfiles.distinct(),
-                    responseCode = result?.responseCode,
-                    error = error
+                    responseCode = result?.responseCode
                 )
             )
         }
@@ -169,7 +157,11 @@ class ProfileDeletionStateClient(
                 responseBody = responseBody
             )
         } catch (error: Throwable) {
-            Log.e(TAG, "Deletion-state request failed", error)
+            Log.e(
+                TAG,
+                "Deletion-state request failed " +
+                    "errorType=${DiagnosticError.typeOf(error)}"
+            )
             null
         } finally {
             connection?.disconnect()

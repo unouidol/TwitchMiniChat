@@ -113,7 +113,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     private fun performTotalDeleteNow() {
         val ctx = requireContext()
         val profileIds = profileIdsForServerDeletionAuthorization()
-        logLocalSnapshot("TOTAL_DELETE", ctx, "before")
 
         Log.d(
             "TOTAL_DELETE",
@@ -128,15 +127,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
             Log.d(
                 "TOTAL_DELETE",
-                "server ok=${serverResult.ok} " +
-                        "message=${serverResult.message} " +
-                        "removedDevice=${serverResult.removedDevice} " +
-                        "deletedDexProfiles=${serverResult.deletedDexProfiles} " +
-                        "oauthDeletedRows=${serverResult.oauthDeletedRows} " +
-                        "oauthDeletedTables=${serverResult.oauthDeletedTables} " +
-                        "requestId=${serverResult.requestId} " +
-                        "auditLogPath=${serverResult.auditLogPath} " +
-                        "raw=${serverResult.rawResponse}"
+                "Server deletion completed ok=${serverResult.ok}"
             )
 
             if (!serverResult.ok) {
@@ -153,7 +144,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
                 Log.d(
                     "TOTAL_DELETE",
-                    "gecko ok=$geckoOk message=$geckoMessage"
+                    "Gecko data clear completed ok=$geckoOk"
                 )
 
                 if (!geckoOk) {
@@ -174,14 +165,9 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                             "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
                             "failedSharedPrefs=${localResult.failedSharedPrefs} " +
                             "clearedCacheDirs=${localResult.clearedCacheDirs} " +
-                            "failedCacheDirs=${localResult.failedCacheDirs} " +
-                            "processedPrefNames=${localResult.processedPrefNames} " +
-                            "deletedPrefNames=${localResult.deletedPrefNames} " +
-                            "skippedPrefNames=${localResult.skippedPrefNames} " +
-                            "failedPrefNames=${localResult.failedPrefNames}"
+                            "failedCacheDirs=${localResult.failedCacheDirs}"
                 )
 
-                logLocalSnapshot("TOTAL_DELETE", requireContext(), "after")
                 restartAppAfterLocalClear()
             }
         }
@@ -190,8 +176,10 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     private fun clearLocalDataKeepingAccounts() {
         val ctx = requireContext()
 
-        logLocalSnapshot("LOCAL_CLEAR", ctx, "before")
-        Log.d("LOCAL_CLEAR", "keeping account prefs=$accountSharedPrefsToKeepForTesting")
+        Log.d(
+            "LOCAL_CLEAR",
+            "Keeping account preferences count=${accountSharedPrefsToKeepForTesting.size}"
+        )
 
         val result = LocalDataCleaner.clearNonAccountLocalData(
             context = ctx,
@@ -210,8 +198,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                     "failedCacheDirs=${result.failedCacheDirs}"
         )
 
-        logLocalSnapshot("LOCAL_CLEAR", ctx, "after")
-
         Toast.makeText(
             ctx,
             getString(R.string.local_data_cleared_accounts_kept),
@@ -223,8 +209,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
     private fun clearAllLocalDataNow() {
         val ctx = requireContext()
-
-        logLocalSnapshot("LOCAL_CLEAR", ctx, "before")
 
         val result = LocalDataCleaner.clearAllLocalData(ctx)
         TermsPrefs.clearAcceptance(ctx)
@@ -238,8 +222,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                     "clearedCacheDirs=${result.clearedCacheDirs} " +
                     "failedCacheDirs=${result.failedCacheDirs}"
         )
-
-        logLocalSnapshot("LOCAL_CLEAR", ctx, "after")
 
         Toast.makeText(
             ctx,
@@ -255,11 +237,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
         startActivity(intent)
-    }
-
-    private fun logLocalSnapshot(tag: String, context: android.content.Context, label: String) {
-        Log.d(tag, "$label prefs=${LocalDataCleaner.debugListSharedPrefs(context)}")
-        Log.d(tag, "$label hidden=${HiddenUsersStore.getAll(context)}")
     }
 
     private fun showStackedActionDialog(

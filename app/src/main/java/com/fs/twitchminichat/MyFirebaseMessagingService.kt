@@ -34,15 +34,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         try {
-            Log.d(TAG, "From: ${remoteMessage.from}")
-            Log.d(TAG, "Data: ${remoteMessage.data}")
-
-            remoteMessage.notification?.let { notification ->
-                Log.d(
-                    TAG,
-                    "Notification title=${notification.title}, body=${notification.body}"
-                )
-            }
+            Log.d(
+                TAG,
+                "Firebase message received dataFieldCount=${remoteMessage.data.size} " +
+                    "hasNotificationPayload=${remoteMessage.notification != null}"
+            )
 
             val data = remoteMessage.data
 
@@ -68,7 +64,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             Log.d(
                 TAG,
-                "Resolved notification targetProfileId=$targetProfileId pokemon=$pokemon profiles=$profiles"
+                "Notification routing resolved " +
+                    "hasTargetProfile=${!targetProfileId.isNullOrBlank()} " +
+                    "hasPokemon=${pokemon.isNotBlank()} " +
+                    "hasProfileSummary=${profiles.isNotBlank()}"
             )
 
             showSpawnNotification(
@@ -79,7 +78,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 targetProfileId = targetProfileId.orEmpty()
             )
         } catch (t: Throwable) {
-            Log.e(TAG, "Crash inside onMessageReceived", t)
+            Log.e(
+                TAG,
+                "Firebase message handling failed errorType=${DiagnosticError.typeOf(t)}"
+            )
         }
     }
 
@@ -136,9 +138,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(
             TAG,
-            "resolved PCG notification channelId=$channelId " +
-                    "soundEnabled=${deliverySettings.soundEnabled} " +
-                    "vibrationEnabled=${deliverySettings.vibrationEnabled}"
+            "Resolved Pokémon Community Game notification delivery " +
+                "soundEnabled=${deliverySettings.soundEnabled} " +
+                "vibrationEnabled=${deliverySettings.vibrationEnabled}"
         )
 
         val notificationId = Random.nextInt(1, Int.MAX_VALUE)
@@ -248,12 +250,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(
             TAG,
-            "channelId=$channelId exists=${channel != null} " +
-                    "importance=${channel?.importance} " +
-                    "canBypassDnd=${channel?.canBypassDnd()} " +
-                    "sound=${channel?.sound} " +
-                    "shouldVibrate=${channel?.shouldVibrate()} " +
-                    "vibrationPattern=${channel?.vibrationPattern?.joinToString()}"
+            "Notification channel state exists=${channel != null} " +
+                "importance=${channel?.importance} " +
+                "canBypassDnd=${channel?.canBypassDnd()} " +
+                "hasSound=${channel?.sound != null} " +
+                "shouldVibrate=${channel?.shouldVibrate()} " +
+                "vibrationPatternSize=${channel?.vibrationPattern?.size ?: 0}"
         )
 
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
@@ -264,12 +266,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             notification
         )
 
-        Log.d(
-            TAG,
-            "Notification posted: title=$title body=$body pokemon=$pokemon " +
-                    "profiles=$profiles targetProfileId=$targetProfileId " +
-                    "notificationId=$notificationId channelId=$channelId"
-        )
+        Log.d(TAG, "Notification posted")
     }
 
     companion object {

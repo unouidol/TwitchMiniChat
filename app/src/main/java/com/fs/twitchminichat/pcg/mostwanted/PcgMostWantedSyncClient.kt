@@ -5,6 +5,7 @@ import android.util.Log
 import com.fs.twitchminichat.BackendAuthHeaderProvider
 import com.fs.twitchminichat.BackendSessionAuthDecision
 import com.fs.twitchminichat.BackendSessionStore
+import com.fs.twitchminichat.DiagnosticError
 import com.fs.twitchminichat.DeviceCredentialStore
 import com.fs.twitchminichat.R
 import org.json.JSONObject
@@ -183,7 +184,11 @@ class PcgMostWantedSyncClient(context: Context) {
                 )
             }
         } catch (error: Exception) {
-            Log.w(TAG, "set_custom_watchlist network failure", error)
+            Log.w(
+                TAG,
+                "set_custom_watchlist network failure " +
+                    "errorType=${DiagnosticError.typeOf(error)}"
+            )
             PcgMostWantedSyncResult(
                 ok = false,
                 error = PcgMostWantedSyncError.NETWORK

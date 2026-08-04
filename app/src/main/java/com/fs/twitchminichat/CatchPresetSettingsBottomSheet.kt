@@ -82,10 +82,7 @@ class CatchPresetSettingsBottomSheet :
 
         Log.d(
             "CATCH_SHEET",
-            "onViewCreated sheet=${System.identityHashCode(this)} " +
-                    "parentFragment=${parentFragment?.let { System.identityHashCode(it) }} " +
-                    "hostReady=${host != null} " +
-                    "profileId=$currentProfileId"
+            "onViewCreated hostReady=${host != null} profileSelected=${currentProfileId.isNotBlank()}"
         )
 
         recyclerPresets = view.findViewById(R.id.recyclerPresets)
@@ -504,10 +501,7 @@ class CatchPresetSettingsBottomSheet :
 
                 Log.d(
                     "CATCH_SHEET",
-                    "buyClick sheet=${System.identityHashCode(this)} " +
-                            "parentFragment=${parentFragment?.let { System.identityHashCode(it) }} " +
-                            "handled=$handled profileId=$currentProfileId " +
-                            "ballId=$boughtBallId quantity=$quantity"
+                    "buyClick handled=$handled quantity=$quantity"
                 )
 
                 if (!handled) {
