@@ -1,5 +1,6 @@
 package com.fs.twitchminichat
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -214,9 +215,17 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
 
     /** Starts OAuth for a new local account. */
     private fun startTwitchLogin(channel: String) {
-        val slot = pendingRequestStore.allocateSlot()
-        pendingRequestStore.saveNewAccount(slot, channel)
-        openTwitchAuthorization(slot = slot, profileId = "")
+        val pendingRequest = pendingRequestStore.createNewAccount(channel)
+        if (pendingRequest == null) {
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_start_failed,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        openTwitchAuthorization(pendingRequest = pendingRequest, profileId = "")
     }
 
     /**
@@ -228,17 +237,46 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     private fun startTwitchReauthorization(account: AccountConfig) {
         val profileId = AccountProfileIdResolver.resolve(account)
 
-        val slot = pendingRequestStore.allocateSlot()
-        pendingRequestStore.saveReauthorization(slot, account, profileId)
-        openTwitchAuthorization(slot = slot, profileId = profileId)
+        val pendingRequest = pendingRequestStore.createReauthorization(account, profileId)
+        if (pendingRequest == null) {
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_start_failed,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        openTwitchAuthorization(pendingRequest = pendingRequest, profileId = profileId)
     }
 
-    /** Opens Twitch OAuth with the feature scopes enabled for the current flavor. */
-    private fun openTwitchAuthorization(slot: Int, profileId: String) {
+    /** Opens Twitch OAuth with an S256 proof and the scopes enabled for this flavor. */
+    private fun openTwitchAuthorization(
+        pendingRequest: OAuthPendingRequest,
+        profileId: String
+    ) {
+        val codeChallenge = OAuthProofKeyPolicy.deriveS256CodeChallenge(
+            pendingRequest.codeVerifier
+        )
+        if (codeChallenge == null) {
+            pendingRequestStore.clear(pendingRequest.slot)
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_start_failed,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         val authUrlBuilder = "https://api.ircminichat.party/oauth/start".toUri()
             .buildUpon()
-            .appendQueryParameter("slot", slot.toString())
+            .appendQueryParameter("slot", pendingRequest.slot.toString())
             .appendQueryParameter("return_scheme", "${BuildConfig.AUTH_SCHEME}://auth")
+            .appendQueryParameter("code_challenge", codeChallenge)
+            .appendQueryParameter(
+                "code_challenge_method",
+                OAuthProofKeyPolicy.CODE_CHALLENGE_METHOD
+            )
 
         if (profileId.isNotBlank()) {
             authUrlBuilder.appendQueryParameter("profile_id", profileId)
@@ -250,7 +288,16 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             authUrlBuilder.appendQueryParameter(name, value)
         }
 
-        startActivity(Intent(Intent.ACTION_VIEW, authUrlBuilder.build()))
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, authUrlBuilder.build()))
+        } catch (_: ActivityNotFoundException) {
+            pendingRequestStore.clear(pendingRequest.slot)
+            Toast.makeText(
+                requireContext(),
+                R.string.oauth_browser_unavailable,
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun ensureTermsAccepted(onAccepted: () -> Unit) {

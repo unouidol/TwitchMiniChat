@@ -56,12 +56,12 @@ object OAuthBackendResponseParser {
         return runCatching {
             val json = JSONObject(body)
             OAuthFinalizeResult(
-                profileId = json.optString("profile_id", ""),
+                profileId = json.optString("profile_id", "").trim(),
                 slot = json.optInt("slot", -1),
-                username = json.optString("username", ""),
-                userId = json.optString("user_id", ""),
-                accessToken = json.optString("access_token", ""),
-                desktopSessionToken = json.optString("desktop_session_token", "")
+                username = json.optString("username", "").trim(),
+                userId = json.optString("user_id", "").trim(),
+                accessToken = json.optString("access_token", "").trim(),
+                desktopSessionToken = json.optString("desktop_session_token", "").trim()
             )
         }.getOrNull()
     }
@@ -73,12 +73,27 @@ object OAuthBackendResponseParser {
         return runCatching {
             val json = JSONObject(body)
             OAuthTokenForIrcResult(
-                profileId = json.optString("profile_id", ""),
-                username = json.optString("username", ""),
-                userId = json.optString("user_id", ""),
-                accessToken = json.optString("access_token", "")
+                profileId = json.optString("profile_id", "").trim(),
+                username = json.optString("username", "").trim(),
+                userId = json.optString("user_id", "").trim(),
+                accessToken = json.optString("access_token", "").trim()
             )
         }.getOrNull()
+    }
+}
+
+/** Builds validated OAuth request bodies without logging their secrets. */
+internal object OAuthBackendRequestBuilder {
+
+    /** Builds the proof-bound `/oauth/finalize` body, or null for invalid input. */
+    fun buildFinalize(loginToken: String, codeVerifier: String): String? {
+        if (!OAuthFlowSecurityPolicy.isValidLoginToken(loginToken)) return null
+        if (!OAuthProofKeyPolicy.isValidCodeVerifier(codeVerifier)) return null
+
+        return JSONObject().apply {
+            put("login_token", loginToken)
+            put("code_verifier", codeVerifier)
+        }.toString()
     }
 }
 
@@ -88,8 +103,13 @@ object OAuthBackendApi : BackendIrcTokenApi {
     /** Trusted Transport Layer Security (TLS) endpoint for backend OAuth requests. */
     private const val BASE_URL = "https://api.ircminichat.party"
 
-    /** Exchanges a one-time login token for account and backend-session credentials. */
-    fun finalizeLogin(loginToken: String): OAuthFinalizeResult? {
+    /** Exchanges a one-time login token and its mandatory verifier for credentials. */
+    fun finalizeLogin(loginToken: String, codeVerifier: String): OAuthFinalizeResult? {
+        val requestBody = OAuthBackendRequestBuilder.buildFinalize(
+            loginToken = loginToken,
+            codeVerifier = codeVerifier
+        ) ?: return null
+
         var conn: HttpURLConnection? = null
         return try {
             val url = URL("$BASE_URL/oauth/finalize")
@@ -103,12 +123,8 @@ object OAuthBackendApi : BackendIrcTokenApi {
             }
             conn = connection
 
-            val requestJson = JSONObject().apply {
-                put("login_token", loginToken)
-            }
-
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(requestJson.toString())
+                writer.write(requestBody)
                 writer.flush()
             }
 
