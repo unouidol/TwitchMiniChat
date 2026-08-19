@@ -459,6 +459,8 @@
     <string name="pcg_most_wanted_sync_url">https://api.ircminichat.party/set_custom_watchlist</string>
     <string name="pcg_most_wanted_saved_and_synced">Most Wanted List saved and synced.</string>
     <string name="pcg_most_wanted_saved_sync_pending">Saved on this device, but server sync failed. Tap Save to retry.</string>
+    <string name="pcg_most_wanted_alert_setting_saved">Most Wanted alert setting updated.</string>
+    <string name="pcg_most_wanted_alert_setting_save_failed">Could not update Most Wanted alerts.</string>
 
     <!-- PCG Most Wanted combined stage filters -->
     <string name="pcg_most_wanted_stage_filter_hint">Evolution stage (select one or more)</string>

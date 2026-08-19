@@ -37,13 +37,18 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 import com.fs.twitchminichat.pcg.PcgActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
+import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 import kotlin.concurrent.thread
@@ -4123,14 +4128,51 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 )
             },
             onMostWantedEnabledSelected = { enabled ->
-                mostWantedStore.updateEnabled(
+                applyMostWantedEnabled(
                     profileId = profileId,
                     enabled = enabled
                 )
-                updateSpawnAlertBellUi(profileId)
             }
         ) { selectedSettings ->
             applySpawnAlertSettings(profileId, selectedSettings)
+        }
+    }
+
+    /**
+     * Applies one user-confirmed Most Wanted toggle on a worker thread.
+     *
+     * Local preferences change only after the backend accepts the complete
+     * watchlist state, so the bell cannot advertise an unconfirmed setting.
+     */
+    private fun applyMostWantedEnabled(
+        profileId: String,
+        enabled: Boolean
+    ) {
+        val controller = PcgMostWantedToggleController(requireContext())
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                controller.setEnabled(
+                    profileId = profileId,
+                    enabled = enabled
+                )
+            }
+
+            updateSpawnAlertBellUi(profileId)
+
+            Toast.makeText(
+                requireContext(),
+                if (result.ok) {
+                    R.string.pcg_most_wanted_alert_setting_saved
+                } else {
+                    R.string.pcg_most_wanted_alert_setting_save_failed
+                },
+                if (result.ok) {
+                    Toast.LENGTH_SHORT
+                } else {
+                    Toast.LENGTH_LONG
+                }
+            ).show()
         }
     }
 
