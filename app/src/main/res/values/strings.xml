@@ -354,6 +354,8 @@
     <string name="pcg_most_wanted_filter_selected">Selected only</string>
     <string name="pcg_most_wanted_selection_count">%1$d selected &#183; %2$d shown</string>
     <string name="pcg_most_wanted_selection_count_initial">0 selected &#183; 0 shown</string>
+    <string name="pcg_most_wanted_select_shown">Select shown</string>
+    <string name="pcg_most_wanted_deselect_shown">Deselect shown</string>
     <string name="pcg_most_wanted_no_results">No Pok&#233;mon match these filters.</string>
     <string name="pcg_most_wanted_load_failed">Could not load the PCG catalog.</string>
     <string name="pcg_most_wanted_save">Save Most Wanted</string>

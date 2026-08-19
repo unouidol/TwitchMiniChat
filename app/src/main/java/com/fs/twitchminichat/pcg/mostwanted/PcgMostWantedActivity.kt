@@ -55,6 +55,9 @@ class PcgMostWantedActivity :
     /** Complete immutable catalog currently loaded by this screen. */
     private var catalogEntries: List<PcgPokemonCatalogEntry> = emptyList()
 
+    /** Catalog entries currently shown after search and filters. */
+    private var visibleEntries: List<PcgPokemonCatalogEntry> = emptyList()
+
     /** Last state confirmed in SharedPreferences. */
     private var persistedState = PcgMostWantedState()
 
@@ -86,6 +89,12 @@ class PcgMostWantedActivity :
 
     /** Opens the remaining catalog filter dialog. */
     private lateinit var buttonFilters: AppCompatButton
+
+    /** Selects every catalog entry currently shown by search and filters. */
+    private lateinit var buttonSelectShown: Button
+
+    /** Deselects every shown entry without changing hidden selections. */
+    private lateinit var buttonDeselectShown: Button
 
     /** Returns to the bell alert menu without saving the current draft. */
     private lateinit var buttonBackToAlerts: Button
@@ -135,6 +144,12 @@ class PcgMostWantedActivity :
         editSearch = findViewById(R.id.editMostWantedSearch)
         stageToggleGroup = findViewById(R.id.groupMostWantedStages)
         buttonFilters = findViewById(R.id.btnMostWantedFilters)
+        buttonSelectShown = findViewById(
+            R.id.btnMostWantedSelectShown
+        )
+        buttonDeselectShown = findViewById(
+            R.id.btnMostWantedDeselectShown
+        )
         buttonBackToAlerts = findViewById(
             R.id.btnBackToMostWantedAlerts
         )
@@ -188,6 +203,14 @@ class PcgMostWantedActivity :
             ).show()
         }
 
+        buttonSelectShown.setOnClickListener {
+            applyBulkSelection(select = true)
+        }
+
+        buttonDeselectShown.setOnClickListener {
+            applyBulkSelection(select = false)
+        }
+
         buttonBackToAlerts.setOnClickListener {
             requestClose()
         }
@@ -237,11 +260,12 @@ class PcgMostWantedActivity :
     /** Applies structured search and every visible filter in catalog order. */
     private fun renderFilteredEntries() {
         if (catalogEntries.isEmpty()) {
+            visibleEntries = emptyList()
             updateSelectionCount(visibleCount = 0)
             return
         }
 
-        val visibleEntries = PcgMostWantedUiFilter.apply(
+        visibleEntries = PcgMostWantedUiFilter.apply(
             entries = catalogEntries,
             searchText = editSearch.text?.toString().orEmpty(),
             filterState = filterState,
@@ -254,6 +278,31 @@ class PcgMostWantedActivity :
             selectedDisplayNames = draftSelectedNames
         )
         updateSelectionCount(visibleCount = visibleEntries.size)
+    }
+
+    /** Applies one explicit bulk action to the currently shown catalog rows. */
+    private fun applyBulkSelection(select: Boolean) {
+        val shownDisplayNames = visibleEntries.map(
+            PcgPokemonCatalogEntry::displayName
+        )
+        val updatedNames = if (select) {
+            PcgMostWantedBulkSelection.selectShown(
+                selectedDisplayNames = draftSelectedNames,
+                shownDisplayNames = shownDisplayNames
+            )
+        } else {
+            PcgMostWantedBulkSelection.deselectShown(
+                selectedDisplayNames = draftSelectedNames,
+                shownDisplayNames = shownDisplayNames
+            )
+        }
+
+        if (updatedNames == draftSelectedNames) return
+
+        draftSelectedNames.clear()
+        draftSelectedNames.addAll(updatedNames)
+        updateDirtyState()
+        renderFilteredEntries()
     }
 
     /** Rebuilds the stage set from the four independent toggle buttons. */
@@ -391,6 +440,18 @@ class PcgMostWantedActivity :
             draftSelectedNames.size,
             visibleCount
         )
+        updateBulkSelectionButtons()
+    }
+
+    /** Enables each bulk action only when it would change the loaded draft. */
+    private fun updateBulkSelectionButtons() {
+        val busy = progress.visibility == View.VISIBLE
+        buttonSelectShown.isEnabled = !busy && visibleEntries.any { entry ->
+            entry.displayName !in draftSelectedNames
+        }
+        buttonDeselectShown.isEnabled = !busy && visibleEntries.any { entry ->
+            entry.displayName in draftSelectedNames
+        }
     }
 
     /** Enables the Save action only for a loaded, changed, non-busy draft. */
@@ -405,6 +466,8 @@ class PcgMostWantedActivity :
         progress.visibility = if (busy) View.VISIBLE else View.GONE
         editSearch.isEnabled = !busy
         buttonFilters.isEnabled = !busy
+        buttonSelectShown.isEnabled = false
+        buttonDeselectShown.isEnabled = false
         buttonBackToAlerts.isEnabled = !busy
         listPokemon.isEnabled = !busy
 
@@ -413,6 +476,9 @@ class PcgMostWantedActivity :
         }
 
         updateSaveButton()
+        if (!busy) {
+            updateBulkSelectionButtons()
+        }
     }
 
     /**
