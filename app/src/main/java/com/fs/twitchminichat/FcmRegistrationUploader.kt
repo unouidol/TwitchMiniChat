@@ -58,12 +58,13 @@ object FcmRegistrationUploader {
      * 3 = No spawns
      *
      * Event spawns are independent from the four ordinary modes. The legacy
-     * "enabled" field remains true whenever either category needs delivery.
+     * "enabled" field remains true whenever ordinary, event or Most Wanted
+     * alerts need delivery.
      */
     fun setProfileSpawnAlertMode(
         context: Context,
         profileId: String,
-        settings: PcgSpawnAlertSettings,
+        selection: PcgProfileAlertSelection,
         onComplete: (Boolean) -> Unit
     ) {
         val appContext = context.applicationContext
@@ -81,6 +82,8 @@ object FcmRegistrationUploader {
             finish(false)
             return
         }
+
+        val settings = selection.spawnSettings
 
         fun sendRequest(token: String) {
             thread(start = true, name = "spawn-alert-mode") {
@@ -102,7 +105,10 @@ object FcmRegistrationUploader {
                      * The server can keep profile_ids aligned while also storing
                      * the more precise profile_spawn_alert_modes map.
                      */
-                    put("enabled", settings.isAnyAlertEnabled)
+                    put(
+                        "enabled",
+                        selection.requiresFirebaseDelivery
+                    )
                 }
 
                 val authorizationHeader = when (authDecision) {
@@ -143,11 +149,11 @@ object FcmRegistrationUploader {
         val cachedToken = prefs.getString("latest_fcm_token", null).orEmpty()
 
         /*
-         * When both categories are disabled, the request can be sent without
+         * When every category is disabled, the request can be sent without
          * forcing a fresh token fetch. Any enabled category requires a usable
          * token because the backend must be able to deliver its notification.
          */
-        if (!settings.isAnyAlertEnabled) {
+        if (!selection.requiresFirebaseDelivery) {
             sendRequest(cachedToken)
             return
         }

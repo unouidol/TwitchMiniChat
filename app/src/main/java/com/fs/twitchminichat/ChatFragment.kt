@@ -48,6 +48,7 @@ import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
@@ -67,6 +68,7 @@ import com.fs.twitchminichat.ui.input.ChatMessageInputView
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 import java.net.URLEncoder
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlin.coroutines.resume
 
 
 
@@ -198,6 +200,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var mentionAdapter: ArrayAdapter<String>
     private lateinit var btnTogglePush: ImageButton
     private lateinit var btnCatchPresets: ImageButton
+
+    /** Prevents overlapping backend writes from repeated alert-menu taps. */
+    private var profileAlertSyncInProgress = false
 
     private data class ChatViewMeta(
         val usernameLower: String,
@@ -4049,21 +4054,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    /** PCG ALERT Functions
-     *
-     */
-    /**
-     * Opens the spawn alert mode menu anchored to the bell button.
-     *
-     * Each Twitch profile can have its own spawn alert mode, so the current
-     * profile id is used as the key for local storage and backend sync.
-     */
-    /**
-     * Opens the spawn alert mode menu anchored to the bell button.
-     *
-     * Each Twitch profile can have its own spawn alert mode, so the current
-     * profile id is used as the key for local storage and backend sync.
-     */
     /**
      * Opens Most Wanted and handles only its explicit navigation result.
      *
@@ -4089,6 +4079,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
         }
 
+    /** Opens the complete profile-scoped PCG alert menu. */
     private fun showSpawnAlertModeMenu() {
         val profileId = currentProfileId().trim().lowercase()
 
@@ -4101,24 +4092,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val currentSettings = PcgSpawnAlertSettings(
-            regularMode = PcgSpawnAlertModeStore.getMode(
-                requireContext(),
-                profileId
-            ),
-            eventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
-                requireContext(),
-                profileId
-            )
-        )
-
-        val mostWantedStore = PcgMostWantedStore(requireContext())
+        val currentSelection = readProfileAlertSelection(profileId)
 
         PcgSpawnAlertModeMenu.show(
             anchor = btnTogglePush,
-            currentSettings = currentSettings,
-            currentMostWantedEnabled =
-                mostWantedStore.isEnabled(profileId),
+            currentSelection = currentSelection,
             onMostWantedRequested = {
                 mostWantedActivityLauncher.launch(
                     PcgMostWantedActivity.createIntent(
@@ -4126,80 +4104,177 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         profileId = profileId
                     )
                 )
-            },
-            onMostWantedEnabledSelected = { enabled ->
-                applyMostWantedEnabled(
-                    profileId = profileId,
-                    enabled = enabled
-                )
             }
-        ) { selectedSettings ->
-            applySpawnAlertSettings(profileId, selectedSettings)
+        ) { requestedSelection ->
+            applyProfileAlertSelection(
+                profileId = profileId,
+                requested = requestedSelection
+            )
         }
     }
 
     /**
-     * Applies one user-confirmed Most Wanted toggle on a worker thread.
+     * Applies one complete user-confirmed alert selection in a safe order.
      *
-     * Local preferences change only after the backend accepts the complete
-     * watchlist state, so the bell cannot advertise an unconfirmed setting.
+     * Most Wanted registration and ordinary/event delivery share one backend
+     * profile record. Serializing their requests prevents the previous race in
+     * which an all-off ordinary mode could unregister a just-enabled watchlist.
      */
-    private fun applyMostWantedEnabled(
+    private fun applyProfileAlertSelection(
         profileId: String,
-        enabled: Boolean
+        requested: PcgProfileAlertSelection
     ) {
-        val controller = PcgMostWantedToggleController(requireContext())
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                controller.setEnabled(
-                    profileId = profileId,
-                    enabled = enabled
-                )
-            }
-
-            updateSpawnAlertBellUi(profileId)
-
+        if (profileAlertSyncInProgress) {
             Toast.makeText(
                 requireContext(),
-                if (result.ok) {
-                    R.string.pcg_most_wanted_alert_setting_saved
-                } else {
-                    R.string.pcg_most_wanted_alert_setting_save_failed
-                },
-                if (result.ok) {
-                    Toast.LENGTH_SHORT
-                } else {
-                    Toast.LENGTH_LONG
-                }
+                R.string.pcg_alert_settings_update_in_progress,
+                Toast.LENGTH_SHORT
             ).show()
+            return
+        }
+
+        val current = readProfileAlertSelection(profileId)
+        val plan = PcgProfileAlertSyncPlanner.buildPlan(
+            current = current,
+            requested = requested
+        )
+        if (plan.isEmpty()) return
+
+        val appContext = requireContext().applicationContext
+        val mostWantedController =
+            PcgMostWantedToggleController(appContext)
+
+        profileAlertSyncInProgress = true
+        btnTogglePush.isEnabled = false
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                var failed = false
+                var temporaryDeliveryActivated = false
+
+                for (step in plan) {
+                    val ok = when (step) {
+                        PcgProfileAlertSyncStep.FIREBASE_DELIVERY -> {
+                            val deliveryOk =
+                                syncProfileFirebaseDelivery(
+                                    context = appContext,
+                                    profileId = profileId,
+                                    selection = requested
+                                )
+
+                            if (deliveryOk) {
+                                persistSpawnAlertSettings(
+                                    profileId = profileId,
+                                    settings = requested.spawnSettings
+                                )
+                                temporaryDeliveryActivated =
+                                    !current.requiresFirebaseDelivery &&
+                                    requested.mostWantedEnabled &&
+                                    !requested.spawnSettings
+                                        .hasOrdinaryOrEventAlerts
+                            }
+                            deliveryOk
+                        }
+
+                        PcgProfileAlertSyncStep.MOST_WANTED -> {
+                            withContext(Dispatchers.IO) {
+                                mostWantedController.setEnabled(
+                                    profileId = profileId,
+                                    enabled =
+                                        requested.mostWantedEnabled
+                                ).ok
+                            }
+                        }
+                    }
+
+                    if (!ok) {
+                        failed = true
+                        break
+                    }
+                }
+
+                if (
+                    failed &&
+                    temporaryDeliveryActivated
+                ) {
+                    /*
+                     * Firebase was activated only to enable Most Wanted. If the
+                     * watchlist request failed, remove that temporary delivery
+                     * registration so local and backend state do not drift.
+                     */
+                    syncProfileFirebaseDelivery(
+                        context = appContext,
+                        profileId = profileId,
+                        selection = requested.copy(
+                            mostWantedEnabled = false
+                        )
+                    )
+                }
+
+                if (isAdded && view != null) {
+                    val effective =
+                        readProfileAlertSelection(profileId)
+                    updateSpawnAlertBellUi(profileId)
+                    val fullyApplied =
+                        !failed && effective == requested
+
+                    val message = when {
+                        fullyApplied ->
+                            R.string.pcg_alert_settings_saved
+
+                        effective != current ->
+                            R.string.pcg_alert_settings_partially_saved
+
+                        else ->
+                            R.string.pcg_alert_settings_save_failed
+                    }
+
+                    Toast.makeText(
+                        requireContext(),
+                        message,
+                        if (fullyApplied) {
+                            Toast.LENGTH_SHORT
+                        } else {
+                            Toast.LENGTH_LONG
+                        }
+                    ).show()
+                }
+            } finally {
+                profileAlertSyncInProgress = false
+                if (isAdded && ::btnTogglePush.isInitialized) {
+                    btnTogglePush.isEnabled = true
+                }
+            }
         }
     }
 
-    /**
-     * Applies the selected spawn alert mode locally, updates the bell UI, and then
-     * asks the backend to persist the same mode for the current device/profile pair.
-     *
-     * If the server update fails, the previous local value is restored so the UI
-     * does not claim a mode that the backend did not actually accept.
-     */
-    /**
-     * Applies the selected spawn alert mode locally, updates the bell UI, and then
-     * asks the backend to persist the same mode for the current device/profile pair.
-     *
-     * If the server update fails, the previous local value is restored so the UI
-     * does not claim a mode that the backend did not actually accept.
-     */
-    private fun applySpawnAlertSettings(
+    /** Reads the complete local selection for one normalized profile id. */
+    private fun readProfileAlertSelection(
+        profileId: String
+    ): PcgProfileAlertSelection {
+        return PcgProfileAlertSelection(
+            spawnSettings = PcgSpawnAlertSettings(
+                regularMode = PcgSpawnAlertModeStore.getMode(
+                    requireContext(),
+                    profileId
+                ),
+                eventSpawnsEnabled =
+                    PcgEventSpawnAlertStore.isEnabled(
+                        requireContext(),
+                        profileId
+                    )
+            ),
+            mostWantedEnabled =
+                PcgMostWantedStore(requireContext())
+                    .isEnabled(profileId)
+        )
+    }
+
+    /** Persists ordinary/event settings only after backend confirmation. */
+    private fun persistSpawnAlertSettings(
         profileId: String,
         settings: PcgSpawnAlertSettings
     ) {
-        val previousMode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
-        val previousEventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
-            requireContext(),
-            profileId
-        )
-
         PcgSpawnAlertModeStore.setMode(
             requireContext(),
             profileId,
@@ -4210,39 +4285,27 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             profileId,
             settings.eventSpawnsEnabled
         )
-        updateSpawnAlertBellUi(profileId)
+    }
 
-        FcmRegistrationUploader.setProfileSpawnAlertMode(
-            context = requireContext(),
-            profileId = profileId,
-            settings = settings
-        ) { ok ->
-            if (!isAdded) return@setProfileSpawnAlertMode
-
-            if (!ok) {
-                PcgSpawnAlertModeStore.setMode(requireContext(), profileId, previousMode)
-                PcgEventSpawnAlertStore.setEnabled(
-                    requireContext(),
-                    profileId,
-                    previousEventSpawnsEnabled
-                )
-                updateSpawnAlertBellUi(profileId)
-
-                Toast.makeText(
-                    requireContext(),
-                    R.string.spawn_alert_mode_save_failed,
-                    Toast.LENGTH_SHORT
-                ).show()
-                return@setProfileSpawnAlertMode
+    /** Awaits the existing callback-based Firebase profile update once. */
+    private suspend fun syncProfileFirebaseDelivery(
+        context: Context,
+        profileId: String,
+        selection: PcgProfileAlertSelection
+    ): Boolean {
+        return suspendCancellableCoroutine { continuation ->
+            FcmRegistrationUploader.setProfileSpawnAlertMode(
+                context = context,
+                profileId = profileId,
+                selection = selection
+            ) { ok ->
+                if (continuation.isActive) {
+                    continuation.resume(ok)
+                }
             }
-
-            Toast.makeText(
-                requireContext(),
-                R.string.spawn_alert_settings_saved,
-                Toast.LENGTH_SHORT
-            ).show()
         }
     }
+
     /**
      * Updates the bell button to reflect the locally selected spawn alert mode.
      *
@@ -4267,34 +4330,34 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             requireContext()
         ).isEnabled(profileId)
 
-        btnTogglePush.alpha = if (
-            settings.isAnyAlertEnabled || mostWantedEnabled
-        ) {
+        val selection = PcgProfileAlertSelection(
+            spawnSettings = settings,
+            mostWantedEnabled = mostWantedEnabled
+        )
+
+        btnTogglePush.alpha = if (selection.requiresFirebaseDelivery) {
             1.0f
         } else {
             0.45f
         }
 
-        btnTogglePush.contentDescription = when {
-            mostWantedEnabled &&
-                !settings.isAnyAlertEnabled -> {
-                getString(R.string.pcg_most_wanted_alert_label)
+        val activeDescriptions = buildList {
+            if (settings.regularMode != PcgSpawnAlertMode.NONE) {
+                add(getString(settings.regularMode.titleRes))
             }
-
-            settings.eventSpawnsEnabled &&
-                    settings.regularMode == PcgSpawnAlertMode.NONE -> {
-                getString(R.string.pcg_event_spawn_alert_label)
+            if (settings.eventSpawnsEnabled) {
+                add(getString(R.string.pcg_event_spawn_alert_label))
             }
-
-            settings.eventSpawnsEnabled -> {
-                getString(
-                    R.string.pcg_spawn_alert_bell_mode_and_event,
-                    getString(settings.regularMode.titleRes)
-                )
+            if (mostWantedEnabled) {
+                add(getString(R.string.pcg_most_wanted_alert_label))
             }
-
-            else -> getString(settings.regularMode.titleRes)
         }
+
+        btnTogglePush.contentDescription =
+            activeDescriptions.joinToString(separator = "; ")
+                .ifBlank {
+                    getString(PcgSpawnAlertMode.NONE.titleRes)
+                }
 
     }
 }

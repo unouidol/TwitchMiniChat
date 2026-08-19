@@ -279,7 +279,7 @@
     <string name="spawn_alert_mode_all_spawns">Notify ALL spawns</string>
 
 
-    <string name="spawn_alert_mode_none">No spawns</string>
+    <string name="spawn_alert_mode_none">No standard spawn alerts</string>
 
 
     <string name="spawn_alert_mode_saved">Spawn notifications: %1$s</string>
@@ -302,12 +302,17 @@
     <string name="pcg_notification_channel_sound_vibrate_description">PokémonCommunityGame alerts with sound and vibration.</string>
 
     <string name="pcg_spawn_alert_dialog_title">PCG notifications</string>
-    <string name="pcg_spawn_alert_modes_header">Notify me for</string>
+    <string name="pcg_spawn_alert_modes_header">Standard spawn alerts</string>
     <string name="pcg_event_spawn_alert_label">Notify current PCG event spawns</string>
     <string name="pcg_spawn_alert_bell_mode_and_event">%1$s; event spawns enabled</string>
     <string name="pcg_notification_delivery_header">Alert style</string>
     <string name="pcg_notification_sound_label">Sound</string>
     <string name="pcg_notification_vibration_label">Vibration</string>
+    <string name="pcg_notification_reminder_label">Reminder after 45 seconds</string>
+    <string name="pcg_alert_settings_saved">Alert settings updated.</string>
+    <string name="pcg_alert_settings_partially_saved">Only some alert settings were updated. Check your connection and try again.</string>
+    <string name="pcg_alert_settings_save_failed">Could not update alert settings.</string>
+    <string name="pcg_alert_settings_update_in_progress">Alert settings are already being updated.</string>
 
 
 
