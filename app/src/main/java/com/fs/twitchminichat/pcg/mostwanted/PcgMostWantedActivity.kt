@@ -2,6 +2,7 @@ package com.fs.twitchminichat.pcg.mostwanted
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -9,6 +10,7 @@ import android.widget.ListView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -22,7 +24,9 @@ import com.fs.twitchminichat.pcg.catalog.PcgPokemonCatalogEntry
 import com.fs.twitchminichat.pcg.catalog.PcgPokemonCatalogRepository
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,6 +59,9 @@ class PcgMostWantedActivity :
     /** Complete immutable catalog currently loaded by this screen. */
     private var catalogEntries: List<PcgPokemonCatalogEntry> = emptyList()
 
+    /** Version written to backups for compatibility diagnostics. */
+    private var catalogVersion: String = ""
+
     /** Catalog entries currently shown after search and filters. */
     private var visibleEntries: List<PcgPokemonCatalogEntry> = emptyList()
 
@@ -76,6 +83,20 @@ class PcgMostWantedActivity :
     /** One-shot backend client used only after an explicit Save tap. */
     private val syncClient by lazy {
         PcgMostWantedSyncClient(this)
+    }
+
+    /** Creates a user-owned text document through Android document storage. */
+    private val createBackupDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument(TEXT_MIME_TYPE)
+    ) { uri ->
+        uri?.let(::exportDraftToDocument)
+    }
+
+    /** Opens a user-selected text document without broad storage permission. */
+    private val openBackupDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let(::importBackupDocument)
     }
 
     /** Top application bar containing title and back navigation. */
@@ -172,6 +193,15 @@ class PcgMostWantedActivity :
         toolbar.setNavigationOnClickListener {
             requestClose()
         }
+        toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.actionMostWantedBackup -> {
+                    showBackupMenu()
+                    true
+                }
+                else -> false
+            }
+        }
 
         onBackPressedDispatcher.addCallback(
             this,
@@ -231,11 +261,16 @@ class PcgMostWantedActivity :
                     val state = mostWantedStore
                         .getState(profileId)
                         .getOrThrow()
-                    catalog.entries to state
+                    Triple(
+                        catalog.catalogVersion,
+                        catalog.entries,
+                        state
+                    )
                 }
             }
 
-            result.onSuccess { (entries, state) ->
+            result.onSuccess { (loadedCatalogVersion, entries, state) ->
+                catalogVersion = loadedCatalogVersion
                 catalogEntries = entries
                 persistedState = state
                 draftSelectedNames.clear()
@@ -255,6 +290,284 @@ class PcgMostWantedActivity :
 
             setBusy(false)
         }
+    }
+
+    /** Opens the two explicit backup actions requested by the user. */
+    private fun showBackupMenu() {
+        if (
+            catalogEntries.isEmpty() ||
+            progress.visibility == View.VISIBLE
+        ) {
+            return
+        }
+
+        val content = layoutInflater.inflate(
+            R.layout.dialog_pcg_most_wanted_backup,
+            null
+        )
+        val buttonExport = content.findViewById<MaterialButton>(
+            R.id.btnMostWantedExportBackup
+        )
+        val buttonImport = content.findViewById<MaterialButton>(
+            R.id.btnMostWantedImportBackup
+        )
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.pcg_most_wanted_backup_title)
+            .setView(content)
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+
+        buttonExport.setOnClickListener {
+            dialog.dismiss()
+            createBackupDocumentLauncher.launch(
+                getString(
+                    R.string.pcg_most_wanted_backup_default_filename,
+                    LocalDate.now().toString()
+                )
+            )
+        }
+        buttonImport.setOnClickListener {
+            dialog.dismiss()
+            openBackupDocumentLauncher.launch(
+                arrayOf(TEXT_MIME_TYPE, BINARY_MIME_TYPE)
+            )
+        }
+
+        dialog.show()
+    }
+
+    /** Writes a snapshot of the current editor draft to the selected URI. */
+    private fun exportDraftToDocument(uri: Uri) {
+        val draftSnapshot = draftSelectedNames.toList()
+        val catalogSnapshot = catalogEntries
+        val versionSnapshot = catalogVersion
+        setBusy(true)
+
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val backupText = PcgMostWantedBackupCodec.encode(
+                        catalogVersion = versionSnapshot,
+                        catalogEntries = catalogSnapshot,
+                        selectedDisplayNames = draftSnapshot
+                    )
+                    val outputStream = contentResolver.openOutputStream(
+                        uri,
+                        DOCUMENT_WRITE_MODE
+                    ) ?: error("Selected document cannot be opened")
+
+                    PcgMostWantedBackupDocumentIo.writeUtf8(
+                        outputStream,
+                        backupText
+                    )
+                }
+            }
+
+            result.onSuccess {
+                Toast.makeText(
+                    this@PcgMostWantedActivity,
+                    getString(
+                        R.string.pcg_most_wanted_backup_exported,
+                        draftSnapshot.size
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }.onFailure {
+                Toast.makeText(
+                    this@PcgMostWantedActivity,
+                    R.string.pcg_most_wanted_backup_export_failed,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
+            setBusy(false)
+        }
+    }
+
+    /** Reads and validates a selected document without mutating saved state. */
+    private fun importBackupDocument(uri: Uri) {
+        val catalogSnapshot = catalogEntries
+        setBusy(true)
+
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val inputStream = contentResolver.openInputStream(uri)
+                        ?: error("Selected document cannot be opened")
+                    val text = inputStream.use(
+                        PcgMostWantedBackupDocumentIo::readUtf8
+                    )
+
+                    PcgMostWantedBackupCodec.decode(
+                        text = text,
+                        catalogEntries = catalogSnapshot
+                    )
+                }
+            }
+
+            setBusy(false)
+
+            result.onSuccess { decodeResult ->
+                when (decodeResult) {
+                    is PcgMostWantedBackupDecodeResult.Success -> {
+                        showImportPreview(decodeResult.backup)
+                    }
+                    is PcgMostWantedBackupDecodeResult.Failure -> {
+                        showDecodeFailure(decodeResult.error)
+                    }
+                }
+            }.onFailure(::showDocumentReadFailure)
+        }
+    }
+
+    /** Shows the complete replacement summary before changing the draft. */
+    private fun showImportPreview(backup: PcgMostWantedBackupImport) {
+        val sourceCatalogVersion = backup.sourceCatalogVersion
+        val messageParts = mutableListOf(
+            getString(
+                R.string.pcg_most_wanted_backup_import_count,
+                backup.selectedDisplayNames.size
+            )
+        )
+
+        if (backup.duplicateCount > 0) {
+            messageParts.add(
+                resources.getQuantityString(
+                    R.plurals.pcg_most_wanted_backup_duplicate_count,
+                    backup.duplicateCount,
+                    backup.duplicateCount
+                )
+            )
+        }
+
+        if (
+            !sourceCatalogVersion.isNullOrBlank() &&
+            sourceCatalogVersion != catalogVersion
+        ) {
+            messageParts.add(
+                getString(
+                    R.string.pcg_most_wanted_backup_catalog_changed,
+                    sanitizeBackupNameForDisplay(
+                        sourceCatalogVersion
+                    ),
+                    catalogVersion
+                )
+            )
+        }
+
+        messageParts.add(
+            getString(R.string.pcg_most_wanted_backup_import_review)
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pcg_most_wanted_backup_import_preview_title)
+            .setMessage(messageParts.joinToString(separator = "\n\n"))
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(
+                R.string.pcg_most_wanted_backup_load_draft
+            ) { _, _ ->
+                applyImportedDraft(backup.selectedDisplayNames)
+            }
+            .show()
+    }
+
+    /** Replaces only the in-memory draft; Save remains the commit boundary. */
+    private fun applyImportedDraft(importedNames: Set<String>) {
+        draftSelectedNames.clear()
+        draftSelectedNames.addAll(importedNames)
+        updateDirtyState()
+        renderFilteredEntries()
+
+        Toast.makeText(
+            this,
+            if (hasUnsavedChanges) {
+                R.string.pcg_most_wanted_backup_loaded_into_draft
+            } else {
+                R.string.pcg_most_wanted_backup_matches_saved
+            },
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    /** Maps structural validation failures to resource-backed safe copy. */
+    private fun showDecodeFailure(
+        failure: PcgMostWantedBackupDecodeFailure
+    ) {
+        val message = when (failure.reason) {
+            PcgMostWantedBackupDecodeError.EMPTY_DOCUMENT -> {
+                getString(R.string.pcg_most_wanted_backup_empty)
+            }
+            PcgMostWantedBackupDecodeError.UNSUPPORTED_FORMAT -> {
+                getString(R.string.pcg_most_wanted_backup_unsupported)
+            }
+            PcgMostWantedBackupDecodeError.TOO_MANY_ENTRIES -> {
+                getString(R.string.pcg_most_wanted_backup_too_many_entries)
+            }
+            PcgMostWantedBackupDecodeError.UNKNOWN_NAMES -> {
+                val shownNames = failure.unknownNames
+                    .take(MAX_UNKNOWN_NAMES_SHOWN)
+                    .map(::sanitizeBackupNameForDisplay)
+                    .joinToString(separator = "\n")
+                val remainingCount = (
+                    failure.unknownNames.size - MAX_UNKNOWN_NAMES_SHOWN
+                ).coerceAtLeast(0)
+                val nameSummary = if (remainingCount > 0) {
+                    getString(
+                        R.string.pcg_most_wanted_backup_unknown_names_more,
+                        shownNames,
+                        remainingCount
+                    )
+                } else {
+                    shownNames
+                }
+
+                resources.getQuantityString(
+                    R.plurals.pcg_most_wanted_backup_unknown_names,
+                    failure.unknownNames.size,
+                    failure.unknownNames.size,
+                    nameSummary
+                )
+            }
+            PcgMostWantedBackupDecodeError.MISSING_HEADER,
+            PcgMostWantedBackupDecodeError.MISSING_FORMAT -> {
+                getString(R.string.pcg_most_wanted_backup_invalid)
+            }
+        }
+
+        showImportError(message)
+    }
+
+    /** Maps bounded input failures without displaying raw exception details. */
+    private fun showDocumentReadFailure(error: Throwable) {
+        val messageRes = when (
+            (error as? PcgMostWantedBackupDocumentException)?.reason
+        ) {
+            PcgMostWantedBackupDocumentError.TOO_LARGE -> {
+                R.string.pcg_most_wanted_backup_too_large
+            }
+            PcgMostWantedBackupDocumentError.INVALID_UTF8 -> {
+                R.string.pcg_most_wanted_backup_invalid_utf8
+            }
+            null -> R.string.pcg_most_wanted_backup_read_failed
+        }
+
+        showImportError(getString(messageRes))
+    }
+
+    /** Limits untrusted file text before displaying it in an error dialog. */
+    private fun sanitizeBackupNameForDisplay(name: String): String {
+        return name
+            .filterNot { character -> character.isISOControl() }
+            .take(MAX_UNKNOWN_NAME_LENGTH)
+    }
+
+    /** Displays one non-destructive import error. */
+    private fun showImportError(message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pcg_most_wanted_backup_import_failed_title)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     /** Applies structured search and every visible filter in catalog order. */
@@ -464,6 +777,8 @@ class PcgMostWantedActivity :
     /** Applies one blocking progress state to controls that mutate the draft. */
     private fun setBusy(busy: Boolean) {
         progress.visibility = if (busy) View.VISIBLE else View.GONE
+        toolbar.menu.findItem(R.id.actionMostWantedBackup)?.isEnabled =
+            !busy && catalogEntries.isNotEmpty()
         editSearch.isEnabled = !busy
         buttonFilters.isEnabled = !busy
         buttonSelectShown.isEnabled = false
@@ -520,6 +835,21 @@ class PcgMostWantedActivity :
         /** Result flag requesting that the caller reopen the bell menu. */
         private const val EXTRA_RETURN_TO_ALERT_MENU =
             "return_to_alert_menu"
+
+        /** MIME type used by the Android Storage Access Framework. */
+        private const val TEXT_MIME_TYPE = "text/plain"
+
+        /** Fallback accepted for providers that expose .txt as raw bytes. */
+        private const val BINARY_MIME_TYPE = "application/octet-stream"
+
+        /** Truncating write mode for a newly created document. */
+        private const val DOCUMENT_WRITE_MODE = "wt"
+
+        /** Maximum number of invalid names shown in one error dialog. */
+        private const val MAX_UNKNOWN_NAMES_SHOWN = 5
+
+        /** Maximum displayed length for one untrusted backup line. */
+        private const val MAX_UNKNOWN_NAME_LENGTH = 80
 
         /** Creates the profile-scoped editor Intent for an Activity launcher. */
         fun createIntent(context: Context, profileId: String): Intent {

@@ -13,6 +13,7 @@
         android:background="?attr/colorSurface"
         android:navigationIcon="@drawable/ic_arrow_back_24"
         android:title="@string/pcg_most_wanted_title"
+        app:menu="@menu/menu_pcg_most_wanted"
         app:titleTextColor="?android:attr/textColorPrimary" />
 
     <TextView
