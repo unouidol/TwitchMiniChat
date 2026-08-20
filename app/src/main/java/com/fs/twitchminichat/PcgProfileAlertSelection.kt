@@ -1,5 +1,8 @@
 package com.fs.twitchminichat
 
+import android.content.Context
+import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
+
 /**
  * Complete profile-scoped PCG alert selection.
  *
@@ -14,6 +17,61 @@ data class PcgProfileAlertSelection(
     val requiresFirebaseDelivery: Boolean
         get() =
             spawnSettings.hasOrdinaryOrEventAlerts || mostWantedEnabled
+}
+
+/** Reads the complete locally persisted alert selection for one profile. */
+object PcgProfileAlertSelectionStore {
+
+    /** Combines the three independent local category stores. */
+    fun read(
+        context: Context,
+        profileId: String
+    ): PcgProfileAlertSelection {
+        val appContext = context.applicationContext
+        return PcgProfileAlertSelection(
+            spawnSettings = PcgSpawnAlertSettings(
+                regularMode = PcgSpawnAlertModeStore.getMode(
+                    appContext,
+                    profileId
+                ),
+                eventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
+                    appContext,
+                    profileId
+                )
+            ),
+            mostWantedEnabled = PcgMostWantedStore(appContext)
+                .isEnabled(profileId)
+        )
+    }
+}
+
+/** One ordered operation used whenever an FCM token is registered. */
+enum class PcgProfileRegistrationSyncStep {
+    REGISTER_TOKEN,
+    RESTORE_ALERT_SELECTION
+}
+
+/**
+ * Preserves active alert categories across Firebase token registration.
+ *
+ * The backend token endpoint can refresh device credentials and registry data,
+ * while the alert endpoint remains the source of truth for ordinary, event,
+ * and Most Wanted delivery eligibility. Their order must therefore remain
+ * deterministic.
+ */
+object PcgProfileRegistrationSyncPlanner {
+
+    /** Returns the only safe order for an active profile registration. */
+    fun buildPlan(
+        selection: PcgProfileAlertSelection
+    ): List<PcgProfileRegistrationSyncStep> {
+        if (!selection.requiresFirebaseDelivery) return emptyList()
+
+        return listOf(
+            PcgProfileRegistrationSyncStep.REGISTER_TOKEN,
+            PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION
+        )
+    }
 }
 
 /** One backend synchronization operation for an alert selection change. */

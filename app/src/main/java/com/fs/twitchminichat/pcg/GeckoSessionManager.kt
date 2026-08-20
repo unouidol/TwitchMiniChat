@@ -11,7 +11,7 @@ import com.fs.twitchminichat.DiagnosticError
 import com.fs.twitchminichat.FcmRegistrationUploader
 import com.fs.twitchminichat.InventoryBallItem
 import com.fs.twitchminichat.InventoryBallStore
-import com.fs.twitchminichat.PushSettingsStore
+import com.fs.twitchminichat.PcgProfileAlertSelectionStore
 import com.fs.twitchminichat.R
 import org.json.JSONArray
 import org.json.JSONObject
@@ -2104,9 +2104,12 @@ object GeckoSessionManager {
             "manual pokedex upload accepted count=${snapshot.wantedPokemon.size}"
         )
 
-        val pushEnabled = PushSettingsStore.isPushEnabled(appContext, snapshot.profileId)
+        val deliveryRequired = PcgProfileAlertSelectionStore.read(
+            appContext,
+            snapshot.profileId
+        ).requiresFirebaseDelivery
 
-        if (pushEnabled) {
+        if (deliveryRequired) {
             val prefs = appContext.getSharedPreferences("fcm_registration", Context.MODE_PRIVATE)
             val token = prefs.getString("latest_fcm_token", null)
 
@@ -2117,7 +2120,10 @@ object GeckoSessionManager {
                 Log.w("PCG_PROBE", "No cached Firebase Cloud Messaging token available")
             }
         } else {
-            Log.d("PCG_PROBE", "Push muted; skip Firebase Cloud Messaging registration")
+            Log.d(
+                "PCG_PROBE",
+                "No active alert category; skip Firebase Cloud Messaging registration"
+            )
         }
 
         FcmRegistrationUploader.uploadDexList(

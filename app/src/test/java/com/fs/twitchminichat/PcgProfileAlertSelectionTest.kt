@@ -36,6 +36,35 @@ class PcgProfileAlertSelectionTest {
     }
 
     @Test
+    fun mostWantedOnly_registrationRestoresSelectionAfterTokenUpload() {
+        val plan = PcgProfileRegistrationSyncPlanner.buildPlan(
+            selection(
+                regularMode = PcgSpawnAlertMode.NONE,
+                eventSpawnsEnabled = false,
+                mostWantedEnabled = true
+            )
+        )
+
+        assertEquals(
+            listOf(
+                PcgProfileRegistrationSyncStep.REGISTER_TOKEN,
+                PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION
+            ),
+            plan
+        )
+    }
+
+    @Test
+    fun disabledProfile_registrationPerformsNoNetworkSteps() {
+        assertEquals(
+            emptyList<PcgProfileRegistrationSyncStep>(),
+            PcgProfileRegistrationSyncPlanner.buildPlan(
+                disabledSelection()
+            )
+        )
+    }
+
+    @Test
     fun enablingMostWantedFromDisabled_registersDeliveryBeforeWatchlist() {
         val plan = PcgProfileAlertSyncPlanner.buildPlan(
             current = disabledSelection(),

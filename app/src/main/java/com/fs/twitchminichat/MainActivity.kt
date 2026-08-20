@@ -343,16 +343,23 @@ class MainActivity : AppCompatActivity() {
                 .distinct()
 
             for (profileId in profileIds) {
-                val pushEnabled = PushSettingsStore.isPushEnabled(applicationContext, profileId)
+                val selection = PcgProfileAlertSelectionStore.read(
+                    applicationContext,
+                    profileId
+                )
+                val deliveryRequired = selection.requiresFirebaseDelivery
 
-                Log.d("FCM", "Boot registration check pushEnabled=$pushEnabled")
+                Log.d(
+                    "FCM",
+                    "Boot registration check deliveryRequired=$deliveryRequired"
+                )
 
-                if (!pushEnabled) {
-                    Log.d("FCM", "Skip token registration for muted profile")
+                if (!deliveryRequired) {
+                    Log.d("FCM", "Skip token registration: no active alert category")
                     continue
                 }
 
-                Log.d("FCM", "Registering token for enabled profile")
+                Log.d("FCM", "Registering token and restoring alert selection")
                 FcmRegistrationUploader.uploadToken(applicationContext, token, profileId)
             }
         }

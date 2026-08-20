@@ -4252,21 +4252,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun readProfileAlertSelection(
         profileId: String
     ): PcgProfileAlertSelection {
-        return PcgProfileAlertSelection(
-            spawnSettings = PcgSpawnAlertSettings(
-                regularMode = PcgSpawnAlertModeStore.getMode(
-                    requireContext(),
-                    profileId
-                ),
-                eventSpawnsEnabled =
-                    PcgEventSpawnAlertStore.isEnabled(
-                        requireContext(),
-                        profileId
-                    )
-            ),
-            mostWantedEnabled =
-                PcgMostWantedStore(requireContext())
-                    .isEnabled(profileId)
+        return PcgProfileAlertSelectionStore.read(
+            requireContext(),
+            profileId
         )
     }
 

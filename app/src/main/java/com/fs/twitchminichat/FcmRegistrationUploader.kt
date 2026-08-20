@@ -33,6 +33,7 @@ object FcmRegistrationUploader {
         val ok: Boolean
     )
 
+    /** Registers one token, then restores every active alert category. */
     fun uploadToken(context: Context, token: String, profileId: String) {
         val appContext = context.applicationContext
         val trimmedToken = token.trim()
@@ -42,7 +43,50 @@ object FcmRegistrationUploader {
         }
 
         thread(start = true, name = "fcm-register-upload") {
-            uploadTokenBlocking(appContext, trimmedToken, profileId)
+            val selection = PcgProfileAlertSelectionStore.read(
+                appContext,
+                profileId
+            )
+            val plan = PcgProfileRegistrationSyncPlanner.buildPlan(
+                selection
+            )
+
+            if (plan.isEmpty()) {
+                Log.d(TAG, "register_fcm skipped: no active alert category")
+                return@thread
+            }
+
+            var registrationSucceeded = false
+
+            for (step in plan) {
+                when (step) {
+                    PcgProfileRegistrationSyncStep.REGISTER_TOKEN -> {
+                        registrationSucceeded = uploadTokenBlocking(
+                            appContext,
+                            trimmedToken,
+                            profileId
+                        )
+                        if (!registrationSucceeded) {
+                            break
+                        }
+                    }
+
+                    PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION -> {
+                        if (!registrationSucceeded) break
+
+                        val restored = setProfileSpawnAlertModeBlocking(
+                            context = appContext,
+                            profileId = profileId,
+                            selection = selection,
+                            token = trimmedToken
+                        )
+                        Log.d(
+                            TAG,
+                            "Alert selection resync after register_fcm ok=$restored"
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -83,65 +127,14 @@ object FcmRegistrationUploader {
             return
         }
 
-        val settings = selection.spawnSettings
-
         fun sendRequest(token: String) {
             thread(start = true, name = "spawn-alert-mode") {
-                val authDecision = BackendAuthHeaderProvider(
-                    sessionReader = BackendSessionStore(appContext)
-                ).resolve(normalizedProfileId)
-
-                val payload = JSONObject().apply {
-                    put("device_id", DeviceCredentialStore.getOrCreateDeviceId(appContext))
-                    put("device_name", buildDeviceName(appContext))
-                    put("fcm_token", token)
-                    put("profile_id", normalizedProfileId)
-                    put("spawn_alert_mode", settings.regularMode.id)
-                    put("event_spawn_enabled", settings.eventSpawnsEnabled)
-
-                    /*
-                     * Compatibility bridge for the old registration model.
-                     *
-                     * The server can keep profile_ids aligned while also storing
-                     * the more precise profile_spawn_alert_modes map.
-                     */
-                    put(
-                        "enabled",
-                        selection.requiresFirebaseDelivery
-                    )
-                }
-
-                val authorizationHeader = when (authDecision) {
-                    BackendSessionAuthDecision.Missing -> {
-                        Log.w(TAG, "set_spawn_alert_mode skipped: backend session missing")
-                        finish(false)
-                        return@thread
-                    }
-
-                    is BackendSessionAuthDecision.Bearer -> {
-                        Log.d(TAG, "set_spawn_alert_mode authMode=backend_session")
-                        authDecision.authorizationHeader
-                    }
-
-                    BackendSessionAuthDecision.Unavailable -> {
-                        /*
-                         * An unreadable or invalid local session must not be downgraded
-                         * to profile-only legacy authentication.
-                         */
-                        Log.w(TAG, "set_spawn_alert_mode skipped: backend session unavailable")
-                        finish(false)
-                        return@thread
-                    }
-                }
-
-                val result = postJson(
-                    urlString = appContext.getString(R.string.fcm_set_spawn_alert_mode_url),
-                    payload = payload,
-                    logLabel = "set_spawn_alert_mode",
-                    authorizationHeader = authorizationHeader
+                val ok = setProfileSpawnAlertModeBlocking(
+                    context = appContext,
+                    profileId = normalizedProfileId,
+                    selection = selection,
+                    token = token
                 )
-
-                val ok = result?.responseCode in 200..299
                 finish(ok)
             }
         }
@@ -190,6 +183,70 @@ object FcmRegistrationUploader {
             Log.d(TAG, "Fetched a Firebase Cloud Messaging token for spawn mode")
             sendRequest(freshToken)
         }
+    }
+
+    /** Sends one complete alert selection without starting another worker. */
+    private fun setProfileSpawnAlertModeBlocking(
+        context: Context,
+        profileId: String,
+        selection: PcgProfileAlertSelection,
+        token: String
+    ): Boolean {
+        val normalizedProfileId = normalizeProfileId(profileId)
+        if (normalizedProfileId.isBlank()) {
+            Log.w(TAG, "set_spawn_alert_mode skipped: blank profileId")
+            return false
+        }
+
+        val settings = selection.spawnSettings
+        val authDecision = BackendAuthHeaderProvider(
+            sessionReader = BackendSessionStore(context)
+        ).resolve(normalizedProfileId)
+
+        val payload = JSONObject().apply {
+            put("device_id", DeviceCredentialStore.getOrCreateDeviceId(context))
+            put("device_name", buildDeviceName(context))
+            put("fcm_token", token)
+            put("profile_id", normalizedProfileId)
+            put("spawn_alert_mode", settings.regularMode.id)
+            put("event_spawn_enabled", settings.eventSpawnsEnabled)
+
+            /*
+             * Compatibility bridge for the old registration model. The server
+             * keeps Firebase delivery while any independent category is active.
+             */
+            put("enabled", selection.requiresFirebaseDelivery)
+        }
+
+        val authorizationHeader = when (authDecision) {
+            BackendSessionAuthDecision.Missing -> {
+                Log.w(TAG, "set_spawn_alert_mode skipped: backend session missing")
+                return false
+            }
+
+            is BackendSessionAuthDecision.Bearer -> {
+                Log.d(TAG, "set_spawn_alert_mode authMode=backend_session")
+                authDecision.authorizationHeader
+            }
+
+            BackendSessionAuthDecision.Unavailable -> {
+                /*
+                 * An unreadable or invalid local session must not be downgraded
+                 * to profile-only legacy authentication.
+                 */
+                Log.w(TAG, "set_spawn_alert_mode skipped: backend session unavailable")
+                return false
+            }
+        }
+
+        val result = postJson(
+            urlString = context.getString(R.string.fcm_set_spawn_alert_mode_url),
+            payload = payload,
+            logLabel = "set_spawn_alert_mode",
+            authorizationHeader = authorizationHeader
+        )
+
+        return result?.responseCode in 200..299
     }
 
 
@@ -413,11 +470,15 @@ object FcmRegistrationUploader {
      *
      * Missing or unreadable backend sessions never authorize a request.
      */
-    private fun uploadTokenBlocking(context: Context, token: String, profileId: String) {
+    private fun uploadTokenBlocking(
+        context: Context,
+        token: String,
+        profileId: String
+    ): Boolean {
         val normalizedProfileId = normalizeProfileId(profileId)
         if (normalizedProfileId.isBlank()) {
             Log.w(TAG, "Blank profileId, skip register_fcm")
-            return
+            return false
         }
 
         val authDecision = BackendAuthHeaderProvider(
@@ -434,7 +495,7 @@ object FcmRegistrationUploader {
         val authorizationHeader = when (authDecision) {
             BackendSessionAuthDecision.Missing -> {
                 Log.w(TAG, "register_fcm skipped: backend session missing")
-                return
+                return false
             }
 
             is BackendSessionAuthDecision.Bearer -> {
@@ -446,7 +507,7 @@ object FcmRegistrationUploader {
                         "register_fcm skipped: device credential unavailable " +
                             "errorType=${DiagnosticError.typeOf(error)}"
                     )
-                    return
+                    return false
                 }
 
                 /*
@@ -465,16 +526,18 @@ object FcmRegistrationUploader {
                  * but cannot be trusted.
                  */
                 Log.w(TAG, "register_fcm skipped: backend session unavailable")
-                return
+                return false
             }
         }
 
-        postJson(
+        val result = postJson(
             urlString = context.getString(R.string.fcm_register_url),
             payload = payload,
             logLabel = "register_fcm",
             authorizationHeader = authorizationHeader
         )
+
+        return result?.responseCode in 200..299
     }
 
     /**
