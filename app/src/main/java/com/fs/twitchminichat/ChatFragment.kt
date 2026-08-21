@@ -2130,7 +2130,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                     if (spawnIngestion.snapshotChanged) {
                         refreshOpenQuickCatchMenuIfNeeded()
-                        updateQuickCatchHeader()
                     }
                 }
             },
@@ -2708,7 +2707,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                             if (spawnIngestion.snapshotChanged) {
                                 refreshOpenQuickCatchMenuIfNeeded()
-                                updateQuickCatchHeader()
                             }
                         }
                     }
