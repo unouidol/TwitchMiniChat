@@ -135,11 +135,17 @@ class PokemonTypeDexCatalogTest {
 
     private fun loadFixture(): Fixture {
         val assets = findAppModuleDirectory().resolve("src/main/assets")
-        val pcgJson = Files.readString(
-            assets.resolve("pcg_catalog/pcg_pokemon_catalog_v1.json")
+        val pcgJson = String(
+            Files.readAllBytes(
+                assets.resolve("pcg_catalog/pcg_pokemon_catalog_v1.json")
+            ),
+            Charsets.UTF_8
         )
-        val metadataJson = Files.readString(
-            assets.resolve("pokemon_type_dex.json")
+        val metadataJson = String(
+            Files.readAllBytes(
+                assets.resolve("pokemon_type_dex.json")
+            ),
+            Charsets.UTF_8
         )
 
         val pcgCatalog = PcgPokemonCatalogJsonParser.parse(pcgJson)
