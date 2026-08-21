@@ -50,6 +50,22 @@ class PcgMostWantedStore(
         )
     }
 
+    /**
+     * Reads the already-validated selection without reparsing the catalog.
+     *
+     * This lightweight snapshot is intended for frequently refreshed informative
+     * surfaces such as Smart Catch. Editor and synchronization flows should keep
+     * using [getState] so stale names are validated against the current catalog.
+     */
+    @Synchronized
+    fun getSelectedDisplayNamesSnapshot(profileId: String): Set<String> {
+        val profileKey = createProfileKey(profileId)
+        return preferences.getStringSet(
+            selectionPreferenceKey(profileKey),
+            emptySet()
+        ).orEmpty().toSet()
+    }
+
     /** Updates only the enabled flag from the notification menu. */
     @Synchronized
     fun updateEnabled(

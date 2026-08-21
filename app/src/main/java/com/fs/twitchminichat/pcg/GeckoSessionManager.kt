@@ -11,6 +11,7 @@ import com.fs.twitchminichat.DiagnosticError
 import com.fs.twitchminichat.FcmRegistrationUploader
 import com.fs.twitchminichat.InventoryBallItem
 import com.fs.twitchminichat.InventoryBallStore
+import com.fs.twitchminichat.PcgPokedexSnapshotStore
 import com.fs.twitchminichat.PcgProfileAlertSelectionStore
 import com.fs.twitchminichat.R
 import org.json.JSONArray
@@ -172,8 +173,8 @@ object GeckoSessionManager {
     /**
      * Last valid Pokédex snapshot seen passively by the PCG probe.
      *
-     * Android only uploads this snapshot after the user explicitly presses
-     * Register Pokédex.
+     * Android only persists and uploads this snapshot after the user explicitly
+     * presses Register Pokédex.
      */
     private data class CachedPokedexSnapshot(
         val profileId: String,
@@ -2099,6 +2100,12 @@ object GeckoSessionManager {
         if (shouldSkipDuplicateManualPokedexUpload(sessionKey, snapshot)) {
             return
         }
+
+        PcgPokedexSnapshotStore.saveMissingEntries(
+            context = appContext,
+            profileId = snapshot.profileId,
+            missingNames = snapshot.wantedPokemon
+        )
         Log.d(
             "PCG_PROBE",
             "manual pokedex upload accepted count=${snapshot.wantedPokemon.size}"

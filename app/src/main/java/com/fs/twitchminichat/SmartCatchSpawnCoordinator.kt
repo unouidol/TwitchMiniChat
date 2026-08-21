@@ -239,22 +239,19 @@ internal class SmartCatchSpawnCoordinator(
                 outcome = decision.outcome
             )
 
-        val sameExistingSpawn = existing
-            ?.takeIf { existingIdentity == incomingIdentity }
-
         saveCurrentSpawn(
             SpawnSnapshot(
                 rawName = rawName,
                 dexKey = dexEntry?.key,
                 displayName = dexEntry?.pcgName ?: rawName,
+                tier = dexEntry?.tier,
                 type1 = dexEntry?.type1,
                 type2 = dexEntry?.type2,
                 weightKg = dexEntry?.weightKg,
                 baseSpeed = dexEntry?.baseSpeed,
                 baseHp = dexEntry?.baseHp,
                 evolvesTwice = dexEntry?.evolvesTwice,
-                seenAtMs = acceptedSeenAtMs,
-                isAlreadyCaught = sameExistingSpawn?.isAlreadyCaught
+                seenAtMs = acceptedSeenAtMs
             )
         )
 

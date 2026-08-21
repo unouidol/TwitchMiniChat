@@ -24,13 +24,15 @@ object CatchBallRecommender {
     fun recommend(
         presets: List<CatchPreset>,
         spawn: SpawnSnapshot?,
-        buddy: BuddyInfo?
+        buddy: BuddyInfo?,
+        isAlreadyCaught: Boolean? = null
     ): List<CatchBallRecommendation> {
         return presets.mapIndexed { index, preset ->
             val result = scorePreset(
                 preset = preset,
                 spawn = spawn,
-                buddy = buddy
+                buddy = buddy,
+                isAlreadyCaught = isAlreadyCaught
             )
 
             CatchBallRecommendation(
@@ -53,7 +55,8 @@ object CatchBallRecommender {
     private fun scorePreset(
         preset: CatchPreset,
         spawn: SpawnSnapshot?,
-        buddy: BuddyInfo?
+        buddy: BuddyInfo?,
+        isAlreadyCaught: Boolean?
     ): ScoreResult {
         val ballId = CatchPresetBallHelper.effectiveBallId(preset).orEmpty()
         val types = spawnTypes(spawn)
@@ -130,7 +133,7 @@ object CatchBallRecommender {
             }
 
             "repeat_ball" -> {
-                if (spawn?.isAlreadyCaught == true) {
+                if (isAlreadyCaught == true) {
                     ScoreResult(75, listOf("already_caught"))
                 } else {
                     ScoreResult(0, emptyList())

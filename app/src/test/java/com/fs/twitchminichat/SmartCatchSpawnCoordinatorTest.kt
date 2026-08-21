@@ -23,6 +23,7 @@ class SmartCatchSpawnCoordinatorTest {
         assertTrue(result.snapshotChanged)
         assertEquals(SmartCatchSpawnSource.IRC, result.source)
         assertEquals("Cacnea", harness.stored?.displayName)
+        assertEquals(PcgPokemonTier.C, harness.stored?.tier)
         assertEquals("Grass", harness.stored?.type1)
         assertEquals(999_000L, harness.stored?.seenAtMs)
     }
@@ -272,14 +273,14 @@ class SmartCatchSpawnCoordinatorTest {
                 rawName = rawName,
                 dexKey = null,
                 displayName = rawName,
+                tier = null,
                 type1 = null,
                 type2 = null,
                 weightKg = null,
                 baseSpeed = null,
                 baseHp = null,
                 evolvesTwice = null,
-                seenAtMs = seenAtMs,
-                isAlreadyCaught = null
+                seenAtMs = seenAtMs
             )
         }
     }

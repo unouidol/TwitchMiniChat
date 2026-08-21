@@ -18,21 +18,22 @@ import android.content.Context
 object QuickCatchMenuModelFactory {
 
     /**
-     * Builds the list consumed by QuickCatchPresetMenuAdapter.
+     * Builds the menu entries and spawn header consumed by the Quick Catch panel.
      *
-     * The returned list can contain:
+     * The returned menu list can contain:
      * - section headers;
      * - Smart Preset rows;
      * - User Preset rows.
      *
-     * Smart Presets are based on the active spawn.
-     * User Presets are based only on enabled saved user presets.
+     * Smart Presets are based on the active spawn and profile-owned collection
+     * facts. User Presets are based only on enabled saved user presets.
      */
     fun build(
         context: Context,
         profileId: String?,
-        spawn: SpawnSnapshot?
-    ): List<QuickCatchPresetMenuEntry> {
+        spawn: SpawnSnapshot?,
+        nowMs: Long = System.currentTimeMillis()
+    ): QuickCatchPanelModel {
         /**
          * Source of the "User presets" section.
          *
@@ -44,6 +45,11 @@ object QuickCatchMenuModelFactory {
             profileId = profileId
         )
         val userPresets = userPresetSnapshot.enabledCommandPresets
+        val profileSpawnContext = QuickCatchProfileSpawnContextProvider.load(
+            context = context,
+            profileId = profileId,
+            spawn = spawn
+        )
 
         /**
          * Builds Smart/User recommendation groups.
@@ -55,7 +61,8 @@ object QuickCatchMenuModelFactory {
             context = context,
             profileId = profileId,
             userPresets = userPresets,
-            spawn = spawn
+            spawn = spawn,
+            profileSpawnContext = profileSpawnContext
         )
 
         /**
@@ -73,13 +80,24 @@ object QuickCatchMenuModelFactory {
         /**
          * Converts data/recommendations into the actual visual menu entries.
          */
-        return QuickCatchMenuBuilder.build(
+        val menuEntries = QuickCatchMenuBuilder.build(
             context = context,
             userPresets = userPresets,
             countsByBallId = countsByBallId,
             profileId = profileId,
             recommendationSet = recommendationSet,
             hasSavedUserPresets = userPresetSnapshot.hasSavedCommandPresets
+        )
+
+        return QuickCatchPanelModel(
+            menuEntries = menuEntries,
+            spawnHeader = QuickCatchSpawnHeaderFormatter.build(
+                context = context,
+                spawn = spawn,
+                lastKnownSpawn = CurrentSpawnStore.loadLastKnown(context),
+                profileSpawnContext = profileSpawnContext,
+                nowMs = nowMs
+            )
         )
     }
 }
