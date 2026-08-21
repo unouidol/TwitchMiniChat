@@ -21,7 +21,8 @@ object PcgPokemonNameNormalizer {
     private val COMBINING_MARKS_REGEX = Regex("\\p{M}+")
 
     /** Characters that do not contribute to a catalog search key. */
-    private val NON_NAME_CHARACTERS_REGEX = Regex("[^a-z0-9â™€â™‚]+")
+    private val NON_NAME_CHARACTERS_REGEX =
+        Regex("[^a-z0-9\\u2640\\u2642]+")
 
     /** Consecutive whitespace collapsed after punctuation removal. */
     private val REPEATED_WHITESPACE_REGEX = Regex("\\s+")
