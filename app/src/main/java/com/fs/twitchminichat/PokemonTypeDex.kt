@@ -1,119 +1,57 @@
 package com.fs.twitchminichat
 
 import android.content.Context
-import org.json.JSONObject
+import android.util.Log
+import com.fs.twitchminichat.pcg.catalog.PcgPokemonCatalogRepository
 
+/** Resolves Smart Catch metadata from the complete canonical PCG catalog. */
 object PokemonTypeDex {
 
     @Volatile
-    private var loaded = false
+    private var catalog: PokemonTypeDexCatalog? = null
 
-    private val byAlias = LinkedHashMap<String, PokemonTypeEntry>()
-
+    /** Resolves a PCG spawn name without allowing ambiguous aliases to guess. */
     fun findByPokemonName(context: Context, rawName: String): PokemonTypeEntry? {
-        ensureLoaded(context)
-        val normalized = PokemonNameNormalizer.normalize(rawName)
-        if (normalized.isBlank()) return null
-        return byAlias[normalized]
+        return ensureLoaded(context).find(rawName)
     }
 
-    private fun ensureLoaded(context: Context) {
-        if (loaded) return
+    private fun ensureLoaded(context: Context): PokemonTypeDexCatalog {
+        catalog?.let { return it }
 
-        synchronized(this) {
-            if (loaded) return
-
-            val jsonText = context.assets
-                .open("pokemon_type_dex.json")
-                .bufferedReader()
-                .use { it.readText() }
-
-            val root = JSONObject(jsonText)
-            val entries = root.getJSONArray("entries")
-
-            byAlias.clear()
-
-            for (i in 0 until entries.length()) {
-                val obj = entries.getJSONObject(i)
-
-                val sourceKey = obj.optString("sourceKey")
-                    .trim()
-                    .ifBlank { obj.optString("key").trim() }
-
-                val displayName = obj.optString("displayName").trim()
-                val pcgName = obj.optString("pcgName")
-                    .trim()
-                    .ifBlank { displayName }
-
-                val type1 = obj.optString("type1").trim()
-                val type2 = obj.optString("type2").trim().ifBlank { null }
-
-                val weightKg = when {
-                    obj.has("weightKg") && !obj.isNull("weightKg") -> obj.optDouble("weightKg")
-                    else -> null
-                }
-
-                val baseSpeed = when {
-                    obj.has("baseSpeed") && !obj.isNull("baseSpeed") -> obj.optInt("baseSpeed")
-                    else -> null
-                }
-
-                val baseHp = when {
-                    obj.has("baseHp") && !obj.isNull("baseHp") -> obj.optInt("baseHp")
-                    else -> null
-                }
-
-                val evolvesTwice = when {
-                    obj.has("evolvesTwice") && !obj.isNull("evolvesTwice") -> obj.optBoolean("evolvesTwice")
-                    else -> null
-                }
-
-                val mappingKind = obj.optString("mappingKind").trim().ifBlank { null }
-                val locked = obj.optBoolean("locked", false)
-                val featured = obj.optBoolean("featured", false)
-
-                if (sourceKey.isBlank() || displayName.isBlank() || pcgName.isBlank() || type1.isBlank()) {
-                    continue
-                }
-
-                val aliasesJson = obj.optJSONArray("aliases")
-                val aliases = mutableListOf<String>()
-
-                aliases += sourceKey
-                aliases += displayName
-                aliases += pcgName
-
-                if (aliasesJson != null) {
-                    for (j in 0 until aliasesJson.length()) {
-                        aliases += aliasesJson.optString(j).trim()
-                    }
-                }
-
-                val entry = PokemonTypeEntry(
-                    sourceKey = sourceKey,
-                    displayName = displayName,
-                    pcgName = pcgName,
-                    type1 = type1,
-                    type2 = type2,
-                    weightKg = weightKg,
-                    baseSpeed = baseSpeed,
-                    baseHp = baseHp,
-                    evolvesTwice = evolvesTwice,
-                    aliases = aliases.distinct(),
-                    mappingKind = mappingKind,
-                    locked = locked,
-                    featured = featured
-                )
-
-                for (alias in entry.aliases) {
-                    val normalized = PokemonNameNormalizer.normalize(alias)
-                    if (normalized.isNotBlank()) {
-                        byAlias[normalized] = entry
-                    }
-                }
+        return synchronized(this) {
+            catalog ?: loadCatalog(context.applicationContext).also { loaded ->
+                catalog = loaded
             }
-
-            loaded = true
         }
     }
+
+    private fun loadCatalog(context: Context): PokemonTypeDexCatalog {
+        val pcgCatalog = PcgPokemonCatalogRepository(context)
+            .load()
+            .getOrThrow()
+
+        val metadataEntries = runCatching {
+            val metadataJson = context.assets
+                .open(METADATA_ASSET_PATH)
+                .bufferedReader()
+                .use { reader -> reader.readText() }
+
+            PokemonTypeDexMetadataParser.parse(metadataJson)
+        }.getOrElse { error ->
+            Log.w(
+                LOG_TAG,
+                "Optional Smart Catch statistics unavailable " +
+                    "errorType=${DiagnosticError.typeOf(error)}"
+            )
+            emptyList()
+        }
+
+        return PokemonTypeDexCatalog.build(
+            pcgEntries = pcgCatalog.entries,
+            metadataEntries = metadataEntries
+        )
+    }
+
+    private const val METADATA_ASSET_PATH = "pokemon_type_dex.json"
+    private const val LOG_TAG = "SMART_CATCH_CATALOG"
 }
