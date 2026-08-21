@@ -117,6 +117,9 @@ class PcgMostWantedActivity :
     /** Deselects every shown entry without changing hidden selections. */
     private lateinit var buttonDeselectShown: Button
 
+    /** Opens a focused editor for the complete current draft selection. */
+    private lateinit var buttonReviewSelected: MaterialButton
+
     /** Returns to the bell alert menu without saving the current draft. */
     private lateinit var buttonBackToAlerts: Button
 
@@ -170,6 +173,9 @@ class PcgMostWantedActivity :
         )
         buttonDeselectShown = findViewById(
             R.id.btnMostWantedDeselectShown
+        )
+        buttonReviewSelected = findViewById(
+            R.id.btnMostWantedReviewSelected
         )
         buttonBackToAlerts = findViewById(
             R.id.btnBackToMostWantedAlerts
@@ -239,6 +245,10 @@ class PcgMostWantedActivity :
 
         buttonDeselectShown.setOnClickListener {
             applyBulkSelection(select = false)
+        }
+
+        buttonReviewSelected.setOnClickListener {
+            showCurrentSelectionReview()
         }
 
         buttonBackToAlerts.setOnClickListener {
@@ -464,11 +474,24 @@ class PcgMostWantedActivity :
             .setMessage(messageParts.joinToString(separator = "\n\n"))
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(
-                R.string.pcg_most_wanted_backup_load_draft
+                R.string.pcg_most_wanted_backup_review_list
             ) { _, _ ->
-                applyImportedDraft(backup.selectedDisplayNames)
+                showImportedSelectionReview(
+                    backup.selectedDisplayNames
+                )
             }
             .show()
+    }
+
+    /** Reviews an imported selection before it can replace the editor draft. */
+    private fun showImportedSelectionReview(importedNames: Set<String>) {
+        PcgMostWantedSelectionReviewDialog(
+            context = this,
+            catalogEntries = catalogEntries,
+            initialSelectedDisplayNames = importedNames,
+            titleRes = R.string.pcg_most_wanted_review_import_title,
+            onApply = ::applyImportedDraft
+        ).show()
     }
 
     /** Replaces only the in-memory draft; Save remains the commit boundary. */
@@ -618,6 +641,41 @@ class PcgMostWantedActivity :
         renderFilteredEntries()
     }
 
+    /** Opens the complete current selection without applying screen filters. */
+    private fun showCurrentSelectionReview() {
+        if (
+            draftSelectedNames.isEmpty() ||
+            catalogEntries.isEmpty() ||
+            progress.visibility == View.VISIBLE
+        ) {
+            return
+        }
+
+        PcgMostWantedSelectionReviewDialog(
+            context = this,
+            catalogEntries = catalogEntries,
+            initialSelectedDisplayNames = draftSelectedNames,
+            titleRes = R.string.pcg_most_wanted_review_current_title,
+            onApply = ::applyReviewedDraft
+        ).show()
+    }
+
+    /** Applies reviewed names to memory while preserving explicit Save. */
+    private fun applyReviewedDraft(reviewedNames: Set<String>) {
+        if (reviewedNames == draftSelectedNames) return
+
+        draftSelectedNames.clear()
+        draftSelectedNames.addAll(reviewedNames)
+        updateDirtyState()
+        renderFilteredEntries()
+
+        Toast.makeText(
+            this,
+            R.string.pcg_most_wanted_review_applied,
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
     /** Rebuilds the stage set from the four independent toggle buttons. */
     private fun updateStageFilterFromButtons() {
         val checkedIds = stageToggleGroup.checkedButtonIds
@@ -753,7 +811,12 @@ class PcgMostWantedActivity :
             draftSelectedNames.size,
             visibleCount
         )
+        buttonReviewSelected.text = getString(
+            R.string.pcg_most_wanted_review_selected_count,
+            draftSelectedNames.size
+        )
         updateBulkSelectionButtons()
+        updateReviewSelectionButton()
     }
 
     /** Enables each bulk action only when it would change the loaded draft. */
@@ -765,6 +828,13 @@ class PcgMostWantedActivity :
         buttonDeselectShown.isEnabled = !busy && visibleEntries.any { entry ->
             entry.displayName in draftSelectedNames
         }
+    }
+
+    /** Enables review only when a loaded selection is available to inspect. */
+    private fun updateReviewSelectionButton() {
+        buttonReviewSelected.isEnabled =
+            progress.visibility != View.VISIBLE &&
+                draftSelectedNames.isNotEmpty()
     }
 
     /** Enables the Save action only for a loaded, changed, non-busy draft. */
@@ -783,6 +853,7 @@ class PcgMostWantedActivity :
         buttonFilters.isEnabled = !busy
         buttonSelectShown.isEnabled = false
         buttonDeselectShown.isEnabled = false
+        buttonReviewSelected.isEnabled = false
         buttonBackToAlerts.isEnabled = !busy
         listPokemon.isEnabled = !busy
 
@@ -793,6 +864,7 @@ class PcgMostWantedActivity :
         updateSaveButton()
         if (!busy) {
             updateBulkSelectionButtons()
+            updateReviewSelectionButton()
         }
     }
 
