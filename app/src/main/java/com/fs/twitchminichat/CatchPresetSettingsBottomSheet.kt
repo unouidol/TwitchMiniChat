@@ -153,7 +153,10 @@ class CatchPresetSettingsBottomSheet :
     private fun setupRecycler() {
         val context = requireContext()
 
-        val savedPresets = CatchPresetStore.loadAll(context)
+        val savedPresets = CatchPresetStore.loadAll(
+            context = context,
+            profileId = currentProfileId
+        )
 
         val inventoryBalls = if (currentProfileId.isNotBlank()) {
             InventoryBallStore.loadRealSnapshot(context, currentProfileId)
@@ -318,7 +321,11 @@ class CatchPresetSettingsBottomSheet :
                         profileId = currentProfileId
                     )
 
-                    CatchPresetStore.saveAll(requireContext(), restoredPresets)
+                    CatchPresetStore.saveAll(
+                        context = requireContext(),
+                        profileId = currentProfileId,
+                        presets = restoredPresets
+                    )
 
                     setupRecycler()
 
@@ -423,7 +430,11 @@ class CatchPresetSettingsBottomSheet :
     private fun savePresetEditorChangesAndDismiss() {
         if (!::adapter.isInitialized) return
 
-        CatchPresetStore.saveAll(requireContext(), adapter.currentItems())
+        CatchPresetStore.saveAll(
+            context = requireContext(),
+            profileId = currentProfileId,
+            presets = adapter.currentItems()
+        )
         captureSavedPresetSnapshot()
 
         Toast.makeText(

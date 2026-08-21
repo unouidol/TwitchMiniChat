@@ -15,16 +15,27 @@ object InventoryBallStore {
 
     private const val PREFS_NAME = "inventory_ball_store"
 
-    private fun realKey(profileId: String) = "real_$profileId"
-    private fun optimisticKey(profileId: String) = "optimistic_$profileId"
+    private fun realKey(profileId: String): String? {
+        return ProfileScopedPreferenceKey.create("real", profileId)
+    }
 
-    private fun boughtKey(profileId: String) = "bought_$profileId"
+    private fun optimisticKey(profileId: String): String? {
+        return ProfileScopedPreferenceKey.create("optimistic", profileId)
+    }
+
+    private fun boughtKey(profileId: String): String? {
+        return ProfileScopedPreferenceKey.create("bought", profileId)
+    }
 
     fun saveRealSnapshot(
         context: Context,
         profileId: String,
         balls: List<InventoryBallItem>
     ) {
+        val realStorageKey = realKey(profileId) ?: return
+        val optimisticStorageKey = optimisticKey(profileId) ?: return
+        val boughtStorageKey = boughtKey(profileId) ?: return
+
         val array = JSONArray()
         balls.forEach { ball ->
             array.put(
@@ -37,9 +48,9 @@ object InventoryBallStore {
         }
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString(realKey(profileId), array.toString())
-            remove(optimisticKey(profileId))
-            remove(boughtKey(profileId))
+            putString(realStorageKey, array.toString())
+            remove(optimisticStorageKey)
+            remove(boughtStorageKey)
         }
     }
 
@@ -47,8 +58,9 @@ object InventoryBallStore {
         context: Context,
         profileId: String
     ): List<InventoryBallItem> {
+        val storageKey = realKey(profileId) ?: return emptyList()
         val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(realKey(profileId), null)
+            .getString(storageKey, null)
             ?: return emptyList()
 
         val arr = runCatching { JSONArray(raw) }.getOrNull() ?: return emptyList()
@@ -120,8 +132,9 @@ object InventoryBallStore {
         context: Context,
         profileId: String
     ): Map<String, Int> {
+        val storageKey = boughtKey(profileId) ?: return emptyMap()
         val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(boughtKey(profileId), null)
+            .getString(storageKey, null)
             ?: return emptyMap()
 
         val obj = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyMap()
@@ -144,13 +157,14 @@ object InventoryBallStore {
         profileId: String,
         bought: Map<String, Int>
     ) {
+        val storageKey = boughtKey(profileId) ?: return
         val obj = JSONObject()
         bought.forEach { (ballId, count) ->
             obj.put(ballId, count)
         }
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString(boughtKey(profileId), obj.toString())
+            putString(storageKey, obj.toString())
         }
     }
 
@@ -172,8 +186,9 @@ object InventoryBallStore {
         context: Context,
         profileId: String
     ): Map<String, Int> {
+        val storageKey = optimisticKey(profileId) ?: return emptyMap()
         val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(optimisticKey(profileId), null)
+            .getString(storageKey, null)
             ?: return emptyMap()
 
         val obj = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyMap()
@@ -196,13 +211,14 @@ object InventoryBallStore {
         profileId: String,
         usage: Map<String, Int>
     ) {
+        val storageKey = optimisticKey(profileId) ?: return
         val obj = JSONObject()
         usage.forEach { (ballId, count) ->
             obj.put(ballId, count)
         }
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString(optimisticKey(profileId), obj.toString())
+            putString(storageKey, obj.toString())
         }
     }
 
@@ -215,26 +231,14 @@ object InventoryBallStore {
      * - optimistic bought counts caused by shop shortcuts.
      */
     fun clearProfile(context: Context, profileId: String) {
-        val cleanProfileId = profileId.trim()
-        if (cleanProfileId.isBlank()) return
+        val realStorageKey = realKey(profileId) ?: return
+        val optimisticStorageKey = optimisticKey(profileId) ?: return
+        val boughtStorageKey = boughtKey(profileId) ?: return
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            remove(realKey(cleanProfileId))
-            remove(optimisticKey(cleanProfileId))
-            remove(boughtKey(cleanProfileId))
-
-            /*
-             * Deletion should be forgiving with older or accidental mixed-case ids.
-             * Normal profile ids are expected to be lowercase, but this second pass
-             * prevents stale entries from surviving just because the stored id had a
-             * different casing.
-             */
-            val normalizedProfileId = cleanProfileId.lowercase()
-            if (normalizedProfileId != cleanProfileId) {
-                remove(realKey(normalizedProfileId))
-                remove(optimisticKey(normalizedProfileId))
-                remove(boughtKey(normalizedProfileId))
-            }
+            remove(realStorageKey)
+            remove(optimisticStorageKey)
+            remove(boughtStorageKey)
         }
     }
 }
