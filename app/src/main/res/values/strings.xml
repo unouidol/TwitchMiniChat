@@ -214,9 +214,9 @@
 
     <string name="friend_ball_buddy_subtitle_name_types">Buddy: %1$s (%2$s)</string>
     <string name="friend_ball_buddy_subtitle_level_types">Buddy: %1$s (Lvl %2$d • %3$s)</string>
-    <string name="ball_reason_base_basic">30%% catch rate</string>
-    <string name="ball_reason_base_great">55%% catch rate</string>
-    <string name="ball_reason_base_ultra">80%% catch rate</string>
+    <string name="ball_reason_base_basic">30% catch rate</string>
+    <string name="ball_reason_base_great">55% catch rate</string>
+    <string name="ball_reason_base_ultra">80% catch rate</string>
 
     <string name="ball_reason_buddy_shared_type">Buddy type match</string>
 
@@ -250,6 +250,7 @@
     <string name="action_close">Close</string>
     <string name="quick_catch_basic_using_poke_ball">Using Poké Ball</string>
     <string name="quick_catch_basic_using_premier_ball">Using Premier Ball</string>
+    <string name="quick_catch_basic_using_ball_with_rate">%1$s • %2$s</string>
     <string name="quick_catch_basic_no_basic_balls">No Poké Ball or Premier Ball available</string>
     <string name="quick_catch_pokebuddy">Pokébuddy</string>
     <string name="quick_catch_no_user_presets_saved">No preset saved</string>

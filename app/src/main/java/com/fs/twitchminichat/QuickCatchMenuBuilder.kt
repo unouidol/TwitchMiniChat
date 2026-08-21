@@ -291,7 +291,8 @@ object QuickCatchMenuBuilder {
         return BasicCatchPresetDisplayHelper.buildSubtitle(
             context = context,
             preset = preset,
-            countsByBallId = countsByBallId
+            countsByBallId = countsByBallId,
+            catchRateSubtitle = fallbackSubtitle
         ) ?: fallbackSubtitle
     }
 }

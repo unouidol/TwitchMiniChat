@@ -63,21 +63,41 @@ object BasicCatchPresetDisplayHelper {
      *
      * Catch     x4
      * Using Premier Ball
+     *
+     * When a catch-rate recommendation is available, it is appended to the active
+     * ball status instead of replacing it.
      */
     fun buildSubtitle(
         context: Context,
         preset: CatchPreset,
-        countsByBallId: Map<String, Int>
+        countsByBallId: Map<String, Int>,
+        catchRateSubtitle: String?
     ): String? {
         if (!isBasicCatchPreset(preset)) return null
 
         val pokeCount = countsByBallId[POKE_BALL_ID] ?: 0
         val premierCount = countsByBallId[PREMIER_BALL_ID] ?: 0
 
-        return when {
-            pokeCount > 0 -> context.getString(R.string.quick_catch_basic_using_poke_ball)
-            premierCount > 0 -> context.getString(R.string.quick_catch_basic_using_premier_ball)
-            else -> context.getString(R.string.quick_catch_basic_no_basic_balls)
+        val activeBallSubtitle = when {
+            pokeCount > 0 ->
+                context.getString(R.string.quick_catch_basic_using_poke_ball)
+
+            premierCount > 0 ->
+                context.getString(R.string.quick_catch_basic_using_premier_ball)
+
+            else ->
+                return context.getString(R.string.quick_catch_basic_no_basic_balls)
         }
+
+        val cleanCatchRateSubtitle = catchRateSubtitle?.trim().orEmpty()
+        if (cleanCatchRateSubtitle.isBlank()) {
+            return activeBallSubtitle
+        }
+
+        return context.getString(
+            R.string.quick_catch_basic_using_ball_with_rate,
+            activeBallSubtitle,
+            cleanCatchRateSubtitle
+        )
     }
 }
