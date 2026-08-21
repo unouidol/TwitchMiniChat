@@ -43,6 +43,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             val data = remoteMessage.data
 
+            SmartCatchSpawnIngestion.ingestFcmPayload(
+                context = applicationContext,
+                data = data,
+                messageSentAtMs = remoteMessage.sentTime
+            )
+
             val reminderEnabled =
                 PcgNotificationAlertPrefsStore.isReminderEnabled(this)
             if (

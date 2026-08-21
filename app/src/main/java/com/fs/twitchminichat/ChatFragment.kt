@@ -596,10 +596,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         requestBuddyInfo()
     }
 
-    private fun resolveDexEntryForSpawnName(rawName: String): PokemonTypeEntry? {
-        return PokemonTypeDex.findByPokemonName(requireContext(), rawName)
-    }
-
     private fun requestBuddyInfo(): Boolean {
         val profileId = currentProfileId().trim().lowercase()
         val username = cfg?.username?.trim()?.lowercase().orEmpty()
@@ -2011,6 +2007,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         ircToken: String,
         ch: String
     ) {
+        val applicationContext = requireContext().applicationContext
+
         cancelScheduledIrcReconnect()
 
         val generation = ircConnectionGeneration + 1L
@@ -2071,6 +2069,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     replyParentUserLogin,
                     messageTimestampSec ->
 
+                /*
+                 * Persist the spawn before entering the Fragment/UI callback. A valid
+                 * PCG observation must survive a temporarily detached chat view.
+                 */
+                val spawnIngestion = SmartCatchSpawnIngestion.ingestIrcMessage(
+                    context = applicationContext,
+                    user = user,
+                    message = msg,
+                    messageTimestampSec = messageTimestampSec
+                )
+
                 val resolvedTimestampSec = (
                     messageTimestampSec
                         ?: (
@@ -2117,6 +2126,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         forceScroll = forceScroll,
                         messageTimestampSec = resolvedTimestampSec
                     )
+
+                    if (spawnIngestion.snapshotChanged) {
+                        refreshOpenQuickCatchMenuIfNeeded()
+                        updateQuickCatchHeader()
+                    }
                 }
             },
             onError = { error ->
@@ -2645,6 +2659,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     /** Loads history with the backend session bound to [config]. */
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
+        val applicationContext = requireContext().applicationContext
         val profileId = AccountProfileIdResolver.resolve(config)
 
         thread {
@@ -2662,6 +2677,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     )
 
                     result.messages.forEach { message ->
+                        /* History is also a spawn source even if its UI row is stale. */
+                        val spawnIngestion =
+                            SmartCatchSpawnIngestion.ingestIrcMessage(
+                                context = applicationContext,
+                                user = message.user,
+                                message = message.text,
+                                messageTimestampSec = message.timestampSec
+                                    .takeIf { timestamp -> timestamp > 0.0 }
+                            )
+
                         val key = message.messageId?.let { messageId ->
                             "id:$messageId"
                         } ?: run {
@@ -2679,6 +2704,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                                 messageTimestampSec = message.timestampSec
                                     .takeIf { timestamp -> timestamp > 0.0 }
                             )
+
+                            if (spawnIngestion.snapshotChanged) {
+                                refreshOpenQuickCatchMenuIfNeeded()
+                                updateQuickCatchHeader()
+                            }
                         }
                     }
                 }
@@ -3278,117 +3308,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
     }
 
-    private fun maybeCaptureSpawnInfoFromChat(
-        user: String,
-        message: String,
-        messageTimestampSec: Double?
-    ) {
-        val normalizedUser = user.trim().lowercase()
-        if (normalizedUser != "pokemoncommunitygame") return
-
-        Log.d("SPAWN_PARSE", "Spawn candidate received")
-
-        val parsed = SpawnMessageParser.parse(message)
-        if (parsed == null) {
-            Log.d("SPAWN_PARSE", "not a spawn message")
-            return
-        }
-
-        Log.d("SPAWN_PARSE", "Spawn message parsed")
-
-        val dexEntry = resolveDexEntryForSpawnName(parsed.rawName)
-
-        val seenAtMs = when {
-            messageTimestampSec != null && messageTimestampSec > 0.0 ->
-                (messageTimestampSec * 1000.0).toLong()
-            else ->
-                System.currentTimeMillis()
-        }
-
-        Log.d(
-            "SPAWN_PARSE",
-            "Spawn timestamp normalized ageMs=${System.currentTimeMillis() - seenAtMs}"
-        )
-
-        val newSnapshot = SpawnSnapshot(
-            rawName = parsed.rawName,
-            dexKey = dexEntry?.key,
-            displayName = dexEntry?.pcgName ?: parsed.rawName,
-            type1 = dexEntry?.type1,
-            type2 = dexEntry?.type2,
-            weightKg = dexEntry?.weightKg,
-            baseSpeed = dexEntry?.baseSpeed,
-            baseHp = dexEntry?.baseHp,
-            evolvesTwice = dexEntry?.evolvesTwice,
-            seenAtMs = seenAtMs,
-            isAlreadyCaught = null
-        )
-
-        val nowMs = System.currentTimeMillis()
-        val ageMs = nowMs - newSnapshot.seenAtMs
-
-        /**
-         * Ignore impossible/future timestamps.
-         *
-         * This can happen if a server timestamp is malformed or if seconds/milliseconds
-         * are mixed up somewhere.
-         */
-        if (ageMs < 0L) {
-            Log.d(
-                "SPAWN_PARSE",
-                "ignored future spawn ageMs=$ageMs"
-            )
-            return
-        }
-
-        /**
-         * Ignore expired history spawns.
-         *
-         * PCG spawns are valid for 90 seconds. If a spawn message is loaded from chat
-         * history, but it is already older than that, it should not revive Smart Presets.
-         */
-        if (ageMs > 90_000L) {
-            Log.d(
-                "SPAWN_PARSE",
-                "ignored expired spawn ageMs=$ageMs"
-            )
-            return
-        }
-
-        /**
-         * CurrentSpawnStore is now global, not per-channel.
-         *
-         * If we already have a newer spawn saved, do not overwrite it with an older
-         * history message.
-         */
-        val existing = CurrentSpawnStore.load(requireContext())
-
-        if (existing != null && existing.seenAtMs > newSnapshot.seenAtMs) {
-            Log.d(
-                "SPAWN_PARSE",
-                "ignored older spawn snapshot"
-            )
-            return
-        }
-
-        CurrentSpawnStore.save(
-            context = requireContext(),
-            spawn = newSnapshot
-        )
-
-        Log.d(
-            "SPAWN_PARSE",
-            "saved global spawn ageMs=$ageMs"
-        )
-
-        /**
-         * If the quick catch dialogue is open while the spawn is detected from live chat
-         * or history, refresh it immediately so Smart Presets appear.
-         */
-        refreshOpenQuickCatchMenuIfNeeded()
-        updateQuickCatchHeader()
-    }
-
     private fun appendChatLine(
         user: String,
         message: String,
@@ -3414,12 +3333,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         maybeCaptureBuddyInfoFromChat(user, message)
-        maybeCaptureSpawnInfoFromChat(
-            user = user,
-            message = message,
-            messageTimestampSec = messageTimestampSec
-        )
-
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip message from hidden user")
             return

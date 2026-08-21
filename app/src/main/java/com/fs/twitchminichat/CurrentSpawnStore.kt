@@ -23,8 +23,6 @@ object CurrentSpawnStore {
      */
     private const val GLOBAL_SPAWN_KEY = "current_global_spawn"
 
-    private const val SPAWN_TTL_MS = 90_000L
-
     /**
      * Saves the latest global spawn.
      *
@@ -57,7 +55,8 @@ object CurrentSpawnStore {
      * Loads the current global spawn only if it is still inside the 90-second
      * valid window.
      *
-     * Expired spawns are removed and returned as null.
+     * Expired spawns are not returned as active. Their timestamp remains available
+     * through [loadLastKnown] for the existing next-spawn countdown.
      */
     fun load(
         context: Context,
@@ -75,7 +74,7 @@ object CurrentSpawnStore {
             return snapshot
         }
 
-        if (ageMs > SPAWN_TTL_MS) {
+        if (ageMs > SmartCatchSpawnMergePolicy.ACTIVE_WINDOW_MS) {
             return null
         }
 
