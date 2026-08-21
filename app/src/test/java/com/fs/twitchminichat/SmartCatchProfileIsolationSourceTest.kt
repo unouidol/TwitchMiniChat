@@ -15,11 +15,10 @@ class SmartCatchProfileIsolationSourceTest {
         val source = readProductionSource("UserCatchPresetSource.kt")
 
         assertTrue(
-            factory.contains(
-                "UserCatchPresetSource.loadSnapshot(\n" +
-                    "            context = context,\n" +
-                    "            profileId = profileId"
-            )
+            Regex(
+                """UserCatchPresetSource\.loadSnapshot\(\s*""" +
+                    """context = context,\s*profileId = profileId"""
+            ).containsMatchIn(factory)
         )
         assertTrue(source.contains("profileId = cleanProfileId"))
         assertFalse(source.contains("CatchPresetStore.loadAll(context)"))
