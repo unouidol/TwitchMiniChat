@@ -69,6 +69,52 @@ On Linux or in GitHub Actions, use `./gradlew` with the same tasks.
 
 Device-dependent behavior cannot be proven by local unit tests. Changes involving GeckoView, OAuth callbacks, Firebase Cloud Messaging, the software keyboard, external links, notifications, or layout behavior also require a short manual test plan and Logcat tags or observable results in the pull request.
 
+## Release and distribution
+
+Published releases are consumed by the public website at `https://tmc.ircminichat.party/`,
+which links straight to GitHub release assets and reads the version from the GitHub
+releases application programming interface (API). The names and formats below are a
+contract with that site, not a preference: breaking one of them breaks the public
+download buttons silently, with no error anywhere in this repository.
+
+- Tag every release `vMAJOR.MINOR.PATCH` on `main-v5`. The site takes `tag_name` from the
+  `releases/latest` endpoint and strips the leading `v` to display the version, so a
+  differently shaped tag shows a wrong version to every visitor.
+- Name the published Android Package Kit (APK) assets exactly
+  `TwitchMiniChat-Android-arm64-v8a.apk` and `TwitchMiniChat-Android-armeabi-v7a.apk`.
+  The site links to `releases/latest/download/<name>`, which resolves only on an exact
+  filename match. Gradle's own output names must be renamed before upload.
+- Publish `SHA256SUMS.txt` next to them, listing the checksum of both APKs.
+- Title releases `Twitch Mini Chat MAJOR.MINOR.PATCH`.
+- Keep `versionName` equal to the tag without its leading `v`, and raise `versionCode` on
+  every published build. A build whose `versionCode` is not higher than the installed one
+  cannot update it.
+- Write release notes for users rather than for developers, following the structure of the
+  previous releases: what the application is, what changed, what to download, how to
+  install, and contacts.
+
+Release procedure:
+
+1. Branch `release/X.Y.Z` from the current `main-v5` and land every change intended for the
+   release on that branch.
+2. Update `versionCode` and `versionName` in `app/build.gradle.kts`.
+3. Run the repository-wide verification baseline, then `:app:assembleStableRelease`.
+4. Verify the built artifacts before anything is published: the signer is the release
+   certificate and not the Android debug certificate, the package is
+   `com.fs.twitchminichat` without the development suffix, and `versionCode` and
+   `versionName` match the intended release.
+5. Install the arm64 APK over the currently published stable build on a real device and
+   confirm it updates in place.
+6. Open a pull request into `main-v5` and merge it only after continuous integration
+   passes. Continuous integration runs only for `main-v5`, so a release tagged from a
+   release branch alone is never verified by it.
+7. Confirm that `main-v5` contains exactly the code the artifacts were built from, then tag
+   it.
+8. Publish the release with the exact artifacts that were verified and installed. Never
+   rebuild between verification and publication: Android builds are not reproducible byte
+   for byte, so a rebuilt artifact is not the one that was tested and its checksums no
+   longer match.
+
 ## Definition of done
 
 A change is complete only when:
