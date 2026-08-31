@@ -27,14 +27,12 @@ object PcgSpawnAlertModeMenu {
      */
     fun show(
         anchor: View,
-        currentSettings: PcgSpawnAlertSettings,
-        currentMostWantedEnabled: Boolean,
+        currentSelection: PcgProfileAlertSelection,
         onMostWantedRequested: () -> Unit,
-        onMostWantedEnabledSelected: (Boolean) -> Unit,
-        onSettingsSelected: (PcgSpawnAlertSettings) -> Unit
+        onSelectionSelected: (PcgProfileAlertSelection) -> Unit
     ) {
         val context = anchor.context
-        var selectedMode = currentSettings.regularMode
+        var selectedMode = currentSelection.spawnSettings.regularMode
 
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -61,7 +59,8 @@ object PcgSpawnAlertModeMenu {
             val radioButton = RadioButton(context).apply {
                 id = View.generateViewId()
                 text = context.getString(mode.titleRes)
-                isChecked = mode == currentSettings.regularMode
+                isChecked =
+                    mode == currentSelection.spawnSettings.regularMode
                 setPadding(0, dp(context, 2), 0, dp(context, 2))
 
                 /*
@@ -84,14 +83,15 @@ object PcgSpawnAlertModeMenu {
 
         val eventSpawnCheckBox = CheckBox(context).apply {
             text = context.getString(R.string.pcg_event_spawn_alert_label)
-            isChecked = currentSettings.eventSpawnsEnabled
+            isChecked =
+                currentSelection.spawnSettings.eventSpawnsEnabled
             setPadding(0, dp(context, 8), 0, dp(context, 2))
         }
         root.addView(eventSpawnCheckBox)
 
         val mostWantedCheckBox = CheckBox(context).apply {
             text = context.getString(R.string.pcg_most_wanted_enabled)
-            isChecked = currentMostWantedEnabled
+            isChecked = currentSelection.mostWantedEnabled
             setPadding(0, dp(context, 2), 0, dp(context, 2))
         }
         root.addView(mostWantedCheckBox)
@@ -123,8 +123,18 @@ object PcgSpawnAlertModeMenu {
             setPadding(0, dp(context, 2), 0, dp(context, 2))
         }
 
+        val reminderCheckBox = CheckBox(context).apply {
+            text = context.getString(
+                R.string.pcg_notification_reminder_label
+            )
+            isChecked =
+                PcgNotificationAlertPrefsStore.isReminderEnabled(context)
+            setPadding(0, dp(context, 2), 0, dp(context, 2))
+        }
+
         root.addView(soundCheckBox)
         root.addView(vibrationCheckBox)
+        root.addView(reminderCheckBox)
 
         val scrollView = ScrollView(context).apply {
             addView(root)
@@ -134,22 +144,17 @@ object PcgSpawnAlertModeMenu {
             .setTitle(R.string.pcg_spawn_alert_dialog_title)
             .setView(scrollView)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val selectedSettings = PcgSpawnAlertSettings(
-                    regularMode = selectedMode,
-                    eventSpawnsEnabled = eventSpawnCheckBox.isChecked
+                val selectedSelection = PcgProfileAlertSelection(
+                    spawnSettings = PcgSpawnAlertSettings(
+                        regularMode = selectedMode,
+                        eventSpawnsEnabled =
+                            eventSpawnCheckBox.isChecked
+                    ),
+                    mostWantedEnabled = mostWantedCheckBox.isChecked
                 )
 
-                if (selectedSettings != currentSettings) {
-                    onSettingsSelected(selectedSettings)
-                }
-
-                if (
-                    mostWantedCheckBox.isChecked !=
-                    currentMostWantedEnabled
-                ) {
-                    onMostWantedEnabledSelected(
-                        mostWantedCheckBox.isChecked
-                    )
+                if (selectedSelection != currentSelection) {
+                    onSelectionSelected(selectedSelection)
                 }
 
                 PcgNotificationAlertPrefsStore.setSoundEnabled(
@@ -159,6 +164,10 @@ object PcgSpawnAlertModeMenu {
                 PcgNotificationAlertPrefsStore.setVibrationEnabled(
                     context = context,
                     enabled = vibrationCheckBox.isChecked
+                )
+                PcgNotificationAlertPrefsStore.setReminderEnabled(
+                    context = context,
+                    enabled = reminderCheckBox.isChecked
                 )
 
                 /*

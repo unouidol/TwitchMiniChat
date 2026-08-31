@@ -13,6 +13,7 @@
         android:background="?attr/colorSurface"
         android:navigationIcon="@drawable/ic_arrow_back_24"
         android:title="@string/pcg_most_wanted_title"
+        app:menu="@menu/menu_pcg_most_wanted"
         app:titleTextColor="?android:attr/textColorPrimary" />
 
     <TextView
@@ -135,6 +136,55 @@
         android:paddingBottom="8dp"
         android:text="@string/pcg_most_wanted_selection_count_initial"
         android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnMostWantedReviewSelected"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:enabled="false"
+        android:minHeight="48dp"
+        android:text="@string/pcg_most_wanted_review_selected_initial" />
+
+    <LinearLayout
+        style="?android:attr/buttonBarStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnMostWantedSelectShown"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:enabled="false"
+            android:gravity="center"
+            android:maxLines="2"
+            android:minHeight="48dp"
+            android:text="@string/pcg_most_wanted_select_shown" />
+
+        <Button
+            android:id="@+id/btnMostWantedDeselectShown"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:enabled="false"
+            android:gravity="center"
+            android:maxLines="2"
+            android:minHeight="48dp"
+            android:text="@string/pcg_most_wanted_deselect_shown" />
+
+    </LinearLayout>
 
     <ProgressBar
         android:id="@+id/progressMostWanted"

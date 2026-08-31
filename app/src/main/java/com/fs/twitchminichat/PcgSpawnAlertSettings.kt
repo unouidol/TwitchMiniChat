@@ -11,8 +11,8 @@ data class PcgSpawnAlertSettings(
     val regularMode: PcgSpawnAlertMode,
     val eventSpawnsEnabled: Boolean
 ) {
-    /** Whether this profile needs any Firebase spawn notification delivery. */
-    val isAnyAlertEnabled: Boolean
+    /** Whether ordinary or event spawn alerts are enabled for this profile. */
+    val hasOrdinaryOrEventAlerts: Boolean
         get() = regularMode.isPushEnabledForCompatibility || eventSpawnsEnabled
 
     companion object {

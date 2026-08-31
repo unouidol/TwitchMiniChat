@@ -67,11 +67,34 @@ class PcgMostWantedSelectionValidatorTest {
         )
     }
 
+    /** Keeps both Nidoran catalog entries during complete-list validation. */
+    @Test
+    fun sanitize_preservesDistinctGenderedNames() {
+        val female = "Nidoran\u2640"
+        val male = "Nidoran\u2642"
+        val entries = listOf(
+            entry(female, "nidoran\u2640"),
+            entry(male, "nidoran\u2642")
+        )
+
+        assertEquals(
+            linkedSetOf(female, male),
+            PcgMostWantedSelectionValidator.sanitize(
+                entries,
+                listOf(female, male)
+            )
+        )
+    }
+
     /** Creates the minimum complete catalog model needed by these tests. */
-    private fun entry(displayName: String): PcgPokemonCatalogEntry {
+    private fun entry(
+        displayName: String,
+        normalizedName: String =
+            PcgPokemonNameNormalizer.normalize(displayName)
+    ): PcgPokemonCatalogEntry {
         return PcgPokemonCatalogEntry(
             displayName = displayName,
-            normalizedName = PcgPokemonNameNormalizer.normalize(displayName),
+            normalizedName = normalizedName,
             tier = PcgPokemonTier.C,
             normallySpawnable = true,
             starterFamily = false,

@@ -48,7 +48,8 @@ object PcgSpawnAlertModeStore {
      * Deletes the locally remembered spawn alert mode for one profile.
      *
      * This only clears the local preference. Server-side delivery is disabled
-     * separately through FcmRegistrationUploader.setProfileSpawnAlertMode(..., NONE).
+     * separately through FcmRegistrationUploader with a fully disabled profile
+     * alert selection.
      */
     fun clearProfile(context: Context, profileId: String) {
         val cleanProfileId = profileId.trim().lowercase()

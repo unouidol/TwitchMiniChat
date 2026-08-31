@@ -97,7 +97,10 @@ object AccountProfileRemovalController {
         FcmRegistrationUploader.setProfileSpawnAlertMode(
             context = appContext,
             profileId = profileId,
-            settings = PcgSpawnAlertSettings.DISABLED
+            selection = PcgProfileAlertSelection(
+                spawnSettings = PcgSpawnAlertSettings.DISABLED,
+                mostWantedEnabled = false
+            )
         ) { backendOk ->
             val backendSessionRemoved =
                 BackendSessionStore(appContext).removeProfile(profileId)

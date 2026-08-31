@@ -14,7 +14,7 @@ class PcgSpawnAlertSettingsTest {
             eventSpawnsEnabled = true
         )
 
-        assertTrue(settings.isAnyAlertEnabled)
+        assertTrue(settings.hasOrdinaryOrEventAlerts)
     }
 
     @Test
@@ -24,11 +24,13 @@ class PcgSpawnAlertSettingsTest {
             eventSpawnsEnabled = false
         )
 
-        assertTrue(settings.isAnyAlertEnabled)
+        assertTrue(settings.hasOrdinaryOrEventAlerts)
     }
 
     @Test
     fun disabledSelectionTurnsOffBothCategories() {
-        assertFalse(PcgSpawnAlertSettings.DISABLED.isAnyAlertEnabled)
+        assertFalse(
+            PcgSpawnAlertSettings.DISABLED.hasOrdinaryOrEventAlerts
+        )
     }
 }

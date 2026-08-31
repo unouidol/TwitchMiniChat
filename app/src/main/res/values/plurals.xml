@@ -4,4 +4,12 @@
         <item quantity="one">%d new message</item>
         <item quantity="other">%d new messages</item>
     </plurals>
+    <plurals name="pcg_most_wanted_backup_duplicate_count">
+        <item quantity="one">%1$d duplicate line will be ignored.</item>
+        <item quantity="other">%1$d duplicate lines will be ignored.</item>
+    </plurals>
+    <plurals name="pcg_most_wanted_backup_unknown_names">
+        <item quantity="one">The file contains %1$d name that is not in the current PCG catalog:\n\n%2$s\n\nNothing was imported.</item>
+        <item quantity="other">The file contains %1$d names that are not in the current PCG catalog:\n\n%2$s\n\nNothing was imported.</item>
+    </plurals>
 </resources>

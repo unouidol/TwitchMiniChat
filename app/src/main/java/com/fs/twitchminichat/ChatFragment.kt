@@ -37,13 +37,19 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 import com.fs.twitchminichat.pcg.PcgActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
+import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 import kotlin.concurrent.thread
@@ -62,6 +68,7 @@ import com.fs.twitchminichat.ui.input.ChatMessageInputView
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 import java.net.URLEncoder
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlin.coroutines.resume
 
 
 
@@ -193,6 +200,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var mentionAdapter: ArrayAdapter<String>
     private lateinit var btnTogglePush: ImageButton
     private lateinit var btnCatchPresets: ImageButton
+
+    /** Prevents overlapping backend writes from repeated alert-menu taps. */
+    private var profileAlertSyncInProgress = false
 
     private data class ChatViewMeta(
         val usernameLower: String,
@@ -584,10 +594,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun handleFriendBallBuddyAction(preset: CatchPreset) {
         if (preset.ballId != "friend_ball") return
         requestBuddyInfo()
-    }
-
-    private fun resolveDexEntryForSpawnName(rawName: String): PokemonTypeEntry? {
-        return PokemonTypeDex.findByPokemonName(requireContext(), rawName)
     }
 
     private fun requestBuddyInfo(): Boolean {
@@ -2001,6 +2007,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         ircToken: String,
         ch: String
     ) {
+        val applicationContext = requireContext().applicationContext
+
         cancelScheduledIrcReconnect()
 
         val generation = ircConnectionGeneration + 1L
@@ -2061,6 +2069,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     replyParentUserLogin,
                     messageTimestampSec ->
 
+                /*
+                 * Persist the spawn before entering the Fragment/UI callback. A valid
+                 * PCG observation must survive a temporarily detached chat view.
+                 */
+                val spawnIngestion = SmartCatchSpawnIngestion.ingestIrcMessage(
+                    context = applicationContext,
+                    user = user,
+                    message = msg,
+                    messageTimestampSec = messageTimestampSec
+                )
+
                 val resolvedTimestampSec = (
                     messageTimestampSec
                         ?: (
@@ -2107,6 +2126,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         forceScroll = forceScroll,
                         messageTimestampSec = resolvedTimestampSec
                     )
+
+                    if (spawnIngestion.snapshotChanged) {
+                        refreshOpenQuickCatchMenuIfNeeded()
+                        updateQuickCatchHeader()
+                    }
                 }
             },
             onError = { error ->
@@ -2635,6 +2659,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     /** Loads history with the backend session bound to [config]. */
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
+        val applicationContext = requireContext().applicationContext
         val profileId = AccountProfileIdResolver.resolve(config)
 
         thread {
@@ -2652,6 +2677,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     )
 
                     result.messages.forEach { message ->
+                        /* History is also a spawn source even if its UI row is stale. */
+                        val spawnIngestion =
+                            SmartCatchSpawnIngestion.ingestIrcMessage(
+                                context = applicationContext,
+                                user = message.user,
+                                message = message.text,
+                                messageTimestampSec = message.timestampSec
+                                    .takeIf { timestamp -> timestamp > 0.0 }
+                            )
+
                         val key = message.messageId?.let { messageId ->
                             "id:$messageId"
                         } ?: run {
@@ -2669,6 +2704,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                                 messageTimestampSec = message.timestampSec
                                     .takeIf { timestamp -> timestamp > 0.0 }
                             )
+
+                            if (spawnIngestion.snapshotChanged) {
+                                refreshOpenQuickCatchMenuIfNeeded()
+                                updateQuickCatchHeader()
+                            }
                         }
                     }
                 }
@@ -3268,117 +3308,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
     }
 
-    private fun maybeCaptureSpawnInfoFromChat(
-        user: String,
-        message: String,
-        messageTimestampSec: Double?
-    ) {
-        val normalizedUser = user.trim().lowercase()
-        if (normalizedUser != "pokemoncommunitygame") return
-
-        Log.d("SPAWN_PARSE", "Spawn candidate received")
-
-        val parsed = SpawnMessageParser.parse(message)
-        if (parsed == null) {
-            Log.d("SPAWN_PARSE", "not a spawn message")
-            return
-        }
-
-        Log.d("SPAWN_PARSE", "Spawn message parsed")
-
-        val dexEntry = resolveDexEntryForSpawnName(parsed.rawName)
-
-        val seenAtMs = when {
-            messageTimestampSec != null && messageTimestampSec > 0.0 ->
-                (messageTimestampSec * 1000.0).toLong()
-            else ->
-                System.currentTimeMillis()
-        }
-
-        Log.d(
-            "SPAWN_PARSE",
-            "Spawn timestamp normalized ageMs=${System.currentTimeMillis() - seenAtMs}"
-        )
-
-        val newSnapshot = SpawnSnapshot(
-            rawName = parsed.rawName,
-            dexKey = dexEntry?.key,
-            displayName = dexEntry?.pcgName ?: parsed.rawName,
-            type1 = dexEntry?.type1,
-            type2 = dexEntry?.type2,
-            weightKg = dexEntry?.weightKg,
-            baseSpeed = dexEntry?.baseSpeed,
-            baseHp = dexEntry?.baseHp,
-            evolvesTwice = dexEntry?.evolvesTwice,
-            seenAtMs = seenAtMs,
-            isAlreadyCaught = null
-        )
-
-        val nowMs = System.currentTimeMillis()
-        val ageMs = nowMs - newSnapshot.seenAtMs
-
-        /**
-         * Ignore impossible/future timestamps.
-         *
-         * This can happen if a server timestamp is malformed or if seconds/milliseconds
-         * are mixed up somewhere.
-         */
-        if (ageMs < 0L) {
-            Log.d(
-                "SPAWN_PARSE",
-                "ignored future spawn ageMs=$ageMs"
-            )
-            return
-        }
-
-        /**
-         * Ignore expired history spawns.
-         *
-         * PCG spawns are valid for 90 seconds. If a spawn message is loaded from chat
-         * history, but it is already older than that, it should not revive Smart Presets.
-         */
-        if (ageMs > 90_000L) {
-            Log.d(
-                "SPAWN_PARSE",
-                "ignored expired spawn ageMs=$ageMs"
-            )
-            return
-        }
-
-        /**
-         * CurrentSpawnStore is now global, not per-channel.
-         *
-         * If we already have a newer spawn saved, do not overwrite it with an older
-         * history message.
-         */
-        val existing = CurrentSpawnStore.load(requireContext())
-
-        if (existing != null && existing.seenAtMs > newSnapshot.seenAtMs) {
-            Log.d(
-                "SPAWN_PARSE",
-                "ignored older spawn snapshot"
-            )
-            return
-        }
-
-        CurrentSpawnStore.save(
-            context = requireContext(),
-            spawn = newSnapshot
-        )
-
-        Log.d(
-            "SPAWN_PARSE",
-            "saved global spawn ageMs=$ageMs"
-        )
-
-        /**
-         * If the quick catch dialogue is open while the spawn is detected from live chat
-         * or history, refresh it immediately so Smart Presets appear.
-         */
-        refreshOpenQuickCatchMenuIfNeeded()
-        updateQuickCatchHeader()
-    }
-
     private fun appendChatLine(
         user: String,
         message: String,
@@ -3404,12 +3333,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         maybeCaptureBuddyInfoFromChat(user, message)
-        maybeCaptureSpawnInfoFromChat(
-            user = user,
-            message = message,
-            messageTimestampSec = messageTimestampSec
-        )
-
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip message from hidden user")
             return
@@ -4044,21 +3967,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    /** PCG ALERT Functions
-     *
-     */
-    /**
-     * Opens the spawn alert mode menu anchored to the bell button.
-     *
-     * Each Twitch profile can have its own spawn alert mode, so the current
-     * profile id is used as the key for local storage and backend sync.
-     */
-    /**
-     * Opens the spawn alert mode menu anchored to the bell button.
-     *
-     * Each Twitch profile can have its own spawn alert mode, so the current
-     * profile id is used as the key for local storage and backend sync.
-     */
     /**
      * Opens Most Wanted and handles only its explicit navigation result.
      *
@@ -4084,6 +3992,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
         }
 
+    /** Opens the complete profile-scoped PCG alert menu. */
     private fun showSpawnAlertModeMenu() {
         val profileId = currentProfileId().trim().lowercase()
 
@@ -4096,24 +4005,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val currentSettings = PcgSpawnAlertSettings(
-            regularMode = PcgSpawnAlertModeStore.getMode(
-                requireContext(),
-                profileId
-            ),
-            eventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
-                requireContext(),
-                profileId
-            )
-        )
-
-        val mostWantedStore = PcgMostWantedStore(requireContext())
+        val currentSelection = readProfileAlertSelection(profileId)
 
         PcgSpawnAlertModeMenu.show(
             anchor = btnTogglePush,
-            currentSettings = currentSettings,
-            currentMostWantedEnabled =
-                mostWantedStore.isEnabled(profileId),
+            currentSelection = currentSelection,
             onMostWantedRequested = {
                 mostWantedActivityLauncher.launch(
                     PcgMostWantedActivity.createIntent(
@@ -4121,43 +4017,165 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         profileId = profileId
                     )
                 )
-            },
-            onMostWantedEnabledSelected = { enabled ->
-                mostWantedStore.updateEnabled(
-                    profileId = profileId,
-                    enabled = enabled
-                )
-                updateSpawnAlertBellUi(profileId)
             }
-        ) { selectedSettings ->
-            applySpawnAlertSettings(profileId, selectedSettings)
+        ) { requestedSelection ->
+            applyProfileAlertSelection(
+                profileId = profileId,
+                requested = requestedSelection
+            )
         }
     }
 
     /**
-     * Applies the selected spawn alert mode locally, updates the bell UI, and then
-     * asks the backend to persist the same mode for the current device/profile pair.
+     * Applies one complete user-confirmed alert selection in a safe order.
      *
-     * If the server update fails, the previous local value is restored so the UI
-     * does not claim a mode that the backend did not actually accept.
+     * Most Wanted registration and ordinary/event delivery share one backend
+     * profile record. Serializing their requests prevents the previous race in
+     * which an all-off ordinary mode could unregister a just-enabled watchlist.
      */
-    /**
-     * Applies the selected spawn alert mode locally, updates the bell UI, and then
-     * asks the backend to persist the same mode for the current device/profile pair.
-     *
-     * If the server update fails, the previous local value is restored so the UI
-     * does not claim a mode that the backend did not actually accept.
-     */
-    private fun applySpawnAlertSettings(
+    private fun applyProfileAlertSelection(
         profileId: String,
-        settings: PcgSpawnAlertSettings
+        requested: PcgProfileAlertSelection
     ) {
-        val previousMode = PcgSpawnAlertModeStore.getMode(requireContext(), profileId)
-        val previousEventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
+        if (profileAlertSyncInProgress) {
+            Toast.makeText(
+                requireContext(),
+                R.string.pcg_alert_settings_update_in_progress,
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val current = readProfileAlertSelection(profileId)
+        val plan = PcgProfileAlertSyncPlanner.buildPlan(
+            current = current,
+            requested = requested
+        )
+        if (plan.isEmpty()) return
+
+        val appContext = requireContext().applicationContext
+        val mostWantedController =
+            PcgMostWantedToggleController(appContext)
+
+        profileAlertSyncInProgress = true
+        btnTogglePush.isEnabled = false
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                var failed = false
+                var temporaryDeliveryActivated = false
+
+                for (step in plan) {
+                    val ok = when (step) {
+                        PcgProfileAlertSyncStep.FIREBASE_DELIVERY -> {
+                            val deliveryOk =
+                                syncProfileFirebaseDelivery(
+                                    context = appContext,
+                                    profileId = profileId,
+                                    selection = requested
+                                )
+
+                            if (deliveryOk) {
+                                persistSpawnAlertSettings(
+                                    profileId = profileId,
+                                    settings = requested.spawnSettings
+                                )
+                                temporaryDeliveryActivated =
+                                    !current.requiresFirebaseDelivery &&
+                                    requested.mostWantedEnabled &&
+                                    !requested.spawnSettings
+                                        .hasOrdinaryOrEventAlerts
+                            }
+                            deliveryOk
+                        }
+
+                        PcgProfileAlertSyncStep.MOST_WANTED -> {
+                            withContext(Dispatchers.IO) {
+                                mostWantedController.setEnabled(
+                                    profileId = profileId,
+                                    enabled =
+                                        requested.mostWantedEnabled
+                                ).ok
+                            }
+                        }
+                    }
+
+                    if (!ok) {
+                        failed = true
+                        break
+                    }
+                }
+
+                if (
+                    failed &&
+                    temporaryDeliveryActivated
+                ) {
+                    /*
+                     * Firebase was activated only to enable Most Wanted. If the
+                     * watchlist request failed, remove that temporary delivery
+                     * registration so local and backend state do not drift.
+                     */
+                    syncProfileFirebaseDelivery(
+                        context = appContext,
+                        profileId = profileId,
+                        selection = requested.copy(
+                            mostWantedEnabled = false
+                        )
+                    )
+                }
+
+                if (isAdded && view != null) {
+                    val effective =
+                        readProfileAlertSelection(profileId)
+                    updateSpawnAlertBellUi(profileId)
+                    val fullyApplied =
+                        !failed && effective == requested
+
+                    val message = when {
+                        fullyApplied ->
+                            R.string.pcg_alert_settings_saved
+
+                        effective != current ->
+                            R.string.pcg_alert_settings_partially_saved
+
+                        else ->
+                            R.string.pcg_alert_settings_save_failed
+                    }
+
+                    Toast.makeText(
+                        requireContext(),
+                        message,
+                        if (fullyApplied) {
+                            Toast.LENGTH_SHORT
+                        } else {
+                            Toast.LENGTH_LONG
+                        }
+                    ).show()
+                }
+            } finally {
+                profileAlertSyncInProgress = false
+                if (isAdded && ::btnTogglePush.isInitialized) {
+                    btnTogglePush.isEnabled = true
+                }
+            }
+        }
+    }
+
+    /** Reads the complete local selection for one normalized profile id. */
+    private fun readProfileAlertSelection(
+        profileId: String
+    ): PcgProfileAlertSelection {
+        return PcgProfileAlertSelectionStore.read(
             requireContext(),
             profileId
         )
+    }
 
+    /** Persists ordinary/event settings only after backend confirmation. */
+    private fun persistSpawnAlertSettings(
+        profileId: String,
+        settings: PcgSpawnAlertSettings
+    ) {
         PcgSpawnAlertModeStore.setMode(
             requireContext(),
             profileId,
@@ -4168,39 +4186,27 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             profileId,
             settings.eventSpawnsEnabled
         )
-        updateSpawnAlertBellUi(profileId)
+    }
 
-        FcmRegistrationUploader.setProfileSpawnAlertMode(
-            context = requireContext(),
-            profileId = profileId,
-            settings = settings
-        ) { ok ->
-            if (!isAdded) return@setProfileSpawnAlertMode
-
-            if (!ok) {
-                PcgSpawnAlertModeStore.setMode(requireContext(), profileId, previousMode)
-                PcgEventSpawnAlertStore.setEnabled(
-                    requireContext(),
-                    profileId,
-                    previousEventSpawnsEnabled
-                )
-                updateSpawnAlertBellUi(profileId)
-
-                Toast.makeText(
-                    requireContext(),
-                    R.string.spawn_alert_mode_save_failed,
-                    Toast.LENGTH_SHORT
-                ).show()
-                return@setProfileSpawnAlertMode
+    /** Awaits the existing callback-based Firebase profile update once. */
+    private suspend fun syncProfileFirebaseDelivery(
+        context: Context,
+        profileId: String,
+        selection: PcgProfileAlertSelection
+    ): Boolean {
+        return suspendCancellableCoroutine { continuation ->
+            FcmRegistrationUploader.setProfileSpawnAlertMode(
+                context = context,
+                profileId = profileId,
+                selection = selection
+            ) { ok ->
+                if (continuation.isActive) {
+                    continuation.resume(ok)
+                }
             }
-
-            Toast.makeText(
-                requireContext(),
-                R.string.spawn_alert_settings_saved,
-                Toast.LENGTH_SHORT
-            ).show()
         }
     }
+
     /**
      * Updates the bell button to reflect the locally selected spawn alert mode.
      *
@@ -4225,34 +4231,34 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             requireContext()
         ).isEnabled(profileId)
 
-        btnTogglePush.alpha = if (
-            settings.isAnyAlertEnabled || mostWantedEnabled
-        ) {
+        val selection = PcgProfileAlertSelection(
+            spawnSettings = settings,
+            mostWantedEnabled = mostWantedEnabled
+        )
+
+        btnTogglePush.alpha = if (selection.requiresFirebaseDelivery) {
             1.0f
         } else {
             0.45f
         }
 
-        btnTogglePush.contentDescription = when {
-            mostWantedEnabled &&
-                !settings.isAnyAlertEnabled -> {
-                getString(R.string.pcg_most_wanted_alert_label)
+        val activeDescriptions = buildList {
+            if (settings.regularMode != PcgSpawnAlertMode.NONE) {
+                add(getString(settings.regularMode.titleRes))
             }
-
-            settings.eventSpawnsEnabled &&
-                    settings.regularMode == PcgSpawnAlertMode.NONE -> {
-                getString(R.string.pcg_event_spawn_alert_label)
+            if (settings.eventSpawnsEnabled) {
+                add(getString(R.string.pcg_event_spawn_alert_label))
             }
-
-            settings.eventSpawnsEnabled -> {
-                getString(
-                    R.string.pcg_spawn_alert_bell_mode_and_event,
-                    getString(settings.regularMode.titleRes)
-                )
+            if (mostWantedEnabled) {
+                add(getString(R.string.pcg_most_wanted_alert_label))
             }
-
-            else -> getString(settings.regularMode.titleRes)
         }
+
+        btnTogglePush.contentDescription =
+            activeDescriptions.joinToString(separator = "; ")
+                .ifBlank {
+                    getString(PcgSpawnAlertMode.NONE.titleRes)
+                }
 
     }
 }

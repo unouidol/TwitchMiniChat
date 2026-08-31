@@ -16,6 +16,11 @@ object PcgMostWantedSelectionValidator {
         catalogEntries: List<PcgPokemonCatalogEntry>,
         requestedNames: Collection<String>
     ): Set<String> {
+        val exactNames = requestedNames
+            .asSequence()
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .toSet()
         val requestedKeys = requestedNames
             .asSequence()
             .map(PcgPokemonNameNormalizer::normalize)
@@ -24,7 +29,10 @@ object PcgMostWantedSelectionValidator {
 
         return catalogEntries
             .asSequence()
-            .filter { entry -> entry.normalizedName in requestedKeys }
+            .filter { entry ->
+                entry.displayName in exactNames ||
+                    entry.normalizedName in requestedKeys
+            }
             .map(PcgPokemonCatalogEntry::displayName)
             .toCollection(linkedSetOf())
     }

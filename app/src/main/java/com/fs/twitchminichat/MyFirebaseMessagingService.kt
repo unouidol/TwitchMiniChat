@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
+import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlin.random.Random
@@ -41,6 +42,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             )
 
             val data = remoteMessage.data
+
+            SmartCatchSpawnIngestion.ingestFcmPayload(
+                context = applicationContext,
+                data = data,
+                messageSentAtMs = remoteMessage.sentTime
+            )
+
+            val reminderEnabled =
+                PcgNotificationAlertPrefsStore.isReminderEnabled(this)
+            if (
+                !PcgNotificationPayloadPolicy.shouldDisplay(
+                    data = data,
+                    reminderEnabled = reminderEnabled
+                )
+            ) {
+                Log.d(TAG, "Delayed spawn reminder suppressed by local preference")
+                return
+            }
 
             val title = data["title"]
                 ?: remoteMessage.notification?.title

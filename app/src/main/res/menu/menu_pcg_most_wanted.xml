@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/actionMostWantedBackup"
+        android:icon="@drawable/ic_backup_restore_24"
+        android:title="@string/pcg_most_wanted_backup_action"
+        app:showAsAction="always" />
+
+</menu>

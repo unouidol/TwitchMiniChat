@@ -279,7 +279,7 @@
     <string name="spawn_alert_mode_all_spawns">Notify ALL spawns</string>
 
 
-    <string name="spawn_alert_mode_none">No spawns</string>
+    <string name="spawn_alert_mode_none">No standard spawn alerts</string>
 
 
     <string name="spawn_alert_mode_saved">Spawn notifications: %1$s</string>
@@ -302,12 +302,17 @@
     <string name="pcg_notification_channel_sound_vibrate_description">PokémonCommunityGame alerts with sound and vibration.</string>
 
     <string name="pcg_spawn_alert_dialog_title">PCG notifications</string>
-    <string name="pcg_spawn_alert_modes_header">Notify me for</string>
+    <string name="pcg_spawn_alert_modes_header">Standard spawn alerts</string>
     <string name="pcg_event_spawn_alert_label">Notify current PCG event spawns</string>
     <string name="pcg_spawn_alert_bell_mode_and_event">%1$s; event spawns enabled</string>
     <string name="pcg_notification_delivery_header">Alert style</string>
     <string name="pcg_notification_sound_label">Sound</string>
     <string name="pcg_notification_vibration_label">Vibration</string>
+    <string name="pcg_notification_reminder_label">Reminder after 45 seconds</string>
+    <string name="pcg_alert_settings_saved">Alert settings updated.</string>
+    <string name="pcg_alert_settings_partially_saved">Only some alert settings were updated. Check your connection and try again.</string>
+    <string name="pcg_alert_settings_save_failed">Could not update alert settings.</string>
+    <string name="pcg_alert_settings_update_in_progress">Alert settings are already being updated.</string>
 
 
 
@@ -354,6 +359,20 @@
     <string name="pcg_most_wanted_filter_selected">Selected only</string>
     <string name="pcg_most_wanted_selection_count">%1$d selected &#183; %2$d shown</string>
     <string name="pcg_most_wanted_selection_count_initial">0 selected &#183; 0 shown</string>
+    <string name="pcg_most_wanted_select_shown">Select shown</string>
+    <string name="pcg_most_wanted_deselect_shown">Deselect shown</string>
+    <string name="pcg_most_wanted_review_selected_count">Review selected (%1$d)</string>
+    <string name="pcg_most_wanted_review_selected_initial">Review selected (0)</string>
+    <string name="pcg_most_wanted_review_current_title">Review selected Pok&#233;mon</string>
+    <string name="pcg_most_wanted_review_import_title">Review imported list</string>
+    <string name="pcg_most_wanted_review_search_hint">Search this list</string>
+    <string name="pcg_most_wanted_review_count">%1$d selected &#183; %2$d shown &#183; %3$d in review</string>
+    <string name="pcg_most_wanted_review_select_all">Select all</string>
+    <string name="pcg_most_wanted_review_deselect_all">Deselect all</string>
+    <string name="pcg_most_wanted_review_no_results">No Pok&#233;mon match this search.</string>
+    <string name="pcg_most_wanted_review_empty">This review contains no Pok&#233;mon.</string>
+    <string name="pcg_most_wanted_review_apply">Apply to draft</string>
+    <string name="pcg_most_wanted_review_applied">Selection updated. Tap Save Most Wanted to save and sync it.</string>
     <string name="pcg_most_wanted_no_results">No Pok&#233;mon match these filters.</string>
     <string name="pcg_most_wanted_load_failed">Could not load the PCG catalog.</string>
     <string name="pcg_most_wanted_save">Save Most Wanted</string>
@@ -364,6 +383,30 @@
     <string name="pcg_most_wanted_unsaved_message">Your Most Wanted changes have not been saved.</string>
     <string name="pcg_most_wanted_discard">Discard</string>
     <string name="pcg_most_wanted_item_metadata">%1$s &#183; %2$s &#183; %3$s &#183; %4$s</string>
+    <string name="pcg_most_wanted_backup_action">Back up or restore Most Wanted</string>
+    <string name="pcg_most_wanted_backup_title">Most Wanted backup</string>
+    <string name="pcg_most_wanted_backup_message">Export the current selection to a text file, including unsaved changes, or load a backup into this draft.</string>
+    <string name="pcg_most_wanted_backup_export">Export list (.txt)</string>
+    <string name="pcg_most_wanted_backup_import">Import list (.txt)</string>
+    <string name="pcg_most_wanted_backup_default_filename">TwitchMiniChat-Most-Wanted-%1$s.txt</string>
+    <string name="pcg_most_wanted_backup_exported">Most Wanted backup saved (%1$d selected).</string>
+    <string name="pcg_most_wanted_backup_export_failed">Could not save the Most Wanted backup.</string>
+    <string name="pcg_most_wanted_backup_import_preview_title">Replace current selection?</string>
+    <string name="pcg_most_wanted_backup_import_count">The backup contains %1$d selected Pok&#233;mon.</string>
+    <string name="pcg_most_wanted_backup_catalog_changed">The backup used catalog %1$s; this app uses %2$s. Every imported name was still validated.</string>
+    <string name="pcg_most_wanted_backup_import_review">Review the imported names before replacing the current draft. Saving and syncing still require Save Most Wanted.</string>
+    <string name="pcg_most_wanted_backup_review_list">Review list</string>
+    <string name="pcg_most_wanted_backup_loaded_into_draft">Backup loaded. Review the selection, then tap Save Most Wanted.</string>
+    <string name="pcg_most_wanted_backup_matches_saved">The backup matches the currently saved selection.</string>
+    <string name="pcg_most_wanted_backup_import_failed_title">Could not import backup</string>
+    <string name="pcg_most_wanted_backup_empty">The selected file is empty.</string>
+    <string name="pcg_most_wanted_backup_invalid">This is not a valid TwitchMiniChat Most Wanted backup.</string>
+    <string name="pcg_most_wanted_backup_unsupported">This backup format is not supported by this app version.</string>
+    <string name="pcg_most_wanted_backup_too_many_entries">The file contains too many list entries.</string>
+    <string name="pcg_most_wanted_backup_unknown_names_more">%1$s\n…and %2$d more</string>
+    <string name="pcg_most_wanted_backup_too_large">The selected file is too large to be a Most Wanted backup.</string>
+    <string name="pcg_most_wanted_backup_invalid_utf8">The selected file is not valid UTF-8 text.</string>
+    <string name="pcg_most_wanted_backup_read_failed">The selected file could not be read.</string>
     <string name="pcg_generation_label">Gen %1$d</string>
     <string name="pcg_availability_normal">Normally spawnable</string>
     <string name="pcg_availability_special">Special availability</string>
@@ -459,6 +502,8 @@
     <string name="pcg_most_wanted_sync_url">https://api.ircminichat.party/set_custom_watchlist</string>
     <string name="pcg_most_wanted_saved_and_synced">Most Wanted List saved and synced.</string>
     <string name="pcg_most_wanted_saved_sync_pending">Saved on this device, but server sync failed. Tap Save to retry.</string>
+    <string name="pcg_most_wanted_alert_setting_saved">Most Wanted alert setting updated.</string>
+    <string name="pcg_most_wanted_alert_setting_save_failed">Could not update Most Wanted alerts.</string>
 
     <!-- PCG Most Wanted combined stage filters -->
     <string name="pcg_most_wanted_stage_filter_hint">Evolution stage (select one or more)</string>
