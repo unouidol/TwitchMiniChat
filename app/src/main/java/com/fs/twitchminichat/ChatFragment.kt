@@ -644,8 +644,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * Keeps the chat top controls below the Android status bar.
      *
      * This mirrors the PCG screen behaviour, where only the top manual controls row
-     * receives the status bar inset. Android's native resize handles the Input Method
-     * Editor (IME), while ChatKeyboardLayoutController protects the navigation-bar edge.
+     * receives the status bar inset. [ChatKeyboardLayoutController] independently
+     * reconciles native resize with Input Method Editor (IME) and navigation insets.
      */
     private fun setupChatTopBarInsets() {
         if (!this::channelSwitchBox.isInitialized) return
@@ -657,8 +657,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!this::editChannel.isInitialized) return
 
         /*
-         * With adjustResize, the Fragment root already ends above a docked keyboard.
-         * Limiting the popup to that visible root keeps its actions reachable.
+         * The root's bottom padding represents any keyboard overlap that native
+         * `adjustResize` did not remove. Excluding it keeps every popup action above
+         * the effective visible content edge.
          */
 
         val root = view ?: return
@@ -669,7 +670,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         root.getLocationOnScreen(rootLocation)
         editChannel.getLocationOnScreen(fieldLocation)
 
-        val rootBottom = rootLocation[1] + root.height
+        val rootBottom = rootLocation[1] + root.height - root.paddingBottom
         val fieldBottom = fieldLocation[1] + editChannel.height
         val availableBelow = rootBottom - fieldBottom - dp(8)
 
@@ -681,8 +682,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Positions and sizes the chat mention dropdown above the message input.
      *
-     * The popup is kept above the composer for consistent placement while Android
-     * resizes the Activity around the Input Method Editor (IME).
+     * The popup is kept above the composer while native resize and measured Input
+     * Method Editor (IME) overlap jointly determine the visible chat area.
      */
     private fun updateMessageMentionDropdownGeometry(
         visibleItemCount: Int = mentionAdapter.count
@@ -1746,6 +1747,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val navigationInsets = insets.getInsets(
+                WindowInsetsCompat.Type.navigationBars()
+            )
+            val imeConsideredVisible = ChatKeyboardInsetPolicy.isImeConsideredVisible(
+                imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime()),
+                imeBottom = imeInsets.bottom,
+                navigationBarBottom = navigationInsets.bottom
+            )
 
             keyboardLayoutController?.applyWindowInsets(insets)
 
@@ -1754,13 +1763,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 "insets imeVisible=${insets.isVisible(WindowInsetsCompat.Type.ime())} " +
                         "imeBottom=${imeInsets.bottom} " +
                         "systemBottom=${systemInsets.bottom} " +
+                        "imeConsideredVisible=$imeConsideredVisible " +
                         "editMessageFocus=${this::editMessage.isInitialized && editMessage.hasFocus()} " +
                         "editChannelFocus=${this::editChannel.isInitialized && editChannel.hasFocus()} " +
                         "rootHeight=${view.height} " +
                         "rootBottomPadding=${view.paddingBottom}"
             )
 
-            lastImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            lastImeVisible = imeConsideredVisible
 
             if (this::editMessage.isInitialized && editMessage.hasFocus()) {
                 updateMessageMentionDropdownGeometry(
