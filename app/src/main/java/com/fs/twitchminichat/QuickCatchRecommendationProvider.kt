@@ -23,7 +23,8 @@ object QuickCatchRecommendationProvider {
         context: Context,
         profileId: String?,
         userPresets: List<CatchPreset>,
-        spawn: SpawnSnapshot?
+        spawn: SpawnSnapshot?,
+        profileSpawnContext: QuickCatchProfileSpawnContext
     ): QuickCatchRecommendationSet {
         val buddy = if (!profileId.isNullOrBlank()) {
             BuddyInfoStore.load(context, profileId)
@@ -35,7 +36,8 @@ object QuickCatchRecommendationProvider {
             CatchBallRecommender.recommend(
                 presets = CatchBallCatalog.createSmartCandidatePresets(),
                 spawn = spawn,
-                buddy = buddy
+                buddy = buddy,
+                isAlreadyCaught = profileSpawnContext.isAlreadyCaught
             )
         } else {
             emptyList()
@@ -44,7 +46,8 @@ object QuickCatchRecommendationProvider {
         val userRecommendations = CatchBallRecommender.recommend(
             presets = userPresets,
             spawn = spawn,
-            buddy = buddy
+            buddy = buddy,
+            isAlreadyCaught = profileSpawnContext.isAlreadyCaught
         )
 
         return QuickCatchRecommendationSet(

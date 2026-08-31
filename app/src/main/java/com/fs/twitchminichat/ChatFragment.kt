@@ -136,6 +136,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var quickCatchProfileId: String? = null
 
     private var quickCatchSpawnTitle: TextView? = null
+    private var quickCatchSpawnMetadata: TextView? = null
     private var quickCatchSpawnSubtitle: TextView? = null
     private var channelDropdownManuallyClosed = false
     private var pendingOpenChannelDropdownAfterIme = false
@@ -2129,7 +2130,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                     if (spawnIngestion.snapshotChanged) {
                         refreshOpenQuickCatchMenuIfNeeded()
-                        updateQuickCatchHeader()
                     }
                 }
             },
@@ -2707,7 +2707,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                             if (spawnIngestion.snapshotChanged) {
                                 refreshOpenQuickCatchMenuIfNeeded()
-                                updateQuickCatchHeader()
                             }
                         }
                     }
@@ -3431,13 +3430,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * The factory handles:
          * - enabled User Presets;
          * - Smart Presets from the current spawn;
+         * - profile-scoped Dex and Most Wanted context;
          * - inventory counts;
          * - recommendation filtering;
-         * - section/header row creation.
+         * - panel header and section-row creation.
          *
          * ChatFragment only needs the final list to show in the RecyclerView.
          */
-        val menuEntries = QuickCatchMenuModelFactory.build(
+        val panelModel = QuickCatchMenuModelFactory.build(
             context = context,
             profileId = profileId,
             spawn = currentSpawnSnapshot()
@@ -3454,6 +3454,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val dialogView = layoutInflater.inflate(R.layout.dialog_quick_catch_presets, null, false)
         val recycler = dialogView.findViewById<RecyclerView>(R.id.recyclerQuickCatchPresets)
         val spawnTitle = dialogView.findViewById<TextView>(R.id.txtQuickCatchSpawnTitle)
+        val spawnMetadata = dialogView.findViewById<TextView>(R.id.txtQuickCatchSpawnMetadata)
         val spawnSubtitle = dialogView.findViewById<TextView>(R.id.txtQuickCatchSpawnSubtitle)
         val btnClose = dialogView.findViewById<ImageButton>(R.id.btnQuickCatchClose)
 
@@ -3488,7 +3489,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * It does not send chat commands directly and does not decide catch logic.
          */
         val adapter = QuickCatchPresetMenuAdapter(
-            items = menuEntries,
+            items = panelModel.menuEntries,
 
             /**
              * Main preset row tap.
@@ -3540,13 +3541,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          *
          * These are used by:
          * - refreshOpenQuickCatchMenuIfNeeded();
-         * - updateQuickCatchHeader();
+         * - applyQuickCatchHeader();
          * - the auto-refresh timer.
          */
         quickCatchDialog = dialog
         quickCatchAdapter = adapter
         quickCatchProfileId = profileId
         quickCatchSpawnTitle = spawnTitle
+        quickCatchSpawnMetadata = spawnMetadata
         quickCatchSpawnSubtitle = spawnSubtitle
 
         /**
@@ -3561,6 +3563,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             quickCatchAdapter = null
             quickCatchProfileId = null
             quickCatchSpawnTitle = null
+            quickCatchSpawnMetadata = null
             quickCatchSpawnSubtitle = null
         }
 
@@ -3573,7 +3576,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * - Timer Ball becomes relevant near the end of the spawn.
          */
         dialog.show()
-        updateQuickCatchHeader()
+        applyQuickCatchHeader(panelModel.spawnHeader)
         startQuickCatchAutoRefresh()
     }
 
@@ -3613,7 +3616,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * - user preset settings change;
          * - Smart Preset recommendations change.
          */
-        val menuEntries = QuickCatchMenuModelFactory.build(
+        val panelModel = QuickCatchMenuModelFactory.build(
             context = context,
             profileId = profileId,
             spawn = currentSpawnSnapshot()
@@ -3625,7 +3628,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * The adapter uses DiffUtil, so it should update only the rows that changed
          * instead of redrawing the entire list blindly.
          */
-        quickCatchAdapter?.updateItems(menuEntries)
+        quickCatchAdapter?.updateItems(panelModel.menuEntries)
 
         /**
          * Refresh the header above the list.
@@ -3633,7 +3636,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * This keeps the spawn title/subtitle/timer aligned with the same current
          * spawn snapshot used to build Smart Presets.
          */
-        updateQuickCatchHeader()
+        applyQuickCatchHeader(panelModel.spawnHeader)
     }
 
 
@@ -3649,111 +3652,21 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return CurrentSpawnStore.load(requireContext())
     }
 
-    private fun currentSpawnAgeSec(spawn: SpawnSnapshot?): Int? {
-        if (spawn == null) return null
-        val ageMs = System.currentTimeMillis() - spawn.seenAtMs
-        if (ageMs <= 0L) return 0
-        return (ageMs / 1000L).toInt()
-    }
-
-    private fun currentSpawnRemainingSec(spawn: SpawnSnapshot?): Int? {
-        val ageSec = currentSpawnAgeSec(spawn) ?: return null
-        return (90 - ageSec).coerceAtLeast(0)
-    }
-
-    /**
-     * Returns seconds until the next expected PCG spawn.
-     *
-     * This uses the last known spawn timestamp as the anchor.
-     *
-     * PCG spawn model:
-     * - spawn is active for 90 seconds;
-     * - a new spawn starts every 15 minutes.
-     *
-     * If the app has never seen a spawn, we cannot calculate the next one.
-     */
-    private fun nextSpawnRemainingSecFromLastKnownSpawn(): Int? {
-        val lastSpawn = CurrentSpawnStore.loadLastKnown(requireContext()) ?: return null
-
-        val nowMs = System.currentTimeMillis()
-        val ageMs = nowMs - lastSpawn.seenAtMs
-
-        if (ageMs < 0L) return null
-
-        /**
-         * If several cycles passed while the app was closed, jump to the next
-         * future 15-minute boundary based on the last known spawn.
-         */
-        val completedCycles = ageMs / PCG_SPAWN_INTERVAL_MS
-        val nextSpawnAtMs = lastSpawn.seenAtMs + ((completedCycles + 1) * PCG_SPAWN_INTERVAL_MS)
-
-        val remainingMs = nextSpawnAtMs - nowMs
-        if (remainingMs <= 0L) return 0
-
-        return (remainingMs / 1000L).toInt()
-    }
-
-    private fun currentSpawnTypesText(spawn: SpawnSnapshot?): String? {
-        if (spawn == null) return null
-
-        return when {
-            !spawn.type1.isNullOrBlank() && !spawn.type2.isNullOrBlank() ->
-                "${spawn.type1} / ${spawn.type2}"
-
-            !spawn.type1.isNullOrBlank() ->
-                spawn.type1
-
-            else -> null
-        }
-    }
-
-    private fun formatCountdownMmSs(totalSeconds: Int): String {
-        val safeSeconds = totalSeconds.coerceAtLeast(0)
-        val minutes = safeSeconds / 60
-        val seconds = safeSeconds % 60
-        return "%d:%02d".format(minutes, seconds)
-    }
-
-    private fun updateQuickCatchHeader() {
+    /** Applies a presentation model built outside the Fragment. */
+    private fun applyQuickCatchHeader(model: QuickCatchSpawnHeaderModel) {
         val titleView = quickCatchSpawnTitle ?: return
+        val metadataView = quickCatchSpawnMetadata ?: return
         val subtitleView = quickCatchSpawnSubtitle ?: return
 
-        val spawn = currentSpawnSnapshot()
-
-        if (spawn == null) {
-            val nextSpawnRemainingSec = nextSpawnRemainingSecFromLastKnownSpawn()
-
-            if (nextSpawnRemainingSec != null) {
-                titleView.text = getString(R.string.quick_catch_next_spawn_title)
-                subtitleView.text = getString(
-                    R.string.quick_catch_next_spawn_subtitle,
-                    formatCountdownMmSs(nextSpawnRemainingSec)
-                )
-            } else {
-                titleView.text = getString(R.string.quick_catch_no_spawn_title)
-                subtitleView.text = getString(R.string.quick_catch_no_spawn_subtitle)
-            }
-
-            return
-        }
-
-        titleView.text = spawn.displayName
-
-        val remainingSec = currentSpawnRemainingSec(spawn) ?: 0
-        val typesText = currentSpawnTypesText(spawn)
-
-        subtitleView.text = if (!typesText.isNullOrBlank()) {
-            getString(
-                R.string.quick_catch_spawn_subtitle_types_time,
-                typesText,
-                remainingSec
-            )
+        titleView.text = model.title
+        val metadata = model.metadata?.trim().orEmpty()
+        if (metadata.isNotBlank()) {
+            metadataView.text = metadata
+            metadataView.visibility = View.VISIBLE
         } else {
-            getString(
-                R.string.quick_catch_spawn_subtitle_time,
-                remainingSec
-            )
+            metadataView.visibility = View.GONE
         }
+        subtitleView.text = model.subtitle
     }
 
 
@@ -3955,11 +3868,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * a synthetic/out-of-order event caused by layout movement.
          */
         private const val COMPOSER_OUTSIDE_TAP_IGNORE_MS = 140L
-
-
-
-        private const val PCG_SPAWN_INTERVAL_MS = 15 * 60 * 1000L
-
         fun newInstance(accountId: String): ChatFragment {
             return ChatFragment().apply {
                 arguments = Bundle().apply { putString(ARG_ACCOUNT_ID, accountId) }

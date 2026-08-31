@@ -121,6 +121,7 @@ object AccountProfileRemovalController {
         profileId: String
     ) {
         InventoryBallStore.clearProfile(context, profileId)
+        PcgPokedexSnapshotStore.clearProfile(context, profileId)
         CatchPresetStore.clearProfile(context, profileId)
         BuddyInfoStore.clearProfile(context, profileId)
         PcgSpawnAlertModeStore.clearProfile(context, profileId)

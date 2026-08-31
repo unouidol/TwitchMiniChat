@@ -51,7 +51,17 @@
         android:maxLines="1"
         android:ellipsize="end" />
 
-    <!-- Current spawn subtitle/timer/recommendation context. -->
+    <!-- Global catalog facts: elemental types and PCG tier. -->
+    <TextView
+        android:id="@+id/txtQuickCatchSpawnMetadata"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textAppearance="?android:attr/textAppearanceSmall" />
+
+    <!-- Active-profile Dex/Most Wanted facts plus the global spawn timer. -->
     <TextView
         android:id="@+id/txtQuickCatchSpawnSubtitle"
         android:layout_width="match_parent"
@@ -59,8 +69,7 @@
         android:layout_marginTop="4dp"
         android:layout_marginBottom="8dp"
         android:textAppearance="?android:attr/textAppearanceSmall"
-        android:maxLines="1"
-        android:ellipsize="end" />
+        android:maxLines="2" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerQuickCatchPresets"

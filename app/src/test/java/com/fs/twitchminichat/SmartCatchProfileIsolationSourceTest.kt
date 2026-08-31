@@ -63,6 +63,21 @@ class SmartCatchProfileIsolationSourceTest {
         )
     }
 
+    @Test
+    fun manualPokedexSnapshotIsStoredAndClearedForTheSameProfile() {
+        val gecko = readProductionSource("pcg/GeckoSessionManager.kt")
+        val store = readProductionSource("PcgPokedexSnapshotStore.kt")
+        val removal = readProductionSource("AccountProfileRemovalController.kt")
+
+        assertTrue(gecko.contains("PcgPokedexSnapshotStore.saveMissingEntries("))
+        assertTrue(store.contains("ProfileScopedPreferenceKey.create("))
+        assertTrue(
+            removal.contains(
+                "PcgPokedexSnapshotStore.clearProfile(context, profileId)"
+            )
+        )
+    }
+
     private fun readProductionSource(fileName: String): String {
         val path = findAppModuleDirectory()
             .resolve("src/main/java/com/fs/twitchminichat")

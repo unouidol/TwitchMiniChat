@@ -2,6 +2,7 @@ package com.fs.twitchminichat
 
 import android.content.Context
 import androidx.core.content.edit
+import com.fs.twitchminichat.pcg.catalog.PcgPokemonTier
 import org.json.JSONObject
 
 /**
@@ -10,6 +11,9 @@ import org.json.JSONObject
  * PCG spawns are global across channels, so this store must NOT be scoped to the
  * current Twitch channel. If a Pikachu is active, it is active everywhere until
  * the 90-second spawn window expires.
+ *
+ * Profile-owned facts such as Pokédex registration and Most Wanted membership
+ * must never be written here; they are resolved when a profile opens Smart Catch.
  */
 object CurrentSpawnStore {
 
@@ -36,6 +40,7 @@ object CurrentSpawnStore {
             .put("rawName", spawn.rawName)
             .put("dexKey", spawn.dexKey ?: "")
             .put("displayName", spawn.displayName)
+            .put("tier", spawn.tier?.name ?: "")
             .put("type1", spawn.type1 ?: "")
             .put("type2", spawn.type2 ?: "")
             .put("weightKg", spawn.weightKg ?: JSONObject.NULL)
@@ -43,7 +48,6 @@ object CurrentSpawnStore {
             .put("baseHp", spawn.baseHp ?: JSONObject.NULL)
             .put("evolvesTwice", spawn.evolvesTwice ?: JSONObject.NULL)
             .put("seenAtMs", spawn.seenAtMs)
-            .put("isAlreadyCaught", spawn.isAlreadyCaught ?: JSONObject.NULL)
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit {
@@ -89,6 +93,9 @@ object CurrentSpawnStore {
             val rawName = json.optString("rawName").trim()
             val dexKey = json.optString("dexKey").trim().ifBlank { null }
             val displayName = json.optString("displayName").trim().ifBlank { rawName }
+            val tier = runCatching {
+                PcgPokemonTier.valueOf(json.optString("tier").trim())
+            }.getOrNull()
             val type1 = json.optString("type1").trim().ifBlank { null }
             val type2 = json.optString("type2").trim().ifBlank { null }
             val weightKg = if (json.isNull("weightKg")) null else json.optDouble("weightKg")
@@ -96,7 +103,6 @@ object CurrentSpawnStore {
             val baseHp = if (json.isNull("baseHp")) null else json.optInt("baseHp")
             val evolvesTwice = if (json.isNull("evolvesTwice")) null else json.optBoolean("evolvesTwice")
             val seenAtMs = json.optLong("seenAtMs", 0L)
-            val isAlreadyCaught = if (json.isNull("isAlreadyCaught")) null else json.optBoolean("isAlreadyCaught")
 
             if (rawName.isBlank()) {
                 null
@@ -105,14 +111,14 @@ object CurrentSpawnStore {
                     rawName = rawName,
                     dexKey = dexKey,
                     displayName = displayName,
+                    tier = tier,
                     type1 = type1,
                     type2 = type2,
                     weightKg = weightKg,
                     baseSpeed = baseSpeed,
                     baseHp = baseHp,
                     evolvesTwice = evolvesTwice,
-                    seenAtMs = seenAtMs,
-                    isAlreadyCaught = isAlreadyCaught
+                    seenAtMs = seenAtMs
                 )
             }
         } catch (_: Exception) {
