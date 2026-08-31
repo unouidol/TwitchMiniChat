@@ -1,20 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mostWantedRoot"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbarMostWanted"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
+        android:layout_alignParentTop="true"
         android:background="?attr/colorSurface"
         android:navigationIcon="@drawable/ic_arrow_back_24"
         android:title="@string/pcg_most_wanted_title"
         app:menu="@menu/menu_pcg_most_wanted"
         app:titleTextColor="?android:attr/textColorPrimary" />
+
+    <LinearLayout
+        android:id="@+id/mostWantedContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/mostWantedBottomActions"
+        android:layout_below="@id/toolbarMostWanted"
+        android:orientation="vertical">
 
     <TextView
         android:layout_width="match_parent"
@@ -221,10 +229,14 @@
 
     </FrameLayout>
 
+    </LinearLayout>
+
     <LinearLayout
+        android:id="@+id/mostWantedBottomActions"
         style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
         android:layout_marginStart="16dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
@@ -258,4 +270,4 @@
 
     </LinearLayout>
 
-</LinearLayout>
+</RelativeLayout>
