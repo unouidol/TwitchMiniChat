@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -140,6 +141,8 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
                 webUrl = WebPolicies.TERMS_URL
             )
         }
+
+        showAppVersion(view)
         refreshList()
     }
 
@@ -148,6 +151,23 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     override fun onResume() {
         super.onResume()
         refreshList()
+    }
+
+    /**
+     * Shows the installed build identity at the bottom of the login screen.
+     *
+     * The label is selectable so a user reporting a problem can copy the exact
+     * version and build number. The development flavor appends its own version
+     * name suffix, which keeps development installations distinguishable.
+     */
+    private fun showAppVersion(view: View) {
+        val versionLabel = view.findViewById<TextView>(R.id.txtAppVersion) ?: return
+
+        versionLabel.text = getString(
+            R.string.app_version_label,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE
+        )
     }
 
     private fun refreshList() {

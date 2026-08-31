@@ -528,4 +528,7 @@
 
     <!-- PCG Most Wanted navigation -->
     <string name="pcg_most_wanted_back_to_alerts">Back to alerts</string>
+
+    <!-- Login screen footer -->
+    <string name="app_version_label">Version %1$s (build %2$d)</string>
 </resources>

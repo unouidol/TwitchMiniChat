@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
     android:padding="24dp"
     android:layout_width="match_parent"
@@ -64,5 +65,16 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="@string/terms_of_use" />
+
+    <TextView
+        android:id="@+id/txtAppVersion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_horizontal"
+        android:textIsSelectable="true"
+        android:textSize="12sp"
+        android:textColor="?android:attr/textColorSecondary"
+        tools:text="Version 5.5.0 (build 7)" />
 
 </LinearLayout>
