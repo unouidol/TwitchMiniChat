@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
+import com.fs.twitchminichat.pcg.catalog.PcgPokemonNameNormalizer
 
 /** Identifies the independent source that observed one PCG spawn. */
 internal enum class SmartCatchSpawnSource {
@@ -271,7 +272,7 @@ internal class SmartCatchSpawnCoordinator(
             ?.trim()
             ?.lowercase()
             ?.takeIf { it.isNotBlank() }
-            ?: PokemonNameNormalizer.normalize(rawName)
+            ?: PcgPokemonNameNormalizer.normalize(rawName)
     }
 
     private fun ignoredNotSpawn(): SmartCatchSpawnIngestionResult {

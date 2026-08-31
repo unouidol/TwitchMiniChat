@@ -1,9 +1,12 @@
 package com.fs.twitchminichat
 
+import com.fs.twitchminichat.pcg.catalog.PcgPokemonTier
+
 data class PokemonTypeEntry(
     val sourceKey: String,
     val displayName: String,
     val pcgName: String,
+    val tier: PcgPokemonTier,
     val type1: String,
     val type2: String?,
     val weightKg: Double?,

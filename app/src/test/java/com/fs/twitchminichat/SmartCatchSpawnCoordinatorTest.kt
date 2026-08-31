@@ -1,5 +1,6 @@
 package com.fs.twitchminichat
 
+import com.fs.twitchminichat.pcg.catalog.PcgPokemonTier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -237,6 +238,7 @@ class SmartCatchSpawnCoordinatorTest {
                         sourceKey = "cacnea",
                         displayName = "Cacnea",
                         pcgName = "Cacnea",
+                        tier = PcgPokemonTier.C,
                         type1 = "Grass",
                         type2 = null,
                         weightKg = 51.3,
