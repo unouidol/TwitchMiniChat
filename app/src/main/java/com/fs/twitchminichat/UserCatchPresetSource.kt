@@ -22,13 +22,30 @@ data class UserCatchPresetSnapshot(
  * Loads user-created catch presets for quick menu presentation.
  *
  * This source deliberately does not build visual rows. It only exposes the
- * saved/enabled preset state so QuickCatchMenuBuilder can decide what message
- * should be shown in the User presets section.
+ * saved/enabled preset state for one profile so QuickCatchMenuBuilder can decide
+ * what message should be shown in the User presets section.
  */
 object UserCatchPresetSource {
 
-    fun loadSnapshot(context: Context): UserCatchPresetSnapshot {
-        val savedCommandPresets = CatchPresetStore.loadAll(context)
+    fun loadSnapshot(
+        context: Context,
+        profileId: String?
+    ): UserCatchPresetSnapshot {
+        val cleanProfileId = profileId
+            ?.let(AccountProfileIdResolver::normalize)
+            .orEmpty()
+
+        if (cleanProfileId.isBlank()) {
+            return UserCatchPresetSnapshot(
+                savedCommandPresets = emptyList(),
+                enabledCommandPresets = emptyList()
+            )
+        }
+
+        val savedCommandPresets = CatchPresetStore.loadAll(
+            context = context,
+            profileId = cleanProfileId
+        )
             .filter { preset -> preset.command.isNotBlank() }
 
         val enabledCommandPresets = savedCommandPresets

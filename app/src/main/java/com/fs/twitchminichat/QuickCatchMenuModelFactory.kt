@@ -39,7 +39,10 @@ object QuickCatchMenuModelFactory {
          * This intentionally respects enabled=false and does not recreate rows
          * from CatchBallCatalog.
          */
-        val userPresetSnapshot = UserCatchPresetSource.loadSnapshot(context)
+        val userPresetSnapshot = UserCatchPresetSource.loadSnapshot(
+            context = context,
+            profileId = profileId
+        )
         val userPresets = userPresetSnapshot.enabledCommandPresets
 
         /**

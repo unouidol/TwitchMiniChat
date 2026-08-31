@@ -6,13 +6,22 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 
+/**
+ * Persists user catch presets per canonical PCG profile.
+ *
+ * Runtime Smart Presets are intentionally not stored here. A one-time migration
+ * copies the legacy global preset snapshot to every account that already exists,
+ * then removes the global key so future accounts start from defaults.
+ */
 object CatchPresetStore {
 
     private const val PREFS_NAME = "catch_preset_store"
-    private const val KEY_PRESETS_JSON = "presets_json"
+    private const val LEGACY_KEY_PRESETS_JSON = "presets_json"
+    private const val PROFILE_PRESETS_KEY_PREFIX = "presets_json"
+    private const val KEY_PROFILE_SCOPE_MIGRATION_COMPLETE =
+        "profile_scope_migration_v1"
 
     const val MAX_SAVED_PRESETS = 50
-
 
     const val BALL_ID_AUTO_CATCH_BASIC = "auto_catch_basic"
 
@@ -27,9 +36,20 @@ object CatchPresetStore {
         )
     }
 
-    fun loadAll(context: Context): List<CatchPreset> {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_PRESETS_JSON, null)
+    /**
+     * Loads the saved preset list for exactly one canonical profile.
+     *
+     * A missing profile fails closed instead of reading shared/global state.
+     */
+    fun loadAll(
+        context: Context,
+        profileId: String
+    ): List<CatchPreset> {
+        val storageKey = profilePresetsKey(profileId) ?: return emptyList()
+        migrateLegacyPresetsIfNeeded(context)
+
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(storageKey, null)
 
         if (raw.isNullOrBlank()) {
             return defaultPresets()
@@ -38,7 +58,15 @@ object CatchPresetStore {
         return parsePresets(raw).take(MAX_SAVED_PRESETS)
     }
 
-    fun saveAll(context: Context, presets: List<CatchPreset>) {
+    /** Saves presets for exactly one profile and ignores blank identities. */
+    fun saveAll(
+        context: Context,
+        profileId: String,
+        presets: List<CatchPreset>
+    ) {
+        val storageKey = profilePresetsKey(profileId) ?: return
+        migrateLegacyPresetsIfNeeded(context)
+
         val cleaned = presets
             .mapIndexedNotNull { index, preset -> sanitizeForSave(preset, index) }
             .take(MAX_SAVED_PRESETS)
@@ -59,7 +87,68 @@ object CatchPresetStore {
         }
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString(KEY_PRESETS_JSON, array.toString())
+            putString(storageKey, array.toString())
+        }
+    }
+
+    /** Deletes only the presets owned by [profileId]. */
+    fun clearProfile(context: Context, profileId: String) {
+        val storageKey = profilePresetsKey(profileId) ?: return
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            remove(storageKey)
+        }
+    }
+
+    private fun profilePresetsKey(profileId: String): String? {
+        return ProfileScopedPreferenceKey.create(
+            prefix = PROFILE_PRESETS_KEY_PREFIX,
+            profileId = profileId
+        )
+    }
+
+    /**
+     * Copies the former global preset snapshot to every account present at upgrade.
+     *
+     * Existing profile-specific snapshots win. When a legacy snapshot exists but
+     * no account can be resolved yet, migration is postponed to avoid data loss.
+     */
+    @Synchronized
+    private fun migrateLegacyPresetsIfNeeded(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_PROFILE_SCOPE_MIGRATION_COMPLETE, false)) {
+            return
+        }
+
+        val legacyRaw = prefs.getString(LEGACY_KEY_PRESETS_JSON, null)
+        if (legacyRaw.isNullOrBlank()) {
+            prefs.edit {
+                remove(LEGACY_KEY_PRESETS_JSON)
+                putBoolean(KEY_PROFILE_SCOPE_MIGRATION_COMPLETE, true)
+            }
+            return
+        }
+
+        val profileIds = AccountRepository(context)
+            .loadAccounts()
+            .map(AccountProfileIdResolver::resolve)
+            .filter { it.isNotBlank() }
+
+        if (profileIds.isEmpty()) {
+            return
+        }
+
+        val targetKeys = CatchPresetProfileMigrationPlanner.missingTargetKeys(
+            profileIds = profileIds,
+            existingKeys = prefs.all.keys,
+            keyPrefix = PROFILE_PRESETS_KEY_PREFIX
+        )
+
+        prefs.edit {
+            targetKeys.forEach { targetKey ->
+                putString(targetKey, legacyRaw)
+            }
+            remove(LEGACY_KEY_PRESETS_JSON)
+            putBoolean(KEY_PROFILE_SCOPE_MIGRATION_COMPLETE, true)
         }
     }
 
