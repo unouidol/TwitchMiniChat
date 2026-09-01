@@ -15,8 +15,13 @@ import com.fs.twitchminichat.pcg.GeckoSessionManager
 
 class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
+    /*
+     * Accounts are stored encrypted outside shared_prefs, and that store is never
+     * touched by the keep-accounts cleanup. Only the legacy plain-text file still has
+     * to be excluded explicitly, for installations that have not completed the upgrade.
+     */
     private val accountSharedPrefsToKeepForTesting = setOf(
-        "v2_accounts"
+        AccountRepository.LEGACY_PREFERENCES_NAME
     )
 
     private lateinit var btnPrivacyPolicy: Button
