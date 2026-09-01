@@ -1,28 +1,55 @@
 package com.fs.twitchminichat
 
 import android.content.Context
-import androidx.core.content.edit
+import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 
-class AccountRepository(ctx: Context) {
+/**
+ * Reads and writes the locally stored Twitch accounts.
+ *
+ * Credentials are held by an [AccountJsonStore]; the production store encrypts them
+ * with an Android Keystore key. The list logic itself stays free of Android types so
+ * it can be covered by local unit tests.
+ */
+class AccountRepository internal constructor(
+    private val store: AccountJsonStore
+) {
 
-    private val prefs = ctx.getSharedPreferences("v2_accounts", Context.MODE_PRIVATE)
-    private val key = "accounts_json"
+    /** Creates the production repository and migrates any legacy plain-text list. */
+    constructor(ctx: Context) : this(createProductionStore(ctx))
 
+    /**
+     * Returns every stored account.
+     *
+     * An unreadable store is reported as an empty list rather than falling back to a
+     * less protected source: the user re-authenticates instead of the application
+     * silently using credentials it could not authenticate.
+     */
     fun loadAccounts(): List<AccountConfig> {
-        val json = prefs.getString(key, "[]") ?: "[]"
-        val arr = JSONArray(json)
+        val json = when (val lookup = store.read()) {
+            is AccountJsonLookup.Present -> lookup.json
+            AccountJsonLookup.Missing -> EMPTY_ACCOUNT_LIST
+            AccountJsonLookup.Unavailable -> EMPTY_ACCOUNT_LIST
+        }
+
+        val arr = runCatching { JSONArray(json) }.getOrNull() ?: return emptyList()
         val out = mutableListOf<AccountConfig>()
 
         for (i in 0 until arr.length()) {
-            val o = arr.getJSONObject(i)
+            val o = arr.optJSONObject(i) ?: continue
+            val id = o.optString("id").trim()
+            val username = o.optString("username").trim()
+            val accessToken = o.optString("accessToken").trim()
+
+            if (id.isEmpty() || username.isEmpty() || accessToken.isEmpty()) continue
+
             out.add(
                 AccountConfig(
-                    id = o.getString("id"),
-                    username = o.getString("username"),
-                    channel = o.getString("channel"),
-                    accessToken = o.getString("accessToken"),
+                    id = id,
+                    username = username,
+                    channel = o.optString("channel").trim(),
+                    accessToken = accessToken,
                     profileId = o.optString("profileId", "")
                 )
             )
@@ -47,9 +74,7 @@ class AccountRepository(ctx: Context) {
             o.put("profileId", it.profileId)
             arr.put(o)
         }
-        prefs.edit {
-            putString(key, arr.toString())
-        }
+        store.write(arr.toString())
     }
 
     fun getById(id: String): AccountConfig? = loadAccounts().firstOrNull { it.id == id }
@@ -127,5 +152,70 @@ class AccountRepository(ctx: Context) {
 
         reordered += byId.values
         saveAll(reordered)
+    }
+
+    companion object {
+
+        /** Preferences file used by releases that stored accounts in plain text. */
+        internal const val LEGACY_PREFERENCES_NAME = "v2_accounts"
+
+        /** Key holding the serialized account list inside the legacy file. */
+        private const val LEGACY_KEY = "accounts_json"
+
+        /** Serialized form of a stored account list containing no accounts. */
+        private const val EMPTY_ACCOUNT_LIST = "[]"
+
+        /** Builds the encrypted store and completes any pending upgrade. */
+        private fun createProductionStore(context: Context): AccountJsonStore {
+            val appContext = context.applicationContext
+            val store = EncryptedAccountStore(appContext)
+            migrateLegacyAccounts(appContext, store)
+            return store
+        }
+
+        /**
+         * Moves a legacy plain-text account list into the encrypted store, once.
+         *
+         * The legacy file is removed only after the encrypted write succeeded, so an
+         * interrupted upgrade retries on the next launch instead of losing accounts.
+         */
+        private fun migrateLegacyAccounts(appContext: Context, store: AccountJsonStore) {
+            if (!legacyPreferencesFile(appContext).exists()) return
+
+            val legacyJson = runCatching {
+                appContext
+                    .getSharedPreferences(LEGACY_PREFERENCES_NAME, Context.MODE_PRIVATE)
+                    .getString(LEGACY_KEY, null)
+            }.getOrNull()
+
+            val current = store.read()
+            val pending = AccountStorageMigration.jsonToMigrate(
+                current = current,
+                legacyJson = legacyJson
+            )
+
+            if (pending == null) {
+                /*
+                 * The encrypted list is already authoritative, so the leftover
+                 * plain-text copy is both redundant and the weaker of the two.
+                 */
+                if (current is AccountJsonLookup.Present) {
+                    runCatching { appContext.deleteSharedPreferences(LEGACY_PREFERENCES_NAME) }
+                }
+                return
+            }
+
+            if (store.write(pending)) {
+                runCatching { appContext.deleteSharedPreferences(LEGACY_PREFERENCES_NAME) }
+            }
+        }
+
+        /** Locates the legacy file without opening it, to keep start-up cheap. */
+        private fun legacyPreferencesFile(appContext: Context): File {
+            return File(
+                File(appContext.applicationInfo.dataDir, "shared_prefs"),
+                "$LEGACY_PREFERENCES_NAME.xml"
+            )
+        }
     }
 }

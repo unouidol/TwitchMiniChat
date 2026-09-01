@@ -13,14 +13,17 @@ object LocalDataCleaner {
         val clearedCacheDirs: Int,
         val failedCacheDirs: Int,
         val backendSessionClearAttempted: Boolean,
-        val backendSessionClearSucceeded: Boolean
+        val backendSessionClearSucceeded: Boolean,
+        val accountStoreClearAttempted: Boolean = false,
+        val accountStoreClearSucceeded: Boolean = false
     )
 
     fun clearAllLocalData(context: Context): Result {
         return clearInternal(
             context = context,
             excludedSharedPrefs = emptySet(),
-            clearBackendSessions = true
+            clearBackendSessions = true,
+            clearAccountStore = true
         )
     }
 
@@ -35,14 +38,16 @@ object LocalDataCleaner {
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
                 .toSet(),
-            clearBackendSessions = false
+            clearBackendSessions = false,
+            clearAccountStore = false
         )
     }
 
     private fun clearInternal(
         context: Context,
         excludedSharedPrefs: Set<String>,
-        clearBackendSessions: Boolean
+        clearBackendSessions: Boolean,
+        clearAccountStore: Boolean
     ): Result {
         val appContext = context.applicationContext
 
@@ -91,6 +96,17 @@ object LocalDataCleaner {
             false
         }
 
+        /*
+         * Accounts live in encrypted storage outside shared_prefs, so the loop above
+         * cannot reach them. A full wipe must remove that store explicitly, otherwise
+         * "delete all local data" would silently stop deleting credentials.
+         */
+        val accountStoreClearSucceeded = if (clearAccountStore) {
+            EncryptedAccountStore(appContext).clear()
+        } else {
+            false
+        }
+
         return Result(
             deletedSharedPrefs = deletedSharedPrefs,
             skippedSharedPrefs = skippedSharedPrefs,
@@ -98,7 +114,9 @@ object LocalDataCleaner {
             clearedCacheDirs = clearedCacheDirs,
             failedCacheDirs = failedCacheDirs,
             backendSessionClearAttempted = clearBackendSessions,
-            backendSessionClearSucceeded = backendSessionClearSucceeded
+            backendSessionClearSucceeded = backendSessionClearSucceeded,
+            accountStoreClearAttempted = clearAccountStore,
+            accountStoreClearSucceeded = accountStoreClearSucceeded
         )
     }
 
