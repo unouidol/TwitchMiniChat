@@ -109,8 +109,10 @@
 
 
     <string name="delete_server_data_url">https://api.ircminichat.party/delete_server_data</string>
+    <string name="delete_device_data_url">https://api.ircminichat.party/delete_device_data</string>
     <string name="server_deletion_failed">Server deletion failed</string>
     <string name="server_delete_ok">Server data deleted</string>
+    <string name="device_delete_ok">This device removed from the server</string>
     <string name="server_deletion_session_required">Refresh at least one account login before deleting server data.</string>
     <string name="server_deletion_auth_unavailable">The secure account session is unavailable. Refresh an account login and try again.</string>
     <string name="server_deletion_device_credential_missing">The device security credential is unavailable. Refresh an account login and try again.</string>
@@ -126,11 +128,13 @@
     <string name="cancel">Cancel</string>
 
     <string name="server_delete_ok_gecko_failed">Server delete OK, but Gecko wipe failed: %1$s</string>
+    <string name="device_delete_ok_gecko_failed">Device removed, but Gecko wipe failed: %1$s</string>
 
     <string name="reset_local_data_title">Reset local data</string>
-    <string name="reset_local_data_message">Choose what local data to reset on this device.</string>
+    <string name="reset_local_data_message">Choose what to reset on this device. Both erase options remove every account from this phone, not just one. The last one also removes this device from the server, so it stops receiving alerts until you sign in again — your profile data and your other devices are never affected. To remove a single account, use the X next to it in the account list instead.</string>
     <string name="reset_local_data_keep_accounts">Reset local data, keep accounts</string>
     <string name="reset_local_data_full">Erase everything on this device</string>
+    <string name="reset_local_data_full_and_unregister">Erase everything and remove this device from the server</string>
 
     <string name="local_data_cleared_accounts_kept">Local data cleared, accounts kept</string>
     <string name="all_local_data_cleared">All local data cleared</string>
