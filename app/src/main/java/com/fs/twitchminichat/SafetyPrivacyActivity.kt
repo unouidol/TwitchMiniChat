@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 
 class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy) {
@@ -66,6 +67,35 @@ class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy
                 asset = "credits.html",
                 webUrl = WebPolicies.CREDITS_URL
             )
+        }
+
+        setupCrashReportingSwitch()
+    }
+
+    /**
+     * Reflects the stored crash reporting choice and applies any change immediately.
+     *
+     * The listener is attached after the initial state is set, so restoring the switch
+     * never counts as the user having changed it.
+     */
+    private fun setupCrashReportingSwitch() {
+        val switchCrashReporting = findViewById<SwitchCompat>(R.id.switchCrashReporting)
+
+        switchCrashReporting.setOnCheckedChangeListener(null)
+        switchCrashReporting.isChecked = CrashReporting.isEnabled(this)
+
+        switchCrashReporting.setOnCheckedChangeListener { _, isChecked ->
+            CrashReporting.setEnabled(this, isChecked)
+
+            Toast.makeText(
+                this,
+                if (isChecked) {
+                    R.string.crash_reporting_enabled_toast
+                } else {
+                    R.string.crash_reporting_disabled_toast
+                },
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

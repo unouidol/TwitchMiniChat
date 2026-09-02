@@ -120,7 +120,6 @@
     <string name="report_message_url">https://api.ircminichat.party/report_message</string>
     <string name="safety_privacy">Safety &amp; Privacy</string>
 
-    <string name="privacy_policy_coming_soon">Privacy policy coming soon</string>
 
     <string name="delete_account_all_data_title">Delete app account and all data</string>
     <string name="delete_account_all_data_message">This will delete app data on the server for this device and known profiles, including device registrations, dex lists, and stored app OAuth/account records when found, then erase all local app data from this device. You will need to log in again.</string>
@@ -191,7 +190,6 @@
     <string name="crash_reporting_note">Technical reports only: device model, Android version, app version and stack traces. Never your account, channels or chat messages.</string>
     <string name="crash_reporting_enabled_toast">Crash reports enabled</string>
     <string name="crash_reporting_disabled_toast">Crash reports disabled</string>
-    <string name="privacy_policy_button">Privacy policy</string>
 
     <string name="remove_channel">Remove channel</string>
 
