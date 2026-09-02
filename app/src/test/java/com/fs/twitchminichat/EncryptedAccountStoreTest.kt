@@ -8,11 +8,16 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
+/** Failure type produced by the test cipher, standing in for a Keystore error. */
+private const val CIPHER_FAILURE_TYPE = "TestCipherFailure"
+
 /**
  * Unit tests for the encrypted account file.
  *
  * A reversible test cipher replaces the Android Keystore so the file format, the
- * atomic replacement and the fail-closed reads can be verified locally.
+ * atomic replacement and the fail-closed reads can be verified locally. The failure
+ * outcomes are asserted by name too: they are what a diagnostic report will say when
+ * a real device stops being able to read its own accounts.
  */
 class EncryptedAccountStoreTest {
 
@@ -29,18 +34,26 @@ class EncryptedAccountStoreTest {
         var keyDeleted: Boolean = false
             private set
 
-        override fun encrypt(plainText: ByteArray): EncryptedPayload? {
-            if (!encryptionWorks) return null
-            return EncryptedPayload(
-                initializationVector = VECTOR,
-                cipherText = plainText.map { (it.toInt() xor MASK).toByte() }.toByteArray()
+        override fun encrypt(plainText: ByteArray): CipherOutcome<EncryptedPayload> {
+            if (!encryptionWorks) return CipherOutcome.Failure(CIPHER_FAILURE_TYPE)
+
+            return CipherOutcome.Success(
+                EncryptedPayload(
+                    initializationVector = VECTOR,
+                    cipherText = plainText.map { (it.toInt() xor MASK).toByte() }.toByteArray()
+                )
             )
         }
 
-        override fun decrypt(payload: EncryptedPayload): ByteArray? {
-            if (!decryptionWorks) return null
-            if (!payload.initializationVector.contentEquals(VECTOR)) return null
-            return payload.cipherText.map { (it.toInt() xor MASK).toByte() }.toByteArray()
+        override fun decrypt(payload: EncryptedPayload): CipherOutcome<ByteArray> {
+            if (!decryptionWorks) return CipherOutcome.Failure(CIPHER_FAILURE_TYPE)
+            if (!payload.initializationVector.contentEquals(VECTOR)) {
+                return CipherOutcome.Failure(CIPHER_FAILURE_TYPE)
+            }
+
+            return CipherOutcome.Success(
+                payload.cipherText.map { (it.toInt() xor MASK).toByte() }.toByteArray()
+            )
         }
 
         override fun deleteKey(): Boolean {
@@ -73,7 +86,7 @@ class EncryptedAccountStoreTest {
         val store = newStore()
         val json = """[{"id":"a"}]"""
 
-        assertTrue(store.write(json))
+        assertEquals(AccountWriteOutcome.Success, store.write(json))
         assertEquals(AccountJsonLookup.Present(json), store.read())
     }
 
@@ -83,7 +96,7 @@ class EncryptedAccountStoreTest {
         val store = newStore()
         val json = """[{"accessToken":"secret-token"}]"""
 
-        assertTrue(store.write(json))
+        assertEquals(AccountWriteOutcome.Success, store.write(json))
 
         val stored = File(temporaryFolder.root, "accounts_v1")
             .walkTopDown()
@@ -99,8 +112,8 @@ class EncryptedAccountStoreTest {
     fun writeReplacesPreviousList() {
         val store = newStore()
 
-        assertTrue(store.write("""["first"]"""))
-        assertTrue(store.write("""["second"]"""))
+        assertEquals(AccountWriteOutcome.Success, store.write("""["first"]"""))
+        assertEquals(AccountWriteOutcome.Success, store.write("""["second"]"""))
 
         assertEquals(AccountJsonLookup.Present("""["second"]"""), store.read())
     }
@@ -109,24 +122,33 @@ class EncryptedAccountStoreTest {
     @Test
     fun corruptedFile_isUnavailable() {
         val store = newStore()
-        assertTrue(store.write("""["first"]"""))
+        assertEquals(AccountWriteOutcome.Success, store.write("""["first"]"""))
 
         val file = File(File(temporaryFolder.root, "accounts_v1"), "accounts.bin")
         file.writeBytes(byteArrayOf(9, 9, 9, 9))
 
-        assertEquals(AccountJsonLookup.Unavailable, store.read())
+        assertEquals(
+            AccountJsonLookup.Unavailable(EncryptedAccountStore.REASON_PAYLOAD_INVALID),
+            store.read()
+        )
     }
 
-    /** A key that can no longer decrypt fails closed instead of returning garbage. */
+    /** A key that can no longer decrypt fails closed, and says which step failed. */
     @Test
-    fun failedDecryption_isUnavailable() {
+    fun failedDecryption_isUnavailableWithItsCause() {
         val cipher = FakeCipher()
         val store = newStore(cipher)
-        assertTrue(store.write("""["first"]"""))
+        assertEquals(AccountWriteOutcome.Success, store.write("""["first"]"""))
 
         cipher.decryptionWorks = false
 
-        assertEquals(AccountJsonLookup.Unavailable, store.read())
+        assertEquals(
+            AccountJsonLookup.Unavailable(
+                reason = EncryptedAccountStore.REASON_DECRYPT_FAILED,
+                errorType = CIPHER_FAILURE_TYPE
+            ),
+            store.read()
+        )
     }
 
     /** Nothing is written when the payload cannot be encrypted. */
@@ -134,7 +156,13 @@ class EncryptedAccountStoreTest {
     fun failedEncryption_writesNothing() {
         val store = newStore(FakeCipher(encryptionWorks = false))
 
-        assertFalse(store.write("""["first"]"""))
+        assertEquals(
+            AccountWriteOutcome.Failure(
+                reason = EncryptedAccountStore.REASON_ENCRYPT_FAILED,
+                errorType = CIPHER_FAILURE_TYPE
+            ),
+            store.write("""["first"]""")
+        )
         assertEquals(AccountJsonLookup.Missing, store.read())
     }
 
@@ -143,7 +171,10 @@ class EncryptedAccountStoreTest {
     fun blankJsonIsRejected() {
         val store = newStore()
 
-        assertFalse(store.write("   "))
+        assertEquals(
+            AccountWriteOutcome.Failure(EncryptedAccountStore.REASON_BLANK_CONTENT),
+            store.write("   ")
+        )
         assertEquals(AccountJsonLookup.Missing, store.read())
     }
 
@@ -152,7 +183,7 @@ class EncryptedAccountStoreTest {
     fun clearRemovesAccountsAndKey() {
         val cipher = FakeCipher()
         val store = newStore(cipher)
-        assertTrue(store.write("""["first"]"""))
+        assertEquals(AccountWriteOutcome.Success, store.write("""["first"]"""))
 
         assertTrue(store.clear())
         assertEquals(AccountJsonLookup.Missing, store.read())

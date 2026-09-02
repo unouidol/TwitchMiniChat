@@ -55,7 +55,7 @@ class AccountStorageMigrationTest {
     fun unavailableEncryptedStore_doesNotMigrate() {
         assertNull(
             AccountStorageMigration.jsonToMigrate(
-                current = AccountJsonLookup.Unavailable,
+                current = AccountJsonLookup.Unavailable(reason = "test_unreadable"),
                 legacyJson = legacyList
             )
         )

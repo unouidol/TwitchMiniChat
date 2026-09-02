@@ -20,6 +20,23 @@ internal class EncryptedPayload(
 )
 
 /**
+ * Outcome of one cipher operation.
+ *
+ * A failure carries the type of the error and nothing else. Keystore and cipher
+ * exceptions can embed key aliases and payload fragments in their messages, so only
+ * the class name survives, which is what makes an outcome safe to put in a
+ * diagnostic report.
+ */
+internal sealed interface CipherOutcome<out T> {
+
+    /** The operation completed and produced [value]. */
+    data class Success<T>(val value: T) : CipherOutcome<T>
+
+    /** The operation failed. [errorType] is an exception class name, never a message. */
+    data class Failure(val errorType: String) : CipherOutcome<Nothing>
+}
+
+/**
  * Encrypts and decrypts locally stored account credentials.
  *
  * Extracted as an interface so the surrounding store can be covered by local unit
@@ -27,11 +44,11 @@ internal class EncryptedPayload(
  */
 internal interface AccountCipher {
 
-    /** Returns the encrypted form of [plainText], or null when encryption fails. */
-    fun encrypt(plainText: ByteArray): EncryptedPayload?
+    /** Returns the encrypted form of [plainText], or the type of the failure. */
+    fun encrypt(plainText: ByteArray): CipherOutcome<EncryptedPayload>
 
-    /** Returns the decrypted bytes, or null when the payload cannot be trusted. */
-    fun decrypt(payload: EncryptedPayload): ByteArray?
+    /** Returns the decrypted bytes, or the type of the failure. */
+    fun decrypt(payload: EncryptedPayload): CipherOutcome<ByteArray>
 
     /** Removes the key so previously written data can never be read again. */
     fun deleteKey(): Boolean
@@ -47,36 +64,32 @@ internal interface AccountCipher {
  */
 internal object AccountSecretCipher : AccountCipher {
 
-    override fun encrypt(plainText: ByteArray): EncryptedPayload? {
-        return runCatching {
-            val secretKey = getOrCreateKey() ?: return null
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+    override fun encrypt(plainText: ByteArray): CipherOutcome<EncryptedPayload> = runCatching {
+        val secretKey = getOrCreateKey() ?: throw KeyUnavailableException()
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey)
 
-            EncryptedPayload(
-                initializationVector = cipher.iv,
-                cipherText = cipher.doFinal(plainText)
-            )
-        }.getOrNull()
-    }
+        EncryptedPayload(
+            initializationVector = cipher.iv,
+            cipherText = cipher.doFinal(plainText)
+        )
+    }.toCipherOutcome()
 
-    override fun decrypt(payload: EncryptedPayload): ByteArray? {
+    override fun decrypt(payload: EncryptedPayload): CipherOutcome<ByteArray> = runCatching {
         if (payload.initializationVector.isEmpty() || payload.cipherText.isEmpty()) {
-            return null
+            throw EmptyPayloadException()
         }
 
-        return runCatching {
-            val secretKey = loadExistingKey() ?: return null
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                secretKey,
-                GCMParameterSpec(AUTHENTICATION_TAG_BITS, payload.initializationVector)
-            )
+        val secretKey = loadExistingKey() ?: throw KeyUnavailableException()
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            secretKey,
+            GCMParameterSpec(AUTHENTICATION_TAG_BITS, payload.initializationVector)
+        )
 
-            cipher.doFinal(payload.cipherText)
-        }.getOrNull()
-    }
+        cipher.doFinal(payload.cipherText)
+    }.toCipherOutcome()
 
     override fun deleteKey(): Boolean {
         return runCatching {
@@ -87,6 +100,12 @@ internal object AccountSecretCipher : AccountCipher {
             true
         }.getOrDefault(false)
     }
+
+    /** Keeps only the type of a caught failure, discarding its message. */
+    private fun <T> Result<T>.toCipherOutcome(): CipherOutcome<T> = fold(
+        onSuccess = { value -> CipherOutcome.Success(value) },
+        onFailure = { error -> CipherOutcome.Failure(DiagnosticError.typeOf(error)) }
+    )
 
     /** Returns the stored key, or null when none exists or it cannot be recovered. */
     private fun loadExistingKey(): SecretKey? {
@@ -126,6 +145,12 @@ internal object AccountSecretCipher : AccountCipher {
             KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
         }.getOrNull()
     }
+
+    /** The Keystore holds no key usable for the account store. */
+    private class KeyUnavailableException : Exception()
+
+    /** The stored payload is structurally empty and cannot be authenticated. */
+    private class EmptyPayloadException : Exception()
 
     /** Hardware-backed key container provided by the platform. */
     private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
