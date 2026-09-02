@@ -3,6 +3,7 @@ package com.fs.twitchminichat
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
@@ -278,157 +279,108 @@ object FcmRegistrationUploader {
         candidateProfileIds: Collection<String>,
         onComplete: (DeleteServerDataResult) -> Unit
     ) {
+        deleteWithDeviceCredentials(
+            context = context,
+            candidateProfileIds = candidateProfileIds,
+            threadName = "delete-server-data",
+            logLabel = "delete_server_data",
+            urlRes = R.string.delete_server_data_url,
+            successMessageRes = R.string.server_delete_ok,
+            onComplete = onComplete
+        )
+    }
+
+    /**
+     * Removes only this device's registration from the server.
+     *
+     * Profile-scoped server data such as Pokedex lists, application OAuth records and
+     * profile tombstones is deliberately left in place, so other devices signed in to
+     * the same profiles keep working. Authentication and payload are identical to
+     * [deleteServerData]: the backend derives the authoritative scope from its own
+     * registered-device record and ignores profile identifiers sent by the client.
+     */
+    fun deleteDeviceData(
+        context: Context,
+        candidateProfileIds: Collection<String>,
+        onComplete: (DeleteServerDataResult) -> Unit
+    ) {
+        deleteWithDeviceCredentials(
+            context = context,
+            candidateProfileIds = candidateProfileIds,
+            threadName = "delete-device-data",
+            logLabel = "delete_device_data",
+            urlRes = R.string.delete_device_data_url,
+            successMessageRes = R.string.device_delete_ok,
+            onComplete = onComplete
+        )
+    }
+
+    /**
+     * Performs one destructive deletion request off the main thread.
+     *
+     * Both deletion endpoints share this path so their authentication, payload and
+     * failure handling cannot drift apart as either one changes.
+     */
+    private fun deleteWithDeviceCredentials(
+        context: Context,
+        candidateProfileIds: Collection<String>,
+        threadName: String,
+        logLabel: String,
+        @StringRes urlRes: Int,
+        @StringRes successMessageRes: Int,
+        onComplete: (DeleteServerDataResult) -> Unit
+    ) {
         val appContext = context.applicationContext
 
-        thread(start = true, name = "delete-server-data") {
-            val authDecision = ServerDeletionAuthProvider(
-                sessionReader = BackendSessionStore(appContext)
-            ).resolve(candidateProfileIds)
+        thread(start = true, name = threadName) {
+            val ready = when (
+                val credentials = resolveDeletionCredentials(
+                    appContext = appContext,
+                    candidateProfileIds = candidateProfileIds,
+                    logLabel = logLabel
+                )
+            ) {
+                is DeletionCredentials.Ready -> credentials
 
-            val authorizationHeader = when (authDecision) {
-                is ServerDeletionAuthDecision.Bearer -> {
-                    Log.d(
-                        TAG,
-                        "delete_server_data authMode=backend_session"
-                    )
-                    authDecision.authorizationHeader
-                }
-
-                ServerDeletionAuthDecision.SessionMissing -> {
-                    Log.w(
-                        TAG,
-                        "delete_server_data skipped: " +
-                            "backend session missing"
-                    )
+                is DeletionCredentials.Blocked -> {
                     postDeleteServerDataResult(
                         onComplete,
-                        failedDeleteServerDataResult(
-                            appContext.getString(
-                                R.string.server_deletion_session_required
-                            )
+                        DeleteServerDataResult(
+                            ok = false,
+                            message = appContext.getString(credentials.messageRes)
                         )
                     )
                     return@thread
                 }
-
-                ServerDeletionAuthDecision.SessionUnavailable -> {
-                    Log.w(
-                        TAG,
-                        "delete_server_data skipped: " +
-                            "backend session unavailable"
-                    )
-                    postDeleteServerDataResult(
-                        onComplete,
-                        failedDeleteServerDataResult(
-                            appContext.getString(
-                                R.string.server_deletion_auth_unavailable
-                            )
-                        )
-                    )
-                    return@thread
-                }
-            }
-
-            val deviceSecret = runCatching {
-                DeviceCredentialStore.getExistingDeviceSecret(
-                    appContext
-                )
-            }.getOrElse { error ->
-                Log.e(
-                    TAG,
-                    "delete_server_data skipped: " +
-                        "invalid device credential " +
-                        "errorType=${DiagnosticError.typeOf(error)}"
-                )
-                null
-            }
-
-            if (deviceSecret.isNullOrBlank()) {
-                Log.w(
-                    TAG,
-                    "delete_server_data skipped: " +
-                        "device credential missing"
-                )
-                postDeleteServerDataResult(
-                    onComplete,
-                    failedDeleteServerDataResult(
-                        appContext.getString(
-                            R.string
-                                .server_deletion_device_credential_missing
-                        )
-                    )
-                )
-                return@thread
             }
 
             val result = postJson(
-                urlString = appContext.getString(
-                    R.string.delete_server_data_url
-                ),
+                urlString = appContext.getString(urlRes),
                 payload = JSONObject().apply {
-                    put(
-                        "device_id",
-                        DeviceCredentialStore.getOrCreateDeviceId(
-                            appContext
-                        )
-                    )
-                    put("device_secret", deviceSecret)
+                    put("device_id", ready.deviceId)
+                    put("device_secret", ready.deviceSecret)
                 },
-                logLabel = "delete_server_data",
-                authorizationHeader = authorizationHeader
+                logLabel = logLabel,
+                authorizationHeader = ready.authorizationHeader
             )
 
-            val rawBody = result?.responseBody.orEmpty()
+            val outcome = DeletionResponseParser.parse(
+                responseCode = result?.responseCode,
+                rawBody = result?.responseBody
+            )
+            val ok = outcome is DeletionOutcome.Success
 
-            val body = runCatching {
-                if (rawBody.isNotBlank()) {
-                    JSONObject(rawBody)
-                } else {
-                    null
-                }
-            }.getOrNull()
+            val message = when (outcome) {
+                DeletionOutcome.Success -> appContext.getString(successMessageRes)
 
-            val ok =
-                result?.responseCode in 200..299 &&
-                    body?.optBoolean("ok", false) == true
-
-            val message = when {
-                result == null -> appContext.getString(
-                    R.string.server_deletion_failed
-                )
-
-                ok -> appContext.getString(
-                    R.string.server_delete_ok
-                )
-
-                else -> {
-                    val errors = body?.optJSONArray("errors")
-
-                    if (
-                        errors != null &&
-                        errors.length() > 0
-                    ) {
-                        errors
-                            .optString(0)
-                            .ifBlank {
-                                appContext.getString(
-                                    R.string.server_deletion_failed
-                                )
-                            }
-                    } else {
-                        body
-                            ?.optString("error")
-                            ?.takeIf(String::isNotBlank)
-                            ?: appContext.getString(
-                                R.string.server_deletion_failed
-                            )
-                    }
-                }
+                is DeletionOutcome.Failure -> outcome.serverMessage
+                    ?: appContext.getString(R.string.server_deletion_failed)
             }
 
+            val scope = DeletionResponseParser.describeScope(result?.responseBody)
             Log.d(
                 TAG,
-                "delete_server_data completed ok=$ok"
+                "$logLabel completed ok=$ok" + if (scope.isEmpty()) "" else " $scope"
             )
 
             postDeleteServerDataResult(
@@ -441,13 +393,78 @@ object FcmRegistrationUploader {
         }
     }
 
-    /** Builds a typed pre-network deletion failure. */
-    private fun failedDeleteServerDataResult(
-        message: String
-    ): DeleteServerDataResult {
-        return DeleteServerDataResult(
-            ok = false,
-            message = message
+    /** Everything one deletion request needs, or the reason it cannot be sent. */
+    private sealed interface DeletionCredentials {
+
+        /** Both authentication factors are available. */
+        data class Ready(
+            val authorizationHeader: String,
+            val deviceId: String,
+            val deviceSecret: String
+        ) : DeletionCredentials
+
+        /** The request must not be attempted; [messageRes] explains why. */
+        data class Blocked(@param:StringRes val messageRes: Int) : DeletionCredentials
+    }
+
+    /**
+     * Resolves the backend session and the device credential required to delete.
+     *
+     * Missing or unreadable state never downgrades to a weaker authentication mode:
+     * the request is refused instead.
+     */
+    private fun resolveDeletionCredentials(
+        appContext: Context,
+        candidateProfileIds: Collection<String>,
+        logLabel: String
+    ): DeletionCredentials {
+        val authorizationHeader = when (
+            val authDecision = ServerDeletionAuthProvider(
+                sessionReader = BackendSessionStore(appContext)
+            ).resolve(candidateProfileIds)
+        ) {
+            is ServerDeletionAuthDecision.Bearer -> {
+                Log.d(TAG, "$logLabel authMode=backend_session")
+                authDecision.authorizationHeader
+            }
+
+            ServerDeletionAuthDecision.SessionMissing -> {
+                Log.w(TAG, "$logLabel skipped: backend session missing")
+                return DeletionCredentials.Blocked(
+                    R.string.server_deletion_session_required
+                )
+            }
+
+            ServerDeletionAuthDecision.SessionUnavailable -> {
+                Log.w(TAG, "$logLabel skipped: backend session unavailable")
+                return DeletionCredentials.Blocked(
+                    R.string.server_deletion_auth_unavailable
+                )
+            }
+        }
+
+        val deviceSecret = runCatching {
+            DeviceCredentialStore.getExistingDeviceSecret(appContext)
+        }.getOrElse { error ->
+            Log.e(
+                TAG,
+                "$logLabel skipped: invalid device credential " +
+                    "errorType=${DiagnosticError.typeOf(error)}"
+            )
+            null
+        }
+
+        if (deviceSecret.isNullOrBlank()) {
+            Log.w(TAG, "$logLabel skipped: device credential missing")
+            return DeletionCredentials.Blocked(
+                R.string.server_deletion_device_credential_missing
+            )
+        }
+
+        return DeletionCredentials.Ready(
+            authorizationHeader = authorizationHeader,
+            deviceId = DeviceCredentialStore.getOrCreateDeviceId(appContext),
+            deviceSecret = deviceSecret
         )
     }
 
@@ -460,6 +477,7 @@ object FcmRegistrationUploader {
             callback(result)
         }
     }
+
     private fun normalizeProfileId(value: String?): String {
         return value?.trim()?.lowercase().orEmpty()
     }

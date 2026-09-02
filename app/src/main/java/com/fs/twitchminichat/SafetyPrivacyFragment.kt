@@ -1,5 +1,6 @@
 package com.fs.twitchminichat
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -77,6 +78,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
             .filter(String::isNotBlank)
             .distinct()
     }
+
     private fun showTotalDeleteDialog() {
         showStackedActionDialog(
             titleRes = R.string.delete_account_all_data_title,
@@ -108,6 +110,10 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                     onClick = { clearAllLocalDataNow() }
                 ),
                 DialogAction(
+                    textRes = R.string.reset_local_data_full_and_unregister,
+                    onClick = { performDeviceDeleteNow() }
+                ),
+                DialogAction(
                     textRes = R.string.cancel,
                     onClick = { }
                 )
@@ -115,23 +121,67 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         )
     }
 
+    /** Removes this device and its known profiles from the server, then wipes locally. */
     private fun performTotalDeleteNow() {
+        performServerDeletion(
+            logTag = "TOTAL_DELETE",
+            geckoFailedMessageRes = R.string.server_delete_ok_gecko_failed
+        ) { context, profileIds, onResult ->
+            FcmRegistrationUploader.deleteServerData(
+                context = context,
+                candidateProfileIds = profileIds,
+                onComplete = onResult
+            )
+        }
+    }
+
+    /**
+     * Removes only this device's registration from the server, then wipes locally.
+     *
+     * Profile-scoped server data is left in place, so other devices signed in to the
+     * same profiles keep working.
+     */
+    private fun performDeviceDeleteNow() {
+        performServerDeletion(
+            logTag = "DEVICE_DELETE",
+            geckoFailedMessageRes = R.string.device_delete_ok_gecko_failed
+        ) { context, profileIds, onResult ->
+            FcmRegistrationUploader.deleteDeviceData(
+                context = context,
+                candidateProfileIds = profileIds,
+                onComplete = onResult
+            )
+        }
+    }
+
+    /**
+     * Runs one server deletion and wipes local data only after it succeeded.
+     *
+     * The order is shared by both scopes and matters: local data holds the device and
+     * profile identifiers the server request needs, so it must never be cleared first.
+     */
+    private fun performServerDeletion(
+        logTag: String,
+        @StringRes geckoFailedMessageRes: Int,
+        deletion: (
+            Context,
+            List<String>,
+            (FcmRegistrationUploader.DeleteServerDataResult) -> Unit
+        ) -> Unit
+    ) {
         val ctx = requireContext()
         val profileIds = profileIdsForServerDeletionAuthorization()
 
         Log.d(
-            "TOTAL_DELETE",
+            logTag,
             "start profileCandidateCount=${profileIds.size}"
         )
 
-        FcmRegistrationUploader.deleteServerData(
-            context = ctx,
-            candidateProfileIds = profileIds
-        ) { serverResult: FcmRegistrationUploader.DeleteServerDataResult ->
-            if (!isAdded) return@deleteServerData
+        deletion(ctx, profileIds) serverResult@{ serverResult ->
+            if (!isAdded) return@serverResult
 
             Log.d(
-                "TOTAL_DELETE",
+                logTag,
                 "Server deletion completed ok=${serverResult.ok}"
             )
 
@@ -141,21 +191,21 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                     serverResult.message,
                     Toast.LENGTH_SHORT
                 ).show()
-                return@deleteServerData
+                return@serverResult
             }
 
             GeckoSessionManager.clearAllWebData(requireContext()) { geckoOk: Boolean, geckoMessage: String ->
                 if (!isAdded) return@clearAllWebData
 
                 Log.d(
-                    "TOTAL_DELETE",
+                    logTag,
                     "Gecko data clear completed ok=$geckoOk"
                 )
 
                 if (!geckoOk) {
                     Toast.makeText(
                         requireContext(),
-                        getString(R.string.server_delete_ok_gecko_failed, geckoMessage),
+                        getString(geckoFailedMessageRes, geckoMessage),
                         Toast.LENGTH_LONG
                     ).show()
                     return@clearAllWebData
@@ -165,7 +215,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                 TermsPrefs.clearAcceptance(requireContext())
 
                 Log.d(
-                    "TOTAL_DELETE",
+                    logTag,
                     "local deletedSharedPrefs=${localResult.deletedSharedPrefs} " +
                             "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
                             "failedSharedPrefs=${localResult.failedSharedPrefs} " +
