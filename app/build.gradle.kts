@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.application)
     id("com.google.gms.google-services")
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 val localProps = Properties().apply {
@@ -129,6 +130,7 @@ dependencies {
     implementation(libs.geckoview)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.crashlytics)
 
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")

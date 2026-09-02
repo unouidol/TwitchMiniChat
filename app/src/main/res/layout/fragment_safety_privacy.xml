@@ -40,6 +40,21 @@
             android:layout_marginTop="12dp"
             android:text="@string/privacy_policy_button" />
 
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchCrashReporting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/crash_reporting_switch" />
+
+        <TextView
+            android:id="@+id/txtCrashReportingNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/crash_reporting_note"
+            android:textSize="13sp" />
+
         <Button
             android:id="@+id/btnClearLocalData"
             android:layout_width="match_parent"

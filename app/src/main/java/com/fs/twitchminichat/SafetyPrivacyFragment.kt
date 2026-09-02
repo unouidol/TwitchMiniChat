@@ -11,6 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.SwitchCompat
 import androidx.fragment.app.Fragment
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 
@@ -29,6 +30,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     private lateinit var btnBlockedUsers: Button
     private lateinit var btnClearLocalData: Button
     private lateinit var btnDeleteServerData: Button
+    private lateinit var switchCrashReporting: SwitchCompat
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -37,6 +39,9 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         btnBlockedUsers = view.findViewById(R.id.btnBlockedUsers)
         btnClearLocalData = view.findViewById(R.id.btnClearLocalData)
         btnDeleteServerData = view.findViewById(R.id.btnDeleteServerData)
+        switchCrashReporting = view.findViewById(R.id.switchCrashReporting)
+
+        setupCrashReportingSwitch()
 
         btnPrivacyPolicy.setOnClickListener {
             Toast.makeText(
@@ -56,6 +61,33 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
         btnDeleteServerData.setOnClickListener {
             showTotalDeleteDialog()
+        }
+    }
+
+    /**
+     * Reflects the stored crash reporting choice and applies any change immediately.
+     *
+     * The listener is attached after the initial state is set, so restoring the switch
+     * never counts as the user having changed it.
+     */
+    private fun setupCrashReportingSwitch() {
+        switchCrashReporting.setOnCheckedChangeListener(null)
+        switchCrashReporting.isChecked = CrashReporting.isEnabled(requireContext())
+
+        switchCrashReporting.setOnCheckedChangeListener { _, isChecked ->
+            CrashReporting.setEnabled(requireContext(), isChecked)
+
+            Toast.makeText(
+                requireContext(),
+                getString(
+                    if (isChecked) {
+                        R.string.crash_reporting_enabled_toast
+                    } else {
+                        R.string.crash_reporting_disabled_toast
+                    }
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

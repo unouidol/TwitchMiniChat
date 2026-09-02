@@ -37,6 +37,15 @@
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_notification_bell" />
 
+        <!--
+            Crash collection never starts on its own. CrashReporting enables it at
+            runtime only after reading the user's choice, so an install that has not
+            accepted the current terms sends nothing.
+        -->
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="false" />
+
         <activity
             android:name="com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity"
             android:exported="false"

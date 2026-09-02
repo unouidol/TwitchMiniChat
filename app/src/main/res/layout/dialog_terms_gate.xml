@@ -24,6 +24,14 @@
             android:text="@string/terms_gate_note"
             android:textSize="14sp" />
 
+        <TextView
+            android:id="@+id/textTermsCrashReporting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/terms_gate_crash_reporting"
+            android:textSize="14sp" />
+
         <Button
             android:id="@+id/btnOpenTermsFromGate"
             android:layout_width="match_parent"
