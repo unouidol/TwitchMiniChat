@@ -101,6 +101,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 TAG,
                 "Firebase message handling failed errorType=${DiagnosticError.typeOf(t)}"
             )
+
+            /*
+             * The push is lost here and the user simply never sees the alert, which
+             * looks identical to a spawn that was never sent.
+             */
+            CrashReporting.recordFailure(MARKER_MESSAGE_HANDLING_FAILED, t)
         }
     }
 
@@ -290,6 +296,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "FCM"
+
+        /** One push arrived and was dropped before it could become a notification. */
+        private const val MARKER_MESSAGE_HANDLING_FAILED = "fcm_message_handling_failed"
 
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"

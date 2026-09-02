@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.StringRes
+import com.fs.twitchminichat.CrashReporting
 import com.fs.twitchminichat.DiagnosticError
 import com.fs.twitchminichat.FcmRegistrationUploader
 import com.fs.twitchminichat.InventoryBallItem
@@ -41,6 +42,17 @@ object GeckoSessionManager {
 
     private const val PCG_EXT_ID = "pcg-probe@example.com"
     private const val PCG_NATIVE_APP = "pcgprobe"
+
+    /**
+     * The bundled probe extension never started for this session.
+     *
+     * Nothing is extracted afterwards: inventory and Pokedex reads produce no data at
+     * all, and the user is told nothing.
+     */
+    private const val MARKER_EXTENSION_INSTALL_FAILED = "pcg_extension_install_failed"
+
+    /** The user asked to refresh the PCG surface and the reload never happened. */
+    private const val MARKER_EXTENSION_REFRESH_FAILED = "pcg_extension_refresh_failed"
 
     private const val TYPE_PCG_INVENTORY_WRONG_TAB = "pcg_inventory_wrong_tab"
     private const val TYPE_PCG_POKEDEX_WRONG_TAB = "pcg_pokedex_wrong_tab"
@@ -1456,6 +1468,9 @@ object GeckoSessionManager {
                 { ext ->
                     val extension = ext ?: run {
                         Log.e("PCG_PROBE", "Extension install returned null")
+                        CrashReporting.recordFailure(
+                            "$MARKER_EXTENSION_INSTALL_FAILED reason=null_extension"
+                        )
                         return@accept
                     }
 
@@ -1621,6 +1636,10 @@ object GeckoSessionManager {
                     Log.e(
                         "PCG_PROBE",
                         "Extension install failed errorType=${DiagnosticError.typeOf(error)}"
+                    )
+                    CrashReporting.recordFailure(
+                        "$MARKER_EXTENSION_INSTALL_FAILED reason=install_error",
+                        error
                     )
                 }
             )
@@ -1987,6 +2006,7 @@ object GeckoSessionManager {
                 "PCG_PROBE",
                 "PCG extension refresh failed errorType=${DiagnosticError.typeOf(t)}"
             )
+            CrashReporting.recordFailure(MARKER_EXTENSION_REFRESH_FAILED, t)
             false
         }
     }

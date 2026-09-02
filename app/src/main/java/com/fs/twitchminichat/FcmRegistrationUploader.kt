@@ -23,6 +23,17 @@ object FcmRegistrationUploader {
 
     private const val TAG = "FCM_REGISTER"
 
+    /**
+     * This device could not register for push notifications.
+     *
+     * Registration runs once at start-up with no retry, so a failure here means no
+     * spawn alert arrives until the application is started again.
+     */
+    private const val MARKER_REGISTER_TOKEN_FAILED = "fcm_register_token_failed"
+
+    /** A manual Pokedex upload did not reach the backend. */
+    private const val MARKER_DEX_UPLOAD_FAILED = "pcg_dex_upload_failed"
+
     /** UI-facing deletion outcome that deliberately excludes raw backend metadata. */
     data class DeleteServerDataResult(
         val ok: Boolean,
@@ -525,6 +536,10 @@ object FcmRegistrationUploader {
                         "register_fcm skipped: device credential unavailable " +
                             "errorType=${DiagnosticError.typeOf(error)}"
                     )
+                    CrashReporting.recordFailure(
+                        "$MARKER_REGISTER_TOKEN_FAILED reason=device_credential_unavailable",
+                        error
+                    )
                     return false
                 }
 
@@ -544,6 +559,9 @@ object FcmRegistrationUploader {
                  * but cannot be trusted.
                  */
                 Log.w(TAG, "register_fcm skipped: backend session unavailable")
+                CrashReporting.recordFailure(
+                    "$MARKER_REGISTER_TOKEN_FAILED reason=session_unavailable"
+                )
                 return false
             }
         }
@@ -609,6 +627,9 @@ object FcmRegistrationUploader {
                  * but cannot be trusted.
                  */
                 Log.w(TAG, "upload_dex_list skipped: backend session unavailable")
+                CrashReporting.recordFailure(
+                    "$MARKER_DEX_UPLOAD_FAILED reason=session_unavailable"
+                )
                 showToast(context, "Error updating dex list for $profileLabel")
                 return
             }
@@ -622,6 +643,12 @@ object FcmRegistrationUploader {
         )
 
         if (result == null) {
+            /*
+             * Also fires when the device is simply offline, which is why the reason is
+             * kept separate: a backend that has become unreachable for everyone and a
+             * user on a train look the same from here, and only the first is a bug.
+             */
+            CrashReporting.recordFailure("$MARKER_DEX_UPLOAD_FAILED reason=no_response")
             showToast(context, "Error updating dex list for $profileLabel")
             return
         }
@@ -642,6 +669,9 @@ object FcmRegistrationUploader {
 
             showToast(context, message)
         } else {
+            CrashReporting.recordFailure(
+                "$MARKER_DEX_UPLOAD_FAILED reason=http_status status=${result.responseCode}"
+            )
             showToast(context, "Error updating dex list for $profileLabel")
         }
     }

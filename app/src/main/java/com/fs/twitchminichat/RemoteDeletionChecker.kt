@@ -14,6 +14,14 @@ import com.fs.twitchminichat.pcg.GeckoSessionManager
 object RemoteDeletionChecker {
 
     private const val TAG = "REMOTE_DELETE"
+
+    /**
+     * The account was deleted on the server but the local wipe did not complete.
+     *
+     * The user is told their data is gone either way, so a silent failure here leaves
+     * credentials on the device behind a message that says otherwise.
+     */
+    private const val MARKER_LOCAL_WIPE_FAILED = "remote_deletion_local_wipe_failed"
     private const val RESTART_DELAY_MS = 500L
 
     @Volatile
@@ -109,6 +117,7 @@ object RemoteDeletionChecker {
                         TAG,
                         "Local wipe failed errorType=${DiagnosticError.typeOf(error)}"
                     )
+                    CrashReporting.recordFailure(MARKER_LOCAL_WIPE_FAILED, error)
                 }
 
                 mainHandler.post {
