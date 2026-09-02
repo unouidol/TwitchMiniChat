@@ -89,11 +89,26 @@ object CrashReporting {
         }
     }
 
-    /** Switches Crashlytics collection without letting a failure crash the caller. */
+    /**
+     * Switches Crashlytics collection without letting a failure crash the caller.
+     *
+     * Disabling collection only stops the upload: Crashlytics keeps writing crashes to
+     * disk and sends that backlog the moment collection is enabled again. An opt-out
+     * that merely flipped the flag would therefore end up delivering exactly the
+     * reports the user refused, so the pending ones are discarded here.
+     *
+     * The order matters, because discarding is a no-op while collection is enabled.
+     * This runs on every start-up of an opted-out installation, which is what clears a
+     * crash that happened while the switch was off before any later opt-in can send it.
+     */
     private fun setCollectionEnabled(enabled: Boolean) {
         runCatching {
-            FirebaseCrashlytics.getInstance()
-                .isCrashlyticsCollectionEnabled = enabled
+            val crashlytics = FirebaseCrashlytics.getInstance()
+            crashlytics.isCrashlyticsCollectionEnabled = enabled
+
+            if (!enabled) {
+                crashlytics.deleteUnsentReports()
+            }
         }.onFailure { error ->
             Log.w(
                 TAG,
