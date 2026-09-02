@@ -12,6 +12,7 @@ viewPager2 = "1.1.0"
 glide = "4.16.0"
 geckoView = "145.0.20251124145406"
 firebaseBom = "34.12.0"
+firebaseCrashlyticsPlugin = "3.0.8"
 
 
 [libraries]
@@ -27,6 +28,7 @@ geckoview = { group = "org.mozilla.geckoview", name = "geckoview", version.ref =
 
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -34,4 +36,5 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 

@@ -33,6 +33,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        /*
+         * Applied before anything else can fail, so a crash during start-up is still
+         * reported for users who left reporting on.
+         */
+        CrashReporting.applyStoredPreference(this)
+
         setContentView(R.layout.activity_main)
 
         repo = AccountRepository(this)

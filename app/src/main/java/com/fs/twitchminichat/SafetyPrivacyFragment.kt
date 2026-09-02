@@ -25,7 +25,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         AccountRepository.LEGACY_PREFERENCES_NAME
     )
 
-    private lateinit var btnPrivacyPolicy: Button
     private lateinit var btnBlockedUsers: Button
     private lateinit var btnClearLocalData: Button
     private lateinit var btnDeleteServerData: Button
@@ -33,18 +32,9 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        btnPrivacyPolicy = view.findViewById(R.id.btnPrivacyPolicy)
         btnBlockedUsers = view.findViewById(R.id.btnBlockedUsers)
         btnClearLocalData = view.findViewById(R.id.btnClearLocalData)
         btnDeleteServerData = view.findViewById(R.id.btnDeleteServerData)
-
-        btnPrivacyPolicy.setOnClickListener {
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.privacy_policy_coming_soon),
-                Toast.LENGTH_SHORT
-            ).show()
-        }
 
         btnBlockedUsers.setOnClickListener {
             BlockedUsersActivity.start(requireContext())

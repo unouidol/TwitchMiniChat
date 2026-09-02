@@ -8,7 +8,8 @@ object TermsPrefs {
     private const val KEY_ACCEPTED_VERSION = "accepted_terms_version"
 
     // Aumentare questo numero quando cambiano in modo sostanziale i Terms/Privacy
-    private const val CURRENT_TERMS_VERSION = 1
+    // 2: introduzione del crash reporting, dichiarato nel gate di accettazione
+    private const val CURRENT_TERMS_VERSION = 2
 
     fun hasAcceptedCurrentVersion(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
