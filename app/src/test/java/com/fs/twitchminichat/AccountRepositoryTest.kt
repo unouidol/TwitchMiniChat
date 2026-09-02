@@ -6,6 +6,12 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** Reason reported by the fake store when a write is refused. */
+private const val FAILED_WRITE_REASON = "test_write_refused"
+
+/** Reason reported by the fake store when the stored list cannot be read. */
+private const val UNREADABLE_STORE_REASON = "test_unreadable"
+
 /** Unit tests for account list behaviour, independent of how accounts are stored. */
 class AccountRepositoryTest {
 
@@ -17,10 +23,10 @@ class AccountRepositoryTest {
 
         override fun read(): AccountJsonLookup = lookup
 
-        override fun write(json: String): Boolean {
-            if (!writable) return false
+        override fun write(json: String): AccountWriteOutcome {
+            if (!writable) return AccountWriteOutcome.Failure(FAILED_WRITE_REASON)
             lookup = AccountJsonLookup.Present(json)
-            return true
+            return AccountWriteOutcome.Success
         }
 
         override fun clear(): Boolean {
@@ -69,7 +75,9 @@ class AccountRepositoryTest {
      */
     @Test
     fun unavailableStore_reportsNoAccounts() {
-        val repo = AccountRepository(FakeStore(AccountJsonLookup.Unavailable))
+        val repo = AccountRepository(
+            FakeStore(AccountJsonLookup.Unavailable(UNREADABLE_STORE_REASON))
+        )
 
         assertTrue(repo.loadAccounts().isEmpty())
     }

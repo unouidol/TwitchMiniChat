@@ -26,8 +26,36 @@ internal sealed interface AccountJsonLookup {
     /** A complete account list is available. */
     data class Present(val json: String) : AccountJsonLookup
 
-    /** Storage exists but cannot be read or authenticated. */
-    data object Unavailable : AccountJsonLookup
+    /**
+     * Storage exists but cannot be read or authenticated.
+     *
+     * [reason] names the step that failed and [errorType] the exception class behind
+     * it. Both come from vocabularies defined in code and neither can carry stored
+     * content, which is what makes them safe to put in a diagnostic report.
+     */
+    data class Unavailable(
+        val reason: String,
+        val errorType: String? = null
+    ) : AccountJsonLookup
+}
+
+/**
+ * Result of replacing the stored account list.
+ *
+ * A failed write is reported rather than returned as a bare false, because the user
+ * has already been shown the change as if it had been saved: a silent failure here
+ * is an account that disappears at the next start-up with no trace of why.
+ */
+internal sealed interface AccountWriteOutcome {
+
+    /** The account list was stored. */
+    data object Success : AccountWriteOutcome
+
+    /** Nothing was stored. See [AccountJsonLookup.Unavailable] for the field rules. */
+    data class Failure(
+        val reason: String,
+        val errorType: String? = null
+    ) : AccountWriteOutcome
 }
 
 /** Storage contract for the serialized account list. */
@@ -36,8 +64,8 @@ internal interface AccountJsonStore {
     /** Returns the complete lookup state of the stored account list. */
     fun read(): AccountJsonLookup
 
-    /** Replaces the stored account list. Returns false when nothing was written. */
-    fun write(json: String): Boolean
+    /** Replaces the stored account list. */
+    fun write(json: String): AccountWriteOutcome
 
     /** Removes every stored account and the key protecting them. */
     fun clear(): Boolean
@@ -69,34 +97,48 @@ internal class EncryptedAccountStore internal constructor(
             return@synchronized AccountJsonLookup.Missing
         }
         if (!file.isFile || file.length() !in 1..MAX_FILE_SIZE_BYTES) {
-            return@synchronized AccountJsonLookup.Unavailable
+            return@synchronized AccountJsonLookup.Unavailable(REASON_FILE_SHAPE)
         }
 
         val payload = readCompletePayload(file)
-            ?: return@synchronized AccountJsonLookup.Unavailable
+            ?: return@synchronized AccountJsonLookup.Unavailable(REASON_PAYLOAD_INVALID)
 
-        val plainText = cipher.decrypt(payload)
-            ?: return@synchronized AccountJsonLookup.Unavailable
+        val plainText = when (val decrypted = cipher.decrypt(payload)) {
+            is CipherOutcome.Success -> decrypted.value
+            is CipherOutcome.Failure -> return@synchronized AccountJsonLookup.Unavailable(
+                reason = REASON_DECRYPT_FAILED,
+                errorType = decrypted.errorType
+            )
+        }
 
         val json = runCatching { plainText.toString(Charsets.UTF_8) }.getOrNull()
         if (json.isNullOrBlank()) {
-            return@synchronized AccountJsonLookup.Unavailable
+            return@synchronized AccountJsonLookup.Unavailable(REASON_CONTENT_INVALID)
         }
 
         AccountJsonLookup.Present(json)
     }
 
-    override fun write(json: String): Boolean = synchronized(STORE_LOCK) {
-        if (json.isBlank()) return@synchronized false
+    override fun write(json: String): AccountWriteOutcome = synchronized(STORE_LOCK) {
+        if (json.isBlank()) {
+            return@synchronized AccountWriteOutcome.Failure(REASON_BLANK_CONTENT)
+        }
 
-        val payload = cipher.encrypt(json.toByteArray(Charsets.UTF_8))
-            ?: return@synchronized false
+        val payload = when (
+            val encrypted = cipher.encrypt(json.toByteArray(Charsets.UTF_8))
+        ) {
+            is CipherOutcome.Success -> encrypted.value
+            is CipherOutcome.Failure -> return@synchronized AccountWriteOutcome.Failure(
+                reason = REASON_ENCRYPT_FAILED,
+                errorType = encrypted.errorType
+            )
+        }
 
         if (!storageDirectory.exists() && !storageDirectory.mkdirs()) {
-            return@synchronized false
+            return@synchronized AccountWriteOutcome.Failure(REASON_DIRECTORY_UNAVAILABLE)
         }
         if (!storageDirectory.isDirectory) {
-            return@synchronized false
+            return@synchronized AccountWriteOutcome.Failure(REASON_DIRECTORY_UNAVAILABLE)
         }
 
         writePayloadAtomically(accountFile, payload)
@@ -136,7 +178,10 @@ internal class EncryptedAccountStore internal constructor(
     }
 
     /** Writes a synchronized temporary file and replaces the target in one move. */
-    private fun writePayloadAtomically(targetFile: File, payload: EncryptedPayload): Boolean {
+    private fun writePayloadAtomically(
+        targetFile: File,
+        payload: EncryptedPayload
+    ): AccountWriteOutcome {
         val temporaryFile = File(
             storageDirectory,
             "${targetFile.name}.${UUID.randomUUID()}.tmp"
@@ -161,9 +206,12 @@ internal class EncryptedAccountStore internal constructor(
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING
             )
-            true
-        } catch (_: Exception) {
-            false
+            AccountWriteOutcome.Success
+        } catch (error: Exception) {
+            AccountWriteOutcome.Failure(
+                reason = REASON_ATOMIC_WRITE_FAILED,
+                errorType = DiagnosticError.typeOf(error)
+            )
         } finally {
             if (temporaryFile.exists()) {
                 temporaryFile.delete()
@@ -172,6 +220,30 @@ internal class EncryptedAccountStore internal constructor(
     }
 
     companion object {
+
+        /** The stored file is not a regular file of a plausible size. */
+        internal const val REASON_FILE_SHAPE = "file_shape"
+
+        /** The file header or its framing did not survive validation. */
+        internal const val REASON_PAYLOAD_INVALID = "payload_invalid"
+
+        /** The Keystore could not authenticate the stored bytes. */
+        internal const val REASON_DECRYPT_FAILED = "decrypt_failed"
+
+        /** The decrypted bytes are not usable text. */
+        internal const val REASON_CONTENT_INVALID = "content_invalid"
+
+        /** Nothing was offered to store. */
+        internal const val REASON_BLANK_CONTENT = "blank_content"
+
+        /** The account list could not be encrypted. */
+        internal const val REASON_ENCRYPT_FAILED = "encrypt_failed"
+
+        /** The private storage directory could not be created or used. */
+        internal const val REASON_DIRECTORY_UNAVAILABLE = "directory_unavailable"
+
+        /** The temporary file could not be written or moved into place. */
+        internal const val REASON_ATOMIC_WRITE_FAILED = "atomic_write_failed"
 
         /** Directory kept outside Android backup and device-transfer payloads. */
         private const val DIRECTORY_NAME = "accounts_v1"

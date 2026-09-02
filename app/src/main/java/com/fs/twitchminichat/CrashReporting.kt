@@ -27,6 +27,25 @@ internal object CrashReportingPolicy {
 }
 
 /**
+ * Lets each distinct failure description through once per process.
+ *
+ * Handled failures are reported from paths that repeat many times in one session: an
+ * unreadable account store is consulted again on every screen that lists accounts.
+ * Without this, a single broken installation would produce hundreds of copies of one
+ * root cause and bury everything else. What matters when reading the console is how
+ * many installations hit a failure, not how many times each one retried.
+ */
+internal class FailureReportGate {
+
+    private val alreadyReported = mutableSetOf<String>()
+
+    /** Returns true the first time [description] is offered, false afterwards. */
+    fun allowsReporting(description: String): Boolean = synchronized(alreadyReported) {
+        alreadyReported.add(description)
+    }
+}
+
+/**
  * Sends crash and error diagnostics, and nothing else.
  *
  * Collection never starts on its own: it is disabled in the manifest and switched on
@@ -69,9 +88,11 @@ object CrashReporting {
      * Intended for the cases where the application knows it expected a result and got
      * none, which produce no crash and would never reach a crash report on their own.
      *
-     * [marker] must be a constant defined in code, never text derived from user data
-     * or from a server response. The original error contributes only its type, through
-     * [DiagnosticError], so an exception message can never carry content into a report.
+     * [marker] must be built from constants defined in code, never from user data or
+     * from a server response; a caller may append fields drawn from a fixed vocabulary
+     * it owns. The original error contributes only its type, through [DiagnosticError],
+     * so an exception message can never carry content into a report. Each distinct
+     * resulting description is reported once per process, see [FailureReportGate].
      */
     fun recordFailure(marker: String, error: Throwable? = null) {
         val normalizedMarker = marker.trim()
@@ -83,9 +104,13 @@ object CrashReporting {
             "$normalizedMarker type=${DiagnosticError.typeOf(error)}"
         }
 
+        if (!reportGate.allowsReporting(description)) return
+
         runCatching {
             FirebaseCrashlytics.getInstance()
                 .recordException(NonFatalFailure(description))
+
+            Log.w(TAG, "handled failure $description")
         }
     }
 
@@ -131,6 +156,9 @@ object CrashReporting {
      * reporting console, and guarantees the message content is ours.
      */
     private class NonFatalFailure(description: String) : Exception(description)
+
+    /** Keeps one repeating root cause from filling the console with duplicates. */
+    private val reportGate = FailureReportGate()
 
     /** Logcat tag for reporting-state diagnostics. */
     private const val TAG = "CRASH_REPORTING"

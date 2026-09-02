@@ -11,6 +11,11 @@ import org.json.JSONObject
  * Credentials are held by an [AccountJsonStore]; the production store encrypts them
  * with an Android Keystore key. The list logic itself stays free of Android types so
  * it can be covered by local unit tests.
+ *
+ * Storage failures here are the worst kind the application has: the accounts are the
+ * only thing the user cannot recreate from the interface, and every failing path
+ * degrades to an empty list or a silent no-op. Each one is therefore reported through
+ * [CrashReporting], with the step that broke and nothing else.
  */
 class AccountRepository internal constructor(
     private val store: AccountJsonStore
@@ -24,13 +29,21 @@ class AccountRepository internal constructor(
      *
      * An unreadable store is reported as an empty list rather than falling back to a
      * less protected source: the user re-authenticates instead of the application
-     * silently using credentials it could not authenticate.
+     * silently using credentials it could not authenticate. Because that looks exactly
+     * like a device with no accounts, the failure is also reported as a diagnostic.
      */
     fun loadAccounts(): List<AccountConfig> {
         val json = when (val lookup = store.read()) {
             is AccountJsonLookup.Present -> lookup.json
             AccountJsonLookup.Missing -> EMPTY_ACCOUNT_LIST
-            AccountJsonLookup.Unavailable -> EMPTY_ACCOUNT_LIST
+            is AccountJsonLookup.Unavailable -> {
+                reportStorageFailure(
+                    marker = MARKER_READ_UNAVAILABLE,
+                    reason = lookup.reason,
+                    errorType = lookup.errorType
+                )
+                EMPTY_ACCOUNT_LIST
+            }
         }
 
         val arr = runCatching { JSONArray(json) }.getOrNull() ?: return emptyList()
@@ -63,6 +76,13 @@ class AccountRepository internal constructor(
         saveAll(list)
     }
 
+    /**
+     * Replaces the whole stored list.
+     *
+     * Every mutation funnels through here, and the user interface has already shown
+     * the change as done by the time it runs, so a failure that stayed silent would
+     * surface much later as an account that vanished on its own.
+     */
     fun saveAll(list: List<AccountConfig>) {
         val arr = JSONArray()
         list.forEach {
@@ -74,7 +94,15 @@ class AccountRepository internal constructor(
             o.put("profileId", it.profileId)
             arr.put(o)
         }
-        store.write(arr.toString())
+
+        val outcome = store.write(arr.toString())
+        if (outcome is AccountWriteOutcome.Failure) {
+            reportStorageFailure(
+                marker = MARKER_WRITE_FAILED,
+                reason = outcome.reason,
+                errorType = outcome.errorType
+            )
+        }
     }
 
     fun getById(id: String): AccountConfig? = loadAccounts().firstOrNull { it.id == id }
@@ -165,6 +193,39 @@ class AccountRepository internal constructor(
         /** Serialized form of a stored account list containing no accounts. */
         private const val EMPTY_ACCOUNT_LIST = "[]"
 
+        /** The stored account list exists but could not be read back. */
+        private const val MARKER_READ_UNAVAILABLE = "account_store_read_unavailable"
+
+        /** An account change was shown as saved but never reached storage. */
+        private const val MARKER_WRITE_FAILED = "account_store_write_failed"
+
+        /** The one-time upgrade could not read the legacy plain-text list. */
+        private const val MARKER_MIGRATION_READ_FAILED = "account_migration_legacy_read_failed"
+
+        /** The one-time upgrade could not store the accounts it had recovered. */
+        private const val MARKER_MIGRATION_WRITE_FAILED = "account_migration_write_failed"
+
+        /**
+         * Reports one account-storage failure, carrying no stored content.
+         *
+         * [marker] and [reason] come from vocabularies defined in code and [errorType]
+         * is an exception class name, so a report says which step broke on which
+         * installation without ever including a credential or a user name.
+         */
+        private fun reportStorageFailure(
+            marker: String,
+            reason: String,
+            errorType: String?
+        ) {
+            val description = if (errorType == null) {
+                "$marker reason=$reason"
+            } else {
+                "$marker reason=$reason type=$errorType"
+            }
+
+            CrashReporting.recordFailure(description)
+        }
+
         /** Builds the encrypted store and completes any pending upgrade. */
         private fun createProductionStore(context: Context): AccountJsonStore {
             val appContext = context.applicationContext
@@ -178,6 +239,8 @@ class AccountRepository internal constructor(
          *
          * The legacy file is removed only after the encrypted write succeeded, so an
          * interrupted upgrade retries on the next launch instead of losing accounts.
+         * Both failure paths are reported: an upgrade that never completes leaves the
+         * user looking at an application with no accounts and no explanation.
          */
         private fun migrateLegacyAccounts(appContext: Context, store: AccountJsonStore) {
             if (!legacyPreferencesFile(appContext).exists()) return
@@ -186,6 +249,8 @@ class AccountRepository internal constructor(
                 appContext
                     .getSharedPreferences(LEGACY_PREFERENCES_NAME, Context.MODE_PRIVATE)
                     .getString(LEGACY_KEY, null)
+            }.onFailure { error ->
+                CrashReporting.recordFailure(MARKER_MIGRATION_READ_FAILED, error)
             }.getOrNull()
 
             val current = store.read()
@@ -205,8 +270,16 @@ class AccountRepository internal constructor(
                 return
             }
 
-            if (store.write(pending)) {
-                runCatching { appContext.deleteSharedPreferences(LEGACY_PREFERENCES_NAME) }
+            when (val outcome = store.write(pending)) {
+                AccountWriteOutcome.Success -> {
+                    runCatching { appContext.deleteSharedPreferences(LEGACY_PREFERENCES_NAME) }
+                }
+
+                is AccountWriteOutcome.Failure -> reportStorageFailure(
+                    marker = MARKER_MIGRATION_WRITE_FAILED,
+                    reason = outcome.reason,
+                    errorType = outcome.errorType
+                )
             }
         }
 
