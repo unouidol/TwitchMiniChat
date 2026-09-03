@@ -314,6 +314,7 @@
     <string name="fcm_set_spawn_alert_mode_url">https://api.ircminichat.party/set_spawn_alert_mode</string>
     <string name="spawn_alert_profile_missing">Select a Twitch profile first.</string>
 
+    <string name="pcg_notification_channel_group_name">PokémonCommunityGame alerts</string>
     <string name="pcg_notification_channel_silent_name">PCG alerts silent</string>
     <string name="pcg_notification_channel_silent_description">PokémonCommunityGame alerts without sound or vibration.</string>
 
