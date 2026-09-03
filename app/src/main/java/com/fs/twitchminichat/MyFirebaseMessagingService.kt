@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -31,6 +32,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         prefs.edit {
             putString(KEY_LATEST_FCM_TOKEN, token)
         }
+
+        /*
+         * A token rotation that never reaches the backend silences every push, and
+         * from the device the result looks identical to a spawn that was never sent.
+         */
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.token_refreshed"
+        )
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
@@ -42,6 +52,29 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             )
 
             val data = remoteMessage.data
+
+            /*
+             * sentTime comes from the Firebase servers, so the difference against the
+             * local clock measures the end-to-end delay. priority against
+             * originalPriority shows whether Firebase demoted the message, which is
+             * what standby buckets and battery restrictions do to a background app.
+             */
+            val sentAtMs = remoteMessage.sentTime
+            val latencySec = if (sentAtMs > 0L) {
+                (System.currentTimeMillis() - sentAtMs) / 1000
+            } else {
+                null
+            }
+
+            HistoryDiagnosticsLog.record(
+                applicationContext,
+                "fcm.received",
+                "latencySec" to latencySec,
+                "reminder" to data[PcgNotificationPayloadPolicy.REMINDER_KEY],
+                "priority" to remoteMessage.priority,
+                "originalPriority" to remoteMessage.originalPriority,
+                "dataFieldCount" to data.size
+            )
 
             SmartCatchSpawnIngestion.ingestFcmPayload(
                 context = applicationContext,
@@ -58,6 +91,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 )
             ) {
                 Log.d(TAG, "Delayed spawn reminder suppressed by local preference")
+                HistoryDiagnosticsLog.record(
+                    applicationContext,
+                    "fcm.suppressed",
+                    "reason" to "reminder_disabled"
+                )
                 return
             }
 
@@ -100,6 +138,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             Log.e(
                 TAG,
                 "Firebase message handling failed errorType=${DiagnosticError.typeOf(t)}"
+            )
+
+            HistoryDiagnosticsLog.record(
+                applicationContext,
+                "fcm.failed",
+                "errorType" to DiagnosticError.typeOf(t)
             )
 
             /*
@@ -265,6 +309,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             if (!granted) {
                 Log.w(TAG, "POST_NOTIFICATIONS not allowed: alert not shown")
+                HistoryDiagnosticsLog.record(
+                    applicationContext,
+                    "fcm.notification.blocked",
+                    "reason" to "post_notifications_denied"
+                )
                 return
             }
         }
@@ -292,6 +341,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         )
 
         Log.d(TAG, "Notification posted")
+
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.notification.posted",
+            "channelId" to channelId,
+            "channelImportance" to channel?.importance,
+            "channelHasSound" to (channel?.sound != null),
+            "channelVibrates" to channel?.shouldVibrate(),
+            "notificationsEnabled" to notificationsEnabled
+        )
     }
 
     companion object {

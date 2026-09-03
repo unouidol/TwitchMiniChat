@@ -107,7 +107,7 @@ object HistoryDiagnosticsLog {
             runCatching {
                 export.bufferedWriter().use { output ->
                     output.appendLine(
-                        "# TwitchMiniChat history diagnostics"
+                        "# TwitchMiniChat diagnostics"
                     )
                     output.appendLine(
                         "# exported ${formatInstant(System.currentTimeMillis())}"
