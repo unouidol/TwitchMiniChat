@@ -592,6 +592,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private var lastBackfillAtMs: Long = 0L
 
+    /*
+     * Application context retained after the first attach so a journal entry
+     * recorded while the fragment is detached is still written instead of being
+     * dropped silently.
+     */
+    private var diagnosticsApplicationContext: Context? = null
+
 
     private val botcolors = mapOf(
         "elbierro" to 0xFFFFD700.toInt(),
@@ -1960,7 +1967,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             updateStreamUi()
         }
 
-        val c = cfg ?: return
+        val c = cfg
+        if (c == null) {
+            /*
+             * Resuming before a config is bound left no journal entry at all, so a
+             * gap produced this way was invisible next to the recorded outcomes.
+             */
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "config_not_bound"
+            )
+            return
+        }
 
         val pausedAt = lastPausedAtMs
         if (pausedAt == 0L) {
@@ -2321,7 +2339,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun connectIfNeeded() {
         if (ircClient != null || connectInProgress) return
 
-        val c = cfg ?: return
+        val c = cfg
+        if (c == null) {
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "config_not_bound"
+            )
+            return
+        }
 
         if (!historyLoaded) {
             historyLoaded = true
@@ -2764,7 +2789,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         event: String,
         vararg fields: Pair<String, Any?>
     ) {
-        val diagnosticsContext = context ?: return
+        val diagnosticsContext = context?.applicationContext
+            ?.also { retained -> diagnosticsApplicationContext = retained }
+            ?: diagnosticsApplicationContext
+            ?: return
 
         HistoryDiagnosticsLog.record(
             diagnosticsContext,
