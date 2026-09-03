@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -342,6 +343,43 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(TAG, "Notification posted")
 
+        /*
+         * Everything above proves the alert was handed to Android correctly, which
+         * the journal already showed for alerts that never made a sound. What was
+         * missing is the state Android itself was in when it decided whether to
+         * play one, so these fields describe that decision rather than the request.
+         *
+         * msSinceLastPost measures how close together two alerts from this app
+         * landed: the backend sends one push per matching profile and the profiles
+         * share one device, so two notifications can arrive milliseconds apart and
+         * only one of them is heard.
+         */
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+
+        val notificationsPaused =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                runCatching { notificationManager.areNotificationsPaused() }.getOrNull()
+            } else {
+                null
+            }
+
+        val groupBlocked =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                channel?.group?.let { groupId ->
+                    runCatching {
+                        notificationManager
+                            .getNotificationChannelGroup(groupId)
+                            ?.isBlocked
+                    }.getOrNull()
+                }
+            } else {
+                null
+            }
+
+        val postedAtMs = System.currentTimeMillis()
+        val previousPostedAtMs = lastNotificationPostedAtMs
+        lastNotificationPostedAtMs = postedAtMs
+
         HistoryDiagnosticsLog.record(
             applicationContext,
             "fcm.notification.posted",
@@ -349,7 +387,26 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             "channelImportance" to channel?.importance,
             "channelHasSound" to (channel?.sound != null),
             "channelVibrates" to channel?.shouldVibrate(),
-            "notificationsEnabled" to notificationsEnabled
+            "notificationsEnabled" to notificationsEnabled,
+            "channelBypassesDnd" to channel?.canBypassDnd(),
+            "groupBlocked" to groupBlocked,
+            "interruptionFilter" to runCatching {
+                notificationManager.currentInterruptionFilter
+            }.getOrNull(),
+            "notificationsPaused" to notificationsPaused,
+            "ringerMode" to audioManager?.ringerMode,
+            "notificationVolume" to audioManager?.getStreamVolume(
+                AudioManager.STREAM_NOTIFICATION
+            ),
+            "notificationVolumeMax" to audioManager?.getStreamMaxVolume(
+                AudioManager.STREAM_NOTIFICATION
+            ),
+            "activeNotifications" to runCatching {
+                notificationManager.activeNotifications.size
+            }.getOrNull(),
+            "msSinceLastPost" to previousPostedAtMs
+                .takeIf { it > 0L }
+                ?.let { postedAtMs - it }
         )
     }
 
@@ -361,5 +418,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"
+
+        /**
+         * Wall clock of the previous alert this process posted, 0 when none.
+         *
+         * Held in the companion because each push may be handled by a new service
+         * instance while the process survives between them.
+         */
+        @Volatile
+        private var lastNotificationPostedAtMs: Long = 0L
     }
 }
