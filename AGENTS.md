@@ -71,6 +71,10 @@ Device-dependent behavior cannot be proven by local unit tests. Changes involvin
 
 ## Release and distribution
 
+`RELEASE-STATE.md` records what is currently published, what is merged but
+unreleased, and what the test device is running. Read it before assuming a change has
+reached users, and update it in the same pull request that bumps the version.
+
 Published releases are consumed by the public website at `https://tmc.ircminichat.party/`,
 which links straight to GitHub release assets and reads the version from the GitHub
 releases application programming interface (API). The names and formats below are a
