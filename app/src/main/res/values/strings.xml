@@ -144,6 +144,11 @@
     <string name="open_web_version">Open web version</string>
 
     <string name="safety_privacy_title">Safety &amp; Privacy</string>
+    <string name="diagnostics_export_title">Export history diagnostics</string>
+    <string name="diagnostics_export_chooser">Share history diagnostics</string>
+    <string name="diagnostics_export_empty">No diagnostics recorded yet</string>
+    <string name="diagnostics_export_failed">Could not prepare the diagnostics file</string>
+    <string name="diagnostics_marker_recorded">Moment marked in diagnostics</string>
     <string name="safety_privacy_subtitle">Manage reporting, blocking, privacy information, and data controls.</string>
 
     <!-- External chat links -->

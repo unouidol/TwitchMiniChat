@@ -12,6 +12,8 @@ import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.core.content.FileProvider
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 
 class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
@@ -28,6 +30,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     private lateinit var btnBlockedUsers: Button
     private lateinit var btnClearLocalData: Button
     private lateinit var btnDeleteServerData: Button
+    private lateinit var btnExportDiagnostics: Button
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -35,6 +38,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         btnBlockedUsers = view.findViewById(R.id.btnBlockedUsers)
         btnClearLocalData = view.findViewById(R.id.btnClearLocalData)
         btnDeleteServerData = view.findViewById(R.id.btnDeleteServerData)
+        btnExportDiagnostics = view.findViewById(R.id.btnExportDiagnostics)
 
         btnBlockedUsers.setOnClickListener {
             BlockedUsersActivity.start(requireContext())
@@ -46,6 +50,72 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
         btnDeleteServerData.setOnClickListener {
             showTotalDeleteDialog()
+        }
+
+        btnExportDiagnostics.setOnClickListener {
+            shareHistoryDiagnostics()
+        }
+    }
+
+    /**
+     * Shares the history diagnostics journal through the system chooser.
+     *
+     * The exported file carries metadata only, so it needs no redaction before
+     * leaving the device.
+     */
+    private fun shareHistoryDiagnostics() {
+        val context = requireContext()
+
+        val export = runCatching {
+            HistoryDiagnosticsLog.exportSnapshot(context)
+        }.getOrNull()
+
+        if (export == null) {
+            Toast.makeText(
+                context,
+                R.string.diagnostics_export_empty,
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val uri = runCatching {
+            FileProvider.getUriForFile(
+                context,
+                context.packageName + ".diagnostics",
+                export
+            )
+        }.getOrNull()
+
+        if (uri == null) {
+            Toast.makeText(
+                context,
+                R.string.diagnostics_export_failed,
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, export.name)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        runCatching {
+            startActivity(
+                Intent.createChooser(
+                    shareIntent,
+                    getString(R.string.diagnostics_export_chooser)
+                )
+            )
+        }.onFailure {
+            Toast.makeText(
+                context,
+                R.string.diagnostics_export_failed,
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

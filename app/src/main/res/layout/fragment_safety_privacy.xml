@@ -41,6 +41,13 @@
             android:text="@string/reset_local_data_title" />
 
         <Button
+            android:id="@+id/btnExportDiagnostics"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/diagnostics_export_title" />
+
+        <Button
             android:id="@+id/btnDeleteServerData"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
