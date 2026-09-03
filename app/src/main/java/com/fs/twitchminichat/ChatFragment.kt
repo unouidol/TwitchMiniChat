@@ -75,6 +75,9 @@ import kotlin.coroutines.resume
 
 
 private const val HISTORY_SECONDS = 3600
+
+/* Suppresses a recovery request that would duplicate one just issued. */
+private const val RECENT_BACKFILL_WINDOW_MS = 5_000L
 /** Logcat tag for non-sensitive backend history diagnostics. */
 private const val HISTORY_LOG_TAG = "TMC_HISTORY"
 
@@ -582,8 +585,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var historyLoaded = false
     private var lastPausedAtMs: Long = 0L
 
-    /* Diagnostics only: never used to change backfill behavior. */
     private var lastStoppedAtMs: Long = 0L
+
+    /* Epoch seconds of the newest message accepted for display, 0 when none. */
+    private var lastRenderedMessageTsSec: Double = 0.0
+
+    private var lastBackfillAtMs: Long = 0L
 
 
     private val botcolors = mapOf(
@@ -1290,6 +1297,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         refreshChannelsDropdown()
 
         historyLoaded = false
+        lastRenderedMessageTsSec = 0.0
+        lastBackfillAtMs = 0L
         chatMessageDeduplicator.clear()
 
         resetMentionUsersForCurrentChannel()
@@ -1955,18 +1964,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val pausedAt = lastPausedAtMs
         if (pausedAt == 0L) {
-            /*
-             * This fragment reached RESUMED without ever having been paused, which
-             * is the normal state of an off-screen pager page promoted to visible.
-             * No backfill runs here, so any offline period recorded below is a
-             * window this account can no longer recover.
-             */
-            recordDiagnostics(
-                "backfill.skipped",
-                "reason" to "never_paused",
-                "offlineSec" to offlineSecondsSinceStop(),
-                "historyLoaded" to historyLoaded
-            )
+            recoverHistoryWithoutPauseReference(c)
             return
         }
 
@@ -2779,6 +2777,74 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     /**
+     * Recovers history for a fragment that reached RESUMED without ever being paused.
+     *
+     * An off-screen pager page never receives onPause, so the elapsed-time reference
+     * used by the normal resume path does not exist. Leaving without a request used to
+     * lose every message received while the page was started but not visible. The
+     * newest message already displayed is the exact reference here, and the last
+     * onStop is the fallback when nothing has been displayed with a timestamp.
+     */
+    private fun recoverHistoryWithoutPauseReference(config: AccountConfig) {
+        val sinceLastBackfillMs = System.currentTimeMillis() - lastBackfillAtMs
+
+        if (lastBackfillAtMs != 0L && sinceLastBackfillMs < RECENT_BACKFILL_WINDOW_MS) {
+            /* A first connection or an earlier resume has just covered this window. */
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "recent_backfill",
+                "sinceLastBackfillMs" to sinceLastBackfillMs
+            )
+            return
+        }
+
+        val renderedGapSec = secondsSinceLastRenderedMessage()
+        val offlineSec = offlineSecondsSinceStop()
+        val elapsedSec = listOfNotNull(renderedGapSec, offlineSec).maxOrNull()
+
+        if (elapsedSec == null) {
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "no_recovery_reference",
+                "historyLoaded" to historyLoaded
+            )
+            return
+        }
+
+        val refreshSec = historyWindowSeconds(elapsedSec)
+
+        recordDiagnostics(
+            "backfill.triggered",
+            "source" to "resume_no_pause",
+            "renderedGapSec" to renderedGapSec,
+            "offlineSec" to offlineSec,
+            "requestedSec" to refreshSec
+        )
+
+        loadHistoryFromBot(config, seconds = refreshSec)
+    }
+
+    /**
+     * Returns the seconds elapsed since the newest displayed message.
+     *
+     * Null when no timestamped message has been displayed yet for this account.
+     */
+    private fun secondsSinceLastRenderedMessage(): Int? {
+        val watermark = lastRenderedMessageTsSec
+        if (watermark <= 0.0) return null
+
+        val elapsed = (System.currentTimeMillis() / 1000.0) - watermark
+        if (elapsed <= 0.0) return null
+
+        return elapsed.toInt()
+    }
+
+    /** Clamps one elapsed measure into a history request window. */
+    private fun historyWindowSeconds(elapsedSec: Int): Int {
+        return (elapsedSec + 10).coerceIn(30, HISTORY_SECONDS)
+    }
+
+    /**
      * Returns the seconds elapsed since this fragment last reached onStop.
      *
      * Null means the fragment has not been stopped yet in this process.
@@ -2791,6 +2857,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
+        lastBackfillAtMs = System.currentTimeMillis()
         val applicationContext = requireContext().applicationContext
         val profileId = AccountProfileIdResolver.resolve(config)
 
@@ -3479,6 +3546,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         messageTimestampSec: Double? = null
     ) {
         if (chatMessageDeduplicator.shouldSuppress(dedupKey)) return
+
+        if (
+            messageTimestampSec != null &&
+            messageTimestampSec > lastRenderedMessageTsSec
+        ) {
+            lastRenderedMessageTsSec = messageTimestampSec
+        }
 
         val stable = dedupKey.startsWith("id:")
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
