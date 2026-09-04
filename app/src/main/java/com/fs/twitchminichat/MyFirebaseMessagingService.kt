@@ -82,16 +82,37 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val processUptimeMs = SystemClock.elapsedRealtime() -
                 android.os.Process.getStartElapsedRealtime()
 
+            /*
+             * Every alert reported as silent was posted by a process a few hundred
+             * milliseconds old, and every alert posted by a process that was
+             * already running was heard. Five spawns separate cleanly on this and
+             * on nothing else, the notification volume being identical across
+             * them.
+             *
+             * Waiting for the process to reach a settled age before posting turns
+             * that correlation into a decision: if the alert is then heard, the
+             * age was the cause and this is the fix; if it is still silent, the
+             * cold start is a passenger and the search moves elsewhere. The cost
+             * is under two seconds of a ninety-second catch window.
+             */
+            val coldStartDelayMs = (SETTLED_PROCESS_AGE_MS - processUptimeMs)
+                .coerceIn(0L, SETTLED_PROCESS_AGE_MS)
+
             HistoryDiagnosticsLog.record(
                 applicationContext,
                 "fcm.received",
                 "processUptimeMs" to processUptimeMs,
+                "coldStartDelayMs" to coldStartDelayMs,
                 "latencySec" to latencySec,
                 "reminder" to data[PcgNotificationPayloadPolicy.REMINDER_KEY],
                 "priority" to remoteMessage.priority,
                 "originalPriority" to remoteMessage.originalPriority,
                 "dataFieldCount" to data.size
             )
+
+            if (coldStartDelayMs > 0L) {
+                runCatching { Thread.sleep(coldStartDelayMs) }
+            }
 
             SmartCatchSpawnIngestion.ingestFcmPayload(
                 context = applicationContext,
@@ -431,6 +452,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         /** One push arrived and was dropped before it could become a notification. */
         private const val MARKER_MESSAGE_HANDLING_FAILED = "fcm_message_handling_failed"
+
+        /**
+         * Process age below which posting an alert is held back.
+         *
+         * Chosen from the observed cases: the alerts reported as silent were
+         * posted at 143 and 187 milliseconds of process age, the ones that were
+         * heard at 46 seconds or more. Two seconds sits well clear of the first
+         * group without being noticeable inside the catch window.
+         */
+        private const val SETTLED_PROCESS_AGE_MS = 2_000L
 
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"
