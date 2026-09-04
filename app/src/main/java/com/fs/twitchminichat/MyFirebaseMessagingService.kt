@@ -373,6 +373,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
         Log.d(TAG, "notificationsEnabled=$notificationsEnabled")
 
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+
+        /*
+         * Counted before posting so the observation that follows can tell an alert
+         * this notification caused from audio that was already playing.
+         */
+        val playersBefore = activeAudioPlayerCount(audioManager)
+
         NotificationManagerCompat.from(this).notify(
             notificationId,
             notification
@@ -391,8 +399,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          * share one device, so two notifications can arrive milliseconds apart and
          * only one of them is heard.
          */
-        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
-
         val notificationsPaused =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 runCatching { notificationManager.areNotificationsPaused() }.getOrNull()
@@ -445,6 +451,70 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 .takeIf { it > 0L }
                 ?.let { postedAtMs - it }
         )
+
+        recordAudioPlaybackObservation(audioManager, playersBefore)
+    }
+
+    /**
+     * Returns how many audio players the framework reports as active.
+     *
+     * Players belonging to other applications are anonymised for an ordinary
+     * caller, so the count is trustworthy while the details are not. Counting is
+     * all this needs.
+     */
+    private fun activeAudioPlayerCount(audioManager: AudioManager?): Int {
+        return runCatching {
+            audioManager?.activePlaybackConfigurations?.size ?: 0
+        }.getOrDefault(0)
+    }
+
+    /**
+     * Watches for the alert sound the system either plays or does not.
+     *
+     * Every field recorded so far describes the request handed to Android, and
+     * all of them have been permissive on alerts that were reported as silent.
+     * Whether a sound actually came out has been established only by ear, at a
+     * notification volume low enough to make that judgement unreliable. Polling
+     * the active players for a moment after posting answers it directly.
+     *
+     * playersDelta above zero means a player started while the alert was being
+     * raised. Zero throughout means the system posted the notification without
+     * playing anything, which is a different defect entirely from one that plays
+     * a sound too quiet to notice.
+     */
+    private fun recordAudioPlaybackObservation(
+        audioManager: AudioManager?,
+        playersBefore: Int
+    ) {
+        if (audioManager == null) return
+
+        val startedAtMs = SystemClock.elapsedRealtime()
+        var peak = playersBefore
+        var firstRiseMs: Long? = null
+
+        while (SystemClock.elapsedRealtime() - startedAtMs < AUDIO_OBSERVATION_MS) {
+            val current = activeAudioPlayerCount(audioManager)
+
+            if (current > peak) {
+                peak = current
+                if (firstRiseMs == null) {
+                    firstRiseMs = SystemClock.elapsedRealtime() - startedAtMs
+                }
+            }
+
+            runCatching { Thread.sleep(AUDIO_POLL_INTERVAL_MS) }
+                .getOrElse { return }
+        }
+
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.notification.audio",
+            "playersBefore" to playersBefore,
+            "playersPeak" to peak,
+            "playersDelta" to (peak - playersBefore),
+            "firstRiseMs" to firstRiseMs,
+            "observedMs" to AUDIO_OBSERVATION_MS
+        )
     }
 
     companion object {
@@ -462,6 +532,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          * group without being noticeable inside the catch window.
          */
         private const val SETTLED_PROCESS_AGE_MS = 2_000L
+
+        /** How long the active players are watched after an alert is posted. */
+        private const val AUDIO_OBSERVATION_MS = 1_800L
+
+        /** Gap between two reads of the active players; the chime lasts 1.45 s. */
+        private const val AUDIO_POLL_INTERVAL_MS = 60L
 
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"
