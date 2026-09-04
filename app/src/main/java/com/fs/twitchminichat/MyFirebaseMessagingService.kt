@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -67,9 +68,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 null
             }
 
+            /*
+             * A push that arrives after the process was killed is handled by a
+             * process only milliseconds old, and the alert it posts is the one
+             * reported as silent. The reminder that follows 45 seconds later can
+             * never be in that state, because the first push has just started the
+             * process it runs in — so "first silent, second heard" and "cold
+             * process silent" describe the same events from two sides.
+             *
+             * Measured here rather than inferred from a missing msSinceLastPost,
+             * which is also absent for the genuinely first alert of a session.
+             */
+            val processUptimeMs = SystemClock.elapsedRealtime() -
+                android.os.Process.getStartElapsedRealtime()
+
             HistoryDiagnosticsLog.record(
                 applicationContext,
                 "fcm.received",
+                "processUptimeMs" to processUptimeMs,
                 "latencySec" to latencySec,
                 "reminder" to data[PcgNotificationPayloadPolicy.REMINDER_KEY],
                 "priority" to remoteMessage.priority,
