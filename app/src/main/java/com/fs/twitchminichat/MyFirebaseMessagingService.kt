@@ -114,11 +114,44 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 runCatching { Thread.sleep(coldStartDelayMs) }
             }
 
-            SmartCatchSpawnIngestion.ingestFcmPayload(
+            val ingestion = SmartCatchSpawnIngestion.ingestFcmPayload(
                 context = applicationContext,
                 data = data,
                 messageSentAtMs = remoteMessage.sentTime
             )
+
+            /*
+             * Firebase holds undelivered pushes while a device is offline and
+             * releases the whole backlog at once when it returns. Every one of
+             * them used to become its own alert, so a phone coming back after a
+             * night produced around seventy notifications a couple of seconds
+             * apart and vibrated for the better part of a minute.
+             *
+             * None of them could be acted on: a spawn lasts ninety seconds, and
+             * the coordinator already decides that question against the spawn's
+             * own start time, discounting the reminder delay. Reusing its verdict
+             * keeps one definition of "over" in the app instead of adding a second
+             * threshold here.
+             *
+             * This suppresses alerts that arrive after the catch window has
+             * closed, not alerts that are merely late. An alert delayed by
+             * seconds still reaches the user, which is what the product rule
+             * about lateness protects.
+             */
+            if (
+                ingestion.outcome ==
+                SmartCatchSpawnIngestionOutcome.IGNORED_EXPIRED
+            ) {
+                Log.d(TAG, "Spawn alert suppressed: catch window already closed")
+                HistoryDiagnosticsLog.record(
+                    applicationContext,
+                    "fcm.suppressed",
+                    "reason" to "spawn_expired",
+                    "latencySec" to latencySec,
+                    "reminder" to data[PcgNotificationPayloadPolicy.REMINDER_KEY]
+                )
+                return
+            }
 
             val reminderEnabled =
                 PcgNotificationAlertPrefsStore.isReminderEnabled(this)
