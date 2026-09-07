@@ -582,6 +582,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /** Owns bounded duplicate-delivery state independently from Fragment UI state. */
     private val chatMessageDeduplicator = ChatMessageDeduplicator()
 
+    /*
+     * Written from the history request thread as well as the UI thread, because a
+     * request that fails has to undo the mark the caller set before sending it.
+     */
+    @Volatile
     private var historyLoaded = false
     private var lastPausedAtMs: Long = 0L
 
@@ -2349,6 +2354,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
 
         if (!historyLoaded) {
+            /*
+             * Marked before the answer arrives so a second connect cannot start a
+             * duplicate hour-long request. A failure has to clear it again, which
+             * the failure branches of loadHistoryFromBot do.
+             */
             historyLoaded = true
             recordDiagnostics(
                 "backfill.triggered",
@@ -2959,6 +2969,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         HISTORY_LOG_TAG,
                         "History skipped: backend session missing"
                     )
+                    /*
+                     * A session can be established later, so the hour is still
+                     * worth asking for. Without clearing the mark this fragment
+                     * would take the history_already_loaded branch forever and
+                     * the window would be lost with nothing visible to the user.
+                     */
+                    historyLoaded = false
+
                     recordDiagnostics(
                         "backfill.failed",
                         "reason" to "session_missing",
@@ -2971,6 +2989,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         HISTORY_LOG_TAG,
                         "History rejected: manual reauthorization required"
                     )
+                    /*
+                     * Deliberately left marked. Only the user can unblock this,
+                     * so retrying on every connect would ask the backend for an
+                     * hour it will keep refusing.
+                     */
                     recordDiagnostics(
                         "backfill.failed",
                         "reason" to "reauthorization_required",
@@ -2983,6 +3006,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         HISTORY_LOG_TAG,
                         "History request failed"
                     )
+                    /*
+                     * Observed failing four milliseconds after the request left,
+                     * which is a device with no network rather than a backend
+                     * that said no. The next connect should ask again.
+                     */
+                    historyLoaded = false
+
                     recordDiagnostics(
                         "backfill.failed",
                         "reason" to "request_failed",
