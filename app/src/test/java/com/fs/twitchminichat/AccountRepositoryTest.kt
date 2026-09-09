@@ -201,4 +201,140 @@ class AccountRepositoryTest {
         repo.updateChannel("a", "   ")
         assertEquals("NewChannel", repo.loadAccounts().first().channel)
     }
+    /**
+     * Store whose reads can be made to fail while its content stays intact.
+     *
+     * This is the shape of a real transient failure: the encrypted file is still
+     * there and still valid, but the Keystore refused to authenticate it once.
+     */
+    private class FlakyStore(
+        initialJson: String? = null
+    ) : AccountJsonStore {
+
+        /** When true every read reports the list as unreadable. */
+        var readsFail: Boolean = false
+
+        /** Counts every replacement of the stored list. */
+        var writeCount: Int = 0
+            private set
+
+        private var stored: String? = initialJson
+
+        override fun read(): AccountJsonLookup {
+            if (readsFail) {
+                return AccountJsonLookup.Unavailable(UNREADABLE_STORE_REASON)
+            }
+
+            val current = stored ?: return AccountJsonLookup.Missing
+            return AccountJsonLookup.Present(current)
+        }
+
+        override fun write(json: String): AccountWriteOutcome {
+            stored = json
+            writeCount += 1
+            return AccountWriteOutcome.Success
+        }
+
+        override fun clear(): Boolean {
+            stored = null
+            return true
+        }
+    }
+
+    /**
+     * A read failure must never shrink the stored account list.
+     *
+     * Every mutation replaces the file in full, so one that runs while the list
+     * cannot be read would write back only the accounts it managed to see. The
+     * others would be gone: the file is in no-backup storage by design and the
+     * access tokens exist nowhere else, so the user would silently lose every
+     * account except the one just added.
+     */
+    @Test
+    fun addAccountWhileStoreIsUnreadable_keepsExistingAccounts() {
+        val store = FlakyStore()
+        val repo = AccountRepository(store)
+
+        repo.addAccount(account("a"))
+        repo.addAccount(account("b"))
+
+        store.readsFail = true
+        repo.addAccount(account("c"))
+        store.readsFail = false
+
+        assertEquals(listOf("a", "b"), repo.loadAccounts().map { it.id })
+    }
+
+    /** A refused addition says so, so the caller can tell the user. */
+    @Test
+    fun addAccountWhileStoreIsUnreadable_reportsFailure() {
+        val store = FlakyStore()
+        val repo = AccountRepository(store)
+
+        repo.addAccount(account("a"))
+        store.readsFail = true
+
+        assertFalse(repo.addAccount(account("b")))
+    }
+
+    /** A refused write is reported the same way as a refused read. */
+    @Test
+    fun addAccountWhenWriteIsRefused_reportsFailure() {
+        val repo = AccountRepository(FakeStore(writable = false))
+
+        assertFalse(repo.addAccount(account("a")))
+    }
+
+    /** Replacing the whole list reports whether it reached storage. */
+    @Test
+    fun saveAllReportsWhetherTheListWasStored() {
+        assertTrue(AccountRepository(FakeStore()).saveAll(listOf(account("a"))))
+        assertFalse(
+            AccountRepository(FakeStore(writable = false)).saveAll(listOf(account("a")))
+        )
+    }
+
+    /**
+     * Content that is not a list blocks mutations exactly like an unreadable file.
+     *
+     * The bytes decrypted, so the Keystore is healthy and the file is intact: what is
+     * damaged is its content. Overwriting it would still discard whatever it holds.
+     */
+    @Test
+    fun unparseableStoredContent_blocksMutationsInsteadOfReplacingThem() {
+        val store = FlakyStore(initialJson = "not json")
+        val repo = AccountRepository(store)
+
+        val writesBefore = store.writeCount
+
+        assertFalse(repo.addAccount(account("a")))
+        assertNull(repo.removeById("a"))
+        assertEquals(writesBefore, store.writeCount)
+    }
+
+    /** No mutation writes anything while the stored list cannot be read. */
+    @Test
+    fun mutationsWhileStoreIsUnreadable_neverWrite() {
+        val store = FlakyStore()
+        val repo = AccountRepository(store)
+
+        repo.addAccount(account("a"))
+        repo.addAccount(account("b"))
+
+        val writesBefore = store.writeCount
+        store.readsFail = true
+
+        repo.addAccount(account("c"))
+        repo.updateChannel("a", "other")
+        repo.reorderAccounts(listOf("b", "a"))
+        repo.removeById("a")
+        repo.updateCredentialsInPlace(
+            accountId = "a",
+            username = "user",
+            accessToken = "token",
+            profileId = "profile"
+        )
+
+        assertEquals(writesBefore, store.writeCount)
+    }
 }
