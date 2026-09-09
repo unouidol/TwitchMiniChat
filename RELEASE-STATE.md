@@ -10,7 +10,7 @@ once, from a stale note — costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-03.
+Last verified: 2026-09-09.
 
 ## Published — what users have
 
@@ -45,7 +45,9 @@ Merged after the `v5.5.0` tag. None of this has reached users.
 
 ## Waiting for release — on `work/history-diagnostics-observability`
 
-Branched from `502c11e`. Installed on the test device only.
+Branched from `502c11e`. Installed on the test device only. Two sessions have been
+committing here, which is why this table fell eight commits behind between 09-03 and
+09-09; it is now rebuilt from `git log main-v5..HEAD`.
 
 | Commit | Change |
 |---|---|
@@ -53,39 +55,34 @@ Branched from `502c11e`. Installed on the test device only.
 | `7a57893` | Fix: recover the window an off-screen chat page cannot measure |
 | `bb319d4` | Fix: retire the frozen notification channels (`_v5`) and delete the ones earlier versions left behind |
 | `f16aab1` | Diagnostic journal: what happens to every push that arrives |
+| `dc9f608` | This file (docs only) |
+| `a4c124e` | Diagnostic journal: that a spawn happened, not only that a push arrived |
+| `5ca53dc` | Diagnostic journal: the state Android was in when it chose not to alert |
+| `af74bfb` | Diagnostic journal: how old the process was when a push arrived |
+| `5e352df` | Fix: let a freshly started process settle before alerting |
+| `5616371` | Diagnostic journal: whether a sound was actually played |
+| `1cad63c` | Fix: stop alerting for spawns whose window has closed |
+| `ae141be` | Fix: ask again for an hour the network refused to deliver |
+| `570580e` | Fix: recover the offline window for a page that never resumes |
+| `b7b43ea` | Diagnostic probe: ask the system whether it alerted, instead of inferring |
+| `39a4763` | Fix: keep the account name and channel out of Logcat |
+| `8371d27` | Fix: stop a failed read from erasing the stored accounts |
 
-**Decision required before this branch ships**: the diagnostic journal is a development
-instrument and must not reach users as-is. The two fixes depend on helpers introduced by
-`73521ef`, so removing the journal is not a plain revert. See
-`claude/history-gap-offscreen-tabs.md` in the Claude project for the options.
+### Decisions required before this branch ships
 
-## Test device
+**The diagnostic journal** is a development instrument and must not reach users as-is.
+The history fixes depend on helpers introduced by `73521ef`, so removing the journal is
+not a plain revert. See `claude/history-gap-offscreen-tabs.md` in the Claude project for
+the options.
 
-`AC2003` (ColorOS, Android 12), serial `57ebfa06`. Running a `stableRelease` build of
-`work/history-diagnostics-observability` — reports `5.5.0 / versionCode 7`, same as the
-published build, with all of the above on top.
+**`NotificationAlertProbeService`** (`b7b43ea`) is a `NotificationListenerService`. It
+filters to this app's own PCG channels in code, but the permission the user grants to
+enable it is device-wide notification access — the strongest thing this app has ever
+asked for, in an application whose manifest otherwise requests only `INTERNET` and
+`POST_NOTIFICATIONS`. It must not ship, and a comment in `AndroidManifest.xml` saying so
+is the weakest possible guarantee: moving the service and its manifest entry into a
+`src/debug/` source set would make shipping it impossible rather than merely discouraged.
 
-Collecting diagnostic journals for two open investigations: chat history gaps, and spawn
-alerts arriving late or silently. Do not reinstall while collection is in progress.
-
-## Next release
-
-`versionCode` **must** rise above 7: Android refuses to update a build whose `versionCode`
-is not higher, so a release that keeps 7 cannot reach anyone who installed 5.5.0.
-Follow the procedure in `AGENTS.md`.
-
-## How to rebuild this file from the repository
-
-Nothing here is remembered; all of it is derivable in under a minute. Re-derive rather than
-trust, and correct the file when it disagrees.
-
-```sh
-git fetch --all --tags
-git log --oneline v5.5.0..origin/main-v5                       # waiting on main-v5
-git log --oneline origin/main-v5..origin/<feature-branch>       # waiting on a branch
-grep -n "versionCode\|versionName" app/build.gradle.kts         # current version
-```
-
-Published releases and their exact asset names are visible at
-`https://github.com/unouidol/TwitchMiniChat/releases`. The device build is identified with
-`adb shell dumpsys package com.fs.twitchminichat | grep version`.
+**`8371d27` is independent of the diagnostics work** and touches no file the rest of this
+branch touches. It is a data-loss fix and belongs on `main-v5` whether or not the journal
+question is settled; it is here only because that is the branch that was checked out.
