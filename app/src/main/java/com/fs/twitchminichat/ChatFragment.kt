@@ -592,6 +592,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private var lastStoppedAtMs: Long = 0L
 
+    /*
+     * Instant of the last onStop, consumed by the first reconnect that follows
+     * it. Distinct from lastStoppedAtMs, which is never consumed and therefore
+     * keeps growing while the app is open: reading that one on every connect
+     * would make an ordinary IRC reconnect ask for an hour it already has.
+     */
+    private var offlineRecoveryAtMs: Long = 0L
+
     /* Epoch seconds of the newest message accepted for display, 0 when none. */
     private var lastRenderedMessageTsSec: Double = 0.0
 
@@ -1995,7 +2003,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         lastPausedAtMs = 0L
 
         if (awaySec >= 1 || ircClient == null) {
-            val refreshSec = (awaySec + 10).coerceIn(30, HISTORY_SECONDS)
+            /*
+             * The reconnect that precedes this resume may have just asked for the
+             * same window. Without this the visible page would fetch it twice.
+             */
+            val sinceLastBackfillMs = msSinceRecentBackfill()
+            if (sinceLastBackfillMs != null) {
+                recordDiagnostics(
+                    "backfill.skipped",
+                    "reason" to "recent_backfill",
+                    "awaySec" to awaySec,
+                    "sinceLastBackfillMs" to sinceLastBackfillMs
+                )
+                return
+            }
+
+            val refreshSec = historyWindowSeconds(awaySec)
             recordDiagnostics(
                 "backfill.triggered",
                 "source" to "resume",
@@ -2015,7 +2038,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     override fun onStop() {
         super.onStop()
 
-        lastStoppedAtMs = System.currentTimeMillis()
+        val stoppedAtMs = System.currentTimeMillis()
+        lastStoppedAtMs = stoppedAtMs
+        offlineRecoveryAtMs = stoppedAtMs
         recordDiagnostics(
             "lifecycle.stop",
             "ircConnected" to (ircClient != null)
@@ -2368,14 +2393,52 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             loadHistoryFromBot(c, seconds = HISTORY_SECONDS)
         } else {
             /*
-             * Reconnecting an already-initialized fragment. Reaching this branch
-             * after an offline period means the gap is not recovered from here.
+             * Reconnecting an already-initialized fragment. onResume used to be
+             * the only place that recovered this window, which covers every page
+             * the user actually looks at — but a page that never becomes the
+             * current one never reaches RESUMED, so nothing recovered it at all.
+             *
+             * Seen on 2026-09-08: the streaming account's tab lost 09:16:46 to
+             * 09:32:17, one whole spawn cycle, because the app was open for nine
+             * seconds and that page was never visible. Its two siblings, which
+             * did resume, recovered the same window correctly.
+             *
+             * The reference is consumed here so a later IRC reconnect within the
+             * same session does not ask again for a window it already holds.
              */
-            recordDiagnostics(
-                "backfill.skipped",
-                "reason" to "history_already_loaded",
-                "offlineSec" to offlineSecondsSinceStop()
-            )
+            val offlineAtMs = offlineRecoveryAtMs
+            offlineRecoveryAtMs = 0L
+
+            val offlineSec = offlineAtMs
+                .takeIf { it > 0L }
+                ?.let { ((System.currentTimeMillis() - it) / 1000).toInt() }
+            val sinceLastBackfillMs = msSinceRecentBackfill()
+
+            when {
+                offlineSec == null || offlineSec < 1 -> recordDiagnostics(
+                    "backfill.skipped",
+                    "reason" to "history_already_loaded",
+                    "offlineSec" to offlineSec
+                )
+
+                sinceLastBackfillMs != null -> recordDiagnostics(
+                    "backfill.skipped",
+                    "reason" to "recent_backfill",
+                    "offlineSec" to offlineSec,
+                    "sinceLastBackfillMs" to sinceLastBackfillMs
+                )
+
+                else -> {
+                    val refreshSec = historyWindowSeconds(offlineSec)
+                    recordDiagnostics(
+                        "backfill.triggered",
+                        "source" to "reconnect_offline",
+                        "offlineSec" to offlineSec,
+                        "requestedSec" to refreshSec
+                    )
+                    loadHistoryFromBot(c, seconds = refreshSec)
+                }
+            }
         }
 
         val ch = c.channel.trim().removePrefix("#").lowercase()
@@ -2824,9 +2887,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * onStop is the fallback when nothing has been displayed with a timestamp.
      */
     private fun recoverHistoryWithoutPauseReference(config: AccountConfig) {
-        val sinceLastBackfillMs = System.currentTimeMillis() - lastBackfillAtMs
-
-        if (lastBackfillAtMs != 0L && sinceLastBackfillMs < RECENT_BACKFILL_WINDOW_MS) {
+        msSinceRecentBackfill()?.let { sinceLastBackfillMs ->
             /* A first connection or an earlier resume has just covered this window. */
             recordDiagnostics(
                 "backfill.skipped",
@@ -2887,6 +2948,21 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      *
      * Null means the fragment has not been stopped yet in this process.
      */
+    /**
+     * Returns the age of the last request when one was issued moments ago.
+     *
+     * Two paths can now ask for the same window within milliseconds — the
+     * reconnect and the resume that may follow it — so both consult this rather
+     * than each carrying its own copy of the rule.
+     */
+    private fun msSinceRecentBackfill(): Long? {
+        val last = lastBackfillAtMs
+        if (last == 0L) return null
+
+        return (System.currentTimeMillis() - last)
+            .takeIf { elapsed -> elapsed < RECENT_BACKFILL_WINDOW_MS }
+    }
+
     private fun offlineSecondsSinceStop(): Int? {
         val stoppedAt = lastStoppedAtMs
         if (stoppedAt == 0L) return null
