@@ -1,5 +1,6 @@
 package com.fs.twitchminichat.diagnostics
 
+import android.app.Notification
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -35,8 +36,24 @@ class NotificationAlertProbeService : NotificationListenerService() {
         val posted = sbn ?: return
         if (posted.packageName != packageName) return
 
-        val channelId = runCatching { posted.notification?.channelId }.getOrNull()
+        val notification = posted.notification ?: return
+
+        val channelId = runCatching { notification.channelId }.getOrNull()
         if (channelId == null || !channelId.startsWith(OWNED_CHANNEL_PREFIX)) return
+
+        /*
+         * Android posts a summary of its own once several alerts from the same app
+         * are outstanding. It carries the same channel, so it reaches this far, and
+         * it never alerts because it is not meant to: its ranking always reads
+         * audiblyAlerted=false with lastAudiblyAlertedMs=-1.
+         *
+         * Left in, every export would carry entries that look exactly like the
+         * defect being hunted, and the reader has no way to tell them apart. An
+         * instrument that manufactures its own false positives is worse than none,
+         * so the summary is discarded here rather than filtered by whoever reads
+         * the journal later.
+         */
+        if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
         record("listener.posted", posted.key, channelId, rankingMap)
 
