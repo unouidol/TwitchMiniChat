@@ -59,10 +59,25 @@ class TwitchChatClient(
 
             try {
                 val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
-                val connectedSocket = factory.createSocket(
-                    "irc.chat.twitch.tv",
-                    6697
-                ) as SSLSocket
+                val connectedSocket = (
+                    factory.createSocket(IRC_HOST, IRC_PORT) as SSLSocket
+                ).apply {
+                    /*
+                     * A plain SSLSocket validates the certificate chain but not the
+                     * name on it, so any certificate a public authority would issue
+                     * for any domain is accepted here. Without this, an attacker who
+                     * can redirect the connection presents a certificate for a domain
+                     * they own and receives the line below it: the Twitch credential.
+                     *
+                     * Asking the handshake itself to identify the endpoint fails the
+                     * connection before a single byte is written, which is why this is
+                     * set here rather than verified after the fact.
+                     */
+                    sslParameters = sslParameters.apply {
+                        endpointIdentificationAlgorithm = "HTTPS"
+                    }
+                    startHandshake()
+                }
 
                 localSocket = connectedSocket
                 socket = connectedSocket
@@ -296,6 +311,15 @@ class TwitchChatClient(
     }
 
     /** Prevents callback failures from terminating the IRC reader thread. */
+    private companion object {
+
+        /** Twitch IRC over TLS. The name is verified during the handshake. */
+        private const val IRC_HOST = "irc.chat.twitch.tv"
+
+        /** Twitch IRC TLS port. */
+        private const val IRC_PORT = 6697
+    }
+
     private inline fun invokeSafely(action: () -> Unit) {
         try {
             action()
