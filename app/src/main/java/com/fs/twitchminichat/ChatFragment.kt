@@ -2984,11 +2984,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 )
             ) {
                 is BackendHistoryResult.Success -> {
+                    /*
+                     * The account and the channel name the user to anyone who can
+                     * read Logcat. The diagnostic journal already records both,
+                     * under the user's own control and only for export; only the
+                     * shape of the answer belongs in a system log.
+                     */
                     Log.d(
                         HISTORY_LOG_TAG,
-                        "History loaded account=${config.username} " +
-                                "channel=${config.channel} " +
-                                "messageCount=${result.messages.size} " +
+                        "History loaded messageCount=${result.messages.size} " +
                                 "seconds=$seconds"
                     )
 
