@@ -2415,7 +2415,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             val sinceLastBackfillMs = msSinceRecentBackfill()
 
             when {
-                offlineSec == null || offlineSec < 1 -> recordDiagnostics(
+                offlineSec != null && offlineSec < 1 -> recordDiagnostics(
                     "backfill.skipped",
                     "reason" to "history_already_loaded",
                     "offlineSec" to offlineSec
@@ -2428,7 +2428,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     "sinceLastBackfillMs" to sinceLastBackfillMs
                 )
 
-                else -> {
+                offlineSec != null -> {
                     val refreshSec = historyWindowSeconds(offlineSec)
                     recordDiagnostics(
                         "backfill.triggered",
@@ -2437,6 +2437,33 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         "requestedSec" to refreshSec
                     )
                     loadHistoryFromBot(c, seconds = refreshSec)
+                }
+
+                else -> {
+                    /*
+                     * No onStop preceded this reconnect, so offlineRecoveryAtMs was
+                     * never armed. That is not "nothing to recover": it is a mid-
+                     * session IRC drop, the case an idle soTimeout is about to make
+                     * real. Fall back to the render watermark, the same reference
+                     * recoverHistoryWithoutPauseReference uses for its own no-onStop
+                     * case.
+                     */
+                    val renderedGapSec = secondsSinceLastRenderedMessage()
+                    if (renderedGapSec == null) {
+                        recordDiagnostics(
+                            "backfill.skipped",
+                            "reason" to "no_recovery_reference_reconnect"
+                        )
+                    } else {
+                        val refreshSec = historyWindowSeconds(renderedGapSec)
+                        recordDiagnostics(
+                            "backfill.triggered",
+                            "source" to "reconnect_no_pause_reference",
+                            "renderedGapSec" to renderedGapSec,
+                            "requestedSec" to refreshSec
+                        )
+                        loadHistoryFromBot(c, seconds = refreshSec)
+                    }
                 }
             }
         }
