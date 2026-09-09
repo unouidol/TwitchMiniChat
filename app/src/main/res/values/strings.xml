@@ -544,4 +544,7 @@
 
     <!-- Login screen footer -->
     <string name="app_version_label">Version %1$s (build %2$d)</string>
+
+    <!-- Diagnostics: notification listener shown in system special access -->
+    <string name="notification_alert_probe_label">TwitchMiniChat alert diagnostics</string>
 </resources>
