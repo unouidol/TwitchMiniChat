@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import android.os.SystemClock
@@ -14,6 +16,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.fs.twitchminichat.diagnostics.AudioPlaybackObservation
+import com.fs.twitchminichat.diagnostics.AudioPlayerSample
 import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
@@ -456,12 +460,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val previousPostedAtMs = lastNotificationPostedAtMs
         lastNotificationPostedAtMs = postedAtMs
 
+        /*
+         * Only the scheme and the final segment of the channel sound are taken.
+         * A user-chosen ringtone sits at a path that names their storage layout,
+         * which the journal has no reason to carry.
+         */
+        val channelSound = channel?.sound
+
         HistoryDiagnosticsLog.record(
             applicationContext,
             "fcm.notification.posted",
             "channelId" to channelId,
             "channelImportance" to channel?.importance,
-            "channelHasSound" to (channel?.sound != null),
+            "channelHasSound" to (channelSound != null),
+            "channelSoundScheme" to channelSound?.scheme,
+            "channelSoundName" to channelSound?.lastPathSegment,
             "channelVibrates" to channel?.shouldVibrate(),
             "notificationsEnabled" to notificationsEnabled,
             "channelBypassesDnd" to channel?.canBypassDnd(),
@@ -477,6 +490,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             "notificationVolumeMax" to audioManager?.getStreamMaxVolume(
                 AudioManager.STREAM_NOTIFICATION
             ),
+            "btOutputConnected" to hasConnectedBluetoothOutput(audioManager),
+            "btOutputRouted" to isBluetoothRoutingActive(audioManager),
             "activeNotifications" to runCatching {
                 notificationManager.activeNotifications.size
             }.getOrNull(),
@@ -522,32 +537,103 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (audioManager == null) return
 
         val startedAtMs = SystemClock.elapsedRealtime()
-        var peak = playersBefore
-        var firstRiseMs: Long? = null
+        val samples = mutableListOf<AudioPlayerSample>()
 
         while (SystemClock.elapsedRealtime() - startedAtMs < AUDIO_OBSERVATION_MS) {
-            val current = activeAudioPlayerCount(audioManager)
+            /*
+             * The offset is read after the count, matching how firstRiseMs was
+             * timed before this loop kept every sample, so the new rows stay
+             * comparable with the ones already in the journal.
+             */
+            val playerCount = activeAudioPlayerCount(audioManager)
+            val offsetMs = SystemClock.elapsedRealtime() - startedAtMs
 
-            if (current > peak) {
-                peak = current
-                if (firstRiseMs == null) {
-                    firstRiseMs = SystemClock.elapsedRealtime() - startedAtMs
-                }
-            }
+            samples += AudioPlayerSample(
+                offsetMs = offsetMs,
+                playerCount = playerCount
+            )
 
             runCatching { Thread.sleep(AUDIO_POLL_INTERVAL_MS) }
                 .getOrElse { return }
         }
 
+        val summary = AudioPlaybackObservation.summarize(playersBefore, samples)
+
         HistoryDiagnosticsLog.record(
             applicationContext,
             "fcm.notification.audio",
             "playersBefore" to playersBefore,
-            "playersPeak" to peak,
-            "playersDelta" to (peak - playersBefore),
-            "firstRiseMs" to firstRiseMs,
+            "playersPeak" to summary.playersPeak,
+            "playersDelta" to (summary.playersPeak - playersBefore),
+            "firstRiseMs" to summary.firstRiseMs,
+            "lastRiseMs" to summary.lastRiseMs,
+            "elevatedSamples" to summary.elevatedSamples,
+            "elevatedSpanMs" to summary.elevatedSpanMs,
+            "sampleCount" to samples.size,
             "observedMs" to AUDIO_OBSERVATION_MS
         )
+    }
+
+    /**
+     * Returns whether any connected audio output is a Bluetooth device.
+     *
+     * Only the device type is read. Product names and addresses identify the
+     * user's own hardware, so they are deliberately never touched.
+     */
+    private fun hasConnectedBluetoothOutput(audioManager: AudioManager?): Boolean? {
+        audioManager ?: return null
+
+        return runCatching {
+            audioManager
+                .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                .any { device -> isBluetoothOutputType(device.type) }
+        }.getOrNull()
+    }
+
+    /**
+     * Returns whether a notification alert would be routed to Bluetooth.
+     *
+     * getAudioDevicesForAttributes is the only public query that answers where
+     * audio would actually go, and it was introduced in API 33. Below that this
+     * stays null rather than inferring routing from what merely happens to be
+     * connected, which would read as a measurement without being one.
+     */
+    private fun isBluetoothRoutingActive(audioManager: AudioManager?): Boolean? {
+        audioManager ?: return null
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        return runCatching {
+            audioManager
+                .getAudioDevicesForAttributes(attributes)
+                .any { device -> isBluetoothOutputType(device.type) }
+        }.getOrNull()
+    }
+
+    /** Returns whether [type] is one of the Bluetooth output kinds. */
+    private fun isBluetoothOutputType(type: Int): Boolean {
+        if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+            type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        ) {
+            return true
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            type == AudioDeviceInfo.TYPE_HEARING_AID
+        ) {
+            return true
+        }
+
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            (
+                type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    type == AudioDeviceInfo.TYPE_BLE_SPEAKER
+                )
     }
 
     companion object {
@@ -566,8 +652,20 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          */
         private const val SETTLED_PROCESS_AGE_MS = 2_000L
 
-        /** How long the active players are watched after an alert is posted. */
-        private const val AUDIO_OBSERVATION_MS = 1_800L
+        /**
+         * How long the active players are watched after an alert is posted.
+         *
+         * Sized from the sound itself rather than from a round number.
+         * res/raw/tmc_spawn_alert_chime.wav is mono 44.1 kHz 16 bit with a data
+         * chunk of 127890 bytes, which its own header makes 1450 ms. A player
+         * that starts around 860 ms therefore stops around 2310 ms, past the
+         * 1800 ms this used to watch for: every audible alert had its span cut
+         * off at the edge of the window, so elevatedSpanMs reported roughly 940
+         * ms whatever the sound actually did. Watching to 2600 ms sees the sound
+         * end on its own, which turns that field from a lower bound into a
+         * duration.
+         */
+        private const val AUDIO_OBSERVATION_MS = 2_600L
 
         /** Gap between two reads of the active players; the chime lasts 1.45 s. */
         private const val AUDIO_POLL_INTERVAL_MS = 60L
