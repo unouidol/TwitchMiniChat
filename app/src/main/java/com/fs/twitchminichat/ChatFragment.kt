@@ -2151,6 +2151,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                     sendReady = false
 
+                    /*
+                     * A read timeout is a reconnection already in progress, so it
+                     * is not reported. Showing it would flash a read error for the
+                     * second before the session comes back.
+                     */
+                    if (!TwitchIrcLivenessPolicy.shouldReportToUser(error)) {
+                        return@runUiIfAlive
+                    }
+
                     val ctx = context
                         ?: return@runUiIfAlive
 

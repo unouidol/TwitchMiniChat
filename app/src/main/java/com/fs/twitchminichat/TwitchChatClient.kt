@@ -64,6 +64,14 @@ class TwitchChatClient(
                     6697
                 ) as SSLSocket
 
+                /*
+                 * Armed before the read loop starts, so the very first read is
+                 * already bounded. Without it a half-open socket parks this
+                 * thread forever: the read never returns, nothing closes, and no
+                 * reconnect is ever scheduled.
+                 */
+                TwitchIrcLivenessPolicy.applyReadTimeout(connectedSocket)
+
                 localSocket = connectedSocket
                 socket = connectedSocket
 
@@ -185,7 +193,10 @@ class TwitchChatClient(
                 }
             } catch (error: Throwable) {
                 terminalError = error
-                shouldReconnect = !disconnectRequested
+                shouldReconnect = TwitchIrcLivenessPolicy.shouldReconnectAfter(
+                    cause = error,
+                    disconnectRequested = disconnectRequested
+                )
 
                 if (!disconnectRequested) {
                     invokeSafely {
