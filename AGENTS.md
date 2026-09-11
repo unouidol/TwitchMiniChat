@@ -42,6 +42,8 @@ TMC is a manual assistive client. These constraints are mandatory:
 - Never commit OAuth tokens, backend keys, Firebase credentials, signing material, device secrets, real `google-services.json` files, or production user data.
 - Use backend session Bearer authentication where supported. Never downgrade an invalid or rejected Bearer session to a legacy key automatically.
 - Do not log tokens, secrets, complete authorization headers, chat message bodies, or unnecessary personal identifiers.
+- Never read a file that holds secrets in full. Extract only the line the task needs, as in taking `sdk.dir` from `local.properties`, so that a keystore password or a token never reaches a transcript, a log, or a summary. "I only needed one value" is not a reason to open the rest.
+- Do not modify untracked local configuration outside the objective of the task. `local.properties`, per-flavor `google-services.json` and their kind are deliberately absent from git, so an edit to them cannot be reviewed in a diff, cannot be reverted with `git checkout`, and cannot be recovered once overwritten.
 - Keep Firebase Cloud Messaging (FCM) registration, profile deletion, safety/privacy controls, and local-data reset behavior coherent with backend contracts and published disclosures.
 - Treat authentication, deletion, reporting, and notification changes as coordinated Android/backend changes. Introduce backward-compatible server behavior before depending on it in the app; remove legacy behavior only after deployed clients have migrated.
 - Fail safely on malformed or unauthenticated backend responses. Do not silently convert an authorization failure into a less secure mode.
@@ -53,6 +55,7 @@ TMC is a manual assistive client. These constraints are mandatory:
 - Keep each pull request limited to one behavior or maintenance objective. Separate functional changes from unrelated refactors.
 - Add or update characterization tests for protocol, authentication, parsing, ordering, retry, persistence, and policy changes.
 - Do not use `clean` as a routine verification step; it hides incremental-build behavior and wastes time.
+- Before adding diagnostic instrumentation, state which recorded value would separate the healthy case from the faulty one. If no field being recorded can tell them apart, the instrument is not ready: it will produce evidence that cannot settle the question it was built to answer, and the gap only becomes visible after the next occurrence has already been missed.
 - Do not edit generated files or commit local build outputs, APKs, Android App Bundles, credentials, or patch backup directories.
 
 ## Required verification
@@ -69,7 +72,23 @@ On Linux or in GitHub Actions, use `./gradlew` with the same tasks.
 
 Device-dependent behavior cannot be proven by local unit tests. Changes involving GeckoView, OAuth callbacks, Firebase Cloud Messaging, the software keyboard, external links, notifications, or layout behavior also require a short manual test plan and Logcat tags or observable results in the pull request.
 
+**Every claim states its provenance.** Say whether something was executed or reasoned about statically, and never let the two read alike. A Gradle task reported as `UP-TO-DATE` did not run: its cached result may well still be valid, but presenting it as a fresh verification is false. Anyone writing "verified" reports the counts that support it — tests run and failed, warnings by severity — because a claim carrying no numbers cannot be checked by the next reader.
+
+**A verification holds at the moment it was made, and not after.** Anything happening between the check and the act it authorizes voids it: a rebase, a commit from another session, a merged pull request, an edit to the working tree. Re-run it immediately before the operation it is meant to justify, rather than citing the earlier run.
+
+**Lint configuration and comparison.** Lint must not report the remote version-availability checks (`GradleDependency`, `NewerVersionAvailable`, `AndroidGradlePluginVersion`). Their findings change with the dependency cache, the network, and whatever the library authors released that morning, so a count that includes them is a property of the world outside this repository rather than of the code in it, and two runs of the same commit can disagree.
+
+A warning count is comparable only between runs of the same lint configuration. Obtain the reference by running lint on `main-v5` at the commit the branch was cut from. Do not rely on a figure recorded in a document: it is correct only until someone changes the configuration or fixes a warning, and nothing will announce that it has stopped being correct.
+
 ## Release and distribution
+
+`RELEASE-STATE.md` is the source of truth for where every change currently is: what is
+published, what is merged but unreleased, what is still waiting on a branch and behind which
+condition, and what the test device is running. Read it before assuming a change has reached
+users, and update it in the same pull request that moves something from one of those states
+to another — not only in the ones that bump the version. A change whose position nobody
+recorded is one that will be re-derived from scratch later, and answered wrongly at least
+once.
 
 Published releases are consumed by the public website at `https://tmc.ircminichat.party/`,
 which links straight to GitHub release assets and reads the version from the GitHub
