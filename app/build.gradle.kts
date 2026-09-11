@@ -63,6 +63,20 @@ android {
         disable += "GradleDependency"
         disable += "NewerVersionAvailable"
         disable += "AndroidGradlePluginVersion"
+
+        /*
+         * These two only work together. The baseline freezes the warnings that
+         * already exist so a new one stands out instead of being lost in a count
+         * nobody reads, but on its own it enforces nothing: abortOnError fails
+         * the build on errors, and a new warning is still only a warning.
+         * warningsAsErrors is what makes the build stop; the baseline is what
+         * keeps it from stopping on the 38 findings that were already here.
+         *
+         * Regenerate with :app:updateLintBaselineDevDebug after deliberately
+         * fixing something, never to make a fresh warning go away.
+         */
+        baseline = file("lint-baseline.xml")
+        warningsAsErrors = true
     }
 
     flavorDimensions += "env"
