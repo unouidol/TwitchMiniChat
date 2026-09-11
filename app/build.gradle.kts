@@ -44,6 +44,25 @@ android {
 
     lint {
         disable += "OldTargetApi"
+
+        /*
+         * These three ask a remote service which versions exist, not whether
+         * this repository has a defect. Their findings appear and disappear with
+         * the dependency cache, the network and whatever the library authors
+         * released that morning, so the warning count stops being a property of
+         * the code and becomes a property of the world outside it. Two runs of
+         * the same commit can disagree, which makes comparing a branch against a
+         * baseline meaningless in exactly the situation where the comparison is
+         * wanted.
+         *
+         * Nothing here is repairable in the tree, so nothing is being hidden.
+         * Knowing that a dependency has aged is still worth knowing; it is just
+         * a periodic review with a human deciding whether to upgrade, not a
+         * finding that should change the result of a build.
+         */
+        disable += "GradleDependency"
+        disable += "NewerVersionAvailable"
+        disable += "AndroidGradlePluginVersion"
     }
 
     flavorDimensions += "env"
