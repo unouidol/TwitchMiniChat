@@ -38,6 +38,7 @@
     <string name="oauth_browser_unavailable">No web browser is available for Twitch login.</string>
     <string name="oauth_finalize_failed">Twitch login could not be completed.</string>
     <string name="backend_session_persist_failed">Twitch login completed, but the secure backend session could not be saved. Please try again.</string>
+    <string name="account_add_failed">Twitch login completed, but the account could not be saved. Your existing accounts were left untouched. Please try again.</string>
     <string name="system_bullet">• %1$s</string>
     <string name="invalid_channel_name">Invalid Channel Name</string>
     <string name="channel_switch">Channel Switch → #%1$s</string>
