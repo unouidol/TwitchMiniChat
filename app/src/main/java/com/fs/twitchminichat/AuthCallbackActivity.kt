@@ -90,7 +90,15 @@ class AuthCallbackActivity : AppCompatActivity() {
             accessToken = result.accessToken,
             profileId = finalProfileId
         )
-        repo.addAccount(account)
+        if (!repo.addAccount(account)) {
+            /*
+             * The stored list could not be read or could not be replaced, so nothing
+             * was written. Saying so is what keeps the other accounts recoverable:
+             * the user retries instead of discovering later that they are gone.
+             */
+            finishWithToast(R.string.account_add_failed)
+            return
+        }
 
         if (!persistBackendSession(result, finalProfileId)) {
             repo.removeById(accountId)

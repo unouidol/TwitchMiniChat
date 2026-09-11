@@ -116,9 +116,36 @@ internal object AccountSecretCipher : AccountCipher {
         }.getOrNull()
     }
 
-    /** Returns the stored key, creating a new one on first use. */
+    /**
+     * Returns the stored key, creating one only when the Keystore holds none.
+     *
+     * A Keystore that refuses to answer is not the same as a Keystore holding no key,
+     * and generating a key over an existing alias replaces it. Treating the two alike
+     * would turn one transient Keystore failure into a permanent loss: the next write
+     * would install a new key and the account file already on disk could never be
+     * decrypted again. So a key is created only when the alias is provably free, and
+     * every other outcome returns null for the caller to report.
+     */
     private fun getOrCreateKey(): SecretKey? {
-        loadExistingKey()?.let { return it }
+        val keyStore = openKeyStore() ?: return null
+
+        val storedEntry = runCatching {
+            keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
+        }
+
+        storedEntry.getOrNull()?.secretKey?.let { return it }
+
+        if (storedEntry.isFailure) {
+            return null
+        }
+
+        val aliasIsFree = runCatching {
+            !keyStore.containsAlias(KEY_ALIAS)
+        }.getOrDefault(false)
+
+        if (!aliasIsFree) {
+            return null
+        }
 
         return runCatching {
             val generator = KeyGenerator.getInstance(

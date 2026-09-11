@@ -46,7 +46,55 @@ class AccountRepository internal constructor(
             }
         }
 
-        val arr = runCatching { JSONArray(json) }.getOrNull() ?: return emptyList()
+        return parseAccounts(json) ?: emptyList()
+    }
+
+    /**
+     * Returns the stored accounts, or null when the stored list could not be read.
+     *
+     * Every mutation replaces the file in full, so one that ran on a list it had
+     * failed to read would write back only what it saw and destroy the rest. The
+     * accounts live in no-backup storage and the access tokens exist nowhere else,
+     * which makes that loss permanent and invisible: the user would simply find the
+     * application logged out of every account except the one just touched.
+     *
+     * A read failure therefore has to stop a mutation rather than shrink it. This is
+     * the rule [AccountStorageMigration] already applies to the one-time upgrade, for
+     * exactly the same reason.
+     */
+    private fun loadAccountsForUpdate(): List<AccountConfig>? {
+        val json = when (val lookup = store.read()) {
+            is AccountJsonLookup.Present -> lookup.json
+            AccountJsonLookup.Missing -> EMPTY_ACCOUNT_LIST
+            is AccountJsonLookup.Unavailable -> {
+                reportStorageFailure(
+                    marker = MARKER_UPDATE_BLOCKED,
+                    reason = lookup.reason,
+                    errorType = lookup.errorType
+                )
+                return null
+            }
+        }
+
+        return parseAccounts(json) ?: run {
+            reportStorageFailure(
+                marker = MARKER_UPDATE_BLOCKED,
+                reason = REASON_CONTENT_UNPARSEABLE,
+                errorType = null
+            )
+            null
+        }
+    }
+
+    /**
+     * Returns the accounts held by one stored list, or null when it is not a list.
+     *
+     * Individual entries missing an identity or a credential are skipped, because one
+     * damaged entry must not cost the user the accounts stored beside it. Content that
+     * is not a list at all is a different failure and is reported as such.
+     */
+    private fun parseAccounts(json: String): List<AccountConfig>? {
+        val arr = runCatching { JSONArray(json) }.getOrNull() ?: return null
         val out = mutableListOf<AccountConfig>()
 
         for (i in 0 until arr.length()) {
@@ -70,10 +118,17 @@ class AccountRepository internal constructor(
         return out
     }
 
-    fun addAccount(cfg: AccountConfig) {
-        val list = loadAccounts().toMutableList()
+    /**
+     * Adds one account, or returns false without touching storage.
+     *
+     * False means nothing was stored: either the existing list could not be read, or
+     * the write itself failed. The caller must surface that instead of continuing as
+     * if the account existed.
+     */
+    fun addAccount(cfg: AccountConfig): Boolean {
+        val list = loadAccountsForUpdate()?.toMutableList() ?: return false
         list.add(cfg)
-        saveAll(list)
+        return saveAll(list)
     }
 
     /**
@@ -81,9 +136,13 @@ class AccountRepository internal constructor(
      *
      * Every mutation funnels through here, and the user interface has already shown
      * the change as done by the time it runs, so a failure that stayed silent would
-     * surface much later as an account that vanished on its own.
+     * surface much later as an account that vanished on its own. Returns whether the
+     * list actually reached storage.
+     *
+     * Callers are responsible for having read the current list safely: this replaces
+     * whatever is stored with exactly what it is given.
      */
-    fun saveAll(list: List<AccountConfig>) {
+    fun saveAll(list: List<AccountConfig>): Boolean {
         val arr = JSONArray()
         list.forEach {
             val o = JSONObject()
@@ -102,7 +161,10 @@ class AccountRepository internal constructor(
                 reason = outcome.reason,
                 errorType = outcome.errorType
             )
+            return false
         }
+
+        return true
     }
 
     fun getById(id: String): AccountConfig? = loadAccounts().firstOrNull { it.id == id }
@@ -119,7 +181,7 @@ class AccountRepository internal constructor(
         accessToken: String,
         profileId: String
     ): Boolean {
-        val list = loadAccounts().toMutableList()
+        val list = loadAccountsForUpdate()?.toMutableList() ?: return false
         val index = list.indexOfFirst { it.id == accountId }
         if (index == -1) return false
 
@@ -141,7 +203,7 @@ class AccountRepository internal constructor(
      * deleted.
      */
     fun removeById(id: String): AccountConfig? {
-        val list = loadAccounts().toMutableList()
+        val list = loadAccountsForUpdate()?.toMutableList() ?: return null
         val index = list.indexOfFirst { it.id == id }
 
         if (index == -1) return null
@@ -155,7 +217,7 @@ class AccountRepository internal constructor(
         val ch = newChannel.trim().removePrefix("#")
         if (ch.isBlank()) return
 
-        val list = loadAccounts().toMutableList()
+        val list = loadAccountsForUpdate()?.toMutableList() ?: return
         val idx = list.indexOfFirst { it.id == accountId }
         if (idx == -1) return
 
@@ -167,7 +229,7 @@ class AccountRepository internal constructor(
     }
 
     fun reorderAccounts(orderedIds: List<String>) {
-        val current = loadAccounts()
+        val current = loadAccountsForUpdate() ?: return
         if (current.isEmpty()) return
 
         val byId = current.associateBy { it.id }.toMutableMap()
@@ -198,6 +260,12 @@ class AccountRepository internal constructor(
 
         /** An account change was shown as saved but never reached storage. */
         private const val MARKER_WRITE_FAILED = "account_store_write_failed"
+
+        /** A change was refused because the list it had to preserve was unreadable. */
+        private const val MARKER_UPDATE_BLOCKED = "account_store_update_blocked"
+
+        /** The decrypted list is readable bytes but not a list of accounts. */
+        private const val REASON_CONTENT_UNPARSEABLE = "content_unparseable"
 
         /** The one-time upgrade could not read the legacy plain-text list. */
         private const val MARKER_MIGRATION_READ_FAILED = "account_migration_legacy_read_failed"
