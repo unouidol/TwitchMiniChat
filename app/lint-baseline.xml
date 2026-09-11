@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;preset&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;catch_preset_limit_reached&quot;>You can save up to %1$d preset.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="83"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_selection_count&quot;>%1$d selected &amp;#183; %2$d shown&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="381"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_review_count&quot;>%1$d selected &amp;#183; %2$d shown &amp;#183; %3$d in review&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="390"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_backup_exported&quot;>Most Wanted backup saved (%1$d selected).&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="413"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_backup_import_count&quot;>The backup contains %1$d selected Pok&amp;#233;mon.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="416"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;more&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_backup_unknown_names_more&quot;>%1$s\n…and %2$d more&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="427"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="        notifyDataSetChanged()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/AccountsAdapter.kt"
+            line="136"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="        notifyDataSetChanged()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/TwitchEmotePickerAdapter.kt"
+            line="43"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="MergeRootFrame"
+        message="This `&lt;FrameLayout>` can be replaced with a `&lt;merge>` tag"
+        errorLine1="&lt;FrameLayout xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/layout/activity_blocked_users.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?attr/colorSurface` with a theme that also paints a background (inferred theme is `@style/Theme.TwitchMiniChat`)"
+        errorLine1="    android:background=&quot;?attr/colorSurface&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/activity_catch_preset_settings.xml"
+            line="6"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?attr/selectableItemBackground` with a theme that also paints a background (inferred theme is `@style/Theme.TwitchMiniChat`)"
+        errorLine1="    android:background=&quot;?attr/selectableItemBackground&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/item_pcg_most_wanted.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?attr/selectableItemBackground` with a theme that also paints a background (inferred theme is `@style/Theme.TwitchMiniChat`)"
+        errorLine1="    android:background=&quot;?attr/selectableItemBackground&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/item_twitch_emote.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?attr/selectableItemBackground` with a theme that also paints a background (inferred theme is `@style/Theme.TwitchMiniChat`)"
+        errorLine1="    android:background=&quot;?attr/selectableItemBackground&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/row_quick_catch_preset.xml"
+            line="6"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?android:attr/colorBackground` with a theme that also paints a background (inferred theme is `@style/Theme.TwitchMiniChat`)"
+        errorLine1="    android:background=&quot;?android:attr/colorBackground&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/view_twitch_emote_picker.xml"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_target_24` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_target_24.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.status_send_error` appears to be unused"
+        errorLine1="    &lt;string name=&quot;status_send_error&quot;>Send error: %1$s&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="25"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.account_remove_done_backend_warning` appears to be unused"
+        errorLine1="    &lt;string name=&quot;account_remove_done_backend_warning&quot;>Account removed locally, but TMC could not confirm server notification disable. If notifications continue, use Privacy &amp;amp; Safety to remove device and server data.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="66"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.quick_catch_spawn_subtitle_types_time` appears to be unused"
+        errorLine1="    &lt;string name=&quot;quick_catch_spawn_subtitle_types_time&quot;>%1$s • %2$ds&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="256"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.quick_catch_spawn_subtitle_time` appears to be unused"
+        errorLine1="    &lt;string name=&quot;quick_catch_spawn_subtitle_time&quot;>%1$ds&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="257"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.spawn_alert_mode_saved` appears to be unused"
+        errorLine1="    &lt;string name=&quot;spawn_alert_mode_saved&quot;>Spawn notifications: %1$s&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="306"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.spawn_alert_settings_saved` appears to be unused"
+        errorLine1="    &lt;string name=&quot;spawn_alert_settings_saved&quot;>Spawn notification settings updated.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="307"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.spawn_alert_mode_save_failed` appears to be unused"
+        errorLine1="    &lt;string name=&quot;spawn_alert_mode_save_failed&quot;>Could not update spawn notification mode.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="308"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pcg_spawn_alert_bell_mode_and_event` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pcg_spawn_alert_bell_mode_and_event&quot;>%1$s; event spawns enabled&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="328"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pcg_most_wanted_accessibility` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_accessibility&quot;>Open PCG Most Wanted&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="362"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pcg_most_wanted_filter_stage` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_filter_stage&quot;>Evolution stage&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="374"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pcg_most_wanted_saved` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_saved&quot;>Most Wanted saved for this profile.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="400"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.array.pcg_most_wanted_stage_filter_labels` appears to be unused"
+        errorLine1="    &lt;string-array name=&quot;pcg_most_wanted_stage_filter_labels&quot;>"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="501"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pcg_most_wanted_alert_setting_saved` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_alert_setting_saved&quot;>Most Wanted alert setting updated.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="526"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pcg_most_wanted_alert_setting_save_failed` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pcg_most_wanted_alert_setting_save_failed&quot;>Could not update Most Wanted alerts.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="527"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NotShrinkingResources"
+        message="Avoid setting isShrinkResources = false"
+        errorLine1="            isShrinkResources = false"
+        errorLine2="                                ~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="130"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val uri = Uri.parse(normalizedUrl)"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/ExternalBrowserLinkController.kt"
+            line="48"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            Uri.parse(BROWSER_PROBE_URL)"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/ExternalBrowserLinkController.kt"
+            line="282"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        return prefs.edit()"
+        errorLine2="               ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/OAuthPendingRequestStore.kt"
+            line="203"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        return prefs.edit()"
+        errorLine2="               ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/OAuthPendingRequestStore.kt"
+            line="218"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension property `View.isVisible` instead?"
+        errorLine1="            progress.visibility == View.VISIBLE"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/pcg/mostwanted/PcgMostWantedActivity.kt"
+            line="309"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension property `View.isVisible` instead?"
+        errorLine1="            progress.visibility == View.VISIBLE"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/pcg/mostwanted/PcgMostWantedActivity.kt"
+            line="649"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension property `View.isVisible` instead?"
+        errorLine1="        val busy = progress.visibility == View.VISIBLE"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/fs/twitchminichat/pcg/mostwanted/PcgMostWantedActivity.kt"
+            line="824"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    testImplementation(&quot;org.json:json:20240303&quot;)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="169"
+            column="24"/>
+    </issue>
+
+</issues>
