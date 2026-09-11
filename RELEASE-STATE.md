@@ -60,12 +60,18 @@ Twitch token being handed to whoever can redirect the connection.
 
 ## Waiting for release — on `work/history-diagnostics-observability`
 
-Branched from `502c11e`. Twenty-two commits not on `main-v5`, of which three are content
-duplicates of `f62d0bd`, `d342e96` and `70c1d3c` above: those were cherry-picked out of this
-branch and merged separately because they did not belong to its objective. They stay here as
-well, and git merges them without a conflict because the content is identical.
+Branched from `502c11e`. **Not mergeable until the notification listener leaves it**, for the
+reason set out below. That condition is the fact worth recording: a commit count goes stale
+the next time anyone commits, while the condition stays true until someone acts on it. Count
+with `git rev-list --count main-v5..work/history-diagnostics-observability` when the number
+is actually needed.
 
-The remaining nineteen divide as follows.
+Three of its commits are content duplicates of `f62d0bd`, `d342e96` and `70c1d3c` above:
+those were cherry-picked out of this branch and merged separately because they did not belong
+to its objective. They stay here as well, and git merges them without a conflict because the
+content is identical.
+
+The rest divides as follows.
 
 **Eight fixes that change what users experience**
 
@@ -114,6 +120,32 @@ who never needed it. It is not a matter of sequencing: nothing downstream fixes 
 The investigation is still open, and the service has to stay running on the test device while
 it is. So the order is: finish the investigation, take the listener out, then merge. Not the
 other way round.
+
+#### How to take it out, and when
+
+The probe does filter to this application's own PCG channels in code, but what the user grants
+to enable it is device-wide notification access, in an application whose manifest otherwise
+asks only for `INTERNET` and `POST_NOTIFICATIONS`. A comment in `AndroidManifest.xml` saying
+it must not ship is the weakest possible guarantee. Moving the service and its manifest entry
+into a `src/debug/` source set makes shipping it impossible rather than merely discouraged,
+and is the right end state.
+
+**Do not do it while the alert investigation is running.** The test device is on a
+`stableRelease` build, and `src/debug/` is excluded from every release build, so the move
+would take the probe off the device the moment it landed. Installing the debug build in its
+place is not an escape: the `debug` build type is signed with the Android debug certificate
+while `release` uses the `release` signing config, so the two cannot replace each other
+without an uninstall — and uninstalling erases the diagnostic journal, which is the evidence
+the investigation exists to collect.
+
+The move therefore belongs **after** the investigation closes, and at that point its purpose
+is no longer to unblock this branch. It is to keep the probe available for future
+investigations instead of deleting it.
+
+If the branch has to be unblocked before the investigation finishes, `src/debug/` is the wrong
+tool. The route is a separate `diagnostics` build type signed with the release key, which
+keeps the probe installable over the build already on the device while still keeping it out of
+`release`.
 
 ## Waiting for release — on `work/irc-read-timeout`
 
