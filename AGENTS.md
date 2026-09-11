@@ -76,6 +76,8 @@ Device-dependent behavior cannot be proven by local unit tests. Changes involvin
 
 **A verification holds at the moment it was made, and not after.** Anything happening between the check and the act it authorizes voids it: a rebase, a commit from another session, a merged pull request, an edit to the working tree. Re-run it immediately before the operation it is meant to justify, rather than citing the earlier run.
 
+**A missing value is asked for, never guessed.** An instruction carrying an unresolved placeholder, a reference to something that does not exist, or a figure nobody measured is not carried out by inferring what was probably meant. Stop and ask. An invented value inside a binding specification is worse than a task left undone, because the undone task is visible and the invention is not: it reads exactly like a measurement, and every later decision made on top of it inherits the error without a way to notice.
+
 **Lint configuration and comparison.** Lint must not report the remote version-availability checks (`GradleDependency`, `NewerVersionAvailable`, `AndroidGradlePluginVersion`). Their findings change with the dependency cache, the network, and whatever the library authors released that morning, so a count that includes them is a property of the world outside this repository rather than of the code in it, and two runs of the same commit can disagree.
 
 A warning count is comparable only between runs of the same lint configuration. Obtain the reference by running lint on `main-v5` at the commit the branch was cut from. Do not rely on a figure recorded in a document: it is correct only until someone changes the configuration or fixes a warning, and nothing will announce that it has stopped being correct.
