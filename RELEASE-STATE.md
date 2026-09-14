@@ -59,15 +59,16 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `94cee98` | 09-11 | Write down the six rules the month showed were missing (docs only) |
 | `4439682` | 09-11 | Drop the `-v26` qualifier the minimum SDK already guarantees |
 | `e191a09` | 09-11 | Make a new lint warning fail the build, on a baseline both flavours share |
-| pull request #30 | 09-14 | The diagnostics journal, and a hidden gesture that gets it off the device |
+| `21e0184` | 09-14 | The diagnostics journal, and a hidden gesture that gets it off the device |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
 Twitch token being handed to whoever can redirect the connection.
 
-The last row names a pull request rather than a commit because the squash merge assigns a
-commit identifier that does not exist while this is being written. Replace it with the
-identifier once it does.
+The last row named pull request #30 until its squash merge produced `21e0184`, because
+writing a plausible identifier for a commit that did not yet exist would have been an
+invention rather than a record. The same applies to any row added before its merge: name
+the pull request, and replace it afterwards.
 
 ### The diagnostics journal and its hidden gesture
 
