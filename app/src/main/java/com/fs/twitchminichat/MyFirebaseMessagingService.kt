@@ -500,7 +500,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 ?.let { postedAtMs - it }
         )
 
-        recordAudioPlaybackObservation(audioManager, playersBefore)
+        /*
+         * On a thread of its own, never inline. Firebase delivers every message
+         * through a single-threaded executor - in firebase-messaging 25.0.1,
+         * FcmExecutors.newIntentHandleExecutor() is a newSingleThreadExecutor -
+         * so observing here for 2.6 seconds would hold the next alert behind
+         * this one for exactly that long. Two accounts matching one spawn
+         * produce two pushes moments apart, which made this instrument delay
+         * the second alert while measuring the first, the one thing it was
+         * commissioned never to do. Detached, it may be cut short if the
+         * process is reclaimed, which costs an observation and never an alert.
+         */
+        Thread(
+            { recordAudioPlaybackObservation(audioManager, playersBefore) },
+            "tmc-alert-audio-observe"
+        ).start()
     }
 
     /**
