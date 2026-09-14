@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -289,6 +290,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "notificationsEnabled=$notificationsEnabled")
 
         val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+        val channelSound = channel?.sound
 
         /*
          * Read before posting, both of them. The four settings describe what the
@@ -296,7 +298,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          * count is the baseline that tells a player this alert started from
          * audio that was already running.
          */
-        val silenceWouldBeADefect = NotificationAlertFallbackPolicy.isSilenceADefect(
+        val suppressionReason = NotificationAlertFallbackPolicy.suppressionReason(
             interruptionFilter = runCatching {
                 notificationManager.currentInterruptionFilter
             }.getOrDefault(NOT_A_FILTER),
@@ -304,10 +306,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             notificationVolume = audioManager?.getStreamVolume(
                 AudioManager.STREAM_NOTIFICATION
             ) ?: 0,
-            channelHasSound = channel?.sound != null
+            channelHasSound = channelSound != null
         )
 
-        val playersBefore = if (silenceWouldBeADefect) {
+        val playersBefore = if (suppressionReason == null) {
             NotificationAlertFallback.activePlayerCount(audioManager)
         } else {
             0
@@ -320,45 +322,97 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(TAG, "Notification posted")
 
-        if (!silenceWouldBeADefect) return
-
-        playFallbackChimeIfSystemStaysSilent(audioManager, playersBefore)
-    }
-
-    /**
-     * Plays the chime once when the system never started a player of its own.
-     *
-     * Runs after the notification has been posted, so the wait delays nothing
-     * the user sees; it only holds the message callback open for the grace
-     * period after the work is done.
-     */
-    private fun playFallbackChimeIfSystemStaysSilent(
-        audioManager: AudioManager?,
-        playersBefore: Int
-    ) {
-        if (
-            NotificationAlertFallback.awaitSystemPlayer(
-                audioManager = audioManager,
-                playersBefore = playersBefore
+        if (suppressionReason != null) {
+            recordAlertAudioOutcome(
+                outcome = NotificationAlertFallbackPolicy.OUTCOME_SUPPRESSED,
+                reason = suppressionReason
             )
-        ) {
             return
         }
 
-        val played = NotificationAlertFallback.playOnce(this, audioManager)
+        watchAlertAudioOffTheDispatchThread(audioManager, playersBefore, channelSound)
+    }
 
-        Log.w(
-            TAG,
-            "System never started an alert player, fallback played=$played"
-        )
+    /**
+     * Waits for the system player, and plays the sound if it never arrives.
+     *
+     * Runs on a thread of its own, and the reason is measured rather than
+     * assumed. In firebase-messaging 25.0.1, EnhancedIntentService dispatches
+     * every message through `FcmExecutors.newIntentHandleExecutor()`, which is
+     * `PoolableExecutors.factory().newSingleThreadExecutor(...)`, and
+     * FirebaseMessagingService does not override handleIntentOnMainThread, whose
+     * base implementation returns false. Delivery is therefore serial: waiting
+     * here would hold the next message behind this one for the whole grace
+     * period. That is exactly the case this feature exists for - two accounts
+     * matching one spawn produce two pushes moments apart - so blocking would
+     * delay the second alert by two and a half seconds to repair the first.
+     *
+     * What is given up by detaching is tenure. Once the service finishes its
+     * last message the process may be reclaimed, and this thread can be killed
+     * mid-wait, so the fallback is best effort and will occasionally not play.
+     * That is the right side to lose on: a repair for an alert that has already
+     * failed is worth less than the timely delivery of the next one.
+     */
+    private fun watchAlertAudioOffTheDispatchThread(
+        audioManager: AudioManager?,
+        playersBefore: Int,
+        channelSound: Uri?
+    ) {
+        Thread({
+            val systemStartMs = NotificationAlertFallback.awaitSystemPlayer(
+                audioManager = audioManager,
+                playersBefore = playersBefore
+            )
 
+            if (systemStartMs != null) {
+                recordAlertAudioOutcome(
+                    outcome = NotificationAlertFallbackPolicy.OUTCOME_PLAYED,
+                    playersBefore = playersBefore,
+                    systemStartMs = systemStartMs
+                )
+                return@Thread
+            }
+
+            val played = NotificationAlertFallback.playOnce(
+                context = this,
+                audioManager = audioManager,
+                channelSound = channelSound
+            )
+
+            Log.w(TAG, "System never started an alert player, fallback played=$played")
+
+            recordAlertAudioOutcome(
+                outcome = NotificationAlertFallbackPolicy.OUTCOME_FALLBACK,
+                playersBefore = playersBefore,
+                fallbackPlayed = played
+            )
+        }, "tmc-alert-audio").start()
+    }
+
+    /**
+     * Writes the one journal line every posted alert produces.
+     *
+     * Exactly one per alert, whatever happened, so a journal with no line for
+     * an alert means the alert was never posted rather than that it was posted
+     * and went unrecorded. Null fields are dropped by the journal, so a
+     * suppressed row carries its reason and nothing meaningless beside it.
+     */
+    private fun recordAlertAudioOutcome(
+        outcome: String,
+        reason: String? = null,
+        playersBefore: Int? = null,
+        systemStartMs: Long? = null,
+        fallbackPlayed: Boolean? = null
+    ) {
         HistoryDiagnosticsLog.record(
             applicationContext,
-            "fcm.notification.fallback",
-            "reason" to "system_player_never_started",
+            "fcm.notification.alert_audio",
+            "outcome" to outcome,
+            "reason" to reason,
             "playersBefore" to playersBefore,
-            "graceMs" to NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS,
-            "played" to played
+            "systemStartMs" to systemStartMs,
+            "fallbackPlayed" to fallbackPlayed,
+            "graceMs" to NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
         )
     }
 

@@ -41,6 +41,58 @@ object NotificationAlertFallbackPolicy {
     /** Gap between two reads of the active players while waiting. */
     const val POLL_INTERVAL_MS: Long = 60L
 
+    /** The system played the alert itself, as it is supposed to. */
+    const val OUTCOME_PLAYED = "played"
+
+    /** The system played nothing, so this application played the chime. */
+    const val OUTCOME_FALLBACK = "fallback"
+
+    /** Silence was asked for, so nothing was played and nothing was watched. */
+    const val OUTCOME_SUPPRESSED = "suppressed"
+
+    /** Do Not Disturb, or any filter narrower than everything. */
+    const val REASON_INTERRUPTION_FILTER = "interruption_filter"
+
+    /** The ringer is silent or set to vibrate. */
+    const val REASON_RINGER_MODE = "ringer_mode"
+
+    /** The notification stream is turned down to nothing. */
+    const val REASON_NOTIFICATION_VOLUME = "notification_volume"
+
+    /** The channel itself was configured without a sound. */
+    const val REASON_CHANNEL_SILENT = "channel_silent"
+
+    /**
+     * Returns which setting asked for silence, or null when none did.
+     *
+     * The conditions are checked in a fixed order and the first that decides is
+     * the one reported, so a journal line names a single cause rather than a
+     * set. It is the same test as [isSilenceADefect], phrased so the answer can
+     * be written down: an entry saying only that nothing was played leaves the
+     * reader to guess which of four settings was responsible.
+     */
+    fun suppressionReason(
+        interruptionFilter: Int,
+        ringerMode: Int,
+        notificationVolume: Int,
+        channelHasSound: Boolean
+    ): String? {
+        if (interruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) {
+            return REASON_INTERRUPTION_FILTER
+        }
+        if (ringerMode != AudioManager.RINGER_MODE_NORMAL) {
+            return REASON_RINGER_MODE
+        }
+        if (notificationVolume <= 0) {
+            return REASON_NOTIFICATION_VOLUME
+        }
+        if (!channelHasSound) {
+            return REASON_CHANNEL_SILENT
+        }
+
+        return null
+    }
+
     /**
      * Returns whether silence after this alert would be a fault rather than a
      * setting.
@@ -57,11 +109,12 @@ object NotificationAlertFallbackPolicy {
         notificationVolume: Int,
         channelHasSound: Boolean
     ): Boolean {
-        if (interruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return false
-        if (ringerMode != AudioManager.RINGER_MODE_NORMAL) return false
-        if (notificationVolume <= 0) return false
-
-        return channelHasSound
+        return suppressionReason(
+            interruptionFilter = interruptionFilter,
+            ringerMode = ringerMode,
+            notificationVolume = notificationVolume,
+            channelHasSound = channelHasSound
+        ) == null
     }
 
     /**

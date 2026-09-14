@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 
@@ -38,16 +39,20 @@ object NotificationAlertFallback {
     /**
      * Blocks until a player rises above [playersBefore] or the grace expires.
      *
-     * Returns true as soon as one appears, so a healthy alert costs only the
-     * time it actually took to start. Called after the notification has been
-     * posted, so nothing here delays delivery; it delays only the end of the
-     * message callback that has already done its work.
+     * Returns how many milliseconds after the call the player appeared, or null
+     * if none did. The elapsed value is the same quantity the diagnostics work
+     * called firstRiseMs, so rows from before and after this change describe
+     * the same measurement and the grace can be re-derived from live data
+     * rather than from the sample it was chosen on.
+     *
+     * Returns as soon as a player appears, so a healthy alert costs only the
+     * time it actually took to start.
      */
     fun awaitSystemPlayer(
         audioManager: AudioManager?,
         playersBefore: Int
-    ): Boolean {
-        audioManager ?: return false
+    ): Long? {
+        audioManager ?: return null
 
         val startedAtMs = SystemClock.elapsedRealtime()
 
@@ -55,36 +60,54 @@ object NotificationAlertFallback {
             SystemClock.elapsedRealtime() - startedAtMs <
             NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
         ) {
+            val playerCount = activePlayerCount(audioManager)
+            val elapsedMs = SystemClock.elapsedRealtime() - startedAtMs
+
             if (
                 NotificationAlertFallbackPolicy.systemPlayerAppeared(
                     playersBefore = playersBefore,
-                    playersPeak = activePlayerCount(audioManager)
+                    playersPeak = playerCount
                 )
             ) {
-                return true
+                return elapsedMs
             }
 
             runCatching {
                 Thread.sleep(NotificationAlertFallbackPolicy.POLL_INTERVAL_MS)
-            }.getOrElse { return false }
+            }.getOrElse { return null }
         }
 
-        return false
+        return null
     }
 
     /**
-     * Plays the alert chime exactly once, and reports whether it started.
+     * Plays the alert sound exactly once, and reports whether it started.
      *
-     * Carries the same attributes the notification channel uses, so the sound
-     * follows the notification volume the user set rather than the media
-     * volume. It does not vibrate: the system has already done that when it
-     * posted the notification, and a second buzz would be worse than the
-     * silence being repaired.
+     * Plays [channelSound], the sound the notification channel is actually
+     * configured with, rather than the bundled chime. The activation test
+     * already asks whether the channel has a sound; playing a different one
+     * would make the application answer an alert with audio the user never
+     * chose, and would diverge silently the day the channel's sound changes.
+     * The bundled chime is the fallback for the fallback, used only when the
+     * configured sound cannot be opened - a ringtone on removed storage, a
+     * revoked content permission.
      *
-     * The player releases itself on completion. Nothing retries: if this fails
-     * the alert stays silent, which is the state it was already in.
+     * Carries the same attributes the channel uses, so the sound follows the
+     * notification volume rather than the media volume. It does not vibrate:
+     * the system has already done that when it posted the notification, and a
+     * second buzz would be worse than the silence being repaired.
+     *
+     * The player releases itself on completion. Nothing retries: if both
+     * sources fail the alert stays silent, which is the state it was already
+     * in.
      */
-    fun playOnce(context: Context, audioManager: AudioManager?): Boolean {
+    fun playOnce(
+        context: Context,
+        audioManager: AudioManager?,
+        channelSound: Uri?
+    ): Boolean {
+        val applicationContext = context.applicationContext
+
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_NOTIFICATION)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -94,9 +117,19 @@ object NotificationAlertFallback {
             audioManager?.generateAudioSessionId()
         }.getOrNull() ?: AudioManager.AUDIO_SESSION_ID_GENERATE
 
-        val player = runCatching {
+        val fromChannel = channelSound?.let { uri ->
+            runCatching {
+                MediaPlayer.create(applicationContext, uri, null, attributes, sessionId)
+            }.getOrNull()
+        }
+
+        if (channelSound != null && fromChannel == null) {
+            Log.w(TAG, "channel sound could not be opened, using the bundled chime")
+        }
+
+        val player = fromChannel ?: runCatching {
             MediaPlayer.create(
-                context.applicationContext,
+                applicationContext,
                 R.raw.tmc_spawn_alert_chime,
                 attributes,
                 sessionId
@@ -104,7 +137,7 @@ object NotificationAlertFallback {
         }.getOrNull()
 
         if (player == null) {
-            Log.w(TAG, "fallback chime could not be prepared")
+            Log.w(TAG, "no alert sound could be prepared")
             return false
         }
 
@@ -117,7 +150,7 @@ object NotificationAlertFallback {
             true
         }.getOrElse {
             runCatching { player.release() }
-            Log.w(TAG, "fallback chime could not be started")
+            Log.w(TAG, "alert sound could not be started")
             false
         }
     }

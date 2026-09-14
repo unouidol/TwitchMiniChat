@@ -153,6 +153,123 @@ class NotificationAlertFallbackPolicyTest {
         )
     }
 
+    /** Nothing suppresses the sound when every setting allows it. */
+    @Test
+    fun suppressionReason_nullWhenNothingAsksForSilence() {
+        assertEquals(
+            null,
+            NotificationAlertFallbackPolicy.suppressionReason(
+                interruptionFilter = NotificationManager.INTERRUPTION_FILTER_ALL,
+                ringerMode = AudioManager.RINGER_MODE_NORMAL,
+                notificationVolume = 7,
+                channelHasSound = true
+            )
+        )
+    }
+
+    /**
+     * Each setting, alone, names itself as the cause.
+     *
+     * A journal line saying only that nothing was played would leave the reader
+     * to guess which of four settings decided, which is the difference between
+     * a record and a shrug.
+     */
+    @Test
+    fun suppressionReason_namesTheSettingThatDecided() {
+        assertEquals(
+            NotificationAlertFallbackPolicy.REASON_INTERRUPTION_FILTER,
+            NotificationAlertFallbackPolicy.suppressionReason(
+                interruptionFilter = NotificationManager.INTERRUPTION_FILTER_PRIORITY,
+                ringerMode = AudioManager.RINGER_MODE_NORMAL,
+                notificationVolume = 7,
+                channelHasSound = true
+            )
+        )
+        assertEquals(
+            NotificationAlertFallbackPolicy.REASON_RINGER_MODE,
+            NotificationAlertFallbackPolicy.suppressionReason(
+                interruptionFilter = NotificationManager.INTERRUPTION_FILTER_ALL,
+                ringerMode = AudioManager.RINGER_MODE_VIBRATE,
+                notificationVolume = 7,
+                channelHasSound = true
+            )
+        )
+        assertEquals(
+            NotificationAlertFallbackPolicy.REASON_NOTIFICATION_VOLUME,
+            NotificationAlertFallbackPolicy.suppressionReason(
+                interruptionFilter = NotificationManager.INTERRUPTION_FILTER_ALL,
+                ringerMode = AudioManager.RINGER_MODE_NORMAL,
+                notificationVolume = 0,
+                channelHasSound = true
+            )
+        )
+        assertEquals(
+            NotificationAlertFallbackPolicy.REASON_CHANNEL_SILENT,
+            NotificationAlertFallbackPolicy.suppressionReason(
+                interruptionFilter = NotificationManager.INTERRUPTION_FILTER_ALL,
+                ringerMode = AudioManager.RINGER_MODE_NORMAL,
+                notificationVolume = 7,
+                channelHasSound = false
+            )
+        )
+    }
+
+    /**
+     * With several settings against it, one cause is reported, not a set.
+     *
+     * The order is fixed so the same device state always produces the same
+     * line, which is what makes rows countable rather than merely readable.
+     */
+    @Test
+    fun suppressionReason_reportsOneCauseWhenSeveralApply() {
+        assertEquals(
+            NotificationAlertFallbackPolicy.REASON_INTERRUPTION_FILTER,
+            NotificationAlertFallbackPolicy.suppressionReason(
+                interruptionFilter = NotificationManager.INTERRUPTION_FILTER_NONE,
+                ringerMode = AudioManager.RINGER_MODE_SILENT,
+                notificationVolume = 0,
+                channelHasSound = false
+            )
+        )
+    }
+
+    /** The reported cause and the decision can never disagree. */
+    @Test
+    fun suppressionReason_agreesWithTheDecisionEverywhere() {
+        for (filterOk in listOf(true, false)) {
+            for (ringerOk in listOf(true, false)) {
+                for (volumeOk in listOf(true, false)) {
+                    for (soundOk in listOf(true, false)) {
+                        val filter = if (filterOk) {
+                            NotificationManager.INTERRUPTION_FILTER_ALL
+                        } else {
+                            NotificationManager.INTERRUPTION_FILTER_PRIORITY
+                        }
+                        val ringer = if (ringerOk) {
+                            AudioManager.RINGER_MODE_NORMAL
+                        } else {
+                            AudioManager.RINGER_MODE_SILENT
+                        }
+                        val volume = if (volumeOk) 7 else 0
+
+                        val reason = NotificationAlertFallbackPolicy.suppressionReason(
+                            filter, ringer, volume, soundOk
+                        )
+                        val defect = NotificationAlertFallbackPolicy.isSilenceADefect(
+                            filter, ringer, volume, soundOk
+                        )
+
+                        assertEquals(
+                            "filter=$filterOk ringer=$ringerOk volume=$volumeOk sound=$soundOk",
+                            defect,
+                            reason == null
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     /** A player above the starting count is the system doing its job. */
     @Test
     fun systemPlayerAppeared_trueOnlyAboveTheStartingCount() {
