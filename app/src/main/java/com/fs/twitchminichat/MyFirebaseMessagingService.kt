@@ -358,6 +358,29 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         playersBefore: Int,
         channelSound: Uri?
     ) {
+        /*
+         * One thread per alert, and deliberately not an executor. Pooling this
+         * looks like tidying and is the bug: a single-threaded executor would
+         * re-serialise exactly what detaching from the dispatch thread was for,
+         * and a second alert would start reading the counter two and a half
+         * seconds after it was posted - by which time its own system player has
+         * been born and has died - so it would conclude the system stayed
+         * silent and play on top of a sound the user already heard. The
+         * generous grace exists to avoid that doubled alert; a pool would
+         * reintroduce it from the other side. Alerts are rare and the thread
+         * lives for at most the grace, so one each is the cheap option as well
+         * as the correct one.
+         *
+         * The player count these threads read is global to the device, not
+         * scoped to this alert. Two accounts matching one spawn produce two
+         * pushes moments apart, so the second thread can see the first alert's
+         * player - the system's or ours - and record that the system played for
+         * it. The error only ever runs towards fewer sounds, never towards two,
+         * and it matches what Android does by collapsing alerts that arrive
+         * together, so it is accepted rather than corrected. It is accepted
+         * knowingly: no test covers it, because it lives here in the service
+         * and not in the policy the tests can reach.
+         */
         Thread({
             val systemStartMs = NotificationAlertFallback.awaitSystemPlayer(
                 audioManager = audioManager,
