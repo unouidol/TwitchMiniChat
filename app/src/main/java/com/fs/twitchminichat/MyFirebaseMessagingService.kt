@@ -6,12 +6,15 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -286,16 +289,167 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
         Log.d(TAG, "notificationsEnabled=$notificationsEnabled")
 
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+        val channelSound = channel?.sound
+
+        /*
+         * Read before posting, both of them. The four settings describe what the
+         * user asked for at the moment the alert was raised, and the player
+         * count is the baseline that tells a player this alert started from
+         * audio that was already running.
+         */
+        val suppressionReason = NotificationAlertFallbackPolicy.suppressionReason(
+            interruptionFilter = runCatching {
+                notificationManager.currentInterruptionFilter
+            }.getOrDefault(NOT_A_FILTER),
+            ringerMode = audioManager?.ringerMode ?: NOT_A_RINGER_MODE,
+            notificationVolume = audioManager?.getStreamVolume(
+                AudioManager.STREAM_NOTIFICATION
+            ) ?: 0,
+            channelHasSound = channelSound != null
+        )
+
+        val playersBefore = if (suppressionReason == null) {
+            NotificationAlertFallback.activePlayerCount(audioManager)
+        } else {
+            0
+        }
+
         NotificationManagerCompat.from(this).notify(
             notificationId,
             notification
         )
 
         Log.d(TAG, "Notification posted")
+
+        if (suppressionReason != null) {
+            recordAlertAudioOutcome(
+                outcome = NotificationAlertFallbackPolicy.OUTCOME_SUPPRESSED,
+                reason = suppressionReason
+            )
+            return
+        }
+
+        watchAlertAudioOffTheDispatchThread(audioManager, playersBefore, channelSound)
+    }
+
+    /**
+     * Waits for the system player, and plays the sound if it never arrives.
+     *
+     * Runs on a thread of its own, and the reason is measured rather than
+     * assumed. In firebase-messaging 25.0.1, EnhancedIntentService dispatches
+     * every message through `FcmExecutors.newIntentHandleExecutor()`, which is
+     * `PoolableExecutors.factory().newSingleThreadExecutor(...)`, and
+     * FirebaseMessagingService does not override handleIntentOnMainThread, whose
+     * base implementation returns false. Delivery is therefore serial: waiting
+     * here would hold the next message behind this one for the whole grace
+     * period. That is exactly the case this feature exists for - two accounts
+     * matching one spawn produce two pushes moments apart - so blocking would
+     * delay the second alert by two and a half seconds to repair the first.
+     *
+     * What is given up by detaching is tenure. Once the service finishes its
+     * last message the process may be reclaimed, and this thread can be killed
+     * mid-wait, so the fallback is best effort and will occasionally not play.
+     * That is the right side to lose on: a repair for an alert that has already
+     * failed is worth less than the timely delivery of the next one.
+     */
+    private fun watchAlertAudioOffTheDispatchThread(
+        audioManager: AudioManager?,
+        playersBefore: Int,
+        channelSound: Uri?
+    ) {
+        /*
+         * One thread per alert, and deliberately not an executor. Pooling this
+         * looks like tidying and is the bug: a single-threaded executor would
+         * re-serialise exactly what detaching from the dispatch thread was for,
+         * and a second alert would start reading the counter two and a half
+         * seconds after it was posted - by which time its own system player has
+         * been born and has died - so it would conclude the system stayed
+         * silent and play on top of a sound the user already heard. The
+         * generous grace exists to avoid that doubled alert; a pool would
+         * reintroduce it from the other side. Alerts are rare and the thread
+         * lives for at most the grace, so one each is the cheap option as well
+         * as the correct one.
+         *
+         * The player count these threads read is global to the device, not
+         * scoped to this alert. Two accounts matching one spawn produce two
+         * pushes moments apart, so the second thread can see the first alert's
+         * player - the system's or ours - and record that the system played for
+         * it. The error only ever runs towards fewer sounds, never towards two,
+         * and it matches what Android does by collapsing alerts that arrive
+         * together, so it is accepted rather than corrected. It is accepted
+         * knowingly: no test covers it, because it lives here in the service
+         * and not in the policy the tests can reach.
+         */
+        Thread({
+            val systemStartMs = NotificationAlertFallback.awaitSystemPlayer(
+                audioManager = audioManager,
+                playersBefore = playersBefore
+            )
+
+            if (systemStartMs != null) {
+                recordAlertAudioOutcome(
+                    outcome = NotificationAlertFallbackPolicy.OUTCOME_PLAYED,
+                    playersBefore = playersBefore,
+                    systemStartMs = systemStartMs
+                )
+                return@Thread
+            }
+
+            val played = NotificationAlertFallback.playOnce(
+                context = this,
+                audioManager = audioManager,
+                channelSound = channelSound
+            )
+
+            Log.w(TAG, "System never started an alert player, fallback played=$played")
+
+            recordAlertAudioOutcome(
+                outcome = NotificationAlertFallbackPolicy.OUTCOME_FALLBACK,
+                playersBefore = playersBefore,
+                fallbackPlayed = played
+            )
+        }, "tmc-alert-audio").start()
+    }
+
+    /**
+     * Writes the one journal line every posted alert produces.
+     *
+     * Exactly one per alert, whatever happened, so a journal with no line for
+     * an alert means the alert was never posted rather than that it was posted
+     * and went unrecorded. Null fields are dropped by the journal, so a
+     * suppressed row carries its reason and nothing meaningless beside it.
+     */
+    private fun recordAlertAudioOutcome(
+        outcome: String,
+        reason: String? = null,
+        playersBefore: Int? = null,
+        systemStartMs: Long? = null,
+        fallbackPlayed: Boolean? = null
+    ) {
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.notification.alert_audio",
+            "outcome" to outcome,
+            "reason" to reason,
+            "playersBefore" to playersBefore,
+            "systemStartMs" to systemStartMs,
+            "fallbackPlayed" to fallbackPlayed,
+            "graceMs" to NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
+        )
     }
 
     companion object {
         private const val TAG = "FCM"
+
+        /**
+         * Stand-ins for a state the framework refused to report.
+         *
+         * Neither matches any real constant, so a failed read can never be
+         * mistaken for permission to make a sound.
+         */
+        private const val NOT_A_FILTER = -1
+        private const val NOT_A_RINGER_MODE = -1
 
         /** One push arrived and was dropped before it could become a notification. */
         private const val MARKER_MESSAGE_HANDLING_FAILED = "fcm_message_handling_failed"
