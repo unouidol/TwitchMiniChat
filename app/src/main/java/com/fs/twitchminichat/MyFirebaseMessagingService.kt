@@ -6,12 +6,14 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -286,16 +288,91 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
         Log.d(TAG, "notificationsEnabled=$notificationsEnabled")
 
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+
+        /*
+         * Read before posting, both of them. The four settings describe what the
+         * user asked for at the moment the alert was raised, and the player
+         * count is the baseline that tells a player this alert started from
+         * audio that was already running.
+         */
+        val silenceWouldBeADefect = NotificationAlertFallbackPolicy.isSilenceADefect(
+            interruptionFilter = runCatching {
+                notificationManager.currentInterruptionFilter
+            }.getOrDefault(NOT_A_FILTER),
+            ringerMode = audioManager?.ringerMode ?: NOT_A_RINGER_MODE,
+            notificationVolume = audioManager?.getStreamVolume(
+                AudioManager.STREAM_NOTIFICATION
+            ) ?: 0,
+            channelHasSound = channel?.sound != null
+        )
+
+        val playersBefore = if (silenceWouldBeADefect) {
+            NotificationAlertFallback.activePlayerCount(audioManager)
+        } else {
+            0
+        }
+
         NotificationManagerCompat.from(this).notify(
             notificationId,
             notification
         )
 
         Log.d(TAG, "Notification posted")
+
+        if (!silenceWouldBeADefect) return
+
+        playFallbackChimeIfSystemStaysSilent(audioManager, playersBefore)
+    }
+
+    /**
+     * Plays the chime once when the system never started a player of its own.
+     *
+     * Runs after the notification has been posted, so the wait delays nothing
+     * the user sees; it only holds the message callback open for the grace
+     * period after the work is done.
+     */
+    private fun playFallbackChimeIfSystemStaysSilent(
+        audioManager: AudioManager?,
+        playersBefore: Int
+    ) {
+        if (
+            NotificationAlertFallback.awaitSystemPlayer(
+                audioManager = audioManager,
+                playersBefore = playersBefore
+            )
+        ) {
+            return
+        }
+
+        val played = NotificationAlertFallback.playOnce(this, audioManager)
+
+        Log.w(
+            TAG,
+            "System never started an alert player, fallback played=$played"
+        )
+
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.notification.fallback",
+            "reason" to "system_player_never_started",
+            "playersBefore" to playersBefore,
+            "graceMs" to NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS,
+            "played" to played
+        )
     }
 
     companion object {
         private const val TAG = "FCM"
+
+        /**
+         * Stand-ins for a state the framework refused to report.
+         *
+         * Neither matches any real constant, so a failed read can never be
+         * mistaken for permission to make a sound.
+         */
+        private const val NOT_A_FILTER = -1
+        private const val NOT_A_RINGER_MODE = -1
 
         /** One push arrived and was dropped before it could become a notification. */
         private const val MARKER_MESSAGE_HANDLING_FAILED = "fcm_message_handling_failed"
