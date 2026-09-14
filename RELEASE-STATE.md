@@ -39,8 +39,8 @@ behaviour.
 
 ## Waiting for release — on `main-v5`, not published
 
-Thirteen commits since the `v5.5.0` tag, four of them merge commits. None of this has
-reached users.
+Everything merged since the `v5.5.0` tag. None of this has reached users. List it with
+`git log --no-merges v5.5.0..main-v5` rather than trusting a count written here.
 
 | Commit | Date | Change |
 |---|---|---|
@@ -53,10 +53,43 @@ reached users.
 | `f62d0bd` | 09-11 | Add `CLAUDE.md` importing `AGENTS.md`, so the repository rules load (docs only) |
 | `d342e96` | 09-11 | Stop a failed read from erasing the stored accounts |
 | `70c1d3c` | 09-11 | Verify the name on the certificate before sending the Twitch token |
+| `9c14c72` | 09-11 | Create this file on `main-v5` (docs only) |
+| `7083a14` | 09-11 | Say when the notification listener can be moved (docs only) |
+| `0dfbc73` | 09-11 | Stop counting lint warnings that depend on the network |
+| `94cee98` | 09-11 | Write down the six rules the month showed were missing (docs only) |
+| `4439682` | 09-11 | Drop the `-v26` qualifier the minimum SDK already guarantees |
+| `e191a09` | 09-11 | Make a new lint warning fail the build, on a baseline both flavours share |
+| pull request #30 | 09-14 | The diagnostics journal, and a hidden gesture that gets it off the device |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
 Twitch token being handed to whoever can redirect the connection.
+
+The last row names a pull request rather than a commit because the squash merge assigns a
+commit identifier that does not exist while this is being written. Replace it with the
+identifier once it does.
+
+### The diagnostics journal and its hidden gesture
+
+`HistoryDiagnosticsLog` writes into `filesDir`, and a release build is not debuggable, so
+without a way out from inside the application the file it produces cannot be reached on the
+test device at all. The export is deliberately not a control: a long press on the version
+label at the foot of the login screen exports the journal and opens the system share sheet.
+Two failure toasts are the only text a user can meet, and only after the gesture.
+
+It sits in `src/main` rather than `src/dev` because the investigation runs on a
+`stableRelease` build, so a development-only export would not exist where the evidence is.
+
+`DiagnosticsExportGesture` is reachable through a single `attach(View)` with one call site,
+so confining it to the development flavour later is three moves, not one:
+
+1. `git mv` the file into `src/dev/java/com/fs/twitchminichat/diagnostics/`;
+2. a twin in `src/stable/java/...` declaring the same object with an empty `attach`;
+3. move `diagnostics_export_empty` and `diagnostics_export_failed` into
+   `src/dev/res/values/` — otherwise `UnusedResources` reports them in the stable flavour
+   and, with `warningsAsErrors` in force, brings the build down.
+
+The call site in `LoginFragment` does not change in any of the three.
 
 ## Waiting for release — on `work/history-diagnostics-observability`
 
@@ -72,6 +105,28 @@ to its objective. They stay here as well, and git merges them without a conflict
 content is identical.
 
 The rest divides as follows.
+
+#### What will conflict when it merges, measured 2026-09-14
+
+Measured by merging `origin/work/history-diagnostics-observability` into the journal
+extraction with `--no-commit --no-ff` and reading the result, not by reasoning about it.
+Exactly two files conflict:
+
+| File | Why |
+|---|---|
+| `app/src/main/AndroidManifest.xml` | the `<service>` block for `NotificationAlertProbeService`, which the extraction deliberately left behind |
+| `app/src/main/res/values/strings.xml` | `notification_alert_probe_label` arriving beside the two export strings already present |
+
+Everything else merges without a hand on it, including the two files most likely to look
+dangerous: `HistoryDiagnosticsLog.kt` and `diagnostics_paths.xml` were extracted byte for
+byte, so git reconciles them on its own. `AudioPlaybackObservation.kt`, its test and
+`NotificationAlertProbeService.kt` arrive as plain additions, and six source files merge
+cleanly.
+
+Both conflicts are the same fact in two files: this branch still carries the listener and
+`main-v5` does not. Removing the listener, which has to happen before this branch may merge
+at all, removes both conflicts with it. Re-measure rather than trusting this table once
+either side moves.
 
 **Eight fixes that change what users experience**
 
@@ -137,6 +192,12 @@ place is not an escape: the `debug` build type is signed with the Android debug 
 while `release` uses the `release` signing config, so the two cannot replace each other
 without an uninstall — and uninstalling erases the diagnostic journal, which is the evidence
 the investigation exists to collect.
+
+That last clause is now weaker than it was, and deliberately so. Uninstalling still erases
+the journal, but the hidden export gesture makes it possible to take a copy off the device
+first, so losing the evidence is no longer the automatic consequence of an uninstall. It is
+now a sequencing mistake rather than a trap: export, then uninstall. The signing argument
+above is untouched, and the move still belongs after the investigation closes.
 
 The move therefore belongs **after** the investigation closes, and at that point its purpose
 is no longer to unblock this branch. It is to keep the probe available for future

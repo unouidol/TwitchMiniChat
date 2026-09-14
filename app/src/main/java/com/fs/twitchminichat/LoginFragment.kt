@@ -9,6 +9,7 @@ import android.widget.EditText
 import android.widget.TextView
 import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
+import com.fs.twitchminichat.diagnostics.DiagnosticsExportGesture
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -168,6 +169,8 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE
         )
+
+        DiagnosticsExportGesture.attach(versionLabel)
     }
 
     private fun refreshList() {
