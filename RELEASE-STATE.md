@@ -10,7 +10,8 @@ once from a stale note, costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-11, against `origin/main-v5` at `70c1d3c`.
+Last verified: 2026-09-15, against `origin/main-v5` at `cf8832d`, the commit
+`release/5.5.1` is based on.
 
 ## Published — what users have
 
@@ -31,23 +32,24 @@ parent on the other side of that merge. Both are on `main-v5`, so the mistake wa
 but the tag has always pointed at `f0e0d35`. Dereference the tag rather than reading a
 branch head: `git rev-parse v5.5.0^{commit}`.
 
-There is **no 5.5.1**: no tag, no commit, no version bump. Builds newer than 5.5.0 still
-report `versionName 5.5.0` and `versionCode 7`, so on a device they are indistinguishable
-from the published one. Calling such a build "5.5.1" in conversation is a convenient
-shorthand and nothing more. The only way to tell a newer build apart on a device is by
-behaviour.
+**5.5.1 is not published.** The version bump exists, on `release/5.5.1`, and is listed
+below as waiting like everything else. There is no `v5.5.1` tag. The order is fixed: merge
+the release pull request, build the release APKs, install them and pass the manual plan on
+the device, and only then tag and publish. If a case fails, the fix lands on `main-v5` and
+the build is repeated under the same number, because no 5.5.1 has ever left this
+repository.
 
 ## Waiting for release — on `main-v5`, not published
 
 Everything merged since the `v5.5.0` tag. None of this has reached users. List it with
-`git log --no-merges v5.5.0..main-v5` rather than trusting a count written here.
+`git log --first-parent v5.5.0..main-v5` rather than trusting a count written here.
 
 | Commit | Date | Change |
 |---|---|---|
 | `a67cd37` | 08-31 | Document the release and distribution contract (docs only) |
 | `f8ea482` | 09-01 | Encrypt locally stored Twitch credentials at rest |
 | `a77b129` | 09-01 | Add "delete only this device" to Safety & Privacy — completes the app side of `/delete_device_data` |
-| `7cf64f8` | 09-02 | Opt-out crash reporting |
+| `7cf64f8` | 09-02 | Opt-out crash reporting; terms version raised to 2, so existing installs see the acceptance gate again |
 | `71f9850` | 09-02 | Report the silent account storage failures |
 | `502c11e` | 09-02 | Report the features that stop working without saying so |
 | `f62d0bd` | 09-11 | Add `CLAUDE.md` importing `AGENTS.md`, so the repository rules load (docs only) |
@@ -59,33 +61,105 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `94cee98` | 09-11 | Write down the six rules the month showed were missing (docs only) |
 | `4439682` | 09-11 | Drop the `-v26` qualifier the minimum SDK already guarantees |
 | `e191a09` | 09-11 | Make a new lint warning fail the build, on a baseline both flavours share |
-| `21e0184` | 09-14 | The diagnostics journal, and a hidden gesture that gets it off the device |
+| `21e0184` | 09-14 | The diagnostics journal, and a hidden gesture that gets it off the device (#30) |
+| `2a22fed` | 09-14 | Replace the promised identifier for #30 in this file (docs only, #32) |
+| `c4f4ffb` | 09-14 | Play the alert sound when the system never does (#31) |
+| `17918a8` | 09-15 | Merge of `work/history-diagnostics-observability`: seven fixes, the diagnostics behind the journal, the notification listener removed before it (#34) |
 | `5b1bd57` | 09-15 | Every local reset also erases the diagnostics journal (#35) |
 | `a1f4d7e` | 09-15 | The privacy policy describes the local diagnostic record (#37) |
 | `6055751` | 09-15 | The keep-accounts reset keeps the device credential, so the server registration stays reachable (#40) |
 | `86566d7` | 09-15 | "Erase everything on this device" also clears the built-in browser data (#40) |
 | `000318a` | 09-15 | Keep the two copies of every policy page aligned (docs only, #38) |
-| this pull request | 09-15 | The data deletion page, rewritten from the code. Corrected in 5.5.1: the published copy had drifted 35 lines from the APK's, a May section never brought back into the app, which is why the two-copies rule exists |
+| `cf8832d` | 09-15 | The data deletion page, rewritten from the code. Corrected in 5.5.1: the published copy had drifted 35 lines from the APK's, a May section never brought back into the app, which is why the two-copies rule exists (#39) |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
 Twitch token being handed to whoever can redirect the connection.
 
-The last row named pull request #30 until its squash merge produced `21e0184`, because
-writing a plausible identifier for a commit that did not yet exist would have been an
-invention rather than a record. The same applies to any row added before its merge: name
-the pull request, and replace it afterwards.
+A row added before its own merge names the pull request, and is replaced by the commit once
+the merge produces one: writing a plausible identifier for a commit that does not exist yet
+would be an invention rather than a record.
+
+### What the merge of the diagnostics branch brought
+
+`17918a8` is a real merge commit, not a squash: the branch carried commits with distinct
+objectives. Its second parent is `901ecdc`, and its tree is identical to that commit, which
+continuous integration had verified on the pull request.
+
+**Seven fixes that change what users experience**
+
+| Commit | Change |
+|---|---|
+| `7a57893` | Recover the window an off-screen chat page cannot measure |
+| `570580e` | Recover the offline window for a page that never resumes |
+| `b7535a3` | Recover history on a mid-session IRC reconnect with no `onStop` |
+| `ae141be` | Ask again for an hour the network refused to deliver |
+| `bb319d4` | Retire the frozen notification channels and delete the ones earlier versions left behind — **per-channel customisations are reset once** |
+| `1cad63c` | Stop alerting for spawns whose window has already closed |
+| `39a4763` | Keep the account and channel out of Logcat |
+
+Seven, not eight. `5e352df`, a two-second settling delay for alerts from a freshly started
+process, is in this history but withdrawn by `99c730a`. The fallback from #31 repairs the
+silence it guarded against only when that silence actually happens, and removing the delay
+turns every cold alert into a trial: `processUptimeMs` is written beside the outcome on the
+`fcm.notification.alert_audio` line.
+
+**Nine commits of diagnostics**, all writing to the journal: `73521ef`, `f16aab1`, `a4c124e`,
+`5ca53dc`, `af74bfb`, `5616371`, `b7b43ea`, `377d91c`, `a01f99a`. Two of them, `b7b43ea` and
+`377d91c`, concern `NotificationAlertProbeService`, which `8350d2b` (#33) removed together
+with its `BIND_NOTIFICATION_LISTENER_SERVICE` declaration before the merge. They remain as
+history only: **no notification listener is in 5.5.1.**
+
+**Follow-ups made on the branch before it merged**
+
+| Commit | Change |
+|---|---|
+| `cc37594` | Move the audio observation off Firebase's dispatch thread, where it held each following alert back for 2.6 s |
+| `99c730a` | Withdraw `5e352df` |
+| `6f3a4ef` | Keep one export for the journal, the hidden gesture; the Safety & Privacy button is gone |
+| `929d2af` | Ignore exported journals in git, as a second defence |
+| `3462a32` | One sampler per alert, feeding both the fallback's verdict and the observation row |
+| `901ecdc` | Pin that the sampler decides early but never stops early |
+
+`cc37594` repairs a defect that was dated backwards by a discovery, not caused by
+carelessness: that Firebase delivers messages through a single-threaded executor was
+established only while building #31, by reading the library's sources.
+
+Three commits on the branch are content duplicates of `f62d0bd`, `d342e96` and `70c1d3c`;
+git reconciled them without conflict. Two documentation commits, `dc9f608` and `f7ab226`,
+wrote earlier versions of this file there.
 
 ### The diagnostics journal and its hidden gesture
 
-`HistoryDiagnosticsLog` writes into `filesDir`, and a release build is not debuggable, so
-without a way out from inside the application the file it produces cannot be reached on the
-test device at all. The export is deliberately not a control: a long press on the version
-label at the foot of the login screen exports the journal and opens the system share sheet.
-Two failure toasts are the only text a user can meet, and only after the gesture.
+**The journal ships in 5.5.1.** `HistoryDiagnosticsLog` writes into `filesDir`, and a
+release build is not debuggable, so without a way out from inside the application the file
+could not be reached on the test device at all. The export is deliberately not a control: a
+long press on the version label at the foot of the login screen exports the journal and
+opens the system share sheet. Two toasts are the only text a user can meet, and only after
+the gesture.
 
 It sits in `src/main` rather than `src/dev` because the investigation runs on a
 `stableRelease` build, so a development-only export would not exist where the evidence is.
+
+**Account and channel are in the journal on purpose.** The `ChatFragment` wrapper puts both
+on every line it writes, because a private file in a non-debuggable release is narrower
+than Logcat and those fields make a report readable. `39a4763` took the same two fields out
+of Logcat. The coincidence of names is a decision, not an oversight.
+
+**Every local reset erases it**, since `5b1bd57`, including *Reset local data, keep
+accounts*. The deletion runs on the journal's writer, in order with lines already queued.
+Lines from a history backfill that started before the reset are dropped rather than written
+into the fresh journal. One residue is accepted knowingly: an alert's audio watcher still
+running at the reset writes at most two lines after it, `fcm.notification.audio` and
+`fcm.notification.alert_audio`, carrying no account and no channel.
+
+**The privacy policy declares it**, since `a1f4d7e`: what is recorded, that it stays on the
+device, is never sent automatically, leaves only by a deliberate action of the user, and is
+erased by every reset. It does not describe the gesture: a policy declares data practices,
+not affordances. The copy the app links to, `https://unouidol.github.io/tmc/privacy.html`,
+is updated by unouidol/unouidol.github.io#1, which **must be merged before the `v5.5.1`
+tag**, so that the published policy never lags the build. Terms version 2 (`7cf64f8`) puts
+the acceptance gate in front of existing users on 5.5.1, with the updated policy behind it.
 
 `DiagnosticsExportGesture` is reachable through a single `attach(View)` with one call site,
 so confining it to the development flavour later is three moves, not one:
@@ -98,162 +172,98 @@ so confining it to the development flavour later is three moves, not one:
 
 The call site in `LoginFragment` does not change in any of the three.
 
-## Waiting for release — on `work/history-diagnostics-observability`
+### Policy pages: two copies, and the resets they describe
 
-Branched from `502c11e`. **Not mergeable until the notification listener leaves it**, for the
-reason set out below. That condition is the fact worth recording: a commit count goes stale
-the next time anyone commits, while the condition stays true until someone acts on it. Count
-with `git rev-list --count main-v5..work/history-diagnostics-observability` when the number
-is actually needed.
+Every policy page exists twice: bundled in the APK under `app/src/main/assets/policies/`,
+and published at `https://unouidol.github.io/tmc/` from the `unouidol/unouidol.github.io`
+repository. `000318a` (#38) makes changing both together a rule in `AGENTS.md`. The rule
+comes from a measurement: on 2026-09-15 the published data deletion page differed from the
+APK's by 35 lines, a section added in May that never came back into the app, with option
+names that no longer matched it. `cf8832d` (#39) corrects it in 5.5.1 by rewriting the page
+from the code rather than from either copy. `style.css` still differs by 48 lines; that is
+presentation only, and not corrected here.
 
-Three of its commits are content duplicates of `f62d0bd`, `d342e96` and `70c1d3c` above:
-those were cherry-picked out of this branch and merged separately because they did not belong
-to its objective. They stay here as well, and git merges them without a conflict because the
-content is identical.
+Rewriting the page from the code found two defects, fixed in 5.5.1 by #40:
 
-The rest divides as follows.
+- the keep-accounts reset erased the device credential, leaving the phone's server
+  registration unreachable by either deletion option (`6055751`);
+- "Erase everything on this device" left the built-in browser data behind (`86566d7`).
 
-#### What will conflict when it merges, measured 2026-09-14
+One limit remains, and the page states it: the full erase still removes the credential, as
+every reset did before 5.5.1, so a registration orphaned that way is reached only by an
+email request.
 
-Measured by merging `origin/work/history-diagnostics-observability` into the journal
-extraction with `--no-commit --no-ff` and reading the result, not by reasoning about it.
-Exactly two files conflict:
+Both published pages go out in one publication, unouidol/unouidol.github.io#1. It **must be
+merged before the `v5.5.1` tag**.
 
-| File | Why |
-|---|---|
-| `app/src/main/AndroidManifest.xml` | the `<service>` block for `NotificationAlertProbeService`, which the extraction deliberately left behind |
-| `app/src/main/res/values/strings.xml` | `notification_alert_probe_label` arriving beside the two export strings already present |
+### Silent alerts: where the investigation stands
 
-Everything else merges without a hand on it, including the two files most likely to look
-dangerous: `HistoryDiagnosticsLog.kt` and `diagnostics_paths.xml` were extracted byte for
-byte, so git reconciles them on its own. `AudioPlaybackObservation.kt`, its test and
-`NotificationAlertProbeService.kt` arrive as plain additions, and six source files merge
-cleanly.
+The periods divide at **2026-09-11, after 15:23:25**. That is the last
+`Couldn't open fd for content://settings/system/notification_sound` on the test device; in
+the capture of 2026-09-14 the count is zero and the default sound is
+`content://media/internal/audio/media/133`. Before that moment the device's own default
+notification sound was broken, which was the dominant cause of silence and confounds every
+observation made before it.
 
-Both conflicts are the same fact in two files: this branch still carries the listener and
-`main-v5` does not. Removing the listener, which has to happen before this branch may merge
-at all, removes both conflicts with it. Re-measure rather than trusting this table once
-either side moves.
+Measured on 2026-09-14 from three journal exports, deduplicated line by line because
+rotation makes them overlap: **458** alerts posted, **402** in an audible environment (none
+of the four suppressing conditions).
 
-**Eight fixes that change what users experience**
+| Period | Alerts | Short or missing sound (< 1200 ms) |
+|---|---|---|
+| Before the boundary, 09-10 12:32 to 09-11 15:04 | 146 | 21 |
+| After the boundary, 09-12 19:35 to 09-14 07:36 | 136 | 6 |
 
-| Commit | Change |
-|---|---|
-| `7a57893` | Recover the window an off-screen chat page cannot measure |
-| `bb319d4` | Retire the frozen notification channels and delete the ones earlier versions left behind |
-| `5e352df` | Let a freshly started process settle before alerting |
-| `1cad63c` | Stop alerting for spawns whose window has already closed |
-| `ae141be` | Ask again for an hour the network refused to deliver |
-| `570580e` | Recover the offline window for a page that never resumes |
-| `39a4763` | Keep the account and channel out of Logcat |
-| `b7535a3` | Recover history on a mid-session IRC reconnect with no `onStop` |
+After the boundary the system's alert player never started for 3 of 135 alerts from a warm
+process. There was one cold alert, which played normally with an audible span of 1743 ms,
+so whether a young process alerts silently cannot be measured from these data in either
+direction. Every defect after the boundary happened in a process alive for more than ten
+minutes.
 
-**Nine commits of diagnostics**
+These figures supersede the ones in the message of `c4f4ffb` (279 alerts, 14.5% to 3.7%,
+3 of 20 against 2 of 114), which cannot be reproduced and whose definition was never
+written down.
 
-| Commit | Change |
-|---|---|
-| `73521ef` | Why the chat history backfill runs or is skipped |
-| `f16aab1` | What happens to every push that arrives |
-| `a4c124e` | That a spawn happened, not only that a push arrived |
-| `5ca53dc` | The state Android was in when it chose not to alert |
-| `af74bfb` | How old the process was when a push arrived |
-| `5616371` | Whether a sound was actually played |
-| `b7b43ea` | Ask the system whether it alerted, instead of inferring |
-| `377d91c` | Stop the alert probe from inventing silent alerts |
-| `a01f99a` | Measure how long the spawn alert actually sounds |
+What 5.5.1 adds to the question: the fallback from #31 plays the channel's sound itself when
+no system player appears within 2500 ms, and every alert writes one
+`fcm.notification.alert_audio` line with its outcome (`played`, `fallback`, `suppressed`)
+and `processUptimeMs`. A cold alert now answers the open question on its own line.
 
-**Two documentation commits**: `dc9f608` created an earlier version of this file, `f7ab226`
-rebuilt its branch table. Neither can be cherry-picked to `main-v5`, because the file did not
-exist there until this commit created it.
+## Waiting for release — on `release/5.5.1`
 
-### Blocking condition before this branch may merge
+| Commit | Date | Change |
+|---|---|---|
+| the release pull request | 09-15 | `versionCode 8`, `versionName 5.5.1`, and this file |
 
-`b7b43ea` declares `NotificationAlertProbeService` in the manifest as an exported service
-behind `BIND_NOTIFICATION_LISTENER_SERVICE`, with a
-`android.service.notification.NotificationListenerService` intent filter. A notification
-listener can read every notification on the device, which is the most invasive permission
-this application has ever requested, and it exists to answer one open question: why some
-spawn alerts are posted without making a sound.
+## Not in 5.5.1 — `work/irc-read-timeout`
 
-**The listener must be removed from this branch before any merge into `main-v5`.** Merging it
-as it stands would carry that capability onto the release branch and, from there, to users
-who never needed it. It is not a matter of sequencing: nothing downstream fixes it.
-
-The investigation is still open, and the service has to stay running on the test device while
-it is. So the order is: finish the investigation, take the listener out, then merge. Not the
-other way round.
-
-#### How to take it out, and when
-
-The probe does filter to this application's own PCG channels in code, but what the user grants
-to enable it is device-wide notification access, in an application whose manifest otherwise
-asks only for `INTERNET` and `POST_NOTIFICATIONS`. A comment in `AndroidManifest.xml` saying
-it must not ship is the weakest possible guarantee. Moving the service and its manifest entry
-into a `src/debug/` source set makes shipping it impossible rather than merely discouraged,
-and is the right end state.
-
-**Do not do it while the alert investigation is running.** The test device is on a
-`stableRelease` build, and `src/debug/` is excluded from every release build, so the move
-would take the probe off the device the moment it landed. Installing the debug build in its
-place is not an escape: the `debug` build type is signed with the Android debug certificate
-while `release` uses the `release` signing config, so the two cannot replace each other
-without an uninstall — and uninstalling erases the diagnostic journal, which is the evidence
-the investigation exists to collect.
-
-That last clause is now weaker than it was, and deliberately so. Uninstalling still erases
-the journal, but the hidden export gesture makes it possible to take a copy off the device
-first, so losing the evidence is no longer the automatic consequence of an uninstall. It is
-now a sequencing mistake rather than a trap: export, then uninstall. The signing argument
-above is untouched, and the move still belongs after the investigation closes.
-
-The move therefore belongs **after** the investigation closes, and at that point its purpose
-is no longer to unblock this branch. It is to keep the probe available for future
-investigations instead of deleting it.
-
-If the branch has to be unblocked before the investigation finishes, `src/debug/` is the wrong
-tool. The route is a separate `diagnostics` build type signed with the release key, which
-keeps the probe installable over the build already on the device while still keeping it out of
-`release`.
-
-### Second decision required: the diagnostic journal itself
-
-`HistoryDiagnosticsLog` is a development instrument and should not reach users as it stands.
-Removing it is not a plain revert: the history fixes above depend on helpers introduced
-alongside it by `73521ef`, so the journal and the fixes have to be separated before either
-can ship. `claude/history-gap-offscreen-tabs.md` in the Claude project records the options.
-
-This is a smaller problem than the listener — a journal of metadata is not device-wide
-notification access — but it is unresolved, and it is recorded here so that settling the
-listener question is not mistaken for clearing the branch.
-
-## Waiting for release — on `work/irc-read-timeout`
-
-Branched from `502c11e`. One commit, not yet on `origin` as a pull request.
+On `origin`, one commit, no pull request. Left out of this release by decision.
 
 | Commit | Change |
 |---|---|
 | `0d7e9b1` | Bound the IRC socket read, so a half-open connection cannot silently freeze the chat |
 
-Two ordering constraints apply, and git enforces neither.
+Both ordering constraints are now satisfied. It must land after `70c1d3c`, which rewrites
+the same ten lines of socket construction; in that order the merge places the read timeout
+after the handshake, where it belongs. And it deliberately causes mid-session reconnects,
+the case `b7535a3` repairs; `b7535a3` reached `main-v5` with `17918a8`, so a timeout no
+longer opens a gap that nothing recovers.
 
-The first is satisfied: this change must land after `70c1d3c`, which rewrites the same ten
-lines of socket construction. Applying them in the opposite order conflicts; in this order
-the merge is clean and places the read timeout after the handshake, where it belongs.
-
-The second is not: this change deliberately causes mid-session reconnects, which is exactly
-the case `b7535a3` repairs. Merged before it, every timeout would open a gap in the chat that
-nothing recovers. `b7535a3` is on the diagnostics branch above, so this one cannot land until
-that branch does — which means it is blocked behind the listener condition too.
+The branch was cut from `502c11e`, before `f62d0bd`, so it has no `CLAUDE.md` and the
+repository rules do not load on it. **Rebase it onto `main-v5` before anything else**, then
+re-measure the merge rather than relying on the constraint above.
 
 ## Test device
 
-Not verified from the machine this file was written on, which has no access to the device.
+Measured from the journal export of 2026-09-14, not from memory: it contains `listener.*`
+lines and `fcm.notification.audio` lines with `elevatedSpanMs`, and no
+`fcm.notification.alert_audio` line. So the device was then running a build of the
+diagnostics branch **with the notification listener and without the fallback** — reporting
+`versionCode 7` and `versionName 5.5.0`, like the published build.
 
-A `stable release` build was produced on 2026-09-10 from the diagnostics branch, signed with
-the release certificate, `versionCode 7`, and intended for the test device. Whether it was
-installed is unrecorded. Because that build reports the same version as the published 5.5.0,
-the only way to tell which one is running is behavioural: open the diagnostic journal and look
-for `elevatedSpanMs` on an `fcm.notification.audio` line. If the field is present the newer
-build is installed; if it is absent, it is not.
+From 5.5.1 on, builds are told apart by their number rather than by behaviour: the login
+screen shows `Version 5.5.1 (build 8)` on a 5.5.1 candidate. Once the
+candidate is installed, record it here with the date. An `alert_audio` line in the journal
+and the absence of `listener.*` lines confirm the same thing from the other side.
 
 Update this section from the device, not from intent.
