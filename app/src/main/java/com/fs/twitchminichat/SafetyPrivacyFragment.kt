@@ -253,28 +253,54 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     }
 
     private fun clearAllLocalDataNow() {
-        val ctx = requireContext()
+        /*
+         * The built-in browser keeps its own website data - cookies, site storage -
+         * where LocalDataCleaner does not reach, and only the two options that contact
+         * the server used to clear it, so "Erase everything on this device" left it
+         * behind. It is cleared first here too, in the same order as those paths, and
+         * nothing else is erased if it fails: the phone is left as it was rather than
+         * half erased, and the user can try again.
+         */
+        GeckoSessionManager.clearAllWebData(requireContext()) { geckoOk: Boolean, geckoMessage: String ->
+            if (!isAdded) return@clearAllWebData
 
-        val result = LocalDataCleaner.clearAllLocalData(ctx)
-        TermsPrefs.clearAcceptance(ctx)
+            Log.d(
+                "LOCAL_CLEAR",
+                "Gecko data clear completed ok=$geckoOk"
+            )
 
-        Log.d(
-            "LOCAL_CLEAR",
-            "full result " +
-                    "deletedSharedPrefs=${result.deletedSharedPrefs} " +
-                    "skippedSharedPrefs=${result.skippedSharedPrefs} " +
-                    "failedSharedPrefs=${result.failedSharedPrefs} " +
-                    "clearedCacheDirs=${result.clearedCacheDirs} " +
-                    "failedCacheDirs=${result.failedCacheDirs}"
-        )
+            if (!geckoOk) {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.local_erase_gecko_failed, geckoMessage),
+                    Toast.LENGTH_LONG
+                ).show()
+                return@clearAllWebData
+            }
 
-        Toast.makeText(
-            ctx,
-            getString(R.string.all_local_data_cleared),
-            Toast.LENGTH_SHORT
-        ).show()
+            val ctx = requireContext()
 
-        restartAppAfterLocalClear()
+            val result = LocalDataCleaner.clearAllLocalData(ctx)
+            TermsPrefs.clearAcceptance(ctx)
+
+            Log.d(
+                "LOCAL_CLEAR",
+                "full result " +
+                        "deletedSharedPrefs=${result.deletedSharedPrefs} " +
+                        "skippedSharedPrefs=${result.skippedSharedPrefs} " +
+                        "failedSharedPrefs=${result.failedSharedPrefs} " +
+                        "clearedCacheDirs=${result.clearedCacheDirs} " +
+                        "failedCacheDirs=${result.failedCacheDirs}"
+            )
+
+            Toast.makeText(
+                ctx,
+                getString(R.string.all_local_data_cleared),
+                Toast.LENGTH_SHORT
+            ).show()
+
+            restartAppAfterLocalClear()
+        }
     }
 
     private fun restartAppAfterLocalClear() {
