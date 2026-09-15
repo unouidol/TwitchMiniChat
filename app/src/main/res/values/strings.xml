@@ -138,6 +138,7 @@
 
     <string name="local_data_cleared_accounts_kept">Local data cleared, accounts kept</string>
     <string name="all_local_data_cleared">All local data cleared</string>
+    <string name="local_erase_gecko_failed">Could not clear the built-in browser data, so nothing was erased: %1$s</string>
     <string name="hidden_user_placeholder">\@username</string>
     <string name="unblock">Unblock</string>
 
