@@ -39,18 +39,20 @@
         alert settings, hidden users and Most Wanted selections, together with cached data,
         the local diagnostic record, and your acceptance of the terms, which you are asked for
         again. Your accounts, their sign-in with the TwitchMiniChat server, and the built-in
-        browser's website data are kept.</li>
+        browser's website data are kept, and so is the credential the server knows this phone
+        by.</li>
     <li><strong>On the server: nothing.</strong> No request is sent. This phone stays
-        registered for alerts.</li>
+        registered for alerts, and the options below can still remove that registration
+        later.</li>
 </ul>
 
 <h2>Erase everything on this device</h2>
 <ul>
     <li><strong>On this phone:</strong> removes every account and its sign-in with the
         TwitchMiniChat server, the app's settings and preferences, hidden users, cached data,
-        the local diagnostic record, and your acceptance of the terms. It does not clear the
-        built-in browser's website data, such as the cookies of the Pokémon Community Game
-        pages.</li>
+        the local diagnostic record, your acceptance of the terms, and the built-in browser's
+        website data, such as the cookies of the Pokémon Community Game pages. The browser data
+        is cleared first; if that fails, nothing is erased and the app shows the error.</li>
     <li><strong>On the server: nothing.</strong> No request is sent. This phone stays
         registered for alerts, so alerts for the accounts that were on it can keep arriving.
         Erasing also removes the credential this phone would need to remove that registration
@@ -64,11 +66,12 @@
         Data belonging to your accounts, such as uploaded Pokédex lists and sign-in records,
         is kept, and your other devices are not affected.</li>
     <li><strong>On this phone, only after the server has confirmed:</strong> everything the
-        previous option removes, and the built-in browser's website data as well. If the server
-        request fails, nothing on the phone is erased and the app shows the error.</li>
+        previous option removes. If the server request fails, nothing on the phone is erased
+        and the app shows the error.</li>
     <li><strong>Limit:</strong> the server identifies this phone by a credential stored in the
-        app, and both reset options above erase it. A registration this phone had before an
-        earlier reset or erase is therefore not reached; ask for its removal by email.</li>
+        app. "Erase everything on this device" removes it, and so did every reset in versions
+        before 5.5.1. A registration this phone had before such an erase or reset is therefore
+        not reached; ask for its removal by email.</li>
 </ul>
 
 <h2>Delete app account and all data</h2>
@@ -88,7 +91,8 @@
         including the built-in browser's website data. If the server request fails, nothing on
         the phone is erased and the app shows the error. You will need to sign in again.</li>
     <li><strong>Limit:</strong> the same as above. A registration left behind by an earlier
-        reset or erase on this phone is not reached.</li>
+        "Erase everything on this device", or by a reset in a version before 5.5.1, is not
+        reached.</li>
 </ul>
 
 <h2>Removing one account</h2>
@@ -115,7 +119,7 @@
 </ul>
 <p>
     An email request can cover what the in-app options cannot reach, such as a registration
-    left behind by an earlier reset, or data for an account you no longer have on any device.
+    left behind by an earlier erase, or data for an account you no longer have on any device.
 </p>
 
 <h2>Retention exceptions</h2>
