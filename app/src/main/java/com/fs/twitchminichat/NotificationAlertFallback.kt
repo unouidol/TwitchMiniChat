@@ -78,35 +78,71 @@ object NotificationAlertFallback {
         windowMs: Long,
         onSample: (offsetMs: Long, playerCount: Int) -> Unit
     ): Watch {
-        val graceMs = NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
-
         if (audioManager == null) {
             val played = if (fallbackArmed) playOnce(context, null, channelSound) else null
             return Watch(systemStartMs = null, fallbackPlayed = played)
         }
 
-        val startedAtMs = SystemClock.elapsedRealtime()
+        return sampleAndDecide(
+            playersBefore = playersBefore,
+            fallbackArmed = fallbackArmed,
+            windowMs = windowMs,
+            now = SystemClock::elapsedRealtime,
+            playerCount = { activePlayerCount(audioManager) },
+            pause = { ms -> runCatching { Thread.sleep(ms) }.isSuccess },
+            playFallback = { playOnce(context, audioManager, channelSound) },
+            onSample = onSample
+        )
+    }
+
+    /**
+     * The sampling loop of [watch], with the clock, the player count, the pause
+     * and the sound passed in so the loop itself can be tested.
+     *
+     * Deciding early and stopping early are different things, and only the first
+     * is allowed. The verdict is fixed at the first reading that settles it, but
+     * the loop keeps reading until the window closes, because the observation row
+     * is derived from these same samples: stopping at the first rise would leave
+     * lastRiseMs and elevatedSpanMs with nothing to measure. elevatedSpanMs is the
+     * field that told a sound never born from a sound cut short, so losing it
+     * would erase the distinction the journal was built on - and no policy test
+     * would notice, which is why this loop has tests of its own.
+     *
+     * [pause] returns false when the pause was interrupted, which ends sampling.
+     */
+    internal fun sampleAndDecide(
+        playersBefore: Int,
+        fallbackArmed: Boolean,
+        windowMs: Long,
+        now: () -> Long,
+        playerCount: () -> Int,
+        pause: (Long) -> Boolean,
+        playFallback: () -> Boolean,
+        onSample: (offsetMs: Long, playerCount: Int) -> Unit
+    ): Watch {
+        val graceMs = NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
+        val startedAtMs = now()
         val untilMs = maxOf(windowMs, graceMs)
         var decided = false
         var systemStartMs: Long? = null
         var fallbackPlayed: Boolean? = null
 
-        while (SystemClock.elapsedRealtime() - startedAtMs < untilMs) {
+        while (now() - startedAtMs < untilMs) {
             /*
-             * The offset is read after the count, as both loops this replaces
+             * The offset is read after the count, as both loops this replaced
              * did, so rows written before and after the merge stay comparable.
              */
-            val playerCount = activePlayerCount(audioManager)
-            val offsetMs = SystemClock.elapsedRealtime() - startedAtMs
+            val count = playerCount()
+            val offsetMs = now() - startedAtMs
 
-            onSample(offsetMs, playerCount)
+            onSample(offsetMs, count)
 
             if (!decided) {
                 if (
                     offsetMs < graceMs &&
                     NotificationAlertFallbackPolicy.systemPlayerAppeared(
                         playersBefore = playersBefore,
-                        playersPeak = playerCount
+                        playersPeak = count
                     )
                 ) {
                     systemStartMs = offsetMs
@@ -114,19 +150,16 @@ object NotificationAlertFallback {
                 } else if (offsetMs >= graceMs) {
                     decided = true
                     if (fallbackArmed) {
-                        fallbackPlayed = playOnce(context, audioManager, channelSound)
+                        fallbackPlayed = playFallback()
                     }
                 }
             }
 
-            val interrupted = runCatching {
-                Thread.sleep(NotificationAlertFallbackPolicy.POLL_INTERVAL_MS)
-            }.isFailure
-            if (interrupted) break
+            if (!pause(NotificationAlertFallbackPolicy.POLL_INTERVAL_MS)) break
         }
 
         if (!decided && fallbackArmed) {
-            fallbackPlayed = playOnce(context, audioManager, channelSound)
+            fallbackPlayed = playFallback()
         }
 
         return Watch(systemStartMs = systemStartMs, fallbackPlayed = fallbackPlayed)
