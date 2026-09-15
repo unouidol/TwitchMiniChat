@@ -74,50 +74,29 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             }
 
             /*
-             * A push that arrives after the process was killed is handled by a
-             * process only milliseconds old, and the alert it posts is the one
-             * reported as silent. The reminder that follows 45 seconds later can
-             * never be in that state, because the first push has just started the
-             * process it runs in — so "first silent, second heard" and "cold
-             * process silent" describe the same events from two sides.
-             *
-             * Measured here rather than inferred from a missing msSinceLastPost,
-             * which is also absent for the genuinely first alert of a session.
+             * How old the process was when this push reached it. A push that
+             * arrives after the process was killed is handled by one only
+             * milliseconds old, and early observations tied such alerts to
+             * silence - but every one of them fell in the period when the
+             * device's default notification sound was broken, which was the
+             * dominant cause of silence then. Whether a young process posts silent
+             * alerts on its own has never been measured. This value travels to
+             * the alert_audio line, next to the outcome, so each cold alert now
+             * answers that question as it happens.
              */
             val processUptimeMs = SystemClock.elapsedRealtime() -
                 android.os.Process.getStartElapsedRealtime()
-
-            /*
-             * Every alert reported as silent was posted by a process a few hundred
-             * milliseconds old, and every alert posted by a process that was
-             * already running was heard. Five spawns separate cleanly on this and
-             * on nothing else, the notification volume being identical across
-             * them.
-             *
-             * Waiting for the process to reach a settled age before posting turns
-             * that correlation into a decision: if the alert is then heard, the
-             * age was the cause and this is the fix; if it is still silent, the
-             * cold start is a passenger and the search moves elsewhere. The cost
-             * is under two seconds of a ninety-second catch window.
-             */
-            val coldStartDelayMs = (SETTLED_PROCESS_AGE_MS - processUptimeMs)
-                .coerceIn(0L, SETTLED_PROCESS_AGE_MS)
 
             HistoryDiagnosticsLog.record(
                 applicationContext,
                 "fcm.received",
                 "processUptimeMs" to processUptimeMs,
-                "coldStartDelayMs" to coldStartDelayMs,
                 "latencySec" to latencySec,
                 "reminder" to data[PcgNotificationPayloadPolicy.REMINDER_KEY],
                 "priority" to remoteMessage.priority,
                 "originalPriority" to remoteMessage.originalPriority,
                 "dataFieldCount" to data.size
             )
-
-            if (coldStartDelayMs > 0L) {
-                runCatching { Thread.sleep(coldStartDelayMs) }
-            }
 
             val ingestion = SmartCatchSpawnIngestion.ingestFcmPayload(
                 context = applicationContext,
@@ -208,7 +187,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 body = body,
                 pokemon = pokemon,
                 profiles = profiles,
-                targetProfileId = targetProfileId.orEmpty()
+                targetProfileId = targetProfileId.orEmpty(),
+                processUptimeMs = processUptimeMs
             )
         } catch (t: Throwable) {
             Log.e(
@@ -267,7 +247,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         body: String,
         pokemon: String,
         profiles: String,
-        targetProfileId: String
+        targetProfileId: String,
+        processUptimeMs: Long
     ) {
         /*
          * Create all PCG alert channels before choosing one.
@@ -537,12 +518,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (suppressionReason != null) {
             recordAlertAudioOutcome(
                 outcome = NotificationAlertFallbackPolicy.OUTCOME_SUPPRESSED,
+                processUptimeMs = processUptimeMs,
                 reason = suppressionReason
             )
             return
         }
 
-        watchAlertAudioOffTheDispatchThread(audioManager, playersBefore, channelSound)
+        watchAlertAudioOffTheDispatchThread(
+            audioManager,
+            playersBefore,
+            channelSound,
+            processUptimeMs
+        )
     }
 
     /**
@@ -695,7 +682,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private fun watchAlertAudioOffTheDispatchThread(
         audioManager: AudioManager?,
         playersBefore: Int,
-        channelSound: Uri?
+        channelSound: Uri?,
+        processUptimeMs: Long
     ) {
         /*
          * One thread per alert, and deliberately not an executor. Pooling this
@@ -729,6 +717,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             if (systemStartMs != null) {
                 recordAlertAudioOutcome(
                     outcome = NotificationAlertFallbackPolicy.OUTCOME_PLAYED,
+                    processUptimeMs = processUptimeMs,
                     playersBefore = playersBefore,
                     systemStartMs = systemStartMs
                 )
@@ -745,6 +734,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             recordAlertAudioOutcome(
                 outcome = NotificationAlertFallbackPolicy.OUTCOME_FALLBACK,
+                processUptimeMs = processUptimeMs,
                 playersBefore = playersBefore,
                 fallbackPlayed = played
             )
@@ -761,15 +751,22 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      */
     private fun recordAlertAudioOutcome(
         outcome: String,
+        processUptimeMs: Long,
         reason: String? = null,
         playersBefore: Int? = null,
         systemStartMs: Long? = null,
         fallbackPlayed: Boolean? = null
     ) {
+        /*
+         * processUptimeMs rides on the same line as the outcome so a cold alert
+         * reads as a complete trial on its own, without joining to the
+         * fcm.received line by position in the journal.
+         */
         HistoryDiagnosticsLog.record(
             applicationContext,
             "fcm.notification.alert_audio",
             "outcome" to outcome,
+            "processUptimeMs" to processUptimeMs,
             "reason" to reason,
             "playersBefore" to playersBefore,
             "systemStartMs" to systemStartMs,
@@ -792,16 +789,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         /** One push arrived and was dropped before it could become a notification. */
         private const val MARKER_MESSAGE_HANDLING_FAILED = "fcm_message_handling_failed"
-
-        /**
-         * Process age below which posting an alert is held back.
-         *
-         * Chosen from the observed cases: the alerts reported as silent were
-         * posted at 143 and 187 milliseconds of process age, the ones that were
-         * heard at 46 seconds or more. Two seconds sits well clear of the first
-         * group without being noticeable inside the catch window.
-         */
-        private const val SETTLED_PROCESS_AGE_MS = 2_000L
 
         /**
          * How long the active players are watched after an alert is posted.
