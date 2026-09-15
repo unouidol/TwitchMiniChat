@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.Context
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import java.io.File
 
 object LocalDataCleaner {
@@ -49,6 +50,21 @@ object LocalDataCleaner {
         clearBackendSessions: Boolean,
         clearAccountStore: Boolean
     ): Result {
+        /*
+         * Invariant: every persistent store this application creates is erased
+         * here. Each one needs its own line, because nothing below sweeps
+         * filesDir: the two directory calls clear cacheDir and codeCacheDir only,
+         * and shared_prefs is reached by name. A store written anywhere else -
+         * the diagnostics journal in filesDir/diagnostics, the encrypted
+         * account store - survives a reset unless it is named in this function,
+         * and a reset the user was told erases everything then quietly does not.
+         * Adding a store means adding it here.
+         *
+         * filesDir is deliberately not cleared wholesale. GeckoRuntime runs with
+         * default settings and its profile may live under it; wiping that fits
+         * "erase everything" but not "reset local data, keep accounts", and
+         * where it actually lives has not been measured.
+         */
         val appContext = context.applicationContext
 
         val prefNames = listSharedPreferenceNames(appContext)
@@ -106,6 +122,13 @@ object LocalDataCleaner {
         } else {
             false
         }
+
+        /*
+         * Cleared on every reset, including the one that keeps accounts: it holds
+         * the Twitch account name and the channels watched with their times, and
+         * it is diagnostics, not account configuration.
+         */
+        HistoryDiagnosticsLog.clear(appContext)
 
         return Result(
             deletedSharedPrefs = deletedSharedPrefs,
