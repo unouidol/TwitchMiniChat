@@ -116,7 +116,13 @@ object DeviceCredentialStore {
             Context.MODE_PRIVATE
         )
 
-    private const val PREFERENCES_NAME = "fcm_registration"
+    /**
+     * Shared preferences file holding the device identifier and secret.
+     *
+     * Public so that LocalDataCleaner can leave it in place on the keep-accounts
+     * reset: the server knows this phone only by what this file holds.
+     */
+    const val PREFERENCES_NAME = "fcm_registration"
     private const val KEY_DEVICE_ID = "install_id"
     private const val KEY_DEVICE_SECRET = "device_secret_v1"
     private const val DEVICE_SECRET_BYTES = 32
