@@ -62,7 +62,9 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `21e0184` | 09-14 | The diagnostics journal, and a hidden gesture that gets it off the device |
 | `5b1bd57` | 09-15 | Every local reset also erases the diagnostics journal (#35) |
 | `a1f4d7e` | 09-15 | The privacy policy describes the local diagnostic record (#37) |
-| this pull request | 09-15 | The keep-accounts reset keeps the device credential, so the server registration stays reachable; "Erase everything on this device" also clears the built-in browser data |
+| `6055751` | 09-15 | The keep-accounts reset keeps the device credential, so the server registration stays reachable (#40) |
+| `86566d7` | 09-15 | "Erase everything on this device" also clears the built-in browser data (#40) |
+| this pull request | 09-15 | Keep the two copies of every policy page aligned (docs only) |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
