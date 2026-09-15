@@ -96,6 +96,10 @@
             </intent-filter>
         </service>
 
+        <!--
+            Exposes only the diagnostics journal directory, so the user can share
+            the metadata-only file without granting access to anything else.
+        -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.diagnostics"

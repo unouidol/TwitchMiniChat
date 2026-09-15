@@ -45,6 +45,7 @@ import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,6 +75,9 @@ import kotlin.coroutines.resume
 
 
 private const val HISTORY_SECONDS = 3600
+
+/* Suppresses a recovery request that would duplicate one just issued. */
+private const val RECENT_BACKFILL_WINDOW_MS = 5_000L
 /** Logcat tag for non-sensitive backend history diagnostics. */
 private const val HISTORY_LOG_TAG = "TMC_HISTORY"
 
@@ -578,8 +582,35 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /** Owns bounded duplicate-delivery state independently from Fragment UI state. */
     private val chatMessageDeduplicator = ChatMessageDeduplicator()
 
+    /*
+     * Written from the history request thread as well as the UI thread, because a
+     * request that fails has to undo the mark the caller set before sending it.
+     */
+    @Volatile
     private var historyLoaded = false
     private var lastPausedAtMs: Long = 0L
+
+    private var lastStoppedAtMs: Long = 0L
+
+    /*
+     * Instant of the last onStop, consumed by the first reconnect that follows
+     * it. Distinct from lastStoppedAtMs, which is never consumed and therefore
+     * keeps growing while the app is open: reading that one on every connect
+     * would make an ordinary IRC reconnect ask for an hour it already has.
+     */
+    private var offlineRecoveryAtMs: Long = 0L
+
+    /* Epoch seconds of the newest message accepted for display, 0 when none. */
+    private var lastRenderedMessageTsSec: Double = 0.0
+
+    private var lastBackfillAtMs: Long = 0L
+
+    /*
+     * Application context retained after the first attach so a journal entry
+     * recorded while the fragment is detached is still written instead of being
+     * dropped silently.
+     */
+    private var diagnosticsApplicationContext: Context? = null
 
 
     private val botcolors = mapOf(
@@ -1286,6 +1317,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         refreshChannelsDropdown()
 
         historyLoaded = false
+        lastRenderedMessageTsSec = 0.0
+        lastBackfillAtMs = 0L
         chatMessageDeduplicator.clear()
 
         resetMentionUsersForCurrentChannel()
@@ -1328,7 +1361,31 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val c = cfg ?: return
         appendSystemLine(getString(R.string.refreshing))
+        recordDiagnostics(
+            "backfill.triggered",
+            "source" to "manual_refresh",
+            "requestedSec" to 120
+        )
         loadHistoryFromBot(c, 120)
+    }
+
+    /**
+     * Marks the current instant in the diagnostic journal.
+     *
+     * Long-pressing refresh lets the user flag the moment a gap was noticed, so
+     * the journal can be read without knowing the exact wall-clock time later.
+     */
+    private fun markDiagnosticsMoment() {
+        recordDiagnostics(
+            "user.marker",
+            "renderedRows" to chatContainer.childCount
+        )
+
+        Toast.makeText(
+            requireContext(),
+            R.string.diagnostics_marker_recorded,
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     /** Returns the canonical backend profile identifier for the active account. */
@@ -1720,6 +1777,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             manualRefresh()
         }
 
+        btnRefreshChat.setOnLongClickListener {
+            markDiagnosticsMoment()
+            true
+        }
+
 
         btnSafetyPrivacy.setOnClickListener {
             SafetyPrivacyActivity.start(requireContext())
@@ -1890,12 +1952,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             historyLoaded = false
         }
 
+        recordDiagnostics(
+            "lifecycle.start",
+            "offlineSec" to offlineSecondsSinceStop(),
+            "historyLoaded" to historyLoaded,
+            "ircConnected" to (ircClient != null)
+        )
+
         connectIfNeeded()
     }
 
     override fun onPause() {
         super.onPause()
         lastPausedAtMs = System.currentTimeMillis()
+        recordDiagnostics("lifecycle.pause")
     }
 
     override fun onResume() {
@@ -1910,22 +1980,71 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             updateStreamUi()
         }
 
-        val c = cfg ?: return
+        val c = cfg
+        if (c == null) {
+            /*
+             * Resuming before a config is bound left no journal entry at all, so a
+             * gap produced this way was invisible next to the recorded outcomes.
+             */
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "config_not_bound"
+            )
+            return
+        }
 
         val pausedAt = lastPausedAtMs
-        if (pausedAt == 0L) return
+        if (pausedAt == 0L) {
+            recoverHistoryWithoutPauseReference(c)
+            return
+        }
 
         val awaySec = ((System.currentTimeMillis() - pausedAt) / 1000).toInt()
         lastPausedAtMs = 0L
 
         if (awaySec >= 1 || ircClient == null) {
-            val refreshSec = (awaySec + 10).coerceIn(30, HISTORY_SECONDS)
+            /*
+             * The reconnect that precedes this resume may have just asked for the
+             * same window. Without this the visible page would fetch it twice.
+             */
+            val sinceLastBackfillMs = msSinceRecentBackfill()
+            if (sinceLastBackfillMs != null) {
+                recordDiagnostics(
+                    "backfill.skipped",
+                    "reason" to "recent_backfill",
+                    "awaySec" to awaySec,
+                    "sinceLastBackfillMs" to sinceLastBackfillMs
+                )
+                return
+            }
+
+            val refreshSec = historyWindowSeconds(awaySec)
+            recordDiagnostics(
+                "backfill.triggered",
+                "source" to "resume",
+                "awaySec" to awaySec,
+                "requestedSec" to refreshSec
+            )
             loadHistoryFromBot(c, seconds = refreshSec)
+        } else {
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "away_below_threshold",
+                "awaySec" to awaySec
+            )
         }
     }
 
     override fun onStop() {
         super.onStop()
+
+        val stoppedAtMs = System.currentTimeMillis()
+        lastStoppedAtMs = stoppedAtMs
+        offlineRecoveryAtMs = stoppedAtMs
+        recordDiagnostics(
+            "lifecycle.stop",
+            "ircConnected" to (ircClient != null)
+        )
 
         streamSession?.setActive(false)
         closeIrcClient(resetBackoff = true)
@@ -2250,11 +2369,103 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun connectIfNeeded() {
         if (ircClient != null || connectInProgress) return
 
-        val c = cfg ?: return
+        val c = cfg
+        if (c == null) {
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "config_not_bound"
+            )
+            return
+        }
 
         if (!historyLoaded) {
+            /*
+             * Marked before the answer arrives so a second connect cannot start a
+             * duplicate hour-long request. A failure has to clear it again, which
+             * the failure branches of loadHistoryFromBot do.
+             */
             historyLoaded = true
+            recordDiagnostics(
+                "backfill.triggered",
+                "source" to "first_connect",
+                "requestedSec" to HISTORY_SECONDS
+            )
             loadHistoryFromBot(c, seconds = HISTORY_SECONDS)
+        } else {
+            /*
+             * Reconnecting an already-initialized fragment. onResume used to be
+             * the only place that recovered this window, which covers every page
+             * the user actually looks at — but a page that never becomes the
+             * current one never reaches RESUMED, so nothing recovered it at all.
+             *
+             * Seen on 2026-09-08: the streaming account's tab lost 09:16:46 to
+             * 09:32:17, one whole spawn cycle, because the app was open for nine
+             * seconds and that page was never visible. Its two siblings, which
+             * did resume, recovered the same window correctly.
+             *
+             * The reference is consumed here so a later IRC reconnect within the
+             * same session does not ask again for a window it already holds.
+             */
+            val offlineAtMs = offlineRecoveryAtMs
+            offlineRecoveryAtMs = 0L
+
+            val offlineSec = offlineAtMs
+                .takeIf { it > 0L }
+                ?.let { ((System.currentTimeMillis() - it) / 1000).toInt() }
+            val sinceLastBackfillMs = msSinceRecentBackfill()
+
+            when {
+                offlineSec != null && offlineSec < 1 -> recordDiagnostics(
+                    "backfill.skipped",
+                    "reason" to "history_already_loaded",
+                    "offlineSec" to offlineSec
+                )
+
+                sinceLastBackfillMs != null -> recordDiagnostics(
+                    "backfill.skipped",
+                    "reason" to "recent_backfill",
+                    "offlineSec" to offlineSec,
+                    "sinceLastBackfillMs" to sinceLastBackfillMs
+                )
+
+                offlineSec != null -> {
+                    val refreshSec = historyWindowSeconds(offlineSec)
+                    recordDiagnostics(
+                        "backfill.triggered",
+                        "source" to "reconnect_offline",
+                        "offlineSec" to offlineSec,
+                        "requestedSec" to refreshSec
+                    )
+                    loadHistoryFromBot(c, seconds = refreshSec)
+                }
+
+                else -> {
+                    /*
+                     * No onStop preceded this reconnect, so offlineRecoveryAtMs was
+                     * never armed. That is not "nothing to recover": it is a mid-
+                     * session IRC drop, the case an idle soTimeout is about to make
+                     * real. Fall back to the render watermark, the same reference
+                     * recoverHistoryWithoutPauseReference uses for its own no-onStop
+                     * case.
+                     */
+                    val renderedGapSec = secondsSinceLastRenderedMessage()
+                    if (renderedGapSec == null) {
+                        recordDiagnostics(
+                            "backfill.skipped",
+                            "reason" to "no_recovery_reference_reconnect"
+                        )
+                    } else {
+                        val refreshSec = historyWindowSeconds(renderedGapSec)
+                        recordDiagnostics(
+                            "backfill.triggered",
+                            "source" to "reconnect_no_pause_reference",
+                            "renderedGapSec" to renderedGapSec,
+                            "requestedSec" to refreshSec
+                        )
+                        loadHistoryFromBot(c, seconds = refreshSec)
+                    }
+                }
+            }
         }
 
         val ch = c.channel.trim().removePrefix("#").lowercase()
@@ -2668,7 +2879,126 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     /** Loads history with the backend session bound to [config]. */
+    /**
+     * Records one diagnostic entry for this chat instance.
+     *
+     * Account, channel and resumed state are attached automatically so a journal
+     * covering several pager pages stays attributable to the right account.
+     */
+    private fun recordDiagnostics(
+        event: String,
+        vararg fields: Pair<String, Any?>
+    ) {
+        val diagnosticsContext = context?.applicationContext
+            ?.also { retained -> diagnosticsApplicationContext = retained }
+            ?: diagnosticsApplicationContext
+            ?: return
+
+        HistoryDiagnosticsLog.record(
+            diagnosticsContext,
+            event,
+            "account" to cfg?.username,
+            "channel" to cfg?.channel,
+            "resumed" to isResumed,
+            *fields
+        )
+    }
+
+    /**
+     * Recovers history for a fragment that reached RESUMED without ever being paused.
+     *
+     * An off-screen pager page never receives onPause, so the elapsed-time reference
+     * used by the normal resume path does not exist. Leaving without a request used to
+     * lose every message received while the page was started but not visible. The
+     * newest message already displayed is the exact reference here, and the last
+     * onStop is the fallback when nothing has been displayed with a timestamp.
+     */
+    private fun recoverHistoryWithoutPauseReference(config: AccountConfig) {
+        msSinceRecentBackfill()?.let { sinceLastBackfillMs ->
+            /* A first connection or an earlier resume has just covered this window. */
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "recent_backfill",
+                "sinceLastBackfillMs" to sinceLastBackfillMs
+            )
+            return
+        }
+
+        val renderedGapSec = secondsSinceLastRenderedMessage()
+        val offlineSec = offlineSecondsSinceStop()
+        val elapsedSec = listOfNotNull(renderedGapSec, offlineSec).maxOrNull()
+
+        if (elapsedSec == null) {
+            recordDiagnostics(
+                "backfill.skipped",
+                "reason" to "no_recovery_reference",
+                "historyLoaded" to historyLoaded
+            )
+            return
+        }
+
+        val refreshSec = historyWindowSeconds(elapsedSec)
+
+        recordDiagnostics(
+            "backfill.triggered",
+            "source" to "resume_no_pause",
+            "renderedGapSec" to renderedGapSec,
+            "offlineSec" to offlineSec,
+            "requestedSec" to refreshSec
+        )
+
+        loadHistoryFromBot(config, seconds = refreshSec)
+    }
+
+    /**
+     * Returns the seconds elapsed since the newest displayed message.
+     *
+     * Null when no timestamped message has been displayed yet for this account.
+     */
+    private fun secondsSinceLastRenderedMessage(): Int? {
+        val watermark = lastRenderedMessageTsSec
+        if (watermark <= 0.0) return null
+
+        val elapsed = (System.currentTimeMillis() / 1000.0) - watermark
+        if (elapsed <= 0.0) return null
+
+        return elapsed.toInt()
+    }
+
+    /** Clamps one elapsed measure into a history request window. */
+    private fun historyWindowSeconds(elapsedSec: Int): Int {
+        return (elapsedSec + 10).coerceIn(30, HISTORY_SECONDS)
+    }
+
+    /**
+     * Returns the seconds elapsed since this fragment last reached onStop.
+     *
+     * Null means the fragment has not been stopped yet in this process.
+     */
+    /**
+     * Returns the age of the last request when one was issued moments ago.
+     *
+     * Two paths can now ask for the same window within milliseconds — the
+     * reconnect and the resume that may follow it — so both consult this rather
+     * than each carrying its own copy of the rule.
+     */
+    private fun msSinceRecentBackfill(): Long? {
+        val last = lastBackfillAtMs
+        if (last == 0L) return null
+
+        return (System.currentTimeMillis() - last)
+            .takeIf { elapsed -> elapsed < RECENT_BACKFILL_WINDOW_MS }
+    }
+
+    private fun offlineSecondsSinceStop(): Int? {
+        val stoppedAt = lastStoppedAtMs
+        if (stoppedAt == 0L) return null
+
+        return ((System.currentTimeMillis() - stoppedAt) / 1000).toInt()
+    }
+
     private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
+        lastBackfillAtMs = System.currentTimeMillis()
         val applicationContext = requireContext().applicationContext
         val profileId = AccountProfileIdResolver.resolve(config)
 
@@ -2681,9 +3011,28 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 )
             ) {
                 is BackendHistoryResult.Success -> {
+                    /*
+                     * The account and the channel name the user to anyone who can
+                     * read Logcat. The diagnostic journal already records both,
+                     * under the user's own control and only for export; only the
+                     * shape of the answer belongs in a system log.
+                     */
                     Log.d(
                         HISTORY_LOG_TAG,
-                        "History loaded messageCount=${result.messages.size} seconds=$seconds"
+                        "History loaded messageCount=${result.messages.size} " +
+                                "seconds=$seconds"
+                    )
+
+                    val timestamps = result.messages
+                        .map { message -> message.timestampSec }
+                        .filter { timestamp -> timestamp > 0.0 }
+
+                    recordDiagnostics(
+                        "backfill.result",
+                        "requestedSec" to seconds,
+                        "messageCount" to result.messages.size,
+                        "firstTs" to timestamps.minOrNull()?.toLong(),
+                        "lastTs" to timestamps.maxOrNull()?.toLong()
                     )
 
                     result.messages.forEach { message ->
@@ -2727,6 +3076,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         HISTORY_LOG_TAG,
                         "History skipped: backend session missing"
                     )
+                    /*
+                     * A session can be established later, so the hour is still
+                     * worth asking for. Without clearing the mark this fragment
+                     * would take the history_already_loaded branch forever and
+                     * the window would be lost with nothing visible to the user.
+                     */
+                    historyLoaded = false
+
+                    recordDiagnostics(
+                        "backfill.failed",
+                        "reason" to "session_missing",
+                        "requestedSec" to seconds
+                    )
                 }
 
                 BackendHistoryResult.ReauthorizationRequired -> {
@@ -2734,12 +3096,34 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         HISTORY_LOG_TAG,
                         "History rejected: manual reauthorization required"
                     )
+                    /*
+                     * Deliberately left marked. Only the user can unblock this,
+                     * so retrying on every connect would ask the backend for an
+                     * hour it will keep refusing.
+                     */
+                    recordDiagnostics(
+                        "backfill.failed",
+                        "reason" to "reauthorization_required",
+                        "requestedSec" to seconds
+                    )
                 }
 
                 BackendHistoryResult.Failed -> {
                     Log.w(
                         HISTORY_LOG_TAG,
                         "History request failed"
+                    )
+                    /*
+                     * Observed failing four milliseconds after the request left,
+                     * which is a device with no network rather than a backend
+                     * that said no. The next connect should ask again.
+                     */
+                    historyLoaded = false
+
+                    recordDiagnostics(
+                        "backfill.failed",
+                        "reason" to "request_failed",
+                        "requestedSec" to seconds
                     )
                 }
             }
@@ -3327,6 +3711,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         messageTimestampSec: Double? = null
     ) {
         if (chatMessageDeduplicator.shouldSuppress(dedupKey)) return
+
+        if (
+            messageTimestampSec != null &&
+            messageTimestampSec > lastRenderedMessageTsSec
+        ) {
+            lastRenderedMessageTsSec = messageTimestampSec
+        }
 
         val stable = dedupKey.startsWith("id:")
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }

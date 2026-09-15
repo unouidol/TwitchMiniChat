@@ -6,14 +6,19 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.fs.twitchminichat.diagnostics.AudioPlaybackObservation
+import com.fs.twitchminichat.diagnostics.AudioPlayerSample
 import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
@@ -34,6 +39,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         prefs.edit {
             putString(KEY_LATEST_FCM_TOKEN, token)
         }
+
+        /*
+         * A token rotation that never reaches the backend silences every push, and
+         * from the device the result looks identical to a spawn that was never sent.
+         */
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.token_refreshed"
+        )
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
@@ -46,11 +60,82 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             val data = remoteMessage.data
 
-            SmartCatchSpawnIngestion.ingestFcmPayload(
+            /*
+             * sentTime comes from the Firebase servers, so the difference against the
+             * local clock measures the end-to-end delay. priority against
+             * originalPriority shows whether Firebase demoted the message, which is
+             * what standby buckets and battery restrictions do to a background app.
+             */
+            val sentAtMs = remoteMessage.sentTime
+            val latencySec = if (sentAtMs > 0L) {
+                (System.currentTimeMillis() - sentAtMs) / 1000
+            } else {
+                null
+            }
+
+            /*
+             * How old the process was when this push reached it. A push that
+             * arrives after the process was killed is handled by one only
+             * milliseconds old, and early observations tied such alerts to
+             * silence - but every one of them fell in the period when the
+             * device's default notification sound was broken, which was the
+             * dominant cause of silence then. Whether a young process posts silent
+             * alerts on its own has never been measured. This value travels to
+             * the alert_audio line, next to the outcome, so each cold alert now
+             * answers that question as it happens.
+             */
+            val processUptimeMs = SystemClock.elapsedRealtime() -
+                android.os.Process.getStartElapsedRealtime()
+
+            HistoryDiagnosticsLog.record(
+                applicationContext,
+                "fcm.received",
+                "processUptimeMs" to processUptimeMs,
+                "latencySec" to latencySec,
+                "reminder" to data[PcgNotificationPayloadPolicy.REMINDER_KEY],
+                "priority" to remoteMessage.priority,
+                "originalPriority" to remoteMessage.originalPriority,
+                "dataFieldCount" to data.size
+            )
+
+            val ingestion = SmartCatchSpawnIngestion.ingestFcmPayload(
                 context = applicationContext,
                 data = data,
                 messageSentAtMs = remoteMessage.sentTime
             )
+
+            /*
+             * Firebase holds undelivered pushes while a device is offline and
+             * releases the whole backlog at once when it returns. Every one of
+             * them used to become its own alert, so a phone coming back after a
+             * night produced around seventy notifications a couple of seconds
+             * apart and vibrated for the better part of a minute.
+             *
+             * None of them could be acted on: a spawn lasts ninety seconds, and
+             * the coordinator already decides that question against the spawn's
+             * own start time, discounting the reminder delay. Reusing its verdict
+             * keeps one definition of "over" in the app instead of adding a second
+             * threshold here.
+             *
+             * This suppresses alerts that arrive after the catch window has
+             * closed, not alerts that are merely late. An alert delayed by
+             * seconds still reaches the user, which is what the product rule
+             * about lateness protects.
+             */
+            if (
+                ingestion.outcome ==
+                SmartCatchSpawnIngestionOutcome.IGNORED_EXPIRED
+            ) {
+                Log.d(TAG, "Spawn alert suppressed: catch window already closed")
+                HistoryDiagnosticsLog.record(
+                    applicationContext,
+                    "fcm.suppressed",
+                    "reason" to "spawn_expired",
+                    "latencySec" to latencySec,
+                    "reminder" to data[PcgNotificationPayloadPolicy.REMINDER_KEY]
+                )
+                return
+            }
 
             val reminderEnabled =
                 PcgNotificationAlertPrefsStore.isReminderEnabled(this)
@@ -61,6 +146,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 )
             ) {
                 Log.d(TAG, "Delayed spawn reminder suppressed by local preference")
+                HistoryDiagnosticsLog.record(
+                    applicationContext,
+                    "fcm.suppressed",
+                    "reason" to "reminder_disabled"
+                )
                 return
             }
 
@@ -97,12 +187,19 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 body = body,
                 pokemon = pokemon,
                 profiles = profiles,
-                targetProfileId = targetProfileId.orEmpty()
+                targetProfileId = targetProfileId.orEmpty(),
+                processUptimeMs = processUptimeMs
             )
         } catch (t: Throwable) {
             Log.e(
                 TAG,
                 "Firebase message handling failed errorType=${DiagnosticError.typeOf(t)}"
+            )
+
+            HistoryDiagnosticsLog.record(
+                applicationContext,
+                "fcm.failed",
+                "errorType" to DiagnosticError.typeOf(t)
             )
 
             /*
@@ -150,7 +247,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         body: String,
         pokemon: String,
         profiles: String,
-        targetProfileId: String
+        targetProfileId: String,
+        processUptimeMs: Long
     ) {
         /*
          * Create all PCG alert channels before choosing one.
@@ -268,6 +366,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             if (!granted) {
                 Log.w(TAG, "POST_NOTIFICATIONS not allowed: alert not shown")
+                HistoryDiagnosticsLog.record(
+                    applicationContext,
+                    "fcm.notification.blocked",
+                    "reason" to "post_notifications_denied"
+                )
                 return
             }
         }
@@ -309,11 +412,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             channelHasSound = channelSound != null
         )
 
-        val playersBefore = if (suppressionReason == null) {
-            NotificationAlertFallback.activePlayerCount(audioManager)
-        } else {
-            0
-        }
+        /*
+         * Counted for every alert, not only the ones the fallback will watch: the
+         * audio observation below needs the same baseline on suppressed alerts
+         * too. One count, from the product's own watcher, serves both.
+         */
+        val playersBefore = NotificationAlertFallback.activePlayerCount(audioManager)
 
         NotificationManagerCompat.from(this).notify(
             notificationId,
@@ -322,19 +426,218 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(TAG, "Notification posted")
 
+        /*
+         * Everything above proves the alert was handed to Android correctly, which
+         * the journal already showed for alerts that never made a sound. What was
+         * missing is the state Android itself was in when it decided whether to
+         * play one, so these fields describe that decision rather than the request.
+         *
+         * msSinceLastPost measures how close together two alerts from this app
+         * landed: the backend sends one push per matching profile and the profiles
+         * share one device, so two notifications can arrive milliseconds apart and
+         * only one of them is heard.
+         */
+        val notificationsPaused =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                runCatching { notificationManager.areNotificationsPaused() }.getOrNull()
+            } else {
+                null
+            }
+
+        val groupBlocked =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                channel?.group?.let { groupId ->
+                    runCatching {
+                        notificationManager
+                            .getNotificationChannelGroup(groupId)
+                            ?.isBlocked
+                    }.getOrNull()
+                }
+            } else {
+                null
+            }
+
+        val postedAtMs = System.currentTimeMillis()
+        val previousPostedAtMs = lastNotificationPostedAtMs
+        lastNotificationPostedAtMs = postedAtMs
+
+        /*
+         * Only the scheme and the final segment of the channel sound are taken.
+         * A user-chosen ringtone sits at a path that names their storage layout,
+         * which the journal has no reason to carry.
+         */
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.notification.posted",
+            "channelId" to channelId,
+            "channelImportance" to channel?.importance,
+            "channelHasSound" to (channelSound != null),
+            "channelSoundScheme" to channelSound?.scheme,
+            "channelSoundName" to channelSound?.lastPathSegment,
+            "channelVibrates" to channel?.shouldVibrate(),
+            "notificationsEnabled" to notificationsEnabled,
+            "channelBypassesDnd" to channel?.canBypassDnd(),
+            "groupBlocked" to groupBlocked,
+            "interruptionFilter" to runCatching {
+                notificationManager.currentInterruptionFilter
+            }.getOrNull(),
+            "notificationsPaused" to notificationsPaused,
+            "ringerMode" to audioManager?.ringerMode,
+            "notificationVolume" to audioManager?.getStreamVolume(
+                AudioManager.STREAM_NOTIFICATION
+            ),
+            "notificationVolumeMax" to audioManager?.getStreamMaxVolume(
+                AudioManager.STREAM_NOTIFICATION
+            ),
+            "btOutputConnected" to hasConnectedBluetoothOutput(audioManager),
+            "btOutputRouted" to isBluetoothRoutingActive(audioManager),
+            "activeNotifications" to runCatching {
+                notificationManager.activeNotifications.size
+            }.getOrNull(),
+            "msSinceLastPost" to previousPostedAtMs
+                .takeIf { it > 0L }
+                ?.let { postedAtMs - it }
+        )
+
+        /*
+         * A suppressed alert is watched too, with the fallback disarmed: the
+         * observation row is written for every alert, and its alert_audio line
+         * is written here, now, since its outcome needs no sample.
+         */
         if (suppressionReason != null) {
             recordAlertAudioOutcome(
                 outcome = NotificationAlertFallbackPolicy.OUTCOME_SUPPRESSED,
+                processUptimeMs = processUptimeMs,
                 reason = suppressionReason
             )
-            return
         }
 
-        watchAlertAudioOffTheDispatchThread(audioManager, playersBefore, channelSound)
+        watchAlertAudioOffTheDispatchThread(
+            audioManager = audioManager,
+            playersBefore = playersBefore,
+            channelSound = channelSound,
+            processUptimeMs = processUptimeMs,
+            fallbackArmed = suppressionReason == null
+        )
     }
 
     /**
-     * Waits for the system player, and plays the sound if it never arrives.
+     * Watches for the alert sound the system either plays or does not.
+     *
+     * Every field recorded so far describes the request handed to Android, and
+     * all of them have been permissive on alerts that were reported as silent.
+     * Whether a sound actually came out has been established only by ear, at a
+     * notification volume low enough to make that judgement unreliable. Polling
+     * the active players for a moment after posting answers it directly.
+     *
+     * playersDelta above zero means a player started while the alert was being
+     * raised. Zero throughout means the system posted the notification without
+     * playing anything, which is a different defect entirely from one that plays
+     * a sound too quiet to notice.
+     *
+     * It takes no readings of its own. The samples are the ones the fallback's
+     * watch took for the same alert, so this row and the alert_audio line are
+     * two descriptions of one set of readings: firstRiseMs here equals
+     * systemStartMs there whenever the system played within the grace, and they
+     * cannot contradict each other on the alerts that fail, which is where both
+     * are read. The counter is device-wide, so when the fallback plays at the
+     * end of its grace, that player appears in the later samples too - a late
+     * rise is read together with the alert_audio outcome, which says whose sound
+     * it was.
+     */
+    private fun recordAudioPlaybackObservation(
+        playersBefore: Int,
+        samples: List<AudioPlayerSample>
+    ) {
+        if (samples.isEmpty()) return
+
+        val summary = AudioPlaybackObservation.summarize(playersBefore, samples)
+
+        HistoryDiagnosticsLog.record(
+            applicationContext,
+            "fcm.notification.audio",
+            "playersBefore" to playersBefore,
+            "playersPeak" to summary.playersPeak,
+            "playersDelta" to (summary.playersPeak - playersBefore),
+            "firstRiseMs" to summary.firstRiseMs,
+            "lastRiseMs" to summary.lastRiseMs,
+            "elevatedSamples" to summary.elevatedSamples,
+            "elevatedSpanMs" to summary.elevatedSpanMs,
+            "sampleCount" to samples.size,
+            "observedMs" to AUDIO_OBSERVATION_MS
+        )
+    }
+
+    /**
+     * Returns whether any connected audio output is a Bluetooth device.
+     *
+     * Only the device type is read. Product names and addresses identify the
+     * user's own hardware, so they are deliberately never touched.
+     */
+    private fun hasConnectedBluetoothOutput(audioManager: AudioManager?): Boolean? {
+        audioManager ?: return null
+
+        return runCatching {
+            audioManager
+                .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                .any { device -> isBluetoothOutputType(device.type) }
+        }.getOrNull()
+    }
+
+    /**
+     * Returns whether a notification alert would be routed to Bluetooth.
+     *
+     * getAudioDevicesForAttributes is the only public query that answers where
+     * audio would actually go, and it was introduced in API 33. Below that this
+     * stays null rather than inferring routing from what merely happens to be
+     * connected, which would read as a measurement without being one.
+     */
+    private fun isBluetoothRoutingActive(audioManager: AudioManager?): Boolean? {
+        audioManager ?: return null
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        return runCatching {
+            audioManager
+                .getAudioDevicesForAttributes(attributes)
+                .any { device -> isBluetoothOutputType(device.type) }
+        }.getOrNull()
+    }
+
+    /** Returns whether [type] is one of the Bluetooth output kinds. */
+    private fun isBluetoothOutputType(type: Int): Boolean {
+        if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+            type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        ) {
+            return true
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            type == AudioDeviceInfo.TYPE_HEARING_AID
+        ) {
+            return true
+        }
+
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            (
+                type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    type == AudioDeviceInfo.TYPE_BLE_SPEAKER
+                )
+    }
+
+    /**
+     * Watches the alert once, plays the sound if the system never does, and
+     * writes both rows the alert produces from that single watch.
+     *
+     * One sampler per alert. The fallback's verdict and the observation row
+     * come from the same readings, so the alert_audio line and the
+     * fcm.notification.audio line cannot tell two different stories about the
+     * same alert.
      *
      * Runs on a thread of its own, and the reason is measured rather than
      * assumed. In firebase-messaging 25.0.1, EnhancedIntentService dispatches
@@ -356,7 +659,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private fun watchAlertAudioOffTheDispatchThread(
         audioManager: AudioManager?,
         playersBefore: Int,
-        channelSound: Uri?
+        channelSound: Uri?,
+        processUptimeMs: Long,
+        fallbackArmed: Boolean
     ) {
         /*
          * One thread per alert, and deliberately not an executor. Pooling this
@@ -382,32 +687,45 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          * and not in the policy the tests can reach.
          */
         Thread({
-            val systemStartMs = NotificationAlertFallback.awaitSystemPlayer(
+            val samples = mutableListOf<AudioPlayerSample>()
+
+            val watch = NotificationAlertFallback.watch(
+                context = this,
                 audioManager = audioManager,
-                playersBefore = playersBefore
+                playersBefore = playersBefore,
+                channelSound = channelSound,
+                fallbackArmed = fallbackArmed,
+                windowMs = AUDIO_OBSERVATION_MS,
+                onSample = { offsetMs, playerCount ->
+                    samples += AudioPlayerSample(offsetMs = offsetMs, playerCount = playerCount)
+                }
             )
 
-            if (systemStartMs != null) {
+            recordAudioPlaybackObservation(playersBefore, samples)
+
+            /* A suppressed alert already has its alert_audio line. */
+            if (!fallbackArmed) return@Thread
+
+            if (watch.systemStartMs != null) {
                 recordAlertAudioOutcome(
                     outcome = NotificationAlertFallbackPolicy.OUTCOME_PLAYED,
+                    processUptimeMs = processUptimeMs,
                     playersBefore = playersBefore,
-                    systemStartMs = systemStartMs
+                    systemStartMs = watch.systemStartMs
                 )
                 return@Thread
             }
 
-            val played = NotificationAlertFallback.playOnce(
-                context = this,
-                audioManager = audioManager,
-                channelSound = channelSound
+            Log.w(
+                TAG,
+                "System never started an alert player, fallback played=${watch.fallbackPlayed}"
             )
-
-            Log.w(TAG, "System never started an alert player, fallback played=$played")
 
             recordAlertAudioOutcome(
                 outcome = NotificationAlertFallbackPolicy.OUTCOME_FALLBACK,
+                processUptimeMs = processUptimeMs,
                 playersBefore = playersBefore,
-                fallbackPlayed = played
+                fallbackPlayed = watch.fallbackPlayed
             )
         }, "tmc-alert-audio").start()
     }
@@ -422,15 +740,22 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      */
     private fun recordAlertAudioOutcome(
         outcome: String,
+        processUptimeMs: Long,
         reason: String? = null,
         playersBefore: Int? = null,
         systemStartMs: Long? = null,
         fallbackPlayed: Boolean? = null
     ) {
+        /*
+         * processUptimeMs rides on the same line as the outcome so a cold alert
+         * reads as a complete trial on its own, without joining to the
+         * fcm.received line by position in the journal.
+         */
         HistoryDiagnosticsLog.record(
             applicationContext,
             "fcm.notification.alert_audio",
             "outcome" to outcome,
+            "processUptimeMs" to processUptimeMs,
             "reason" to reason,
             "playersBefore" to playersBefore,
             "systemStartMs" to systemStartMs,
@@ -454,7 +779,31 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         /** One push arrived and was dropped before it could become a notification. */
         private const val MARKER_MESSAGE_HANDLING_FAILED = "fcm_message_handling_failed"
 
+        /**
+         * How long the active players are watched after an alert is posted.
+         *
+         * Sized from the sound itself rather than from a round number.
+         * res/raw/tmc_spawn_alert_chime.wav is mono 44.1 kHz 16 bit with a data
+         * chunk of 127890 bytes, which its own header makes 1450 ms. A player
+         * that starts around 860 ms therefore stops around 2310 ms, past the
+         * 1800 ms this used to watch for: every audible alert had its span cut
+         * off at the edge of the window, so elevatedSpanMs reported roughly 940
+         * ms whatever the sound actually did. Watching to 2600 ms sees the sound
+         * end on its own, which turns that field from a lower bound into a
+         * duration.
+         */
+        private const val AUDIO_OBSERVATION_MS = 2_600L
+
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"
+
+        /**
+         * Wall clock of the previous alert this process posted, 0 when none.
+         *
+         * Held in the companion because each push may be handled by a new service
+         * instance while the process survives between them.
+         */
+        @Volatile
+        private var lastNotificationPostedAtMs: Long = 0L
     }
 }

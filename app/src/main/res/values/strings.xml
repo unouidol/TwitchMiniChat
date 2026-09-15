@@ -145,6 +145,9 @@
     <string name="open_web_version">Open web version</string>
 
     <string name="safety_privacy_title">Safety &amp; Privacy</string>
+    <string name="diagnostics_export_empty">No diagnostics recorded yet</string>
+    <string name="diagnostics_export_failed">Could not prepare the diagnostics file</string>
+    <string name="diagnostics_marker_recorded">Moment marked in diagnostics</string>
     <string name="safety_privacy_subtitle">Manage reporting, blocking, privacy information, and data controls.</string>
 
     <!-- External chat links -->
@@ -310,6 +313,7 @@
     <string name="fcm_set_spawn_alert_mode_url">https://api.ircminichat.party/set_spawn_alert_mode</string>
     <string name="spawn_alert_profile_missing">Select a Twitch profile first.</string>
 
+    <string name="pcg_notification_channel_group_name">PokémonCommunityGame alerts</string>
     <string name="pcg_notification_channel_silent_name">PCG alerts silent</string>
     <string name="pcg_notification_channel_silent_description">PokémonCommunityGame alerts without sound or vibration.</string>
 
@@ -539,8 +543,4 @@
 
     <!-- Login screen footer -->
     <string name="app_version_label">Version %1$s (build %2$d)</string>
-
-    <!-- Shown only after a deliberate long press on the version label. -->
-    <string name="diagnostics_export_empty">No diagnostics recorded yet</string>
-    <string name="diagnostics_export_failed">Could not prepare the diagnostics file</string>
 </resources>

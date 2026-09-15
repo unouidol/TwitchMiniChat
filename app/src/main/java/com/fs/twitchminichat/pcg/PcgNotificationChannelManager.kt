@@ -1,6 +1,7 @@
 package com.fs.twitchminichat.pcg
 
 import android.app.NotificationChannel
+import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
@@ -19,10 +20,33 @@ import androidx.core.net.toUri
  */
 object PcgNotificationChannelManager {
 
-    const val CHANNEL_PCG_ALERTS_SILENT = "pcg_alerts_silent_v4"
-    const val CHANNEL_PCG_ALERTS_SOUND = "pcg_alerts_sound_v4"
-    const val CHANNEL_PCG_ALERTS_VIBRATE = "pcg_alerts_vibrate_v4"
-    const val CHANNEL_PCG_ALERTS_SOUND_VIBRATE = "pcg_alerts_sound_vibrate_v4"
+    const val CHANNEL_PCG_ALERTS_SILENT = "pcg_alerts_silent_v5"
+    const val CHANNEL_PCG_ALERTS_SOUND = "pcg_alerts_sound_v5"
+    const val CHANNEL_PCG_ALERTS_VIBRATE = "pcg_alerts_vibrate_v5"
+    const val CHANNEL_PCG_ALERTS_SOUND_VIBRATE = "pcg_alerts_sound_vibrate_v5"
+
+    /** Groups the alert channels together in system notification settings. */
+    private const val CHANNEL_GROUP_PCG_ALERTS = "pcg_alerts_group_v1"
+
+    /** Namespace owned by this manager, used to recognise channels it created. */
+    private const val OWNED_CHANNEL_ID_PREFIX = "pcg_alerts_"
+
+    /**
+     * Channel identifiers created by earlier versions of the app.
+     *
+     * Android freezes sound and importance when a channel is first created and
+     * restores them if the same identifier is recreated, so a channel that predates
+     * the current alert sound keeps the old one forever. Retiring the identifier is
+     * the only way to change that behaviour, and the abandoned channels stay listed
+     * in system settings until they are deleted explicitly.
+     */
+    private val retiredChannelIds = setOf(
+        "spawn_alerts",
+        "pcg_alerts_silent_v4",
+        "pcg_alerts_sound_v4",
+        "pcg_alerts_vibrate_v4",
+        "pcg_alerts_sound_vibrate_v4"
+    )
 
     private val vibrationPattern = longArrayOf(0L, 180L, 90L, 180L)
 
@@ -38,6 +62,13 @@ object PcgNotificationChannelManager {
         val appContext = context.applicationContext
         val notificationManager =
             appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        notificationManager.createNotificationChannelGroup(
+            NotificationChannelGroup(
+                CHANNEL_GROUP_PCG_ALERTS,
+                appContext.getString(R.string.pcg_notification_channel_group_name)
+            )
+        )
 
         val channels = listOf(
             buildChannel(
@@ -75,6 +106,37 @@ object PcgNotificationChannelManager {
         )
 
         notificationManager.createNotificationChannels(channels)
+        deleteObsoleteChannels(notificationManager)
+    }
+
+    /**
+     * Removes the alert channels this manager no longer uses.
+     *
+     * Retired identifiers are named explicitly, and anything else inside the owned
+     * namespace is removed too, so channels left behind by test builds disappear
+     * from system settings without requiring a reinstall. Channels created by other
+     * components, including the Firebase fallback channel, are never touched.
+     */
+    private fun deleteObsoleteChannels(notificationManager: NotificationManager) {
+        val currentIds = setOf(
+            CHANNEL_PCG_ALERTS_SILENT,
+            CHANNEL_PCG_ALERTS_SOUND,
+            CHANNEL_PCG_ALERTS_VIBRATE,
+            CHANNEL_PCG_ALERTS_SOUND_VIBRATE
+        )
+
+        notificationManager.notificationChannels
+            .map(NotificationChannel::getId)
+            .filter { channelId ->
+                channelId !in currentIds &&
+                        (
+                            channelId in retiredChannelIds ||
+                                    channelId.startsWith(OWNED_CHANNEL_ID_PREFIX)
+                            )
+            }
+            .forEach { channelId ->
+                notificationManager.deleteNotificationChannel(channelId)
+            }
     }
 
     /**
@@ -146,6 +208,7 @@ object PcgNotificationChannelManager {
         )
 
         channel.description = context.getString(descriptionRes)
+        channel.group = CHANNEL_GROUP_PCG_ALERTS
 
         if (soundEnabled) {
             val soundUri = "android.resource://${context.packageName}/${R.raw.tmc_spawn_alert_chime}".toUri()

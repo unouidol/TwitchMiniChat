@@ -209,6 +209,17 @@ tool. The route is a separate `diagnostics` build type signed with the release k
 keeps the probe installable over the build already on the device while still keeping it out of
 `release`.
 
+### Second decision required: the diagnostic journal itself
+
+`HistoryDiagnosticsLog` is a development instrument and should not reach users as it stands.
+Removing it is not a plain revert: the history fixes above depend on helpers introduced
+alongside it by `73521ef`, so the journal and the fixes have to be separated before either
+can ship. `claude/history-gap-offscreen-tabs.md` in the Claude project records the options.
+
+This is a smaller problem than the listener — a journal of metadata is not device-wide
+notification access — but it is unresolved, and it is recorded here so that settling the
+listener question is not mistaken for clearing the branch.
+
 ## Waiting for release — on `work/irc-read-timeout`
 
 Branched from `502c11e`. One commit, not yet on `origin` as a pull request.

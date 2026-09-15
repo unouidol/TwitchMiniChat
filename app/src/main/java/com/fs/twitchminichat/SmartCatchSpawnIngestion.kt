@@ -2,6 +2,7 @@ package com.fs.twitchminichat
 
 import android.content.Context
 import android.util.Log
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.pcg.PcgNotificationPayloadPolicy
 
 /**
@@ -27,7 +28,7 @@ internal object SmartCatchSpawnIngestion {
                 message = message,
                 messageTimestampSec = messageTimestampSec
             )
-        }.also(::logRecognizedObservation)
+        }.also { result -> recordObservation(context, result) }
     }
 
     fun ingestFcmPayload(
@@ -46,7 +47,7 @@ internal object SmartCatchSpawnIngestion {
                 data = data,
                 messageSentAtMs = messageSentAtMs
             )
-        }.also(::logRecognizedObservation)
+        }.also { result -> recordObservation(context, result) }
     }
 
     private fun coordinator(context: Context): SmartCatchSpawnCoordinator {
@@ -100,16 +101,42 @@ internal object SmartCatchSpawnIngestion {
         }
     }
 
-    private fun logRecognizedObservation(
+    /**
+     * Logs one spawn observation and journals the ones describing a real spawn.
+     *
+     * The journal recorded what happened to an arriving push but never that a
+     * spawn had occurred at all, so a push that never reached the process left no
+     * trace and could not be told apart from a window containing no spawn. An IRC
+     * observation does not depend on Firebase and supplies that missing anchor.
+     */
+    private fun recordObservation(
+        context: Context,
         result: SmartCatchSpawnIngestionResult
     ) {
         val source = result.source ?: return
-        if (result.outcome == SmartCatchSpawnIngestionOutcome.FAILED) return
 
-        Log.d(
-            LOG_TAG,
-            "Spawn ingestion source=${source.name.lowercase()} " +
-                "outcome=${result.outcome.name.lowercase()}"
+        if (result.outcome != SmartCatchSpawnIngestionOutcome.FAILED) {
+            Log.d(
+                LOG_TAG,
+                "Spawn ingestion source=${source.name.lowercase()} " +
+                    "outcome=${result.outcome.name.lowercase()}"
+            )
+        }
+
+        /*
+         * IGNORED_NOT_SPAWN covers every ordinary chat line, so excluding it keeps
+         * the journal at roughly one entry per announced spawn instead of one per
+         * message.
+         */
+        if (result.outcome == SmartCatchSpawnIngestionOutcome.IGNORED_NOT_SPAWN) {
+            return
+        }
+
+        HistoryDiagnosticsLog.record(
+            context,
+            "spawn.observed",
+            "source" to source.name.lowercase(),
+            "outcome" to result.outcome.name.lowercase()
         )
     }
 

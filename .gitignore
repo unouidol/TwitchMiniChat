@@ -63,3 +63,9 @@ Thumbs.db
 # Old stuff (optional)
 old_app_v3_not_working/
 app_v2
+
+# Exported diagnostics journals. They carry the Twitch account name and the
+# channels watched, so they are never committed. Keep them outside the
+# repository: this is a second line of defence, not the first.
+/log[0-9]*.txt
+tmc-history-diagnostics*.txt
