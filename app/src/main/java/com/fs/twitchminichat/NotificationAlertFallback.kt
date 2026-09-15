@@ -37,47 +37,99 @@ object NotificationAlertFallback {
     }
 
     /**
-     * Blocks until a player rises above [playersBefore] or the grace expires.
+     * What a single watch established about one alert.
      *
-     * Returns how many milliseconds after the call the player appeared, or null
-     * if none did. The elapsed value is the same quantity the diagnostics work
-     * called firstRiseMs, so rows from before and after this change describe
-     * the same measurement and the grace can be re-derived from live data
-     * rather than from the sample it was chosen on.
-     *
-     * Returns as soon as a player appears, so a healthy alert costs only the
-     * time it actually took to start.
+     * @param systemStartMs milliseconds after the watch began at which the
+     *   system's player appeared, or null if it did not within the grace. The
+     *   same quantity the diagnostics call firstRiseMs, taken from the same
+     *   sample, so the two can never disagree.
+     * @param fallbackPlayed whether the fallback sound started, or null when it
+     *   was never attempted because the system played or the watch was not armed.
      */
-    fun awaitSystemPlayer(
+    data class Watch(
+        val systemStartMs: Long?,
+        val fallbackPlayed: Boolean?
+    )
+
+    /**
+     * Samples the active players for one alert, and plays the sound once if the
+     * system has not started a player of its own by the end of the grace.
+     *
+     * This is the only sampler for an alert. Every reading is handed to
+     * [onSample] as it is taken, so an observer builds its record from exactly
+     * the samples this verdict was reached on rather than from a second loop
+     * running out of step with it - two independent loops over the same device
+     * counter can disagree about the very alerts that fail, which is where the
+     * record is read.
+     *
+     * The verdict is fixed by the first reading at or after
+     * [NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS]: a player above
+     * [playersBefore] before then means the system played; none means the
+     * fallback plays, when [fallbackArmed]. Sampling continues until [windowMs]
+     * for the observer's sake, never shorter than the grace, so a fallback
+     * sound started at the end of the grace shows up in the later samples too.
+     */
+    fun watch(
+        context: Context,
         audioManager: AudioManager?,
-        playersBefore: Int
-    ): Long? {
-        audioManager ?: return null
+        playersBefore: Int,
+        channelSound: Uri?,
+        fallbackArmed: Boolean,
+        windowMs: Long,
+        onSample: (offsetMs: Long, playerCount: Int) -> Unit
+    ): Watch {
+        val graceMs = NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
 
-        val startedAtMs = SystemClock.elapsedRealtime()
-
-        while (
-            SystemClock.elapsedRealtime() - startedAtMs <
-            NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
-        ) {
-            val playerCount = activePlayerCount(audioManager)
-            val elapsedMs = SystemClock.elapsedRealtime() - startedAtMs
-
-            if (
-                NotificationAlertFallbackPolicy.systemPlayerAppeared(
-                    playersBefore = playersBefore,
-                    playersPeak = playerCount
-                )
-            ) {
-                return elapsedMs
-            }
-
-            runCatching {
-                Thread.sleep(NotificationAlertFallbackPolicy.POLL_INTERVAL_MS)
-            }.getOrElse { return null }
+        if (audioManager == null) {
+            val played = if (fallbackArmed) playOnce(context, null, channelSound) else null
+            return Watch(systemStartMs = null, fallbackPlayed = played)
         }
 
-        return null
+        val startedAtMs = SystemClock.elapsedRealtime()
+        val untilMs = maxOf(windowMs, graceMs)
+        var decided = false
+        var systemStartMs: Long? = null
+        var fallbackPlayed: Boolean? = null
+
+        while (SystemClock.elapsedRealtime() - startedAtMs < untilMs) {
+            /*
+             * The offset is read after the count, as both loops this replaces
+             * did, so rows written before and after the merge stay comparable.
+             */
+            val playerCount = activePlayerCount(audioManager)
+            val offsetMs = SystemClock.elapsedRealtime() - startedAtMs
+
+            onSample(offsetMs, playerCount)
+
+            if (!decided) {
+                if (
+                    offsetMs < graceMs &&
+                    NotificationAlertFallbackPolicy.systemPlayerAppeared(
+                        playersBefore = playersBefore,
+                        playersPeak = playerCount
+                    )
+                ) {
+                    systemStartMs = offsetMs
+                    decided = true
+                } else if (offsetMs >= graceMs) {
+                    decided = true
+                    if (fallbackArmed) {
+                        fallbackPlayed = playOnce(context, audioManager, channelSound)
+                    }
+                }
+            }
+
+            val interrupted = runCatching {
+                Thread.sleep(NotificationAlertFallbackPolicy.POLL_INTERVAL_MS)
+            }.isFailure
+            if (interrupted) break
+        }
+
+        if (!decided && fallbackArmed) {
+            fallbackPlayed = playOnce(context, audioManager, channelSound)
+        }
+
+        return Watch(systemStartMs = systemStartMs, fallbackPlayed = fallbackPlayed)
     }
 
     /**

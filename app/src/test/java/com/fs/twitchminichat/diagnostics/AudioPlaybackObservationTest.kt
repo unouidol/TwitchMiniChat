@@ -141,7 +141,7 @@ class AudioPlaybackObservationTest {
     }
 
     private companion object {
-        /** Matches AUDIO_POLL_INTERVAL_MS in the notification service. */
+        /** Matches NotificationAlertFallbackPolicy.POLL_INTERVAL_MS, the one sampler's cadence. */
         const val POLL_INTERVAL_MS = 60L
     }
 }

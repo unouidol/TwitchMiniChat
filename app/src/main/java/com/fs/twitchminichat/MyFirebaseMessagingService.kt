@@ -500,35 +500,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         )
 
         /*
-         * On a thread of its own, never inline. Firebase delivers every message
-         * through a single-threaded executor - in firebase-messaging 25.0.1,
-         * FcmExecutors.newIntentHandleExecutor() is a newSingleThreadExecutor -
-         * so observing here for 2.6 seconds would hold the next alert behind
-         * this one for exactly that long. Two accounts matching one spawn
-         * produce two pushes moments apart, which made this instrument delay
-         * the second alert while measuring the first, the one thing it was
-         * commissioned never to do. Detached, it may be cut short if the
-         * process is reclaimed, which costs an observation and never an alert.
+         * A suppressed alert is watched too, with the fallback disarmed: the
+         * observation row is written for every alert, and its alert_audio line
+         * is written here, now, since its outcome needs no sample.
          */
-        Thread(
-            { recordAudioPlaybackObservation(audioManager, playersBefore) },
-            "tmc-alert-audio-observe"
-        ).start()
-
         if (suppressionReason != null) {
             recordAlertAudioOutcome(
                 outcome = NotificationAlertFallbackPolicy.OUTCOME_SUPPRESSED,
                 processUptimeMs = processUptimeMs,
                 reason = suppressionReason
             )
-            return
         }
 
         watchAlertAudioOffTheDispatchThread(
-            audioManager,
-            playersBefore,
-            channelSound,
-            processUptimeMs
+            audioManager = audioManager,
+            playersBefore = playersBefore,
+            channelSound = channelSound,
+            processUptimeMs = processUptimeMs,
+            fallbackArmed = suppressionReason == null
         )
     }
 
@@ -546,39 +535,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      * playing anything, which is a different defect entirely from one that plays
      * a sound too quiet to notice.
      *
-     * Counts through [NotificationAlertFallback.activePlayerCount], the product's
-     * own watcher, rather than a copy of it: the instrument observes through the
-     * capability the fallback owns. The counter is device-wide, so when the
-     * fallback plays at the end of its grace, that player appears in these
-     * samples too - read a late rise together with the alert_audio line of the
-     * same alert, whose outcome says whose sound it was.
+     * It takes no readings of its own. The samples are the ones the fallback's
+     * watch took for the same alert, so this row and the alert_audio line are
+     * two descriptions of one set of readings: firstRiseMs here equals
+     * systemStartMs there whenever the system played within the grace, and they
+     * cannot contradict each other on the alerts that fail, which is where both
+     * are read. The counter is device-wide, so when the fallback plays at the
+     * end of its grace, that player appears in the later samples too - a late
+     * rise is read together with the alert_audio outcome, which says whose sound
+     * it was.
      */
     private fun recordAudioPlaybackObservation(
-        audioManager: AudioManager?,
-        playersBefore: Int
+        playersBefore: Int,
+        samples: List<AudioPlayerSample>
     ) {
-        if (audioManager == null) return
-
-        val startedAtMs = SystemClock.elapsedRealtime()
-        val samples = mutableListOf<AudioPlayerSample>()
-
-        while (SystemClock.elapsedRealtime() - startedAtMs < AUDIO_OBSERVATION_MS) {
-            /*
-             * The offset is read after the count, matching how firstRiseMs was
-             * timed before this loop kept every sample, so the new rows stay
-             * comparable with the ones already in the journal.
-             */
-            val playerCount = NotificationAlertFallback.activePlayerCount(audioManager)
-            val offsetMs = SystemClock.elapsedRealtime() - startedAtMs
-
-            samples += AudioPlayerSample(
-                offsetMs = offsetMs,
-                playerCount = playerCount
-            )
-
-            runCatching { Thread.sleep(AUDIO_POLL_INTERVAL_MS) }
-                .getOrElse { return }
-        }
+        if (samples.isEmpty()) return
 
         val summary = AudioPlaybackObservation.summarize(playersBefore, samples)
 
@@ -660,7 +631,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     /**
-     * Waits for the system player, and plays the sound if it never arrives.
+     * Watches the alert once, plays the sound if the system never does, and
+     * writes both rows the alert produces from that single watch.
+     *
+     * One sampler per alert. The fallback's verdict and the observation row
+     * come from the same readings, so the alert_audio line and the
+     * fcm.notification.audio line cannot tell two different stories about the
+     * same alert.
      *
      * Runs on a thread of its own, and the reason is measured rather than
      * assumed. In firebase-messaging 25.0.1, EnhancedIntentService dispatches
@@ -683,7 +660,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         audioManager: AudioManager?,
         playersBefore: Int,
         channelSound: Uri?,
-        processUptimeMs: Long
+        processUptimeMs: Long,
+        fallbackArmed: Boolean
     ) {
         /*
          * One thread per alert, and deliberately not an executor. Pooling this
@@ -709,34 +687,45 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          * and not in the policy the tests can reach.
          */
         Thread({
-            val systemStartMs = NotificationAlertFallback.awaitSystemPlayer(
+            val samples = mutableListOf<AudioPlayerSample>()
+
+            val watch = NotificationAlertFallback.watch(
+                context = this,
                 audioManager = audioManager,
-                playersBefore = playersBefore
+                playersBefore = playersBefore,
+                channelSound = channelSound,
+                fallbackArmed = fallbackArmed,
+                windowMs = AUDIO_OBSERVATION_MS,
+                onSample = { offsetMs, playerCount ->
+                    samples += AudioPlayerSample(offsetMs = offsetMs, playerCount = playerCount)
+                }
             )
 
-            if (systemStartMs != null) {
+            recordAudioPlaybackObservation(playersBefore, samples)
+
+            /* A suppressed alert already has its alert_audio line. */
+            if (!fallbackArmed) return@Thread
+
+            if (watch.systemStartMs != null) {
                 recordAlertAudioOutcome(
                     outcome = NotificationAlertFallbackPolicy.OUTCOME_PLAYED,
                     processUptimeMs = processUptimeMs,
                     playersBefore = playersBefore,
-                    systemStartMs = systemStartMs
+                    systemStartMs = watch.systemStartMs
                 )
                 return@Thread
             }
 
-            val played = NotificationAlertFallback.playOnce(
-                context = this,
-                audioManager = audioManager,
-                channelSound = channelSound
+            Log.w(
+                TAG,
+                "System never started an alert player, fallback played=${watch.fallbackPlayed}"
             )
-
-            Log.w(TAG, "System never started an alert player, fallback played=$played")
 
             recordAlertAudioOutcome(
                 outcome = NotificationAlertFallbackPolicy.OUTCOME_FALLBACK,
                 processUptimeMs = processUptimeMs,
                 playersBefore = playersBefore,
-                fallbackPlayed = played
+                fallbackPlayed = watch.fallbackPlayed
             )
         }, "tmc-alert-audio").start()
     }
@@ -804,9 +793,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          * duration.
          */
         private const val AUDIO_OBSERVATION_MS = 2_600L
-
-        /** Gap between two reads of the active players; the chime lasts 1.45 s. */
-        private const val AUDIO_POLL_INTERVAL_MS = 60L
 
         private const val PREFS_FCM_REGISTRATION = "fcm_registration"
         private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"
