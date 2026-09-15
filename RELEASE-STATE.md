@@ -60,6 +60,7 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `4439682` | 09-11 | Drop the `-v26` qualifier the minimum SDK already guarantees |
 | `e191a09` | 09-11 | Make a new lint warning fail the build, on a baseline both flavours share |
 | `21e0184` | 09-14 | The diagnostics journal, and a hidden gesture that gets it off the device |
+| this pull request | 09-15 | Every local reset also erases the diagnostics journal |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the

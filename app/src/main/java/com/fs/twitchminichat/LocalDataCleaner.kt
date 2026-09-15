@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.Context
+import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import java.io.File
 
 object LocalDataCleaner {
@@ -15,7 +16,8 @@ object LocalDataCleaner {
         val backendSessionClearAttempted: Boolean,
         val backendSessionClearSucceeded: Boolean,
         val accountStoreClearAttempted: Boolean = false,
-        val accountStoreClearSucceeded: Boolean = false
+        val accountStoreClearSucceeded: Boolean = false,
+        val diagnosticsJournalClearSucceeded: Boolean = false
     )
 
     fun clearAllLocalData(context: Context): Result {
@@ -49,6 +51,41 @@ object LocalDataCleaner {
         clearBackendSessions: Boolean,
         clearAccountStore: Boolean
     ): Result {
+        /*
+         * Invariant: every persistent store this application creates is erased
+         * here. Each one needs its own line, because nothing below sweeps
+         * filesDir: the two directory calls clear cacheDir and codeCacheDir only,
+         * and shared_prefs is reached by name. A store written anywhere else -
+         * the diagnostics journal in filesDir/diagnostics, the encrypted
+         * account store - survives a reset unless it is named in this function,
+         * and a reset the user was told erases everything then quietly does not.
+         * Adding a store means adding it here.
+         *
+         * filesDir is deliberately not cleared wholesale. GeckoRuntime runs with
+         * default settings and its profile may live under it; wiping that fits
+         * "erase everything" but not "reset local data, keep accounts", and
+         * where it actually lives has not been measured.
+         *
+         * Work that starts before an erase and writes after it would put a line
+         * describing the old state into the fresh journal. The history backfill
+         * is guarded: its request can run for seconds, its line carries the
+         * account and channel, and it passes the journal generation it started
+         * under, so HistoryDiagnosticsLog drops the line if an erase came in
+         * between. Another slow caller that writes identifying fields should do
+         * the same.
+         *
+         * The alert audio watcher is not guarded, and that is a decision taken,
+         * not an oversight. It calls record() when its observation window ends,
+         * up to 2.6 seconds after the push, so a watcher already running when
+         * the journal is erased writes after the wipe. Each leaves at most two
+         * lines, fcm.notification.audio and fcm.notification.alert_audio, which
+         * carry player counts and timings but no account and no channel. More
+         * than one can be in flight, because two accounts matching one spawn
+         * post two alerts moments apart. The lines describe alerts already under
+         * way when the reset happened, and a second reset removes them. Guarding
+         * them would mean changing the alert_audio path, which had only just
+         * been stabilised when this was decided, for lines that identify no one.
+         */
         val appContext = context.applicationContext
 
         val prefNames = listSharedPreferenceNames(appContext)
@@ -107,6 +144,13 @@ object LocalDataCleaner {
             false
         }
 
+        /*
+         * Cleared on every reset, including the one that keeps accounts: it holds
+         * the Twitch account name and the channels watched with their times, and
+         * it is diagnostics, not account configuration.
+         */
+        val diagnosticsJournalClearSucceeded = HistoryDiagnosticsLog.clear(appContext)
+
         return Result(
             deletedSharedPrefs = deletedSharedPrefs,
             skippedSharedPrefs = skippedSharedPrefs,
@@ -116,7 +160,8 @@ object LocalDataCleaner {
             backendSessionClearAttempted = clearBackendSessions,
             backendSessionClearSucceeded = backendSessionClearSucceeded,
             accountStoreClearAttempted = clearAccountStore,
-            accountStoreClearSucceeded = accountStoreClearSucceeded
+            accountStoreClearSucceeded = accountStoreClearSucceeded,
+            diagnosticsJournalClearSucceeded = diagnosticsJournalClearSucceeded
         )
     }
 

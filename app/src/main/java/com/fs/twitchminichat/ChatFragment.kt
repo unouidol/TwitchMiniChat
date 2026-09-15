@@ -2884,10 +2884,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      *
      * Account, channel and resumed state are attached automatically so a journal
      * covering several pager pages stays attributable to the right account.
+     *
+     * Work that finishes after it started passes the journal generation it began
+     * under as [expectedGeneration]; see HistoryDiagnosticsLog.generation.
      */
     private fun recordDiagnostics(
         event: String,
-        vararg fields: Pair<String, Any?>
+        vararg fields: Pair<String, Any?>,
+        expectedGeneration: Long? = null
     ) {
         val diagnosticsContext = context?.applicationContext
             ?.also { retained -> diagnosticsApplicationContext = retained }
@@ -2900,7 +2904,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             "account" to cfg?.username,
             "channel" to cfg?.channel,
             "resumed" to isResumed,
-            *fields
+            *fields,
+            expectedGeneration = expectedGeneration
         )
     }
 
@@ -3001,6 +3006,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         lastBackfillAtMs = System.currentTimeMillis()
         val applicationContext = requireContext().applicationContext
         val profileId = AccountProfileIdResolver.resolve(config)
+        /*
+         * The request can outlive a local reset by several seconds, and its line
+         * carries this account and channel. Taken before it leaves, so a reset in
+         * between drops the line instead of seeding the fresh journal with it.
+         */
+        val journalGeneration = HistoryDiagnosticsLog.generation()
 
         thread {
             when (
@@ -3032,7 +3043,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         "requestedSec" to seconds,
                         "messageCount" to result.messages.size,
                         "firstTs" to timestamps.minOrNull()?.toLong(),
-                        "lastTs" to timestamps.maxOrNull()?.toLong()
+                        "lastTs" to timestamps.maxOrNull()?.toLong(),
+                        expectedGeneration = journalGeneration
                     )
 
                     result.messages.forEach { message ->
@@ -3087,7 +3099,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     recordDiagnostics(
                         "backfill.failed",
                         "reason" to "session_missing",
-                        "requestedSec" to seconds
+                        "requestedSec" to seconds,
+                        expectedGeneration = journalGeneration
                     )
                 }
 
@@ -3104,7 +3117,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     recordDiagnostics(
                         "backfill.failed",
                         "reason" to "reauthorization_required",
-                        "requestedSec" to seconds
+                        "requestedSec" to seconds,
+                        expectedGeneration = journalGeneration
                     )
                 }
 
@@ -3123,7 +3137,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     recordDiagnostics(
                         "backfill.failed",
                         "reason" to "request_failed",
-                        "requestedSec" to seconds
+                        "requestedSec" to seconds,
+                        expectedGeneration = journalGeneration
                     )
                 }
             }
