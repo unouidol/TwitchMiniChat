@@ -35,14 +35,29 @@ object LocalDataCleaner {
     ): Result {
         return clearInternal(
             context = context,
-            excludedSharedPrefs = accountSharedPrefs
-                .asSequence()
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .toSet(),
+            excludedSharedPrefs = keepAccountsExclusions(accountSharedPrefs),
             clearBackendSessions = false,
             clearAccountStore = false
         )
+    }
+
+    /**
+     * Shared preferences files the keep-accounts reset leaves in place.
+     *
+     * The caller's account files, and the device credential with them. The server
+     * identifies this phone only by the identifier and secret in that file, so
+     * erasing them left the phone's registration on the server, still sending alerts
+     * to the same push token, while both deletion options - which authenticate with
+     * that credential - could no longer reach it. A reset that keeps the accounts
+     * keeps the phone's identity too. The full erase still removes it, by design,
+     * and the data deletion page says what that leaves on the server.
+     */
+    internal fun keepAccountsExclusions(accountSharedPrefs: Set<String>): Set<String> {
+        return accountSharedPrefs
+            .asSequence()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toSet() + DeviceCredentialStore.PREFERENCES_NAME
     }
 
     private fun clearInternal(
