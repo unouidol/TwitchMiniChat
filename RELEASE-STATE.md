@@ -10,7 +10,7 @@ once from a stale note, costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-15, against `origin/main-v5` at `cf8832d`, the commit
+Last verified: 2026-09-16, against `origin/main-v5` at `cf8832d`, the commit
 `release/5.5.1` is based on.
 
 ## Published — what users have
@@ -158,8 +158,7 @@ running at the reset writes at most two lines after it, `fcm.notification.audio`
 device, is never sent automatically, leaves only by a deliberate action of the user, and is
 erased by every reset. It does not describe the gesture: a policy declares data practices,
 not affordances. The copy the app links to, `https://unouidol.github.io/tmc/privacy.html`,
-is updated by unouidol/unouidol.github.io#1, which **must be merged before the `v5.5.1`
-tag**, so that the published policy never lags the build. Terms version 2 (`7cf64f8`) puts
+was updated with it on 2026-09-16, so the published policy does not lag the build. Terms version 2 (`7cf64f8`) puts
 the acceptance gate in front of existing users on 5.5.1, with the updated policy behind it.
 
 `DiagnosticsExportGesture` is reachable through a single `attach(View)` with one call site,
@@ -194,8 +193,9 @@ One limit remains, and the page states it: the full erase still removes the cred
 every reset did before 5.5.1, so a registration orphaned that way is reached only by an
 email request.
 
-Both published pages go out in one publication, unouidol/unouidol.github.io#1. It **must be
-merged before the `v5.5.1` tag**.
+Both published pages went out in one publication on 2026-09-16,
+`unouidol/unouidol.github.io@bcfbe2a`, before the tag. Fetched afterwards, each is identical
+to the copy in the APK apart from the link names, and the privacy page's trailing newline.
 
 ### Silent alerts: where the investigation stands
 
@@ -253,6 +253,37 @@ longer opens a gap that nothing recovers.
 The branch was cut from `502c11e`, before `f62d0bd`, so it has no `CLAUDE.md` and the
 repository rules do not load on it. **Rebase it onto `main-v5` before anything else**, then
 re-measure the merge rather than relying on the constraint above.
+
+## Not in 5.5.1 — a local reset leaves the server's copy of the settings behind
+
+Measured on 2026-09-16, on both sides, and not a new defect: it predates this release.
+
+- **The phone forgets.** `accountSharedPrefsToKeepForTesting` in `SafetyPrivacyFragment`
+  holds only the legacy account file, so *Reset local data, keep accounts* deletes the
+  preferences of `PcgSpawnAlertModeStore` along with the rest, and the app comes back showing
+  the defaults.
+- **The server is never told.** `FcmRegistrationUploader.setProfileSpawnAlertMode` has exactly
+  two callers outside the uploader: `ChatFragment:4522`, the bell, and
+  `AccountProfileRemovalController:97`, removing an account. Start-up runs only
+  `uploadToken`, which does not carry the mode.
+
+So after that reset the server keeps the previous alert mode while the app shows the
+defaults, until the user touches the bell. The bad case is the app saying no alerts while
+alerts keep arriving, which is the kind of thing users report.
+
+The same measurement is what makes the data deletion page's *"On the server: nothing. No
+request is sent."* true for that option: nothing goes up at start-up either.
+
+**The work is a review, not a line of code.** At least four stores have a counterpart on the
+server — the alert mode, the custom watchlist, the Pokédex snapshot and Most Wanted — across
+three endpoints: `/set_spawn_alert_mode`, `/set_custom_watchlist` and `/upload_dex_list`. For
+each one it has to be decided whether a local reset keeps the local state, or resets the
+server's side with it. Adding a file to the reset's exclusions would answer one case by
+accident and leave the rest as they are.
+
+The page stays as it is and describes today's behaviour truthfully. When the behaviour
+changes, the page changes with it, and both copies change together: the rule `000318a` (#38)
+adds to `AGENTS.md`.
 
 ## Test device
 
