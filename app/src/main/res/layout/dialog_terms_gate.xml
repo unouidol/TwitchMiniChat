@@ -46,6 +46,13 @@
             android:layout_marginTop="8dp"
             android:text="@string/open_privacy_policy" />
 
+        <Button
+            android:id="@+id/btnOpenDataDeletionFromGate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/open_data_deletion" />
+
         <CheckBox
             android:id="@+id/checkAcceptTerms"
             android:layout_width="match_parent"

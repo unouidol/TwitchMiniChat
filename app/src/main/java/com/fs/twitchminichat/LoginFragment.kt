@@ -13,8 +13,6 @@ import com.fs.twitchminichat.diagnostics.DiagnosticsExportGesture
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import android.view.LayoutInflater
-import android.widget.CheckBox
 import androidx.appcompat.app.AlertDialog
 import android.widget.Toast
 import android.util.Log
@@ -323,63 +321,15 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         }
     }
 
+    /**
+     * Gates one gesture on the current terms being accepted.
+     *
+     * The dialog belongs to MainActivity, which also raises it on resume. Building a
+     * second one here would put two on screen the moment the activity behind this
+     * fragment resumes with the terms still unaccepted, which is what a trip to a
+     * policy page from inside the gate does.
+     */
     private fun ensureTermsAccepted(onAccepted: () -> Unit) {
-        if (TermsPrefs.hasAcceptedCurrentVersion(requireContext())) {
-            onAccepted()
-            return
-        }
-
-        val dialogView = LayoutInflater.from(requireContext())
-            .inflate(R.layout.dialog_terms_gate, null)
-
-        val btnOpenTerms = dialogView.findViewById<Button>(R.id.btnOpenTermsFromGate)
-        val btnOpenPrivacy = dialogView.findViewById<Button>(R.id.btnOpenPrivacyFromGate)
-        val checkAccept = dialogView.findViewById<CheckBox>(R.id.checkAcceptTerms)
-
-        btnOpenTerms.setOnClickListener {
-            PolicyPageActivity.open(
-                context = requireContext(),
-                title = "Terms of Use",
-                asset = "terms.html",
-                webUrl = WebPolicies.TERMS_URL
-            )
-        }
-
-        btnOpenPrivacy.setOnClickListener {
-            PolicyPageActivity.open(
-                context = requireContext(),
-                title = "Privacy Policy",
-                asset = "privacy.html",
-                webUrl = WebPolicies.PRIVACY_URL
-            )
-        }
-
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Before you continue")
-            .setView(dialogView)
-            .setNegativeButton("Not now", null)
-            .setPositiveButton("Accept and continue", null)
-            .create()
-
-        dialog.setCanceledOnTouchOutside(false)
-
-        dialog.setOnShowListener {
-            val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            positive.isEnabled = checkAccept.isChecked
-
-            checkAccept.setOnCheckedChangeListener { _, isChecked ->
-                positive.isEnabled = isChecked
-            }
-
-            positive.setOnClickListener {
-                if (!checkAccept.isChecked) return@setOnClickListener
-
-                TermsPrefs.markAcceptedCurrentVersion(requireContext())
-                dialog.dismiss()
-                onAccepted()
-            }
-        }
-
-        dialog.show()
+        (activity as? MainActivity)?.requireTermsAccepted(onAccepted)
     }
 }

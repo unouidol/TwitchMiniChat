@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -28,6 +29,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var repo: AccountRepository
     private lateinit var adapter: AccountsPagerAdapter
     private var startupAfterDeletionCheckDone = false
+
+    /** The acceptance gate, while it is on screen. Owned here so there is only one. */
+    private var termsGateDialog: AlertDialog? = null
 
     private var pagerKeyboardDismissController: PagerKeyboardDismissController? = null
     private var pagerKeyboardDismissCallback: ViewPager2.OnPageChangeCallback? = null
@@ -272,6 +276,55 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Puts the acceptance gate in front of whatever page is showing, when the stored
+     * acceptance is older than the current terms.
+     *
+     * Checked here rather than before the pages are routed: start-up is what every
+     * user meets first, and a mistake there opens nothing for anyone, while a mistake
+     * here is one dialog too many. Nothing about navigation changes.
+     */
+    override fun onResume() {
+        super.onResume()
+        requireTermsAccepted()
+    }
+
+    /**
+     * Runs [onAccepted] when the current terms are accepted, and otherwise shows the
+     * gate. Refusing closes this activity, wherever the gate was raised from.
+     *
+     * Every gesture that used to gate itself comes through here, so the guard against
+     * a second dialog has a single owner: resuming behind an open gate - which happens
+     * as soon as the user opens a policy page from it - must not raise another one.
+     */
+    fun requireTermsAccepted(onAccepted: () -> Unit = {}) {
+        val accepted = TermsPrefs.hasAcceptedCurrentVersion(this)
+
+        if (accepted) {
+            onAccepted()
+            return
+        }
+
+        if (
+            !TermsGatePolicy.shouldShow(
+                accepted = accepted,
+                alreadyOnScreen = termsGateDialog?.isShowing == true
+            )
+        ) {
+            return
+        }
+
+        val dialog = TermsGateDialog.create(
+            activity = this,
+            onAccepted = onAccepted,
+            onDeclined = { finish() }
+        )
+
+        dialog.setOnDismissListener { termsGateDialog = null }
+        termsGateDialog = dialog
+        dialog.show()
+    }
+
     override fun onStart() {
         super.onStart()
         ContextCompat.registerReceiver(
@@ -294,6 +347,10 @@ class MainActivity : AppCompatActivity() {
      * destroyed.
      */
     override fun onDestroy() {
+        /* The dialog holds this window; leaving it up would leak it on rotation. */
+        termsGateDialog?.dismiss()
+        termsGateDialog = null
+
         pagerKeyboardDismissCallback?.let { callback ->
             if (this::pager.isInitialized) {
                 pager.unregisterOnPageChangeCallback(callback)

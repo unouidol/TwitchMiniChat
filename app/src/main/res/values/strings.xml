@@ -178,6 +178,11 @@
     <string name="terms_gate_note">TwitchMiniChat provides access to public Twitch chat content and includes in-app safety tools such as message reporting and user blocking.</string>
     <string name="open_terms_of_use">Open Terms of Use</string>
     <string name="open_privacy_policy">Open Privacy Policy</string>
+    <string name="open_data_deletion">Open Data Deletion</string>
+    <string name="data_deletion">Data Deletion</string>
+    <string name="terms_gate_title">Before you continue</string>
+    <string name="terms_gate_accept">Accept and continue</string>
+    <string name="terms_gate_decline">Decline and close</string>
     <string name="terms_gate_accept_checkbox">I have read and agree to the Terms of Use and Privacy Policy.</string>
     <string name="terms_gate_crash_reporting">To find and fix problems, TMC sends anonymous crash and error reports: device model, Android version, app version and a technical stack trace. They never include your Twitch account, channels or chat messages. You can turn this off at any time in Safety &amp; Privacy.</string>
 

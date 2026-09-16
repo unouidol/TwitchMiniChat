@@ -65,7 +65,8 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `6055751` | 09-15 | The keep-accounts reset keeps the device credential, so the server registration stays reachable (#40) |
 | `86566d7` | 09-15 | "Erase everything on this device" also clears the built-in browser data (#40) |
 | `000318a` | 09-15 | Keep the two copies of every policy page aligned (docs only, #38) |
-| this pull request | 09-15 | The data deletion page, rewritten from the code. Corrected in 5.5.1: the published copy had drifted 35 lines from the APK's, a May section never brought back into the app, which is why the two-copies rule exists |
+| `cf8832d` | 09-15 | The data deletion page, rewritten from the code. Corrected in 5.5.1: the published copy had drifted 35 lines from the APK's, a May section never brought back into the app, which is why the two-copies rule exists (#39) |
+| this pull request | 09-16 | The acceptance gate also reaches someone who updates straight into the chat, checked on resume |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
