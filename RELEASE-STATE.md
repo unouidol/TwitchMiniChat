@@ -10,7 +10,7 @@ once from a stale note, costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-18, against `origin/main-v5` at `7073284`.
+Last verified: 2026-09-18, against `origin/main-v5` at `e15c3e9`.
 
 ## Published — what users have
 
@@ -32,16 +32,20 @@ but the tag has always pointed at `f0e0d35`. Dereference the tag rather than rea
 branch head: `git rev-parse v5.5.0^{commit}`.
 
 **5.5.1 is not published.** The version bump is on `main-v5` since `cfc4591` (#36), and is
-listed below as waiting like everything else. Two sets of release artifacts are **void and
+listed below as waiting like everything else. Three sets of release artifacts are **void and
 must not be published**. Built from `cfc4591` on 2026-09-17, they carry the fallback that
 plays when its watch saw nothing: arm64 `fb2c9d59…652feaa6`, armeabi-v7a
 `dfb511c6…305ac00b79`. Built from `7073284` on 2026-09-18, they still let the decision
 inside the sampling loop play on two readings: arm64 `cb738466…f269b09d`, armeabi-v7a
-`fbb9462a…93d5fc4d`. Both are withdrawn below; the checksums are here to recognise a copy if
-one survives. There is no `v5.5.1` tag. The order is fixed: merge the release pull request,
-build the release APKs, install them and pass the manual plan on the device, and only then
-tag and publish. If a case fails, the fix lands on `main-v5` and the build is repeated under
-the same number, because no 5.5.1 has ever left this repository.
+`fbb9462a…93d5fc4d`. Built from `e15c3e9` on 2026-09-18, they carry no build identity, so an
+installed copy cannot be told from the published one: arm64
+`d91d8dc8173f554a73f0149a3df3d285feaf4280b9567ac7f84bdc1cd8b3cda5`, armeabi-v7a
+`12037cf946eb99f39bf2dbbd2cd1de4d07abac015ad026ea02f56c890fd11979`. The first two are
+withdrawn below; the checksums are here to recognise a copy if one survives. There is no
+`v5.5.1` tag. The order is fixed: merge the release pull request, build the release APKs,
+install them and pass the manual plan on the device, and only then tag and publish. If a
+case fails, the fix lands on `main-v5` and the build is repeated under the same number,
+because no 5.5.1 has ever left this repository.
 
 ## Waiting for release — on `main-v5`, not published
 
@@ -78,7 +82,8 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `430e2e6` | 09-16 | The acceptance gate also reaches someone who updates straight into the chat, checked on resume (#41) |
 | `cfc4591` | 09-17 | `versionCode 8`, `versionName 5.5.1`, and this file (#36) |
 | `7073284` | 09-18 | The fallback no longer plays when its watch saw nothing, and reads the four settings again just before playing (#42) |
-| this pull request | 09-18 | Every fallback playback passes one gate - enough readings, then the four settings read again - the decision inside the sampling loop included |
+| `e15c3e9` | 09-18 | Every fallback playback passes one gate - enough readings, then the four settings read again - the decision inside the sampling loop included (#43) |
+| this pull request | 09-18 | Every build carries its commit: `BuildConfig.GIT_SHA`, shown on the login screen and in the journal export header |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
@@ -345,9 +350,17 @@ lines and `fcm.notification.audio` lines with `elevatedSpanMs`, and no
 diagnostics branch **with the notification listener and without the fallback** — reporting
 `versionCode 7` and `versionName 5.5.0`, like the published build.
 
-From 5.5.1 on, builds are told apart by their number rather than by behaviour: the login
-screen shows `Version 5.5.1 (build 8)` on a 5.5.1 candidate. Once the
-candidate is installed, record it here with the date. An `alert_audio` line in the journal
-and the absence of `listener.*` lines confirm the same thing from the other side.
+An earlier version of this section said that from 5.5.1 on builds are told apart by their
+number. That was wrong. Three sets of 5.5.1 artifacts were built from three commits, all
+reporting `versionName 5.5.1` and `versionCode 8`, and nothing on the device, in the journal
+export or in the APK told them apart. A version number is shared by every build of a release.
+
+From the commit that adds `BuildIdentity`, every build carries its commit. The login screen
+reads `Version 5.5.1 (build 8, abc1234)`, and the journal export header has a line
+`# app 5.5.1 (8) abc1234`. A `+` after the commit means the tree the build came from had
+uncommitted or untracked changes, and `unknown` means the build could not read git at all.
+Record the installed candidate here with the date and that commit. An `alert_audio` line in
+the journal and the absence of `listener.*` lines still confirm, from the other side, that it
+is a 5.5.1 build.
 
 Update this section from the device, not from intent.
