@@ -191,6 +191,28 @@ class NotificationAlertFallbackWatchTest {
     }
 
     /**
+     * The same conflation reached from the other side. A first pause served at
+     * 2550 ms puts the second reading past the grace, so the decision is taken
+     * inside the loop - on two readings. Never seen in the field, where the
+     * stretched pauses fell at 2700, 3700, 4600, 11200 and 25800 ms, but it is
+     * the same blindness, and the gate answers it the same way.
+     */
+    @Test
+    fun decisionPastTheGraceOnTwoReadings_playsNothingAndIsReportedUnobserved() {
+        val run = run(
+            playersBefore = 0,
+            fallbackArmed = true,
+            advance = { call, ms -> if (call == 0) 2_550L else ms },
+            countAt = { _, _ -> 0 }
+        )
+
+        assertEquals(0, run.fallbackOffsets.size)
+        assertEquals(2, run.watch.sampleCount)
+        assertTrue(run.watch.unobserved)
+        assertNull(run.watch.fallbackPlayed)
+    }
+
+    /**
      * The repair the guard must not remove. Readings dense enough to see a
      * sound, then one late pause that closes the window before the grace: the
      * silence was observed, so the fallback still plays, once.

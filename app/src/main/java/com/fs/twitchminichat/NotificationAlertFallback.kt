@@ -60,6 +60,46 @@ object NotificationAlertFallback {
         val lateSuppressionReason: String? = null
     )
 
+    /** What the gate decided about one attempt to play the fallback. */
+    internal data class GateVerdict(
+        val fallbackPlayed: Boolean? = null,
+        val unobserved: Boolean = false,
+        val lateSuppressionReason: String? = null
+    )
+
+    /**
+     * The only way the fallback sound is played.
+     *
+     * Every place that wants to play goes through [pass], and [playFallback] is
+     * reachable from nowhere else. Before this there were three such places -
+     * the decision inside the sampling loop, the undecided end of it, and the
+     * path with no AudioManager - each with its own rules, and the first of them
+     * could still play on two readings. One gate means a fourth place cannot be
+     * added without the same two checks.
+     *
+     * The checks, in order. Enough readings to call it silence, per
+     * [NotificationAlertFallbackPolicy.samplingAdequate]; otherwise the alert
+     * was not observed and nothing plays. Then the four settings, read again
+     * through [suppressionNow] - the service's currentSuppressionReason - since
+     * the user may have asked for silence since the alert was posted.
+     */
+    internal class PlaybackGate(
+        private val suppressionNow: () -> String?,
+        private val playFallback: () -> Boolean
+    ) {
+        fun pass(sampleCount: Int): GateVerdict {
+            if (!NotificationAlertFallbackPolicy.samplingAdequate(sampleCount)) {
+                return GateVerdict(unobserved = true)
+            }
+
+            suppressionNow()?.let { reason ->
+                return GateVerdict(lateSuppressionReason = reason)
+            }
+
+            return GateVerdict(fallbackPlayed = playFallback())
+        }
+    }
+
     /**
      * Samples the active players for one alert, and plays the sound once if the
      * system has not started a player of its own by the end of the grace.
@@ -92,18 +132,26 @@ object NotificationAlertFallback {
         onSample: (offsetMs: Long, playerCount: Int) -> Unit
     ): Watch {
         /*
-         * No AudioManager means nothing can be read, so nothing is concluded:
-         * the same rule as a sampler gone blind. This used to play without a
-         * single reading. It is unreachable today - the same missing manager
-         * reads the ringer as a sentinel and disarms the fallback - but it is
-         * the same rule, so it is not left as an exception.
+         * No AudioManager means nothing can be read. It still goes through the
+         * gate, with no readings, so the gate's first check answers it rather
+         * than a rule of its own here. Unreachable today - the same missing
+         * manager reads the ringer as a sentinel and disarms the fallback.
          */
         if (audioManager == null) {
+            val verdict = if (fallbackArmed) {
+                PlaybackGate(suppressionNow) {
+                    playOnce(context, null, channelSound)
+                }.pass(sampleCount = 0)
+            } else {
+                GateVerdict()
+            }
+
             return Watch(
                 systemStartMs = null,
-                fallbackPlayed = null,
+                fallbackPlayed = verdict.fallbackPlayed,
                 sampleCount = 0,
-                unobserved = fallbackArmed
+                unobserved = verdict.unobserved,
+                lateSuppressionReason = verdict.lateSuppressionReason
             )
         }
 
@@ -135,12 +183,10 @@ object NotificationAlertFallback {
      *
      * [pause] returns false when the pause was interrupted, which ends sampling.
      *
-     * A loop that ends without deciding is not evidence of silence. A single
-     * pause served seconds late ends it after one reading, so the undecided end
-     * plays only when [NotificationAlertFallbackPolicy.samplingAdequate] says
-     * enough readings were taken; otherwise the watch reports itself unobserved
-     * and plays nothing. The decision reached inside the loop, at the first
-     * reading past the grace, is unchanged.
+     * Neither a loop that ends undecided nor a reading past the grace reached
+     * in two steps is evidence of silence: a single pause served seconds late
+     * does either. Both endings go through [PlaybackGate], which plays only on
+     * enough readings and only if no setting asks for silence now.
      */
     internal fun sampleAndDecide(
         playersBefore: Int,
@@ -163,18 +209,14 @@ object NotificationAlertFallback {
         var unobserved = false
         var lateSuppressionReason: String? = null
 
-        /*
-         * The four settings were read before the alert was posted. Read them
-         * again at the last moment: Do Not Disturb switched on during the grace
-         * is a request for silence the fallback must not override.
-         */
-        fun playUnlessSilenced() {
-            val reason = suppressionNow()
-            if (reason != null) {
-                lateSuppressionReason = reason
-            } else {
-                fallbackPlayed = playFallback()
-            }
+        /* playFallback is handed to the gate and not used below this line. */
+        val gate = PlaybackGate(suppressionNow, playFallback)
+
+        fun playThroughGate() {
+            val verdict = gate.pass(sampleCount)
+            fallbackPlayed = verdict.fallbackPlayed
+            unobserved = verdict.unobserved
+            lateSuppressionReason = verdict.lateSuppressionReason
         }
 
         while (now() - startedAtMs < untilMs) {
@@ -201,7 +243,7 @@ object NotificationAlertFallback {
                 } else if (offsetMs >= graceMs) {
                     decided = true
                     if (fallbackArmed) {
-                        playUnlessSilenced()
+                        playThroughGate()
                     }
                 }
             }
@@ -211,15 +253,11 @@ object NotificationAlertFallback {
 
         /*
          * Ended without deciding: the window closed, or a pause was interrupted,
-         * before any reading reached the grace. That says nothing about silence
-         * unless the readings were dense enough to have seen a sound.
+         * before any reading reached the grace. The gate decides whether the
+         * readings were dense enough to call that silence.
          */
         if (!decided && fallbackArmed) {
-            if (NotificationAlertFallbackPolicy.samplingAdequate(sampleCount)) {
-                playUnlessSilenced()
-            } else {
-                unobserved = true
-            }
+            playThroughGate()
         }
 
         return Watch(
