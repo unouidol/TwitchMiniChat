@@ -10,7 +10,7 @@ once from a stale note, costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-18, against `origin/main-v5` at `e15c3e9`.
+Last verified: 2026-09-18, against `origin/main-v5` at `007ee55`.
 
 ## Published — what users have
 
@@ -83,7 +83,7 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `cfc4591` | 09-17 | `versionCode 8`, `versionName 5.5.1`, and this file (#36) |
 | `7073284` | 09-18 | The fallback no longer plays when its watch saw nothing, and reads the four settings again just before playing (#42) |
 | `e15c3e9` | 09-18 | Every fallback playback passes one gate - enough readings, then the four settings read again - the decision inside the sampling loop included (#43) |
-| this pull request | 09-18 | Every build carries its commit: `BuildConfig.GIT_SHA`, shown on the login screen and in the journal export header |
+| `007ee55` | 09-18 | Every build carries its commit: `BuildConfig.GIT_SHA`, shown on the login screen and in the journal export header (#44) |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
