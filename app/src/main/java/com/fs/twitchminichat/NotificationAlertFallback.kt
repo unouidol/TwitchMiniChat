@@ -44,11 +44,20 @@ object NotificationAlertFallback {
      *   same quantity the diagnostics call firstRiseMs, taken from the same
      *   sample, so the two can never disagree.
      * @param fallbackPlayed whether the fallback sound started, or null when it
-     *   was never attempted because the system played or the watch was not armed.
+     *   was never attempted because the system played, the watch was not armed,
+     *   the alert went unobserved or a setting asked for silence meanwhile.
+     * @param sampleCount how many times the players were read.
+     * @param unobserved true when the watch ended undecided on too few readings
+     *   to call it silence, so nothing was played.
+     * @param lateSuppressionReason the setting that asked for silence during the
+     *   grace, read again just before the fallback would have played.
      */
     data class Watch(
         val systemStartMs: Long?,
-        val fallbackPlayed: Boolean?
+        val fallbackPlayed: Boolean?,
+        val sampleCount: Int = 0,
+        val unobserved: Boolean = false,
+        val lateSuppressionReason: String? = null
     )
 
     /**
@@ -68,6 +77,9 @@ object NotificationAlertFallback {
      * fallback plays, when [fallbackArmed]. Sampling continues until [windowMs]
      * for the observer's sake, never shorter than the grace, so a fallback
      * sound started at the end of the grace shows up in the later samples too.
+     *
+     * [suppressionNow] reads the four settings again and is asked just before
+     * the fallback plays: the user may have asked for silence during the grace.
      */
     fun watch(
         context: Context,
@@ -76,11 +88,23 @@ object NotificationAlertFallback {
         channelSound: Uri?,
         fallbackArmed: Boolean,
         windowMs: Long,
+        suppressionNow: () -> String?,
         onSample: (offsetMs: Long, playerCount: Int) -> Unit
     ): Watch {
+        /*
+         * No AudioManager means nothing can be read, so nothing is concluded:
+         * the same rule as a sampler gone blind. This used to play without a
+         * single reading. It is unreachable today - the same missing manager
+         * reads the ringer as a sentinel and disarms the fallback - but it is
+         * the same rule, so it is not left as an exception.
+         */
         if (audioManager == null) {
-            val played = if (fallbackArmed) playOnce(context, null, channelSound) else null
-            return Watch(systemStartMs = null, fallbackPlayed = played)
+            return Watch(
+                systemStartMs = null,
+                fallbackPlayed = null,
+                sampleCount = 0,
+                unobserved = fallbackArmed
+            )
         }
 
         return sampleAndDecide(
@@ -91,6 +115,7 @@ object NotificationAlertFallback {
             playerCount = { activePlayerCount(audioManager) },
             pause = { ms -> runCatching { Thread.sleep(ms) }.isSuccess },
             playFallback = { playOnce(context, audioManager, channelSound) },
+            suppressionNow = suppressionNow,
             onSample = onSample
         )
     }
@@ -109,6 +134,13 @@ object NotificationAlertFallback {
      * would notice, which is why this loop has tests of its own.
      *
      * [pause] returns false when the pause was interrupted, which ends sampling.
+     *
+     * A loop that ends without deciding is not evidence of silence. A single
+     * pause served seconds late ends it after one reading, so the undecided end
+     * plays only when [NotificationAlertFallbackPolicy.samplingAdequate] says
+     * enough readings were taken; otherwise the watch reports itself unobserved
+     * and plays nothing. The decision reached inside the loop, at the first
+     * reading past the grace, is unchanged.
      */
     internal fun sampleAndDecide(
         playersBefore: Int,
@@ -118,6 +150,7 @@ object NotificationAlertFallback {
         playerCount: () -> Int,
         pause: (Long) -> Boolean,
         playFallback: () -> Boolean,
+        suppressionNow: () -> String?,
         onSample: (offsetMs: Long, playerCount: Int) -> Unit
     ): Watch {
         val graceMs = NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
@@ -126,6 +159,23 @@ object NotificationAlertFallback {
         var decided = false
         var systemStartMs: Long? = null
         var fallbackPlayed: Boolean? = null
+        var sampleCount = 0
+        var unobserved = false
+        var lateSuppressionReason: String? = null
+
+        /*
+         * The four settings were read before the alert was posted. Read them
+         * again at the last moment: Do Not Disturb switched on during the grace
+         * is a request for silence the fallback must not override.
+         */
+        fun playUnlessSilenced() {
+            val reason = suppressionNow()
+            if (reason != null) {
+                lateSuppressionReason = reason
+            } else {
+                fallbackPlayed = playFallback()
+            }
+        }
 
         while (now() - startedAtMs < untilMs) {
             /*
@@ -135,6 +185,7 @@ object NotificationAlertFallback {
             val count = playerCount()
             val offsetMs = now() - startedAtMs
 
+            sampleCount++
             onSample(offsetMs, count)
 
             if (!decided) {
@@ -150,7 +201,7 @@ object NotificationAlertFallback {
                 } else if (offsetMs >= graceMs) {
                     decided = true
                     if (fallbackArmed) {
-                        fallbackPlayed = playFallback()
+                        playUnlessSilenced()
                     }
                 }
             }
@@ -158,11 +209,26 @@ object NotificationAlertFallback {
             if (!pause(NotificationAlertFallbackPolicy.POLL_INTERVAL_MS)) break
         }
 
+        /*
+         * Ended without deciding: the window closed, or a pause was interrupted,
+         * before any reading reached the grace. That says nothing about silence
+         * unless the readings were dense enough to have seen a sound.
+         */
         if (!decided && fallbackArmed) {
-            fallbackPlayed = playFallback()
+            if (NotificationAlertFallbackPolicy.samplingAdequate(sampleCount)) {
+                playUnlessSilenced()
+            } else {
+                unobserved = true
+            }
         }
 
-        return Watch(systemStartMs = systemStartMs, fallbackPlayed = fallbackPlayed)
+        return Watch(
+            systemStartMs = systemStartMs,
+            fallbackPlayed = fallbackPlayed,
+            sampleCount = sampleCount,
+            unobserved = unobserved,
+            lateSuppressionReason = lateSuppressionReason
+        )
     }
 
     /**

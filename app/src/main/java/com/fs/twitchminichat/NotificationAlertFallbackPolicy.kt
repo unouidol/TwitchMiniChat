@@ -7,13 +7,13 @@ import android.media.AudioManager
  * Decides whether a posted spawn alert that made no sound is a defect worth
  * repairing, and how long to wait before concluding that it was.
  *
- * The alert sound is played by the system, not by this application. On around
- * 279 alerts observed in an audible environment it was sometimes never played
- * at all. The dominant cause was external and has been fixed, taking the rate
- * from 14.5% to 3.7%. What remains concentrates where audio was already
- * playing - 3 of 20 against 2 of 114 - and in those cases the player count
- * never rises, meaning the system player is never born. It cannot be repaired
- * from here. It can only stop being depended upon when it fails.
+ * The alert sound is played by the system, not by this application, and it is
+ * sometimes never played at all. Measured on three journal exports,
+ * deduplicated: once the device's own broken default sound was fixed on
+ * 2026-09-11, the system player never started for 3 of 135 alerts from a warm
+ * process. On log27, 16 to 18 September, 1 of the 73 alerts observed
+ * regularly was really silent, 1.4%. It cannot be repaired from here. It can
+ * only stop being depended upon when it fails.
  */
 object NotificationAlertFallbackPolicy {
 
@@ -35,6 +35,10 @@ object NotificationAlertFallbackPolicy {
      * and a doubled alert is not acceptable at any frequency. Between a late
      * sound and two sounds, the tail of the distribution gets the benefit of
      * the doubt.
+     *
+     * Measured again in the field on log27: the system player started between
+     * 726 and 1039 milliseconds across more than seventy alerts. The margin
+     * stands.
      */
     const val SYSTEM_PLAYER_GRACE_MS: Long = 2_500L
 
@@ -47,8 +51,46 @@ object NotificationAlertFallbackPolicy {
     /** The system played nothing, so this application played the chime. */
     const val OUTCOME_FALLBACK = "fallback"
 
-    /** Silence was asked for, so nothing was played and nothing was watched. */
+    /**
+     * Silence was asked for, so nothing was played.
+     *
+     * Written before the alert is posted when a setting already asked for it,
+     * or just before the fallback would have played when one changed during
+     * the grace; the second carries checkedAt=before_playback.
+     */
     const val OUTCOME_SUPPRESSED = "suppressed"
+
+    /**
+     * The watch read the players too rarely to tell silence from a sound it
+     * missed, so nothing was played. The line carries the sampleCount it had.
+     */
+    const val OUTCOME_UNOBSERVED = "unobserved"
+
+    /**
+     * Fewest readings on which "no system player appeared" may be concluded.
+     *
+     * Half the grace divided by the polling interval, derived rather than
+     * written so that changing either constant moves it. Below it the readings
+     * are too sparse to see a system sound that starts and ends between two of
+     * them, and concluding silence would be concluding it in the dark.
+     *
+     * Why it exists, measured on log27, 85 armed alerts from 16 to 18 September.
+     * The sampler went blind 12 times, 14%: a single pause of 60 milliseconds
+     * served after 2.7 seconds ends the loop after one reading, before any
+     * reading reaches the grace, and the undecided watch used to play. The
+     * fallback played 13 times, once on 40 readings - a real repair - and twelve
+     * times blind, and those were heard as doubled alerts. With 1 really silent
+     * alert in 73 observed regularly, 12 blind windows hide about 0.17 silent
+     * ones: playing in the dark bought a sixth of a spawn and cost twelve
+     * doubled chimes. An unobserved alert now stays unrepaired, and says so.
+     */
+    const val MIN_SAMPLES_FOR_SILENCE: Int =
+        (SYSTEM_PLAYER_GRACE_MS / 2 / POLL_INTERVAL_MS).toInt()
+
+    /** Whether [sampleCount] readings are enough to conclude the system stayed silent. */
+    fun samplingAdequate(sampleCount: Int): Boolean {
+        return sampleCount >= MIN_SAMPLES_FOR_SILENCE
+    }
 
     /** Do Not Disturb, or any filter narrower than everything. */
     const val REASON_INTERRUPTION_FILTER = "interruption_filter"

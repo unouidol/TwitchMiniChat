@@ -401,14 +401,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          * count is the baseline that tells a player this alert started from
          * audio that was already running.
          */
-        val suppressionReason = NotificationAlertFallbackPolicy.suppressionReason(
-            interruptionFilter = runCatching {
-                notificationManager.currentInterruptionFilter
-            }.getOrDefault(NOT_A_FILTER),
-            ringerMode = audioManager?.ringerMode ?: NOT_A_RINGER_MODE,
-            notificationVolume = audioManager?.getStreamVolume(
-                AudioManager.STREAM_NOTIFICATION
-            ) ?: 0,
+        val suppressionReason = currentSuppressionReason(
+            notificationManager = notificationManager,
+            audioManager = audioManager,
             channelHasSound = channelSound != null
         )
 
@@ -517,7 +512,43 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             playersBefore = playersBefore,
             channelSound = channelSound,
             processUptimeMs = processUptimeMs,
-            fallbackArmed = suppressionReason == null
+            fallbackArmed = suppressionReason == null,
+            suppressionNow = {
+                currentSuppressionReason(
+                    notificationManager = notificationManager,
+                    audioManager = audioManager,
+                    channelHasSound = notificationManager
+                        .getNotificationChannel(channelId)
+                        ?.sound != null
+                )
+            }
+        )
+    }
+
+    /**
+     * Reads the four settings that can ask for silence, and returns the one
+     * that does, or null.
+     *
+     * One reading, used twice: before the alert is posted, and again just
+     * before the fallback would play, since any of them can change during the
+     * grace. A state the framework refuses to report reads as a sentinel that
+     * matches no real constant, so an unreadable device is never permission to
+     * make a sound.
+     */
+    private fun currentSuppressionReason(
+        notificationManager: NotificationManager,
+        audioManager: AudioManager?,
+        channelHasSound: Boolean
+    ): String? {
+        return NotificationAlertFallbackPolicy.suppressionReason(
+            interruptionFilter = runCatching {
+                notificationManager.currentInterruptionFilter
+            }.getOrDefault(NOT_A_FILTER),
+            ringerMode = audioManager?.ringerMode ?: NOT_A_RINGER_MODE,
+            notificationVolume = audioManager?.getStreamVolume(
+                AudioManager.STREAM_NOTIFICATION
+            ) ?: 0,
+            channelHasSound = channelHasSound
         )
     }
 
@@ -661,7 +692,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         playersBefore: Int,
         channelSound: Uri?,
         processUptimeMs: Long,
-        fallbackArmed: Boolean
+        fallbackArmed: Boolean,
+        suppressionNow: () -> String?
     ) {
         /*
          * One thread per alert, and deliberately not an executor. Pooling this
@@ -696,6 +728,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 channelSound = channelSound,
                 fallbackArmed = fallbackArmed,
                 windowMs = AUDIO_OBSERVATION_MS,
+                suppressionNow = suppressionNow,
                 onSample = { offsetMs, playerCount ->
                     samples += AudioPlayerSample(offsetMs = offsetMs, playerCount = playerCount)
                 }
@@ -711,7 +744,36 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     outcome = NotificationAlertFallbackPolicy.OUTCOME_PLAYED,
                     processUptimeMs = processUptimeMs,
                     playersBefore = playersBefore,
-                    systemStartMs = watch.systemStartMs
+                    systemStartMs = watch.systemStartMs,
+                    sampleCount = watch.sampleCount
+                )
+                return@Thread
+            }
+
+            /*
+             * Too few readings to tell silence from a sound the watch missed.
+             * Nothing was played, and the line says so rather than calling it a
+             * fallback that did not start.
+             */
+            if (watch.unobserved) {
+                Log.w(TAG, "Alert audio unobserved, sampleCount=${watch.sampleCount}")
+                recordAlertAudioOutcome(
+                    outcome = NotificationAlertFallbackPolicy.OUTCOME_UNOBSERVED,
+                    processUptimeMs = processUptimeMs,
+                    playersBefore = playersBefore,
+                    sampleCount = watch.sampleCount
+                )
+                return@Thread
+            }
+
+            watch.lateSuppressionReason?.let { reason ->
+                recordAlertAudioOutcome(
+                    outcome = NotificationAlertFallbackPolicy.OUTCOME_SUPPRESSED,
+                    processUptimeMs = processUptimeMs,
+                    reason = reason,
+                    playersBefore = playersBefore,
+                    sampleCount = watch.sampleCount,
+                    checkedAt = CHECKED_BEFORE_PLAYBACK
                 )
                 return@Thread
             }
@@ -725,7 +787,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 outcome = NotificationAlertFallbackPolicy.OUTCOME_FALLBACK,
                 processUptimeMs = processUptimeMs,
                 playersBefore = playersBefore,
-                fallbackPlayed = watch.fallbackPlayed
+                fallbackPlayed = watch.fallbackPlayed,
+                sampleCount = watch.sampleCount
             )
         }, "tmc-alert-audio").start()
     }
@@ -744,7 +807,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         reason: String? = null,
         playersBefore: Int? = null,
         systemStartMs: Long? = null,
-        fallbackPlayed: Boolean? = null
+        fallbackPlayed: Boolean? = null,
+        sampleCount: Int? = null,
+        checkedAt: String? = null
     ) {
         /*
          * processUptimeMs rides on the same line as the outcome so a cold alert
@@ -760,6 +825,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             "playersBefore" to playersBefore,
             "systemStartMs" to systemStartMs,
             "fallbackPlayed" to fallbackPlayed,
+            "sampleCount" to sampleCount,
+            "checkedAt" to checkedAt,
             "graceMs" to NotificationAlertFallbackPolicy.SYSTEM_PLAYER_GRACE_MS
         )
     }
@@ -775,6 +842,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
          */
         private const val NOT_A_FILTER = -1
         private const val NOT_A_RINGER_MODE = -1
+
+        /** Marks a suppression found when the settings were read again before playback. */
+        private const val CHECKED_BEFORE_PLAYBACK = "before_playback"
 
         /** One push arrived and was dropped before it could become a notification. */
         private const val MARKER_MESSAGE_HANDLING_FAILED = "fcm_message_handling_failed"

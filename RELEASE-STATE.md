@@ -10,8 +10,7 @@ once from a stale note, costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-16, against `origin/main-v5` at `cf8832d`, the commit
-`release/5.5.1` is based on.
+Last verified: 2026-09-18, against `origin/main-v5` at `cfc4591`.
 
 ## Published — what users have
 
@@ -32,12 +31,15 @@ parent on the other side of that merge. Both are on `main-v5`, so the mistake wa
 but the tag has always pointed at `f0e0d35`. Dereference the tag rather than reading a
 branch head: `git rev-parse v5.5.0^{commit}`.
 
-**5.5.1 is not published.** The version bump exists, on `release/5.5.1`, and is listed
-below as waiting like everything else. There is no `v5.5.1` tag. The order is fixed: merge
-the release pull request, build the release APKs, install them and pass the manual plan on
-the device, and only then tag and publish. If a case fails, the fix lands on `main-v5` and
-the build is repeated under the same number, because no 5.5.1 has ever left this
-repository.
+**5.5.1 is not published.** The version bump is on `main-v5` since `cfc4591` (#36), and is
+listed below as waiting like everything else. The release artifacts built from `cfc4591` on
+2026-09-17 are **void and must not be published**: they carry the fallback that plays when
+its watch saw nothing, withdrawn below. Their checksums, for recognising them if a copy
+survives: arm64 `fb2c9d59…652feaa6`, armeabi-v7a `dfb511c6…305ac00b79`. There is no `v5.5.1`
+tag. The order is fixed: merge the release pull request, build the release APKs, install
+them and pass the manual plan on the device, and only then tag and publish. If a case fails,
+the fix lands on `main-v5` and the build is repeated under the same number, because no 5.5.1
+has ever left this repository.
 
 ## Waiting for release — on `main-v5`, not published
 
@@ -72,6 +74,8 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `000318a` | 09-15 | Keep the two copies of every policy page aligned (docs only, #38) |
 | `cf8832d` | 09-15 | The data deletion page, rewritten from the code. Corrected in 5.5.1: the published copy had drifted 35 lines from the APK's, a May section never brought back into the app, which is why the two-copies rule exists (#39) |
 | `430e2e6` | 09-16 | The acceptance gate also reaches someone who updates straight into the chat, checked on resume (#41) |
+| `cfc4591` | 09-17 | `versionCode 8`, `versionName 5.5.1`, and this file (#36) |
+| this pull request | 09-18 | The fallback no longer plays when its watch saw nothing, and reads the four settings again just before playing |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
@@ -227,14 +231,54 @@ written down.
 
 What 5.5.1 adds to the question: the fallback from #31 plays the channel's sound itself when
 no system player appears within 2500 ms, and every alert writes one
-`fcm.notification.alert_audio` line with its outcome (`played`, `fallback`, `suppressed`)
-and `processUptimeMs`. A cold alert now answers the open question on its own line.
+`fcm.notification.alert_audio` line with its outcome (`played`, `fallback`, `suppressed`,
+`unobserved`), `processUptimeMs` and `sampleCount`. A cold alert now answers the open
+question on its own line.
 
-## Waiting for release — on `release/5.5.1`
+The same figures now replace the unreproducible ones in the code as well: the KDoc of
+`NotificationAlertFallbackPolicy` carried the numbers from `c4f4ffb`'s message until the
+change below.
 
-| Commit | Date | Change |
-|---|---|---|
-| the release pull request | 09-15 | `versionCode 8`, `versionName 5.5.1`, and this file |
+#### Decision, 2026-09-18: the fallback does not play on a watch that saw nothing
+
+This replaces an earlier instruction to play even when the watch was blind. Nothing
+implementing that instruction had landed. The decision changed on data, measured on log27:
+85 armed alerts between 16 and 18 September.
+
+- **The sampler went blind 12 times, 14%.** The fallback played 13 times: once on 40
+  readings, a real repair, and twelve times blind. The blind ones were heard as doubled
+  alerts.
+- **Silence is rare where it can be seen.** Of the 73 alerts observed regularly, 1 was
+  really silent, 1.4%. Across 12 blind windows that predicts about 0.17 silent alerts.
+- **So playing in the dark bought a sixth of a spawn and cost twelve doubled chimes.**
+
+The mechanism is in the code, isolated rather than supposed. In `sampleAndDecide`, a single
+`pause(60)` served after 2.7 seconds ends the `while` after one reading, before any reading
+reaches the 2500 ms grace. `decided` stayed false, and the final branch played, treating
+"the loop ended undecided" as "no player was born". The same branch also played when a pause
+was interrupted.
+
+What changed:
+
+1. **The undecided branch plays only on adequate sampling**, at least
+   `MIN_SAMPLES_FOR_SILENCE` readings. That is half the grace divided by the polling interval,
+   derived from the two constants rather than written by hand: 2500 / 2 / 60, so 20 today.
+   Below it the line reads `outcome=unobserved` with its `sampleCount`, and nothing plays.
+   The decision reached inside the loop, at the first reading past the grace, is unchanged.
+2. **The four settings are read again just before playing**, not only before posting.
+   Do Not Disturb switched on during the 2.5 seconds is now honoured; the line reads
+   `outcome=suppressed checkedAt=before_playback` with the reason.
+3. The path with no `AudioManager` used to play without a single reading. It is unreachable
+   today, because a missing manager reads the ringer as a sentinel and disarms the fallback,
+   but it follows the same rule now and reports `unobserved`.
+
+The 2500 ms grace is untouched. In the field the system player started between 726 and
+1039 ms across more than seventy alerts, so the margin stands.
+
+One case is left as it was, by instruction, and is worth knowing about. The decision inside
+the loop needs only one reading past the grace, so a pause served between 2.5 and 2.6
+seconds late reaches it with two readings and still plays. Extending the guard to that branch
+is one condition; it was not asked for here.
 
 ## Not in 5.5.1 — `work/irc-read-timeout`
 

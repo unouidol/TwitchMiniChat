@@ -3,6 +3,7 @@ package com.fs.twitchminichat
 import com.fs.twitchminichat.diagnostics.AudioPlaybackObservation
 import com.fs.twitchminichat.diagnostics.AudioPlayerSample
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,11 +20,17 @@ import org.junit.Test
  */
 class NotificationAlertFallbackWatchTest {
 
-    /** A clock that stands still until the loop pauses, then jumps by the pause. */
-    private class FakeClock {
+    /**
+     * A clock that stands still until the loop pauses, then jumps by the pause -
+     * or by what [advance] says, which is how a pause served late is staged.
+     */
+    private class FakeClock(
+        private val advance: (call: Int, requestedMs: Long) -> Long
+    ) {
         var nowMs = 0L
+        private var calls = 0
         fun pause(ms: Long): Boolean {
-            nowMs += ms
+            nowMs += advance(calls++, ms)
             return true
         }
     }
@@ -38,9 +45,11 @@ class NotificationAlertFallbackWatchTest {
     private fun run(
         playersBefore: Int,
         fallbackArmed: Boolean,
+        suppressionNow: () -> String? = { null },
+        advance: (call: Int, requestedMs: Long) -> Long = { _, ms -> ms },
         countAt: (nowMs: Long, fallbackStarted: Boolean) -> Int
     ): Run {
-        val clock = FakeClock()
+        val clock = FakeClock(advance)
         val samples = mutableListOf<AudioPlayerSample>()
         val fallbackOffsets = mutableListOf<Long>()
 
@@ -55,6 +64,7 @@ class NotificationAlertFallbackWatchTest {
                 fallbackOffsets += clock.nowMs
                 true
             },
+            suppressionNow = suppressionNow,
             onSample = { offsetMs, count -> samples += AudioPlayerSample(offsetMs, count) }
         )
 
@@ -160,4 +170,64 @@ class NotificationAlertFallbackWatchTest {
         /** The observation window the notification service passes in. */
         const val WINDOW_MS = 2_600L
     }
+    /**
+     * The defect measured on log27: a single pause served 2.7 seconds late ends
+     * the loop after one reading, before any reading reaches the grace. The
+     * watch saw nothing and must not conclude silence from it.
+     */
+    @Test
+    fun blindWindow_playsNothingAndIsReportedUnobserved() {
+        val run = run(
+            playersBefore = 0,
+            fallbackArmed = true,
+            advance = { call, ms -> if (call == 0) 2_700L else ms },
+            countAt = { _, _ -> 0 }
+        )
+
+        assertEquals(0, run.fallbackOffsets.size)
+        assertEquals(1, run.watch.sampleCount)
+        assertTrue(run.watch.unobserved)
+        assertNull(run.watch.fallbackPlayed)
+    }
+
+    /**
+     * The repair the guard must not remove. Readings dense enough to see a
+     * sound, then one late pause that closes the window before the grace: the
+     * silence was observed, so the fallback still plays, once.
+     */
+    @Test
+    fun denseReadingsThenLatePause_stillRepairsOnce() {
+        val run = run(
+            playersBefore = 0,
+            fallbackArmed = true,
+            advance = { call, ms -> if (call == 39) 400L else ms },
+            countAt = { _, _ -> 0 }
+        )
+
+        assertEquals(40, run.watch.sampleCount)
+        assertEquals(1, run.fallbackOffsets.size)
+        assertFalse(run.watch.unobserved)
+    }
+
+    /**
+     * Do Not Disturb switched on during the grace. The settings were fine when
+     * the alert was posted, and are read again just before playing.
+     */
+    @Test
+    fun silenceRequestedDuringTheGrace_playsNothing() {
+        val run = run(
+            playersBefore = 0,
+            fallbackArmed = true,
+            suppressionNow = { NotificationAlertFallbackPolicy.REASON_INTERRUPTION_FILTER },
+            countAt = { _, _ -> 0 }
+        )
+
+        assertEquals(0, run.fallbackOffsets.size)
+        assertEquals(
+            NotificationAlertFallbackPolicy.REASON_INTERRUPTION_FILTER,
+            run.watch.lateSuppressionReason
+        )
+        assertNull(run.watch.fallbackPlayed)
+    }
+
 }
