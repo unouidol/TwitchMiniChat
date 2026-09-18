@@ -2,6 +2,8 @@ package com.fs.twitchminichat.diagnostics
 
 import android.content.Context
 import android.os.Build
+import com.fs.twitchminichat.BuildConfig
+import com.fs.twitchminichat.BuildIdentity
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -147,6 +149,16 @@ object HistoryDiagnosticsLog {
                 export.bufferedWriter().use { output ->
                     output.appendLine(
                         "# TwitchMiniChat diagnostics"
+                    )
+                    /*
+                     * Which build wrote this journal. Version and build number
+                     * alone are shared by every build of a release; the commit
+                     * is what tells them apart.
+                     */
+                    output.appendLine(
+                        "# app ${sanitize(BuildConfig.VERSION_NAME)} " +
+                                "(${BuildConfig.VERSION_CODE}) " +
+                                sanitize(BuildIdentity.shortSha)
                     )
                     output.appendLine(
                         "# exported ${formatInstant(System.currentTimeMillis())}"

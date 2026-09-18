@@ -156,8 +156,10 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
      * Shows the installed build identity at the bottom of the login screen.
      *
      * The label is selectable so a user reporting a problem can copy the exact
-     * version and build number. The development flavor appends its own version
-     * name suffix, which keeps development installations distinguishable.
+     * version, build number and commit. The development flavor appends its own
+     * version name suffix, which keeps development installations distinguishable.
+     * The commit is what tells apart two builds of the same version and build
+     * number, which the first two fields cannot.
      */
     private fun showAppVersion(view: View) {
         val versionLabel = view.findViewById<TextView>(R.id.txtAppVersion) ?: return
@@ -165,7 +167,8 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         versionLabel.text = getString(
             R.string.app_version_label,
             BuildConfig.VERSION_NAME,
-            BuildConfig.VERSION_CODE
+            BuildConfig.VERSION_CODE,
+            BuildIdentity.shortSha
         )
 
         DiagnosticsExportGesture.attach(versionLabel)

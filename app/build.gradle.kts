@@ -20,6 +20,44 @@ val hasReleaseSigning =
             !localProps.getProperty("RELEASE_KEY_ALIAS").isNullOrBlank() &&
             !localProps.getProperty("RELEASE_KEY_PASSWORD").isNullOrBlank()
 
+/**
+ * Runs one git command through the configuration-cache-compatible exec provider
+ * and returns its trimmed output, or null when there is nothing to trust: git
+ * missing from the PATH, no repository (a source archive), a non-zero exit, or
+ * empty output. Never throws, so a checkout without history still builds.
+ */
+fun gitOutput(vararg args: String): String? = runCatching {
+    val execution = providers.exec {
+        commandLine("git", *args)
+        isIgnoreExitValue = true
+    }
+    if (execution.result.get().exitValue != 0) {
+        null
+    } else {
+        execution.standardOutput.asText.get().trim()
+    }
+}.getOrNull()
+
+/**
+ * The commit this build was made from, as "abc1234", or "abc1234+" when the
+ * working tree had uncommitted or untracked changes, or "unknown".
+ *
+ * Version numbers cannot tell builds apart - several builds exist per release -
+ * while the commit can. Both commands have to succeed: if the tree's state
+ * cannot be read, the build does not claim to be clean.
+ */
+val gitShaForBuild: String = run {
+    val sha = gitOutput("rev-parse", "--short=7", "HEAD")
+    val status = gitOutput("status", "--porcelain")
+
+    when {
+        sha.isNullOrEmpty() -> "unknown"
+        status == null -> "unknown"
+        status.isEmpty() -> sha
+        else -> "$sha+"
+    }
+}
+
 android {
     namespace = "com.fs.twitchminichat"
     compileSdk = 36
@@ -34,6 +72,9 @@ android {
 
         resValue("string", "fcm_register_url", "https://api.ircminichat.party/register_fcm")
         resValue("string", "dex_upload_url", "https://api.ircminichat.party/upload_dex_list")
+
+        /* Read through BuildIdentity, which normalises it before display. */
+        buildConfigField("String", "GIT_SHA", "\"$gitShaForBuild\"")
     }
 
     buildFeatures {
