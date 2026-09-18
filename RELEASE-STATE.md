@@ -10,7 +10,7 @@ once from a stale note, costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-18, against `origin/main-v5` at `cfc4591`.
+Last verified: 2026-09-18, against `origin/main-v5` at `7073284`.
 
 ## Published — what users have
 
@@ -32,14 +32,16 @@ but the tag has always pointed at `f0e0d35`. Dereference the tag rather than rea
 branch head: `git rev-parse v5.5.0^{commit}`.
 
 **5.5.1 is not published.** The version bump is on `main-v5` since `cfc4591` (#36), and is
-listed below as waiting like everything else. The release artifacts built from `cfc4591` on
-2026-09-17 are **void and must not be published**: they carry the fallback that plays when
-its watch saw nothing, withdrawn below. Their checksums, for recognising them if a copy
-survives: arm64 `fb2c9d59…652feaa6`, armeabi-v7a `dfb511c6…305ac00b79`. There is no `v5.5.1`
-tag. The order is fixed: merge the release pull request, build the release APKs, install
-them and pass the manual plan on the device, and only then tag and publish. If a case fails,
-the fix lands on `main-v5` and the build is repeated under the same number, because no 5.5.1
-has ever left this repository.
+listed below as waiting like everything else. Two sets of release artifacts are **void and
+must not be published**. Built from `cfc4591` on 2026-09-17, they carry the fallback that
+plays when its watch saw nothing: arm64 `fb2c9d59…652feaa6`, armeabi-v7a
+`dfb511c6…305ac00b79`. Built from `7073284` on 2026-09-18, they still let the decision
+inside the sampling loop play on two readings: arm64 `cb738466…f269b09d`, armeabi-v7a
+`fbb9462a…93d5fc4d`. Both are withdrawn below; the checksums are here to recognise a copy if
+one survives. There is no `v5.5.1` tag. The order is fixed: merge the release pull request,
+build the release APKs, install them and pass the manual plan on the device, and only then
+tag and publish. If a case fails, the fix lands on `main-v5` and the build is repeated under
+the same number, because no 5.5.1 has ever left this repository.
 
 ## Waiting for release — on `main-v5`, not published
 
@@ -75,7 +77,8 @@ Everything merged since the `v5.5.0` tag. None of this has reached users. List i
 | `cf8832d` | 09-15 | The data deletion page, rewritten from the code. Corrected in 5.5.1: the published copy had drifted 35 lines from the APK's, a May section never brought back into the app, which is why the two-copies rule exists (#39) |
 | `430e2e6` | 09-16 | The acceptance gate also reaches someone who updates straight into the chat, checked on resume (#41) |
 | `cfc4591` | 09-17 | `versionCode 8`, `versionName 5.5.1`, and this file (#36) |
-| this pull request | 09-18 | The fallback no longer plays when its watch saw nothing, and reads the four settings again just before playing |
+| `7073284` | 09-18 | The fallback no longer plays when its watch saw nothing, and reads the four settings again just before playing (#42) |
+| this pull request | 09-18 | Every fallback playback passes one gate - enough readings, then the four settings read again - the decision inside the sampling loop included |
 
 `d342e96` and `70c1d3c` are the two that most deserve a release: one prevents permanent
 loss of every stored account after a single transient Keystore failure, the other stops the
@@ -260,11 +263,10 @@ was interrupted.
 
 What changed:
 
-1. **The undecided branch plays only on adequate sampling**, at least
-   `MIN_SAMPLES_FOR_SILENCE` readings. That is half the grace divided by the polling interval,
-   derived from the two constants rather than written by hand: 2500 / 2 / 60, so 20 today.
-   Below it the line reads `outcome=unobserved` with its `sampleCount`, and nothing plays.
-   The decision reached inside the loop, at the first reading past the grace, is unchanged.
+1. **No playback without adequate sampling**, at least `MIN_SAMPLES_FOR_SILENCE` readings.
+   That is half the grace divided by the polling interval, derived from the two constants
+   rather than written by hand: 2500 / 2 / 60, so 20 today. Below it the line reads
+   `outcome=unobserved` with its `sampleCount`, and nothing plays.
 2. **The four settings are read again just before playing**, not only before posting.
    Do Not Disturb switched on during the 2.5 seconds is now honoured; the line reads
    `outcome=suppressed checkedAt=before_playback` with the reason.
@@ -275,10 +277,16 @@ What changed:
 The 2500 ms grace is untouched. In the field the system player started between 726 and
 1039 ms across more than seventy alerts, so the margin stands.
 
-One case is left as it was, by instruction, and is worth knowing about. The decision inside
-the loop needs only one reading past the grace, so a pause served between 2.5 and 2.6
-seconds late reaches it with two readings and still plays. Extending the guard to that branch
-is one condition; it was not asked for here.
+**One gate for every playback** (the follow-up to #42). Three places could play the
+fallback: the decision inside the sampling loop, the undecided end of it, and the path with
+no `AudioManager`, each with its own rules. The first still played on as few as two
+readings: a single pause served between 2.5 and 2.6 seconds late puts the second reading past
+the grace. That case has never been seen in the field - the stretched pauses observed fell at
+2700, 3700, 4600, 11200 and 25800 ms, none between 2500 and 2600 - but it is the same
+conflation, and the sample is small. `PlaybackGate` in `NotificationAlertFallback` is now
+the only code that calls the player. It checks the sampling first, then the four settings
+through the service's `currentSuppressionReason`, so a fourth playback point cannot appear
+without both checks.
 
 ## Not in 5.5.1 — `work/irc-read-timeout`
 
