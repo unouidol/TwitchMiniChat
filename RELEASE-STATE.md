@@ -344,15 +344,19 @@ than quietly replaced. Read again on 2026-09-25:
 - The local selection is read by `PcgProfileAlertSelectionStore.read`, combining
   `PcgSpawnAlertModeStore`, `PcgEventSpawnAlertStore` and `PcgMostWantedStore`.
 
-**The defect, as it actually is.** `buildPlan` returns an empty list when
-`selection.requiresFirebaseDelivery` is false, that is when no category is active: no
-ordinary mode, no event spawns, no Most Wanted. `uploadToken` then logs
-`register_fcm skipped: no active alert category` and returns before sending anything.
-`MainActivity`'s start-up check does the same one level up: it skips the call entirely for a
-profile whose selection needs no delivery. So a phone whose local state says "no alerts"
-never tells the server so at start-up, and a server still holding an active mode keeps
-sending. **The app can show no alerts while alerts keep arriving**, and nothing at a later
-start repairs it.
+**The defect, as it actually was, and what the third 5.5.2 change does about it.**
+`buildPlan` returned an empty list when `selection.requiresFirebaseDelivery` was false, that
+is when no category is active: no ordinary mode, no event spawns, no Most Wanted.
+`uploadToken` then logged `register_fcm skipped: no active alert category` and returned
+before sending anything. `MainActivity`'s start-up check did the same one level up: it
+skipped the call entirely for a profile whose selection needs no delivery. So a phone whose
+local state said "no alerts" never told the server so at start-up, and a server still holding
+an active mode kept sending. **The app could show no alerts while alerts kept arriving**, and
+nothing at a later start repaired it.
+
+Both halves are removed by the third change: the planner produces a step for that profile,
+and the boot loop no longer skips it. The acknowledged record decides when there is nothing
+left to send.
 
 What does *not* produce that state is a reset on its own: the defaults restored after
 *Reset local data, keep accounts* are `PcgSpawnAlertMode.DEFAULT`, which is `DEX_AND_TIER_A`,
@@ -401,10 +405,13 @@ merge commit is read from the log rather than predicted here.
 
 | # | Objective | State |
 |---|---|---|
-| 1 | One erase instead of two, and it finishes on its own | on `feat/erase-completes-itself`, pull request open |
-| 2 | A profile-alert disable that survives a failed request | on `feat/disable-survives-failure`, branched from the first, pull request open |
-| 3 | Tell the server when no alert category is active | not started |
+| 1 | One erase instead of two, and it finishes on its own | merged, `f31c220` (#49) |
+| 2 | A profile-alert disable that survives a failed request | merged, `14bde5f` (#50) |
+| 3 | Tell the server when no alert category is active | on `feat/tell-the-server-nothing-is-active`, pull request open |
 | 4 | Rewrite the data deletion page, both copies | not started |
+
+The first two are on `main-v5` and unreleased, so they belong to "Waiting for release"
+above as well; read them from the log rather than from a second copy of these rows.
 
 **What the first one changes.** *Reset local data* offered three actions; the local-only
 *Erase everything on this device* is gone, and the action that removes this device from the
@@ -496,6 +503,23 @@ acknowledged nothing, so a removal failing there would look as if it owed nothin
 explicit owed marker in `OwedServerOperationStore`, written only after an attempt has failed,
 covers it. That is an addition to the shape agreed for this work, stated rather than slipped
 in.
+
+**What the third one changes.** `PcgProfileRegistrationSyncPlanner.buildPlan` returned an
+empty plan whenever `selection.requiresFirebaseDelivery` was false, because the plan was
+derived from whether a notification would be delivered: "nothing to deliver" was read as
+"nothing to say". Such a profile now gets a plan that sends the disabled selection, and only
+that - registering a token for a profile that wants no notification would put the
+registration straight back.
+
+`MainActivity`'s boot loop skipped the same profile one level up, so the new step had to be
+made reachable from there or it would have been a step nobody runs. The skip is gone, and the
+single decision now lives in the planner. The acknowledged record from the second change is
+what keeps this from being one request per launch for ever: once the backend confirms the
+disabled selection, later starts send nothing.
+
+What the backend does with a disabled selection, stated because it is easy to describe
+wrongly: it **drops the profile from that device's `profile_ids`**, which is what stops the
+alerts. It deletes nothing.
 
 **The rule that would break a working install if it were wrong:** an owed token deletion is
 void the moment an account is signed in again, not merely postponed. Deleting the token then

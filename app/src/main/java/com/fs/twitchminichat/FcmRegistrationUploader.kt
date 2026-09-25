@@ -58,7 +58,14 @@ object FcmRegistrationUploader {
         val ok: Boolean
     )
 
-    /** Registers one token, then restores every active alert category. */
+    /**
+     * Runs one profile's registration pass: whatever the planner says has to be sent.
+     *
+     * For an active profile that is the token followed by its alert selection, as
+     * before. For a profile with no category active it is the disabled selection alone,
+     * which is what stops a server that still holds an active mode from sending - see
+     * [PcgProfileRegistrationSyncPlanner].
+     */
     fun uploadToken(context: Context, token: String, profileId: String) {
         val appContext = context.applicationContext
         val trimmedToken = token.trim()
@@ -73,13 +80,30 @@ object FcmRegistrationUploader {
                 profileId
             )
             val plan = PcgProfileRegistrationSyncPlanner.buildPlan(
-                selection
+                selection = selection,
+                acknowledged = PcgProfileAlertAcknowledgementStore.read(
+                    appContext,
+                    profileId
+                )
             )
 
             if (plan.isEmpty()) {
-                Log.d(TAG, "register_fcm skipped: no active alert category")
+                Log.d(
+                    TAG,
+                    "registration pass skipped: backend already holds this selection"
+                )
                 return@thread
             }
+
+            /*
+             * Whether this pass registers a token at all. The alert step used to refuse
+             * to run unless a registration had just succeeded, which for the
+             * disabled-selection plan - the one with no registration in it - would have
+             * made the step unreachable: a planner producing a step nobody runs is worse
+             * than the defect it was written for.
+             */
+            val tokenRegistrationPlanned =
+                PcgProfileRegistrationSyncStep.REGISTER_TOKEN in plan
 
             var registrationSucceeded = false
 
@@ -97,9 +121,9 @@ object FcmRegistrationUploader {
                     }
 
                     PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION -> {
-                        if (!registrationSucceeded) break
+                        if (tokenRegistrationPlanned && !registrationSucceeded) break
 
-                        val restored = setProfileSpawnAlertModeBlocking(
+                        val sent = setProfileSpawnAlertModeBlocking(
                             context = appContext,
                             profileId = profileId,
                             selection = selection,
@@ -107,7 +131,9 @@ object FcmRegistrationUploader {
                         )
                         Log.d(
                             TAG,
-                            "Alert selection resync after register_fcm ok=$restored"
+                            "Alert selection sent ok=$sent " +
+                                "deliveryRequired=${selection.requiresFirebaseDelivery} " +
+                                "afterRegistration=$tokenRegistrationPlanned"
                         )
                     }
                 }
