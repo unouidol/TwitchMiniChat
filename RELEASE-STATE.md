@@ -10,47 +10,61 @@ once from a stale note, costing more time than keeping it written down.
 A change that reaches `main-v5` without appearing under "Waiting for release" is a change
 nobody can account for later.
 
-Last verified: 2026-09-18, against `origin/main-v5` at `007ee55`.
+Last verified: 2026-09-25, against `origin/main-v5` at `f785008`, with `v5.5.1` published.
 
 ## Published — what users have
 
 | | |
 |---|---|
-| Version | **5.5.0** (`versionCode 7`) |
-| Tag | `v5.5.0`, annotated, pointing at commit `f0e0d35` |
-| Published | 2026-08-31 |
+| Version | **5.5.1** (`versionCode 8`) |
+| Tag | `v5.5.1`, annotated, pointing at commit `007ee55` |
+| Published | 2026-09-25 |
 | Assets | `TwitchMiniChat-Android-arm64-v8a.apk`, `TwitchMiniChat-Android-armeabi-v7a.apk`, `SHA256SUMS.txt` |
-| Signer | `ST=Italy, L=Italy, CN=Unouidol` |
+| Signer | `ST=Italy, L=Italy, CN=Unouidol`, SHA-256 `aca1170e9dcac79abfa6db078a7a9903ab1f6a935745033c0752177d22e237ed` |
+| arm64-v8a | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` |
+| armeabi-v7a | `7833fe2c3905f6af62cd32ad2fc9d9633e7ccc20deb6725c8c41ef359d58bf4e` |
+
+The published APKs were built from `007ee55` with a clean tree, so they report
+`GIT_SHA 007ee55` with no `+`: the login screen reads `Version 5.5.1 (build 8, 007ee55)`
+and the journal export header `# app 5.5.1 (8) 007ee55`. Checked after publication by
+downloading both `releases/latest/download/…` URLs and hashing them; both matched the
+checksums above.
+
+Previously published: **5.5.0** (`versionCode 7`), tag `v5.5.0` at `f0e0d35`, 2026-08-31.
 
 Asset names, tag shape and checksum file match the contract in `AGENTS.md`, so the public
 download buttons on `https://tmc.ircminichat.party/` resolve.
 
 `f0e0d35` is the merge commit of pull request #14. An earlier version of this file recorded
-the tag as sitting at `8478d82`, which is the last commit *of the release branch* and the
+that tag as sitting at `8478d82`, which is the last commit *of its release branch* and the
 parent on the other side of that merge. Both are on `main-v5`, so the mistake was invisible,
-but the tag has always pointed at `f0e0d35`. Dereference the tag rather than reading a
-branch head: `git rev-parse v5.5.0^{commit}`.
+but the tag has always pointed at `f0e0d35`. Dereference a tag rather than reading a branch
+head: `git rev-parse v5.5.1^{commit}` gives `007ee55…`.
 
-**5.5.1 is not published.** The version bump is on `main-v5` since `cfc4591` (#36), and is
-listed below as waiting like everything else. Three sets of release artifacts are **void and
-must not be published**. Built from `cfc4591` on 2026-09-17, they carry the fallback that
-plays when its watch saw nothing: arm64 `fb2c9d59…652feaa6`, armeabi-v7a
-`dfb511c6…305ac00b79`. Built from `7073284` on 2026-09-18, they still let the decision
-inside the sampling loop play on two readings: arm64 `cb738466…f269b09d`, armeabi-v7a
-`fbb9462a…93d5fc4d`. Built from `e15c3e9` on 2026-09-18, they carry no build identity, so an
-installed copy cannot be told from the published one: arm64
+**Three sets of 5.5.1 artifacts are void and must never be published**, and none of them is
+what `v5.5.1` carries. Built from `cfc4591` on 2026-09-17, they play the fallback on a watch
+that saw nothing: arm64 `fb2c9d59…652feaa6`, armeabi-v7a `dfb511c6…305ac00b79`. Built from
+`7073284` on 2026-09-18, they still let the decision inside the sampling loop play on two
+readings: arm64 `cb738466…f269b09d`, armeabi-v7a `fbb9462a…93d5fc4d`. Built from `e15c3e9`
+on 2026-09-18, they carry no build identity: arm64
 `d91d8dc8173f554a73f0149a3df3d285feaf4280b9567ac7f84bdc1cd8b3cda5`, armeabi-v7a
-`12037cf946eb99f39bf2dbbd2cd1de4d07abac015ad026ea02f56c890fd11979`. The first two are
-withdrawn below; the checksums are here to recognise a copy if one survives. There is no
-`v5.5.1` tag. The order is fixed: merge the release pull request, build the release APKs,
-install them and pass the manual plan on the device, and only then tag and publish. If a
-case fails, the fix lands on `main-v5` and the build is repeated under the same number,
-because no 5.5.1 has ever left this repository.
+`12037cf946eb99f39bf2dbbd2cd1de4d07abac015ad026ea02f56c890fd11979`. The checksums are here
+to recognise a copy if one survives.
 
 ## Waiting for release — on `main-v5`, not published
 
-Everything merged since the `v5.5.0` tag. None of this has reached users. List it with
-`git log --first-parent v5.5.0..main-v5` rather than trusting a count written here.
+Everything merged since the `v5.5.1` tag. None of this has reached users. List it with
+`git log --first-parent v5.5.1..main-v5` rather than trusting a count written here.
+
+| Commit | Date | Change |
+|---|---|---|
+| `f785008` | 09-25 | Give the build identity row its commit in this file (docs only, #45) |
+
+## What 5.5.1 shipped
+
+Everything between the `v5.5.0` and `v5.5.1` tags, kept here because the reasoning behind
+these changes is what the next question about them will need. List it with
+`git log --first-parent v5.5.0..v5.5.1`.
 
 | Commit | Date | Change |
 |---|---|---|
@@ -311,25 +325,47 @@ The branch was cut from `502c11e`, before `f62d0bd`, so it has no `CLAUDE.md` an
 repository rules do not load on it. **Rebase it onto `main-v5` before anything else**, then
 re-measure the merge rather than relying on the constraint above.
 
-## Not in 5.5.1 — a local reset leaves the server's copy of the settings behind
+## Not in 5.5.1 — the server's copy of the alert settings can outlive the phone's
 
-Measured on 2026-09-16, on both sides, and not a new defect: it predates this release.
+**A correction first.** An earlier version of this section said that start-up "runs only
+`uploadToken`, which does not carry the mode". That was wrong, and the record is kept rather
+than quietly replaced. Read again on 2026-09-25:
 
-- **The phone forgets.** `accountSharedPrefsToKeepForTesting` in `SafetyPrivacyFragment`
-  holds only the legacy account file, so *Reset local data, keep accounts* deletes the
-  preferences of `PcgSpawnAlertModeStore` along with the rest, and the app comes back showing
-  the defaults.
-- **The server is never told.** `FcmRegistrationUploader.setProfileSpawnAlertMode` has exactly
-  two callers outside the uploader: `ChatFragment:4522`, the bell, and
-  `AccountProfileRemovalController:97`, removing an account. Start-up runs only
-  `uploadToken`, which does not carry the mode.
+- `FcmRegistrationUploader.uploadToken` builds a plan with
+  `PcgProfileRegistrationSyncPlanner.buildPlan(selection)` and runs it: `REGISTER_TOKEN`,
+  then `RESTORE_ALERT_SELECTION`, which calls `setProfileSpawnAlertModeBlocking` with the
+  **local** selection. So start-up does push the mode, and has since `092bb33`, 2026-08-20,
+  "fix: restore alert selection after FCM registration".
+- The local selection is read by `PcgProfileAlertSelectionStore.read`, combining
+  `PcgSpawnAlertModeStore`, `PcgEventSpawnAlertStore` and `PcgMostWantedStore`.
 
-So after that reset the server keeps the previous alert mode while the app shows the
-defaults, until the user touches the bell. The bad case is the app saying no alerts while
-alerts keep arriving, which is the kind of thing users report.
+**The defect, as it actually is.** `buildPlan` returns an empty list when
+`selection.requiresFirebaseDelivery` is false, that is when no category is active: no
+ordinary mode, no event spawns, no Most Wanted. `uploadToken` then logs
+`register_fcm skipped: no active alert category` and returns before sending anything.
+`MainActivity`'s start-up check does the same one level up: it skips the call entirely for a
+profile whose selection needs no delivery. So a phone whose local state says "no alerts"
+never tells the server so at start-up, and a server still holding an active mode keeps
+sending. **The app can show no alerts while alerts keep arriving**, and nothing at a later
+start repairs it.
 
-The same measurement is what makes the data deletion page's *"On the server: nothing. No
-request is sent."* true for that option: nothing goes up at start-up either.
+What does *not* produce that state is a reset on its own: the defaults restored after
+*Reset local data, keep accounts* are `PcgSpawnAlertMode.DEFAULT`, which is `DEX_AND_TIER_A`,
+so a category is active and the next start pushes that default up. The dangerous state is
+"locally nothing active" reached some other way - a disable that failed, which nothing
+retries.
+
+**Account removal tells the server, once.** `AccountProfileRemovalController` removes the
+account and its profile-scoped data locally, calls back, and only then calls
+`setProfileSpawnAlertMode` with `PcgSpawnAlertSettings.DISABLED` and
+`mostWantedEnabled = false`. The outcome is logged as `backend notification disable
+completed ok=…` and nothing else: `setProfileSpawnAlertMode` sends one request and reports
+whether it worked, with no retry anywhere. If it fails, the profile stays in that device's
+`profile_ids` on the server, and no later start can repair it, because the account is
+already gone from the phone and start-up only iterates the accounts still stored.
+
+The data deletion page's *"On the server: nothing. No request is sent."* stays true for the
+reset options: those paths send nothing themselves.
 
 **The work is a review, not a line of code.** At least four stores have a counterpart on the
 server — the alert mode, the custom watchlist, the Pokédex snapshot and Most Wanted — across
