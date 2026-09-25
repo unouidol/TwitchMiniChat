@@ -13,10 +13,12 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.messaging.FirebaseMessaging
 
 object FcmRegistrationUploader {
@@ -33,6 +35,17 @@ object FcmRegistrationUploader {
 
     /** A manual Pokedex upload did not reach the backend. */
     private const val MARKER_DEX_UPLOAD_FAILED = "pcg_dex_upload_failed"
+
+    /** Cached copy of the current Firebase Cloud Messaging token. */
+    private const val KEY_LATEST_FCM_TOKEN = "latest_fcm_token"
+
+    /**
+     * How long one token deletion may block before it counts as failed.
+     *
+     * A deletion that never returns would hold the erase on screen, and the owed-work
+     * queue exists exactly so a failure here costs nothing.
+     */
+    private const val FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS = 20L
 
     /** UI-facing deletion outcome that deliberately excludes raw backend metadata. */
     data class DeleteServerDataResult(
@@ -151,7 +164,7 @@ object FcmRegistrationUploader {
             }
         }
 
-        val cachedToken = prefs.getString("latest_fcm_token", null).orEmpty()
+        val cachedToken = prefs.getString(KEY_LATEST_FCM_TOKEN, null).orEmpty()
 
         /*
          * When every category is disabled, the request can be sent without
@@ -189,7 +202,7 @@ object FcmRegistrationUploader {
             }
 
             prefs.edit {
-                putString("latest_fcm_token", freshToken)
+                putString(KEY_LATEST_FCM_TOKEN, freshToken)
             }
 
             Log.d(TAG, "Fetched a Firebase Cloud Messaging token for spawn mode")
@@ -477,6 +490,77 @@ object FcmRegistrationUploader {
             deviceId = DeviceCredentialStore.getOrCreateDeviceId(appContext),
             deviceSecret = deviceSecret
         )
+    }
+
+    /**
+     * Deletes this device's Firebase Cloud Messaging token, off the main thread.
+     *
+     * This is what makes an erase safe when the backend cannot be reached. Without a
+     * token the phone can receive no notification at all, and the backend drops the
+     * registration the next time it tries to send to it - its Firebase call answers
+     * `UnregisteredError` and `fcm_sender.remove_registered_device_by_token` prunes the
+     * record. That is not the same as the record being deleted when the user taps: if
+     * no spawn ever matches those profiles again, the row simply sits there with a dead
+     * token and no way to reach this phone.
+     */
+    fun deleteFirebaseToken(
+        context: Context,
+        onComplete: (Boolean) -> Unit
+    ) {
+        val appContext = context.applicationContext
+
+        thread(start = true, name = "delete-firebase-token") {
+            val ok = deleteFirebaseTokenBlocking(appContext)
+            Handler(Looper.getMainLooper()).post {
+                onComplete(ok)
+            }
+        }
+    }
+
+    /**
+     * Deletes the Firebase Cloud Messaging token and the cached copy of it.
+     *
+     * Blocking: callers must already be off the main thread. Returns whether the token
+     * is now gone.
+     */
+    fun deleteFirebaseTokenBlocking(context: Context): Boolean {
+        val appContext = context.applicationContext
+
+        val deleted = runCatching {
+            Tasks.await(
+                FirebaseMessaging.getInstance().deleteToken(),
+                FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+            )
+            true
+        }.getOrElse { error ->
+            Log.w(
+                TAG,
+                "delete_firebase_token failed " +
+                    "errorType=${DiagnosticError.typeOf(error)}"
+            )
+            false
+        }
+
+        if (deleted) {
+            /*
+             * The cached copy is what every other path reuses instead of asking
+             * Firebase again, so leaving it behind would hand a deleted token to the
+             * next registration.
+             */
+            appContext
+                .getSharedPreferences(
+                    DeviceCredentialStore.PREFERENCES_NAME,
+                    Context.MODE_PRIVATE
+                )
+                .edit(commit = true) {
+                    remove(KEY_LATEST_FCM_TOKEN)
+                }
+
+            Log.d(TAG, "delete_firebase_token completed ok=true")
+        }
+
+        return deleted
     }
 
     /** Delivers one deletion result on the Android main thread. */

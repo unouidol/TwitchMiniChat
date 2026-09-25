@@ -1,12 +1,12 @@
 package com.fs.twitchminichat
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.StringRes
@@ -96,12 +96,8 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                     onClick = { clearLocalDataKeepingAccounts() }
                 ),
                 DialogAction(
-                    textRes = R.string.reset_local_data_full,
-                    onClick = { clearAllLocalDataNow() }
-                ),
-                DialogAction(
                     textRes = R.string.reset_local_data_full_and_unregister,
-                    onClick = { performDeviceDeleteNow() }
+                    onClick = { performDeviceEraseNow() }
                 ),
                 DialogAction(
                     textRes = R.string.cancel,
@@ -111,69 +107,29 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         )
     }
 
-    /** Removes this device and its known profiles from the server, then wipes locally. */
+    /**
+     * Deletes this device and its known profiles from the server, then erases the phone.
+     *
+     * Unlike the single erase below, this one stops when the server cannot be reached,
+     * and that difference is deliberate. It is the only action that deletes
+     * profile-scoped data, which the user's other devices share, so wiping this phone
+     * after a failed call would leave the user believing their server-side data is gone
+     * when it is not - and with nothing left on the phone to try again with. Erasing
+     * locally for nothing is recoverable by signing in again; a deletion the user
+     * thinks happened is not.
+     */
     private fun performTotalDeleteNow() {
-        performServerDeletion(
-            logTag = "TOTAL_DELETE",
-            geckoFailedMessageRes = R.string.server_delete_ok_gecko_failed
-        ) { context, profileIds, onResult ->
-            FcmRegistrationUploader.deleteServerData(
-                context = context,
-                candidateProfileIds = profileIds,
-                onComplete = onResult
-            )
-        }
-    }
-
-    /**
-     * Removes only this device's registration from the server, then wipes locally.
-     *
-     * Profile-scoped server data is left in place, so other devices signed in to the
-     * same profiles keep working.
-     */
-    private fun performDeviceDeleteNow() {
-        performServerDeletion(
-            logTag = "DEVICE_DELETE",
-            geckoFailedMessageRes = R.string.device_delete_ok_gecko_failed
-        ) { context, profileIds, onResult ->
-            FcmRegistrationUploader.deleteDeviceData(
-                context = context,
-                candidateProfileIds = profileIds,
-                onComplete = onResult
-            )
-        }
-    }
-
-    /**
-     * Runs one server deletion and wipes local data only after it succeeded.
-     *
-     * The order is shared by both scopes and matters: local data holds the device and
-     * profile identifiers the server request needs, so it must never be cleared first.
-     */
-    private fun performServerDeletion(
-        logTag: String,
-        @StringRes geckoFailedMessageRes: Int,
-        deletion: (
-            Context,
-            List<String>,
-            (FcmRegistrationUploader.DeleteServerDataResult) -> Unit
-        ) -> Unit
-    ) {
-        val ctx = requireContext()
         val profileIds = profileIdsForServerDeletionAuthorization()
 
-        Log.d(
-            logTag,
-            "start profileCandidateCount=${profileIds.size}"
-        )
+        Log.d(TAG_TOTAL_DELETE, "start profileCandidateCount=${profileIds.size}")
 
-        deletion(ctx, profileIds) serverResult@{ serverResult ->
+        FcmRegistrationUploader.deleteServerData(
+            context = requireContext(),
+            candidateProfileIds = profileIds
+        ) serverResult@{ serverResult ->
             if (!isAdded) return@serverResult
 
-            Log.d(
-                logTag,
-                "Server deletion completed ok=${serverResult.ok}"
-            )
+            Log.d(TAG_TOTAL_DELETE, "Server deletion completed ok=${serverResult.ok}")
 
             if (!serverResult.ok) {
                 Toast.makeText(
@@ -184,38 +140,163 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                 return@serverResult
             }
 
-            GeckoSessionManager.clearAllWebData(requireContext()) { geckoOk: Boolean, geckoMessage: String ->
-                if (!isAdded) return@clearAllWebData
+            GeckoSessionManager.clearAllWebData(requireContext()) webData@{ webDataOk, webDataMessage ->
+                if (!isAdded) return@webData
 
-                Log.d(
-                    logTag,
-                    "Gecko data clear completed ok=$geckoOk"
-                )
+                Log.d(TAG_TOTAL_DELETE, "Gecko data clear completed ok=$webDataOk")
 
-                if (!geckoOk) {
+                if (!webDataOk) {
                     Toast.makeText(
                         requireContext(),
-                        getString(geckoFailedMessageRes, geckoMessage),
+                        getString(R.string.server_delete_ok_gecko_failed, webDataMessage),
                         Toast.LENGTH_LONG
                     ).show()
-                    return@clearAllWebData
+                    return@webData
                 }
 
-                val localResult = LocalDataCleaner.clearAllLocalData(requireContext())
-                TermsPrefs.clearAcceptance(requireContext())
+                /*
+                 * This path erases the phone too, so it must not leave a live push
+                 * token behind either. It runs last of the three server-facing steps
+                 * and immediately before the wipe, so the abort above - the only way
+                 * out of this function after the server call - cannot strand a phone
+                 * that still holds its accounts without a token to receive alerts on.
+                 */
+                FcmRegistrationUploader.deleteFirebaseToken(requireContext()) tokenResult@{ tokenOk ->
+                    if (!isAdded) return@tokenResult
 
-                Log.d(
-                    logTag,
-                    "local deletedSharedPrefs=${localResult.deletedSharedPrefs} " +
-                            "skippedSharedPrefs=${localResult.skippedSharedPrefs} " +
-                            "failedSharedPrefs=${localResult.failedSharedPrefs} " +
-                            "clearedCacheDirs=${localResult.clearedCacheDirs} " +
-                            "failedCacheDirs=${localResult.failedCacheDirs}"
-                )
+                    Log.d(TAG_TOTAL_DELETE, "Firebase token deletion ok=$tokenOk")
 
-                restartAppAfterLocalClear()
+                    wipeLocalData(TAG_TOTAL_DELETE)
+                    recordOwedTokenDeletionIfNeeded(TAG_TOTAL_DELETE, tokenOk)
+
+                    restartAppAfterLocalClear()
+                }
             }
         }
+    }
+
+    /**
+     * Removes this device from the server, deletes the push token, and erases the phone.
+     *
+     * The phone is erased whether or not the first two steps went through, and that is
+     * the whole point of this action: erasing one's own data must not depend on a
+     * server being reachable. Deleting the token is what makes it safe to carry on
+     * regardless - a phone without a token receives nothing, and the backend drops the
+     * registration the next time it tries to send to it. Whatever did not go through is
+     * recorded as owed and finished later by [OwedServerOperationWorker].
+     */
+    private fun performDeviceEraseNow() {
+        val profileIds = profileIdsForServerDeletionAuthorization()
+
+        Log.d(TAG_DEVICE_ERASE, "start profileCandidateCount=${profileIds.size}")
+
+        FcmRegistrationUploader.deleteDeviceData(
+            context = requireContext(),
+            candidateProfileIds = profileIds
+        ) serverResult@{ serverResult ->
+            if (!isAdded) return@serverResult
+
+            Log.d(
+                TAG_DEVICE_ERASE,
+                "Server device removal completed ok=${serverResult.ok}"
+            )
+
+            FcmRegistrationUploader.deleteFirebaseToken(requireContext()) tokenResult@{ tokenOk ->
+                if (!isAdded) return@tokenResult
+
+                Log.d(TAG_DEVICE_ERASE, "Firebase token deletion ok=$tokenOk")
+
+                GeckoSessionManager.clearAllWebData(requireContext()) webData@{ webDataOk, webDataMessage ->
+                    if (!isAdded) return@webData
+
+                    Log.d(TAG_DEVICE_ERASE, "Gecko data clear completed ok=$webDataOk")
+
+                    /*
+                     * No early return on a failed browser clear. Everything the user
+                     * asked to be erased is erased, and the browser failure is reported
+                     * in the same message rather than cancelling the erase.
+                     */
+                    wipeLocalData(TAG_DEVICE_ERASE)
+                    recordOwedTokenDeletionIfNeeded(TAG_DEVICE_ERASE, tokenOk)
+
+                    val outcome = DeviceEraseOutcomePolicy.decide(
+                        serverRemovalOk = serverResult.ok,
+                        tokenDeletionOk = tokenOk
+                    )
+
+                    Log.d(TAG_DEVICE_ERASE, "erase outcome=$outcome")
+
+                    Toast.makeText(
+                        requireContext(),
+                        eraseMessage(outcome, webDataOk, webDataMessage),
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    restartAppAfterLocalClear()
+                }
+            }
+        }
+    }
+
+    /**
+     * Erases every local store and the terms acceptance, logging counts only.
+     *
+     * Local data holds the device and profile identifiers the server requests need, so
+     * this must never run before them.
+     */
+    private fun wipeLocalData(logTag: String) {
+        val ctx = requireContext()
+
+        val result = LocalDataCleaner.clearAllLocalData(ctx)
+        TermsPrefs.clearAcceptance(ctx)
+
+        Log.d(
+            logTag,
+            "local deletedSharedPrefs=${result.deletedSharedPrefs} " +
+                    "skippedSharedPrefs=${result.skippedSharedPrefs} " +
+                    "failedSharedPrefs=${result.failedSharedPrefs} " +
+                    "clearedCacheDirs=${result.clearedCacheDirs} " +
+                    "failedCacheDirs=${result.failedCacheDirs}"
+        )
+    }
+
+    /**
+     * Records a token deletion that did not go through, and queues the work that ends it.
+     *
+     * Called after [wipeLocalData] and never before: the wipe deletes every shared
+     * preferences file, so a record written earlier would be erased by the very
+     * operation it exists to outlive.
+     */
+    private fun recordOwedTokenDeletionIfNeeded(logTag: String, tokenDeletionOk: Boolean) {
+        if (!DeviceEraseOutcomePolicy.tokenDeletionOwed(tokenDeletionOk)) return
+
+        val ctx = requireContext()
+        OwedServerOperationStore.recordFirebaseTokenDeletion(ctx)
+        OwedServerOperationWorker.enqueue(ctx)
+
+        Log.d(logTag, "Firebase token deletion recorded as owed")
+    }
+
+    /**
+     * Builds the single message the erase shows, adding the browser clause when it applies.
+     */
+    private fun eraseMessage(
+        outcome: DeviceEraseOutcome,
+        webDataOk: Boolean,
+        webDataMessage: String
+    ): String {
+        val outcomeText = getString(
+            when (outcome) {
+                DeviceEraseOutcome.REMOVED_FROM_SERVER -> R.string.erase_device_removed
+                DeviceEraseOutcome.ALERTS_STOPPED -> R.string.erase_device_alerts_stopped
+                DeviceEraseOutcome.NOTHING_REACHED -> R.string.erase_device_nothing_reached
+            }
+        )
+
+        if (webDataOk) return outcomeText
+
+        return outcomeText + " " +
+                getString(R.string.erase_device_web_data_failed, webDataMessage)
     }
 
     private fun clearLocalDataKeepingAccounts() {
@@ -250,57 +331,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         ).show()
 
         restartAppAfterLocalClear()
-    }
-
-    private fun clearAllLocalDataNow() {
-        /*
-         * The built-in browser keeps its own website data - cookies, site storage -
-         * where LocalDataCleaner does not reach, and only the two options that contact
-         * the server used to clear it, so "Erase everything on this device" left it
-         * behind. It is cleared first here too, in the same order as those paths, and
-         * nothing else is erased if it fails: the phone is left as it was rather than
-         * half erased, and the user can try again.
-         */
-        GeckoSessionManager.clearAllWebData(requireContext()) { geckoOk: Boolean, geckoMessage: String ->
-            if (!isAdded) return@clearAllWebData
-
-            Log.d(
-                "LOCAL_CLEAR",
-                "Gecko data clear completed ok=$geckoOk"
-            )
-
-            if (!geckoOk) {
-                Toast.makeText(
-                    requireContext(),
-                    getString(R.string.local_erase_gecko_failed, geckoMessage),
-                    Toast.LENGTH_LONG
-                ).show()
-                return@clearAllWebData
-            }
-
-            val ctx = requireContext()
-
-            val result = LocalDataCleaner.clearAllLocalData(ctx)
-            TermsPrefs.clearAcceptance(ctx)
-
-            Log.d(
-                "LOCAL_CLEAR",
-                "full result " +
-                        "deletedSharedPrefs=${result.deletedSharedPrefs} " +
-                        "skippedSharedPrefs=${result.skippedSharedPrefs} " +
-                        "failedSharedPrefs=${result.failedSharedPrefs} " +
-                        "clearedCacheDirs=${result.clearedCacheDirs} " +
-                        "failedCacheDirs=${result.failedCacheDirs}"
-            )
-
-            Toast.makeText(
-                ctx,
-                getString(R.string.all_local_data_cleared),
-                Toast.LENGTH_SHORT
-            ).show()
-
-            restartAppAfterLocalClear()
-        }
     }
 
     private fun restartAppAfterLocalClear() {
@@ -346,9 +376,24 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
         container.addView(messageView, messageLp)
 
+        /*
+         * AlertDialog does not scroll a custom view. The reset message is four
+         * paragraphs, so on a short screen the stacked buttons below it would be
+         * pushed off the dialog with no way to reach them.
+         */
+        val scroller = ScrollView(ctx).apply {
+            addView(
+                container,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+
         val dialog = AlertDialog.Builder(ctx)
             .setTitle(titleRes)
-            .setView(container)
+            .setView(scroller)
             .create()
 
         actions.forEach { action ->
@@ -373,4 +418,14 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         @field:StringRes val textRes: Int,
         val onClick: () -> Unit
     )
+
+    private companion object {
+
+        /**
+         * Logcat tags, unchanged from before the two erase actions became one, so
+         * filters already in use on the test device keep matching.
+         */
+        const val TAG_TOTAL_DELETE = "TOTAL_DELETE"
+        const val TAG_DEVICE_ERASE = "DEVICE_DELETE"
+    }
 }

@@ -30,6 +30,21 @@ class LocalDataCleanerKeepAccountsTest {
         assertTrue(AccountRepository.LEGACY_PREFERENCES_NAME in kept)
     }
 
+    /**
+     * Rejects an implementation that clears the owed-work record on this reset. The
+     * record holds server-facing work the user already asked for and the network
+     * refused; dropping it here cancels that work silently, and the only symptom is
+     * alerts that never stop arriving.
+     */
+    @Test
+    fun keepAccounts_keepsTheOwedWorkRecord() {
+        val kept = LocalDataCleaner.keepAccountsExclusions(
+            setOf(AccountRepository.LEGACY_PREFERENCES_NAME)
+        )
+
+        assertTrue(OwedServerOperationStore.PREFERENCES_NAME in kept)
+    }
+
     @Test
     fun keepAccounts_keepsNothingElse() {
         val kept = LocalDataCleaner.keepAccountsExclusions(
@@ -37,7 +52,11 @@ class LocalDataCleanerKeepAccountsTest {
         )
 
         assertEquals(
-            setOf("accounts_file", DeviceCredentialStore.PREFERENCES_NAME),
+            setOf(
+                "accounts_file",
+                DeviceCredentialStore.PREFERENCES_NAME,
+                OwedServerOperationStore.PREFERENCES_NAME
+            ),
             kept
         )
     }

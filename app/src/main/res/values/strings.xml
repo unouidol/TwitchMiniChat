@@ -128,17 +128,24 @@
     <string name="cancel">Cancel</string>
 
     <string name="server_delete_ok_gecko_failed">Server delete OK, but Gecko wipe failed: %1$s</string>
-    <string name="device_delete_ok_gecko_failed">Device removed, but Gecko wipe failed: %1$s</string>
 
     <string name="reset_local_data_title">Reset local data</string>
-    <string name="reset_local_data_message">Choose what to reset on this device. Both erase options remove every account from this phone, not just one. The last one also removes this device from the server, so it stops receiving alerts until you sign in again — your profile data and your other devices are never affected. To remove a single account, use the X next to it in the account list instead.</string>
+    <string name="reset_local_data_message">Choose what to reset on this device.\n\nKeep accounts clears settings and cached data - spawn alert choices, catch presets, your Pokédex snapshot, Most Wanted, blocked users and recent channels - and asks you to accept the terms again. Your accounts stay signed in.\n\nErase everything removes every account from this phone, clears the built-in browser, and removes this device from the server, so it stops receiving alerts until you sign in again. Your profile data and your other devices are never affected.\n\nTo remove a single account, use the X next to it in the account list instead.</string>
     <string name="reset_local_data_keep_accounts">Reset local data, keep accounts</string>
-    <string name="reset_local_data_full">Erase everything on this device</string>
     <string name="reset_local_data_full_and_unregister">Erase everything and remove this device from the server</string>
 
     <string name="local_data_cleared_accounts_kept">Local data cleared, accounts kept</string>
-    <string name="all_local_data_cleared">All local data cleared</string>
-    <string name="local_erase_gecko_failed">Could not clear the built-in browser data, so nothing was erased: %1$s</string>
+
+    <!--
+        The three outcomes of the single erase. None of them may claim more than the
+        code did: the server record is dropped by the backend the next time it tries to
+        send to a token that no longer exists, which is not the same as being deleted
+        the moment the user taps.
+    -->
+    <string name="erase_device_removed">Everything erased, and this device removed from the server</string>
+    <string name="erase_device_alerts_stopped">Everything on this phone is erased and it has stopped receiving alerts. This device could not be removed from the server now; the server drops the registration the next time it tries to reach it.</string>
+    <string name="erase_device_nothing_reached">Everything on this phone is erased, but alerts can still arrive. Twitch Mini Chat keeps trying to stop them on its own, as soon as this phone is online again.</string>
+    <string name="erase_device_web_data_failed">The built-in browser data could not be cleared: %1$s</string>
     <string name="hidden_user_placeholder">\@username</string>
     <string name="unblock">Unblock</string>
 

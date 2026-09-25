@@ -106,6 +106,15 @@ class AuthCallbackActivity : AppCompatActivity() {
             return
         }
 
+        /*
+         * An erase that could not delete the Firebase Cloud Messaging token leaves that
+         * deletion owed. Signing in again makes it void rather than pending: the next
+         * registration creates a new token, and deleting it afterwards would cut the
+         * alerts of a registration the user has just recreated, silently. See
+         * OwedTokenDeletionPolicy.
+         */
+        OwedServerOperationStore.clearFirebaseTokenDeletion(applicationContext)
+
         openAccount(
             accountId = accountId,
             toastMessage = getString(

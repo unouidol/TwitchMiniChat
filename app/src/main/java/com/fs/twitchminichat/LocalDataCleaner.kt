@@ -51,13 +51,21 @@ object LocalDataCleaner {
      * that credential - could no longer reach it. A reset that keeps the accounts
      * keeps the phone's identity too. The full erase still removes it, by design,
      * and the data deletion page says what that leaves on the server.
+     *
+     * The owed-work record is kept for a different reason: it holds server-facing work
+     * the user has already asked for and the network refused. Clearing it here would
+     * silently cancel that work, and the only sign would be alerts that never stop
+     * arriving. The full erase does clear it, and then writes a fresh record after the
+     * wipe if it needs one.
      */
     internal fun keepAccountsExclusions(accountSharedPrefs: Set<String>): Set<String> {
         return accountSharedPrefs
             .asSequence()
             .map { it.trim() }
             .filter { it.isNotBlank() }
-            .toSet() + DeviceCredentialStore.PREFERENCES_NAME
+            .toSet() +
+            DeviceCredentialStore.PREFERENCES_NAME +
+            OwedServerOperationStore.PREFERENCES_NAME
     }
 
     private fun clearInternal(

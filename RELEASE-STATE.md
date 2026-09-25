@@ -11,7 +11,7 @@ A change to the code that reaches `main-v5` without appearing under "Waiting for
 is a change nobody can account for later. Documentation commits are read from the log
 instead, for the reason given in that section.
 
-Last verified: 2026-09-25, against `origin/main-v5` at `f785008`, with `v5.5.1` published.
+Last verified: 2026-09-25, against `origin/main-v5` at `54e0317`, with `v5.5.1` published.
 
 ## Published — what users have
 
@@ -59,8 +59,9 @@ Everything merged since the `v5.5.1` tag. None of this has reached users. Read i
 before its own merge has to name a pull request, and then be replaced by the commit the
 merge produces, which is a second edit this file kept needing.
 
-**Everything after the tag is documentation only.** The moment a change touches code, it
-gets a row here with its commit, and this sentence stops being true.
+Code changes for 5.5.2 have started landing; everything after the tag is no longer
+documentation only. What each one did is under "5.5.2 in progress" below, which records
+the objective and its condition rather than an identifier that does not exist yet.
 
 ## What 5.5.1 shipped
 
@@ -366,8 +367,11 @@ whether it worked, with no retry anywhere. If it fails, the profile stays in tha
 `profile_ids` on the server, and no later start can repair it, because the account is
 already gone from the phone and start-up only iterates the accounts still stored.
 
-The data deletion page's *"On the server: nothing. No request is sent."* stays true for the
-reset options: those paths send nothing themselves.
+The data deletion page's *"On the server: nothing. No request is sent."* was true for both
+reset options that sent nothing. From the first 5.5.2 change it describes only *Reset local
+data, keep accounts*: the local-only erase no longer exists, and the single erase that
+replaced it always contacts the server. The page is rewritten for that in the fourth pull
+request of this work, not the first.
 
 **The work is a review, not a line of code.** At least four stores have a counterpart on the
 server — the alert mode, the custom watchlist, the Pokédex snapshot and Most Wanted — across
@@ -379,6 +383,52 @@ accident and leave the rest as they are.
 The page stays as it is and describes today's behaviour truthfully. When the behaviour
 changes, the page changes with it, and both copies change together: the rule `000318a` (#38)
 adds to `AGENTS.md`.
+
+## 5.5.2 in progress — deletion does what it says
+
+Four pull requests, one objective each, in order. None of them is merged at the time this
+section was written; a row moves to "Waiting for release" once its merge exists, and the
+merge commit is read from the log rather than predicted here.
+
+| # | Objective | State |
+|---|---|---|
+| 1 | One erase instead of two, and it finishes on its own | on `feat/erase-completes-itself`, pull request open |
+| 2 | A profile-alert disable that survives a failed request | not started |
+| 3 | Tell the server when no alert category is active | not started |
+| 4 | Rewrite the data deletion page, both copies | not started |
+
+**What the first one changes.** *Reset local data* offered three actions; the local-only
+*Erase everything on this device* is gone, and the action that removes this device from the
+server absorbed it. The erase now wipes the phone whether or not the server was reached,
+because erasing one's own data must not depend on a reachable server, and it deletes the
+Firebase Cloud Messaging token so that carrying on is safe: a phone with no token receives
+nothing, and the backend drops the registration the next time it tries to send to it
+(`fcm_sender.remove_registered_device_by_token`, on `UnregisteredError`). That is not a
+deletion at the moment the user taps — if no spawn ever matches those profiles again, the
+record sits there with a dead token and no way to reach the phone. No backend change is
+involved anywhere in this work.
+
+**Why a queue, and why it is not the automation the product rules forbid.** A token
+deletion needs the network, so it can fail. `androidx.work` (new dependency, 2.12.0) carries
+one owed-operations queue: unique work, a connected-network constraint, exponential backoff
+from 30 s, and a start-up attempt as well — the worker is the normal path, and the start-up
+attempt is the backstop because on the test device family background work is deferred or
+killed by the vendor's battery management, the same mechanism that blinds the alert sampler.
+The product rule protects gameplay and alerts from acting without the user; finishing a
+server operation the user has already asked for, and that only stops something, is the
+opposite case. The reasoning is in `OwedServerOperationWorker`, not only here.
+
+**What deliberately does not survive the wipe.** `/delete_device_data` needs both a backend
+session and the device credential, and the wipe erases both, so the device removal itself
+can never be retried afterwards. Keeping those across the wipe was considered and refused:
+it would leave a usable session on a phone the user has been told is erased. Only the token
+deletion is owed, because it needs neither. `OwedServerOperationStore` records that.
+
+**The rule that would break a working install if it were wrong:** an owed token deletion is
+void the moment an account is signed in again, not merely postponed. Deleting the token then
+would silently cut the alerts of a registration the user has just recreated, with no symptom
+but alerts that never arrive. `OwedTokenDeletionPolicy` decides it, the worker re-reads the
+record before acting, and signing in clears it.
 
 ## Test device
 
