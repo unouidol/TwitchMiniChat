@@ -7,8 +7,9 @@ It exists because that question kept being re-derived from scratch, and answered
 once from a stale note, costing more time than keeping it written down.
 
 **Every release updates this file in the same pull request that bumps the version.**
-A change that reaches `main-v5` without appearing under "Waiting for release" is a change
-nobody can account for later.
+A change to the code that reaches `main-v5` without appearing under "Waiting for release"
+is a change nobody can account for later. Documentation commits are read from the log
+instead, for the reason given in that section.
 
 Last verified: 2026-09-25, against `origin/main-v5` at `f785008`, with `v5.5.1` published.
 
@@ -53,12 +54,13 @@ to recognise a copy if one survives.
 
 ## Waiting for release — on `main-v5`, not published
 
-Everything merged since the `v5.5.1` tag. None of this has reached users. List it with
-`git log --first-parent v5.5.1..main-v5` rather than trusting a count written here.
+Everything merged since the `v5.5.1` tag. None of this has reached users. Read it with
+`git log --first-parent v5.5.1..main-v5` rather than from a list copied here: a row added
+before its own merge has to name a pull request, and then be replaced by the commit the
+merge produces, which is a second edit this file kept needing.
 
-| Commit | Date | Change |
-|---|---|---|
-| `f785008` | 09-25 | Give the build identity row its commit in this file (docs only, #45) |
+**Everything after the tag is documentation only.** The moment a change touches code, it
+gets a row here with its commit, and this sentence stops being true.
 
 ## What 5.5.1 shipped
 
