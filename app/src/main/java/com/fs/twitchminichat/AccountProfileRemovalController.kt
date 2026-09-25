@@ -127,7 +127,24 @@ object AccountProfileRemovalController {
              * nothing else on this phone that could: the account is already gone from
              * the visible list, so no later start-up pass would iterate it.
              *
-             * This is a deliberate exception to the rule that nothing is queued or
+             * How long it stays, decided rather than left to happen: until the disable
+             * goes through, until that account is signed in again, or until a full erase.
+             * If the backend were never reachable again, it would stay indefinitely.
+             * That is the intended behaviour and not an oversight. The session is scoped
+             * to this one profile and grants nothing that profile did not already have,
+             * and it is the only thing left on the phone that can finish what the user
+             * asked for. Dropping it after some timeout would protect nobody: it would
+             * only guarantee that the orphaned alerts stay on for good, reachable
+             * afterwards by an email request and by nothing else.
+             *
+             * This is deliberately not symmetric with the erase, which refuses to keep
+             * any credential across its wipe (see OwedServerOperationStore). The two
+             * look contradictory read one at a time, and they are not: there the user
+             * asked for everything on the phone to go, so keeping a usable session would
+             * contradict what they were told; here they asked for one thing to stop, and
+             * the session is what stops it.
+             *
+             * This is also a deliberate exception to the rule that nothing is queued or
              * retried automatically. That rule keeps gameplay and alerts from acting
              * without the user. Here the opposite is at stake: data left active on the
              * server after the user asked for it to stop. Finishing that is not acting

@@ -452,6 +452,9 @@ in the pull request.
 - **the fourth pull request must say this on the data deletion page**: the erase completes
   even when the browser data cannot be cleared, and the page must not imply that the two are
   one atomic step.
+- the same pull request should add one sentence, if it fits without making the page heavier:
+  until the deactivation is confirmed, the phone keeps that account's session so it can
+  complete it.
 
 **What the second one changes.** Three things, in the order they matter:
 
@@ -460,6 +463,17 @@ in the pull request.
    session is what the retry authenticates with, and throwing it away made a retry
    impossible rather than merely absent. The device credential was never removed by an
    account removal, so it was already there.
+
+   **Decision on how long the kept session stays, 2026-09-25: it stays.** Until the disable
+   goes through, until that account is signed in again, or until a full erase - and
+   indefinitely if the backend were never reachable again. It is scoped to one profile,
+   grants nothing that profile did not already have, and is the only thing left on the phone
+   that can finish what the user asked for. A timeout would protect nobody: it would only
+   guarantee that the orphaned alerts stay on for good, reachable afterwards by an email
+   request and nothing else. Deliberately **not** symmetric with the erase, which keeps no
+   credential across its wipe: there the user asked for everything to go, here for one thing
+   to stop. The two read as contradictory taken one at a time, so the reasoning sits in
+   `AccountProfileRemovalController` beside the code that keeps it.
 2. **One queue, two kinds.** The owed disable goes into the same
    `OwedServerOperationWorker`, with the same network constraint, the same backoff and the
    same start-up backstop as the owed token deletion. Both kinds are attempted on every
