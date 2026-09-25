@@ -111,6 +111,12 @@ download buttons silently, with no error anywhere in this repository.
 - Keep `versionName` equal to the tag without its leading `v`, and raise `versionCode` on
   every published build. A build whose `versionCode` is not higher than the installed one
   cannot update it.
+- Raise the fallback version in `unouidol/tmc-site`, `index.html`, in the same step that
+  raises `versionName`. The page fills its three `data-tmc-version` elements from the
+  releases API at runtime and overwrites whatever the file says, so that number is what a
+  visitor reads until the call answers, and what one whose browser never runs the script
+  reads for good. Left behind, it advertises the previous release from the page that
+  announces the new one.
 - Write release notes for users rather than for developers, following the structure of the
   previous releases: what the application is, what changed, what to download, how to
   install, and contacts.
