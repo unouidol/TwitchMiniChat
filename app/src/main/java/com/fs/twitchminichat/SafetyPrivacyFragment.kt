@@ -212,9 +212,26 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                     Log.d(TAG_DEVICE_ERASE, "Gecko data clear completed ok=$webDataOk")
 
                     /*
-                     * No early return on a failed browser clear. Everything the user
-                     * asked to be erased is erased, and the browser failure is reported
-                     * in the same message rather than cancelling the erase.
+                     * No early return on a failed browser clear, which reverses the
+                     * decision taken in #40. That one was right for the action it was
+                     * written for: "Erase everything on this device" touched nothing
+                     * outside the phone, so aborting left the phone exactly as it was
+                     * and the user could try again.
+                     *
+                     * This action is not that one. It has already asked the server to
+                     * remove this device and already deleted the push token, so aborting
+                     * here would leave the worse of the two half-states: a phone
+                     * deregistered from the server with all of its data still on it, and
+                     * no way to undo either step.
+                     *
+                     * The second reason is what kind of failure this is. A browser clear
+                     * fails locally, not for want of a network, so nothing about it says
+                     * the erase would go better later. Refusing the erase the user came
+                     * for because of it denies them the thing they asked for. The failure
+                     * is reported in the same message instead, and the erase completes.
+                     *
+                     * What #40 fixed stands: the browser data is still cleared here, and
+                     * before the wipe. Only its all-or-nothing rule is gone.
                      */
                     wipeLocalData(TAG_DEVICE_ERASE)
                     recordOwedTokenDeletionIfNeeded(TAG_DEVICE_ERASE, tokenOk)

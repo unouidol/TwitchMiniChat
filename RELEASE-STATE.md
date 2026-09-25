@@ -220,7 +220,9 @@ Rewriting the page from the code found two defects, fixed in 5.5.1 by #40:
 
 One limit remains, and the page states it: the full erase still removes the credential, as
 every reset did before 5.5.1, so a registration orphaned that way is reached only by an
-email request.
+email request. The first 5.5.2 change ends that limit by a different route - deleting the
+push token, so the backend prunes the record itself - and reverses one part of `86566d7`:
+the all-or-nothing rule, not the browser clear. See "5.5.2 in progress" below.
 
 Both published pages went out in one publication on 2026-09-16,
 `unouidol/unouidol.github.io@bcfbe2a`, before the tag. Fetched afterwards, each is identical
@@ -423,6 +425,26 @@ session and the device credential, and the wipe erases both, so the device remov
 can never be retried afterwards. Keeping those across the wipe was considered and refused:
 it would leave a usable session on a phone the user has been told is erased. Only the token
 deletion is owed, because it needs neither. `OwedServerOperationStore` records that.
+
+**One decision from #40 is reversed, deliberately.** `86566d7` made a failed browser clear
+abort the erase and erase nothing. That was right for *Erase everything on this device*,
+which touched nothing outside the phone: aborting left it as it was. The merged action has
+already deregistered the device and deleted the token by the time the browser is cleared, so
+aborting would leave a phone removed from the server with its data still on it - the worse
+half-state. A browser clear also fails locally, not for want of a network, so refusing the
+erase over it denies the user the thing they came for. The failure is reported in the same
+message and the erase completes. The browser is still cleared, and still before the wipe;
+only the all-or-nothing rule is gone. The reasoning is in `SafetyPrivacyFragment`, not only
+in the pull request.
+
+**Two consequences that outlive the first pull request:**
+
+- its manual case E1, from #40, changes meaning. It used to check that a failed browser
+  clear erased nothing; it now checks that the erase completes and that the message says the
+  browser data could not be cleared.
+- **the fourth pull request must say this on the data deletion page**: the erase completes
+  even when the browser data cannot be cleared, and the page must not imply that the two are
+  one atomic step.
 
 **The rule that would break a working install if it were wrong:** an owed token deletion is
 void the moment an account is signed in again, not merely postponed. Deleting the token then
