@@ -360,14 +360,21 @@ so a category is active and the next start pushes that default up. The dangerous
 "locally nothing active" reached some other way - a disable that failed, which nothing
 retries.
 
-**Account removal tells the server, once.** `AccountProfileRemovalController` removes the
-account and its profile-scoped data locally, calls back, and only then calls
-`setProfileSpawnAlertMode` with `PcgSpawnAlertSettings.DISABLED` and
-`mostWantedEnabled = false`. The outcome is logged as `backend notification disable
-completed ok=…` and nothing else: `setProfileSpawnAlertMode` sends one request and reports
-whether it worked, with no retry anywhere. If it fails, the profile stays in that device's
-`profile_ids` on the server, and no later start can repair it, because the account is
-already gone from the phone and start-up only iterates the accounts still stored.
+**Account removal told the server once, and that half is fixed by the second 5.5.2 change.**
+`AccountProfileRemovalController` removes the account and its profile-scoped data locally,
+calls back, and only then calls `setProfileSpawnAlertMode` with the disabled selection. The
+outcome was logged as `backend notification disable completed ok=…` and nothing else: one
+request, no retry anywhere. Worse, the backend session was removed immediately afterwards
+whatever the outcome, so `BackendAuthHeaderProvider` resolved `Missing` and a retry could not
+have authenticated even if something had attempted one. If it failed, the profile stayed in
+that device's `profile_ids` on the server for good, because the account was already gone from
+the phone and start-up only iterates the accounts still stored.
+
+From the second change the session is kept until the backend acknowledges the disable, the
+owed disable joins the same queue as the owed token deletion, and the user is told that alerts
+for that account may keep arriving for a while. The other half - a profile still on the phone
+with no category active, which start-up never mentions to the server - is the third change,
+not this one.
 
 The data deletion page's *"On the server: nothing. No request is sent."* was true for both
 reset options that sent nothing. From the first 5.5.2 change it describes only *Reset local
@@ -395,7 +402,7 @@ merge commit is read from the log rather than predicted here.
 | # | Objective | State |
 |---|---|---|
 | 1 | One erase instead of two, and it finishes on its own | on `feat/erase-completes-itself`, pull request open |
-| 2 | A profile-alert disable that survives a failed request | not started |
+| 2 | A profile-alert disable that survives a failed request | on `feat/disable-survives-failure`, branched from the first, pull request open |
 | 3 | Tell the server when no alert category is active | not started |
 | 4 | Rewrite the data deletion page, both copies | not started |
 
@@ -445,12 +452,62 @@ in the pull request.
 - **the fourth pull request must say this on the data deletion page**: the erase completes
   even when the browser data cannot be cleared, and the page must not imply that the two are
   one atomic step.
+- the same pull request should add one sentence, if it fits without making the page heavier:
+  until the deactivation is confirmed, the phone keeps that account's session so it can
+  complete it.
+
+**What the second one changes.** Three things, in the order they matter:
+
+1. **The credentials outlive the attempt.** The backend session is removed only once the
+   disable is acknowledged, not right after it is attempted. That is the whole point: the
+   session is what the retry authenticates with, and throwing it away made a retry
+   impossible rather than merely absent. The device credential was never removed by an
+   account removal, so it was already there.
+
+   **Decision on how long the kept session stays, 2026-09-25: it stays.** Until the disable
+   goes through, until that account is signed in again, or until a full erase - and
+   indefinitely if the backend were never reachable again. It is scoped to one profile,
+   grants nothing that profile did not already have, and is the only thing left on the phone
+   that can finish what the user asked for. A timeout would protect nobody: it would only
+   guarantee that the orphaned alerts stay on for good, reachable afterwards by an email
+   request and nothing else. Deliberately **not** symmetric with the erase, which keeps no
+   credential across its wipe: there the user asked for everything to go, here for one thing
+   to stop. The two read as contradictory taken one at a time, so the reasoning sits in
+   `AccountProfileRemovalController` beside the code that keeps it.
+2. **One queue, two kinds.** The owed disable goes into the same
+   `OwedServerOperationWorker`, with the same network constraint, the same backoff and the
+   same start-up backstop as the owed token deletion. Both kinds are attempted on every
+   pass, and one failure anywhere makes the pass a failure so everything still owed is
+   retried.
+3. **What the backend has acknowledged is now written down.**
+   `PcgProfileAlertAcknowledgementStore` records a selection only after the backend answered
+   2xx for it, recorded in the one function every push funnels through. Until then the
+   application knew what the user had chosen but not what the server had been told, so
+   "already sent" and "never sent" were indistinguishable and nothing could be either
+   retried or skipped. `PcgProfileAlertPushPolicy` compares the two, and covers both cases
+   that were missing: a selection with no category active still has to be sent, and a
+   profile no longer on the phone can still owe a disable. The third change uses the same
+   policy for the start-up path.
+
+A profile with no acknowledgement is deliberately **not** read as acknowledged-disabled:
+nothing is known about the backend's copy, so no request is made on a guess. That leaves one
+gap the acknowledgement alone cannot cover - an installation upgrading into 5.5.2 has
+acknowledged nothing, so a removal failing there would look as if it owed nothing - and an
+explicit owed marker in `OwedServerOperationStore`, written only after an attempt has failed,
+covers it. That is an addition to the shape agreed for this work, stated rather than slipped
+in.
 
 **The rule that would break a working install if it were wrong:** an owed token deletion is
 void the moment an account is signed in again, not merely postponed. Deleting the token then
 would silently cut the alerts of a registration the user has just recreated, with no symptom
 but alerts that never arrive. `OwedTokenDeletionPolicy` decides it, the worker re-reads the
 record before acting, and signing in clears it.
+
+**The same rule for the owed disable**, in `OwedProfileDisablePolicy`: sending it after the
+account has been signed in again would switch off the registration that sign-in created. Both
+guards are there - `AuthCallbackActivity` clears the record at sign-in, and the queue
+re-reads whether the account is back before acting - because either alone would leave a
+window.
 
 ## Test device
 

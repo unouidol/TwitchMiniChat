@@ -115,6 +115,17 @@ class AuthCallbackActivity : AppCompatActivity() {
          */
         OwedServerOperationStore.clearFirebaseTokenDeletion(applicationContext)
 
+        /*
+         * Same reasoning for an alert disable owed by an earlier removal of this profile:
+         * sending it now would switch off the registration this sign-in is about to
+         * create. The queue re-checks as well, so this is the earlier of two guards, not
+         * the only one. See OwedProfileDisablePolicy.
+         */
+        OwedServerOperationStore.clearOwedProfileDisable(
+            context = applicationContext,
+            profileId = finalProfileId
+        )
+
         openAccount(
             accountId = accountId,
             toastMessage = getString(

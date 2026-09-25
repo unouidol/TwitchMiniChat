@@ -25,14 +25,25 @@ object AccountProfileRemovalController {
     /**
      * Removes one account from this device and deletes local data for the same profile.
      *
-     * Local deletion remains immediate from the user's point of view. The backend
-     * session is retained only until the best-effort notification-disable request has
-     * finished, so a migrated account can authenticate that request with its Bearer
-     * session. Backend failure never prevents local account removal.
+     * Local deletion remains immediate from the user's point of view, and backend failure
+     * never prevents it.
+     *
+     * The backend session is now retained until the notification-disable request has been
+     * **acknowledged**, not merely attempted. Removing it right after the attempt - which
+     * is what this did - left `BackendAuthHeaderProvider` resolving `Missing`, so a failed
+     * disable could never be retried by anything: the profile stayed in that device's
+     * `profile_ids` on the server for good, still receiving alerts that nothing on this
+     * phone could switch off. The device credential is untouched by an account removal, so
+     * it is already there; the session is the part that had to stop being thrown away.
+     *
+     * A failure leaves the disable owed, hands it to [OwedServerOperationWorker] and calls
+     * [onAlertDisableOwed] so the user is told, rather than being left to discover it from
+     * alerts that keep arriving.
      */
     fun removeAccountFromDevice(
         context: Context,
         account: AccountConfig,
+        onAlertDisableOwed: () -> Unit = {},
         onComplete: (Result) -> Unit
     ) {
         val appContext = context.applicationContext
@@ -97,19 +108,59 @@ object AccountProfileRemovalController {
         FcmRegistrationUploader.setProfileSpawnAlertMode(
             context = appContext,
             profileId = profileId,
-            selection = PcgProfileAlertSelection(
-                spawnSettings = PcgSpawnAlertSettings.DISABLED,
-                mostWantedEnabled = false
-            )
+            selection = PcgProfileAlertSelection.DISABLED
         ) { backendOk ->
-            val backendSessionRemoved =
-                BackendSessionStore(appContext).removeProfile(profileId)
+            if (backendOk) {
+                val backendSessionRemoved =
+                    BackendSessionStore(appContext).removeProfile(profileId)
+
+                Log.d(
+                    TAG,
+                    "backend notification disable completed ok=true " +
+                        "backendSessionRemoved=$backendSessionRemoved"
+                )
+                return@setProfileSpawnAlertMode
+            }
+
+            /*
+             * The session stays. It is what the retry authenticates with, and there is
+             * nothing else on this phone that could: the account is already gone from
+             * the visible list, so no later start-up pass would iterate it.
+             *
+             * How long it stays, decided rather than left to happen: until the disable
+             * goes through, until that account is signed in again, or until a full erase.
+             * If the backend were never reachable again, it would stay indefinitely.
+             * That is the intended behaviour and not an oversight. The session is scoped
+             * to this one profile and grants nothing that profile did not already have,
+             * and it is the only thing left on the phone that can finish what the user
+             * asked for. Dropping it after some timeout would protect nobody: it would
+             * only guarantee that the orphaned alerts stay on for good, reachable
+             * afterwards by an email request and by nothing else.
+             *
+             * This is deliberately not symmetric with the erase, which refuses to keep
+             * any credential across its wipe (see OwedServerOperationStore). The two
+             * look contradictory read one at a time, and they are not: there the user
+             * asked for everything on the phone to go, so keeping a usable session would
+             * contradict what they were told; here they asked for one thing to stop, and
+             * the session is what stops it.
+             *
+             * This is also a deliberate exception to the rule that nothing is queued or
+             * retried automatically. That rule keeps gameplay and alerts from acting
+             * without the user. Here the opposite is at stake: data left active on the
+             * server after the user asked for it to stop. Finishing that is not acting
+             * on the user's behalf, and nothing in this path can send a gameplay command
+             * or raise a notification.
+             */
+            OwedServerOperationStore.recordOwedProfileDisable(appContext, profileId)
+            OwedServerOperationWorker.enqueue(appContext)
 
             Log.d(
                 TAG,
-                "backend notification disable completed ok=$backendOk " +
-                    "backendSessionRemoved=$backendSessionRemoved"
+                "backend notification disable completed ok=false; " +
+                    "recorded as owed, backend session kept"
             )
+
+            onAlertDisableOwed()
         }
     }
 

@@ -137,6 +137,13 @@
     <string name="local_data_cleared_accounts_kept">Local data cleared, accounts kept</string>
 
     <!--
+        Shown after an account removal whose alert disable did not reach the backend. It
+        must not promise that the alerts have stopped, because they have not, and it must
+        not ask the user to do anything, because there is nothing for them to do.
+    -->
+    <string name="account_remove_alerts_owed">This account is gone from this phone, but alerts for it may keep arriving for a while. Twitch Mini Chat keeps trying to switch them off on its own.</string>
+
+    <!--
         The three outcomes of the single erase. None of them may claim more than the
         code did: the server record is dropped by the backend the next time it tries to
         send to a token that no longer exists, which is not the same as being deleted

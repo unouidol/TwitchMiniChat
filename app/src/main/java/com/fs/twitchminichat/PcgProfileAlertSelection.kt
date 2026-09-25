@@ -17,6 +17,21 @@ data class PcgProfileAlertSelection(
     val requiresFirebaseDelivery: Boolean
         get() =
             spawnSettings.hasOrdinaryOrEventAlerts || mostWantedEnabled
+
+    companion object {
+
+        /**
+         * Every category off: what an account removal asks the backend to store.
+         *
+         * Named here because three callers need the same value - the removal, the
+         * owed-work queue and the policy that compares against it - and a literal
+         * repeated in three places is free to stop being the same value.
+         */
+        val DISABLED = PcgProfileAlertSelection(
+            spawnSettings = PcgSpawnAlertSettings.DISABLED,
+            mostWantedEnabled = false
+        )
+    }
 }
 
 /** Reads the complete locally persisted alert selection for one profile. */
