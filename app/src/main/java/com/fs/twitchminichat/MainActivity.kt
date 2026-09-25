@@ -179,6 +179,13 @@ class MainActivity : AppCompatActivity() {
         if (startupAfterDeletionCheckDone) return
         startupAfterDeletionCheckDone = true
 
+        /*
+         * Before anything touches registration. What is owed here is work that stops
+         * a registration, so running it after fetchFcmToken could undo a registration
+         * made moments earlier.
+         */
+        OwedServerOperationRunner.attemptNowAndSchedule(applicationContext)
+
         askNotificationPermissionIfNeeded()
         fetchFcmToken()
     }
