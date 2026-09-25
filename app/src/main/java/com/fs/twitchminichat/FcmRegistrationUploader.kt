@@ -271,7 +271,54 @@ object FcmRegistrationUploader {
             authorizationHeader = authorizationHeader
         )
 
-        return result?.responseCode in 200..299
+        val acknowledged = result?.responseCode in 200..299
+
+        if (acknowledged) {
+            /*
+             * Every successful push funnels through here, which is why the
+             * acknowledgement is recorded here and nowhere else. It is the difference
+             * between "the backend already knows this" and "the backend was never
+             * told", and until it was written down neither could be distinguished, so
+             * a failed request could be neither retried nor skipped.
+             */
+            PcgProfileAlertAcknowledgementStore.record(
+                context = context,
+                profileId = normalizedProfileId,
+                selection = selection
+            )
+        }
+
+        return acknowledged
+    }
+
+    /**
+     * Tells the backend that one profile's alerts are off, blocking.
+     *
+     * Callers must already be off the main thread. Used by the owed-work queue to finish
+     * a disable an account removal could not complete, and deliberately narrow: the
+     * disabled selection needs no Firebase Cloud Messaging delivery, so it can be sent
+     * with whatever token is cached - including none - while any active selection could
+     * not.
+     */
+    fun sendProfileAlertDisableBlocking(
+        context: Context,
+        profileId: String
+    ): Boolean {
+        val appContext = context.applicationContext
+        val cachedToken = appContext
+            .getSharedPreferences(
+                DeviceCredentialStore.PREFERENCES_NAME,
+                Context.MODE_PRIVATE
+            )
+            .getString(KEY_LATEST_FCM_TOKEN, null)
+            .orEmpty()
+
+        return setProfileSpawnAlertModeBlocking(
+            context = appContext,
+            profileId = profileId,
+            selection = PcgProfileAlertSelection.DISABLED,
+            token = cachedToken
+        )
     }
 
 

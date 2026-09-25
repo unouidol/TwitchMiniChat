@@ -205,7 +205,21 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         )
         AccountProfileRemovalController.removeAccountFromDevice(
             context = requireContext(),
-            account = account
+            account = account,
+            onAlertDisableOwed = {
+                /*
+                 * Arrives later than the removal itself, because the local removal is
+                 * immediate and the backend request is not. Said plainly: the account is
+                 * gone, the alerts may not be yet.
+                 */
+                if (isAdded) {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.account_remove_alerts_owed),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         ) { result ->
             if (!isAdded) return@removeAccountFromDevice
 

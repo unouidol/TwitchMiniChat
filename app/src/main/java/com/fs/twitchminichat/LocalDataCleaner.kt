@@ -57,6 +57,14 @@ object LocalDataCleaner {
      * silently cancel that work, and the only sign would be alerts that never stop
      * arriving. The full erase does clear it, and then writes a fresh record after the
      * wipe if it needs one.
+     *
+     * The acknowledged-selection record is kept for the same reason, one step removed.
+     * This reset clears what the user chose on this phone; the backend's copy did not
+     * reset with it. Forgetting what the backend last confirmed would make an owed
+     * disable invisible, and would also make the next start-up unable to tell "already
+     * sent" from "never sent". The local choices it is compared against are cleared here
+     * as before, so the next start-up finds a difference and pushes the restored
+     * defaults - which is the correct outcome, not an accident.
      */
     internal fun keepAccountsExclusions(accountSharedPrefs: Set<String>): Set<String> {
         return accountSharedPrefs
@@ -65,7 +73,8 @@ object LocalDataCleaner {
             .filter { it.isNotBlank() }
             .toSet() +
             DeviceCredentialStore.PREFERENCES_NAME +
-            OwedServerOperationStore.PREFERENCES_NAME
+            OwedServerOperationStore.PREFERENCES_NAME +
+            PcgProfileAlertAcknowledgementStore.PREFERENCES_NAME
     }
 
     private fun clearInternal(

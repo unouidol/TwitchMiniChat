@@ -16,6 +16,11 @@ import androidx.core.content.edit
  * nothing at all, and the backend drops the registration the next time it tries to
  * send to it.
  *
+ * The second kind of owed work, an account removal's alert disable, is not constrained
+ * that way: an account removal does not wipe the phone, so the backend session and the
+ * device credential it authenticates with are still there, and are deliberately kept
+ * until the backend acknowledges the disable. See [AccountProfileRemovalController].
+ *
  * Deliberately *not* carried across the wipe: the backend session and the device
  * credential. Keeping them would let the device removal itself be retried, at the
  * price of leaving a usable session on a phone the user has been told is erased,
@@ -39,6 +44,9 @@ object OwedServerOperationStore {
 
     /** True while this device still owes a Firebase Cloud Messaging token deletion. */
     private const val KEY_FIREBASE_TOKEN_DELETION = "firebase_token_deletion_owed"
+
+    /** Profile identifiers whose alert disable was attempted and did not go through. */
+    private const val KEY_OWED_PROFILE_DISABLES = "profile_alert_disables_owed"
 
     /**
      * Records that the Firebase Cloud Messaging token still has to be deleted.
@@ -67,6 +75,61 @@ object OwedServerOperationStore {
     fun clearFirebaseTokenDeletion(context: Context) {
         preferences(context).edit(commit = true) {
             remove(KEY_FIREBASE_TOKEN_DELETION)
+        }
+    }
+
+    /**
+     * Records that [profileId] still owes the backend an alert disable.
+     *
+     * Written only after an attempt has failed. It exists because the
+     * acknowledged-selection record cannot answer every case on its own: an installation
+     * upgrading into this version has acknowledged nothing yet, so an account removed
+     * before any successful push would otherwise look as if it owed nothing. See
+     * [OwedProfileDisablePolicy].
+     */
+    fun recordOwedProfileDisable(context: Context, profileId: String) {
+        val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
+        if (normalizedProfileId.isBlank()) return
+
+        val updated = owedProfileDisables(context) + normalizedProfileId
+        preferences(context).edit(commit = true) {
+            putStringSet(KEY_OWED_PROFILE_DISABLES, updated)
+        }
+    }
+
+    /** Whether [profileId] is on record as owing an alert disable. */
+    fun isProfileDisableOwed(context: Context, profileId: String): Boolean {
+        val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
+        return normalizedProfileId.isNotBlank() &&
+            normalizedProfileId in owedProfileDisables(context)
+    }
+
+    /**
+     * Every profile on record as owing an alert disable.
+     *
+     * Read together with [PcgProfileAlertAcknowledgementStore.knownProfileIds]: either
+     * list can name a profile the other does not.
+     */
+    fun owedProfileDisables(context: Context): Set<String> {
+        return preferences(context)
+            .getStringSet(KEY_OWED_PROFILE_DISABLES, emptySet())
+            .orEmpty()
+    }
+
+    /**
+     * Drops the owed disable for [profileId].
+     *
+     * Called when the backend has acknowledged it, and when signing the account in again
+     * has made it void: see [OwedProfileDisablePolicy] for why that cancels it rather
+     * than delaying it.
+     */
+    fun clearOwedProfileDisable(context: Context, profileId: String) {
+        val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
+        if (normalizedProfileId.isBlank()) return
+
+        val updated = owedProfileDisables(context) - normalizedProfileId
+        preferences(context).edit(commit = true) {
+            putStringSet(KEY_OWED_PROFILE_DISABLES, updated)
         }
     }
 

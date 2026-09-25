@@ -45,6 +45,20 @@ class LocalDataCleanerKeepAccountsTest {
         assertTrue(OwedServerOperationStore.PREFERENCES_NAME in kept)
     }
 
+    /**
+     * Rejects an implementation that forgets what the backend last confirmed. Without it
+     * an owed disable becomes invisible, and the next start-up cannot tell "already sent"
+     * from "never sent" either.
+     */
+    @Test
+    fun keepAccounts_keepsTheAcknowledgedSelections() {
+        val kept = LocalDataCleaner.keepAccountsExclusions(
+            setOf(AccountRepository.LEGACY_PREFERENCES_NAME)
+        )
+
+        assertTrue(PcgProfileAlertAcknowledgementStore.PREFERENCES_NAME in kept)
+    }
+
     @Test
     fun keepAccounts_keepsNothingElse() {
         val kept = LocalDataCleaner.keepAccountsExclusions(
@@ -55,7 +69,8 @@ class LocalDataCleanerKeepAccountsTest {
             setOf(
                 "accounts_file",
                 DeviceCredentialStore.PREFERENCES_NAME,
-                OwedServerOperationStore.PREFERENCES_NAME
+                OwedServerOperationStore.PREFERENCES_NAME,
+                PcgProfileAlertAcknowledgementStore.PREFERENCES_NAME
             ),
             kept
         )
