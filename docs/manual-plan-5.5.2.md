@@ -8,29 +8,36 @@ request needs to be open beside it.
 
 | | |
 |---|---|
-| Code the round covers | `main-v5` at `80c042c` |
-| Build from | `80c042c` **or** `0f4cb8b`, the current `main-v5` |
+| Code the round covers | `main-v5` at **`80c042c`** |
+| Build from | the tip of `main-v5`, after the check below |
 | Flavour | **dev** (`:app:assembleDevDebug`) |
-| Label on the login screen | **`Version 5.5.1-dev (build 8, 80c042c)`** or **`… (build 8, 0f4cb8b)`** |
+| Label on the login screen | `Version 5.5.1-dev (build 8, <commit>)` |
 
-`0f4cb8b` is the commit that added this document. It changes `RELEASE-STATE.md` and this file
-and nothing else: `git diff 80c042c 0f4cb8b -- app/ gradle/ build.gradle.kts
-settings.gradle.kts gradle.properties` is empty, so the two produce the same application and
-either label is this round. Building from the tip of `main-v5` is the ordinary thing to do and
-is correct.
+**Build from the tip of `main-v5`**, and do not expect the label to read `80c042c`. Every
+document merged after the code - including this file - moves the tip without changing the
+application, so naming the acceptable commits in a list is wrong the moment the list is
+written. The rule instead:
 
-Read that label at the foot of the login screen before starting. It comes from
-`app_version_label`, `Version %1$s (build %2$d, %3$s)`, filled with `versionName` `5.5.1`
-plus the dev flavour's `-dev` suffix, `versionCode` 8, and `BuildConfig.GIT_SHA`.
+```
+git diff 80c042c HEAD -- app/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties
+```
 
-**A round run on a different label is not this round.** In particular:
+**Empty output means the build is this round**, whatever commit the label names: nothing that
+affects the application has changed since the code the round covers. Non-empty output means the
+code has moved, and this plan may no longer describe what the build does - read what changed
+before running anything.
 
-- a trailing `+`, as in `80c042c+`, means the build came from a tree with uncommitted or
-  untracked changes. It is not this commit, and results from it do not belong in this round;
-- `unknown` in place of the commit means the build could not read git at all;
-- any commit other than those two is a different build. Rebuild rather than reinterpret. If
-  `main-v5` has moved again since `0f4cb8b`, check whether what came after touched `app/` or
-  `gradle/` before trusting a label that names it.
+Read the label at the foot of the login screen before starting, and write down what it says. It
+comes from `app_version_label`, `Version %1$s (build %2$d, %3$s)`, filled with `versionName`
+`5.5.1` plus the dev flavour's `-dev` suffix, `versionCode` 8, and `BuildConfig.GIT_SHA`.
+
+**Two labels disqualify a run outright**, whatever the `git diff` says:
+
+- a trailing `+`, as in `80c042c+`: the build came from a tree with uncommitted or untracked
+  changes, so no commit describes what is installed and the diff above proves nothing about it;
+- `unknown` in place of the commit: the build could not read git at all, so the same applies.
+
+In both cases commit or stash the tree and rebuild, rather than reinterpreting the result.
 
 `versionCode` and `versionName` are deliberately unchanged from 5.5.1 — this round happens
 **before** the release branch raises them.
