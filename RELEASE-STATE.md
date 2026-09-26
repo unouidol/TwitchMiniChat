@@ -620,6 +620,29 @@ guards are there - `AuthCallbackActivity` clears the record at sign-in, and the 
 re-reads whether the account is back before acting - because either alone would leave a
 window.
 
+## The 5.5.2 device round
+
+All four 5.5.2 changes are merged and **none of them has been tested on a device**. The round is
+written down in `docs/manual-plan-5.5.2.md`, in the repository rather than spread across four
+pull request bodies, so it travels with the clone and can be run with nothing open beside it.
+
+It is **one round for the whole objective**, not one per pull request: the cases are
+deduplicated, ordered non-destructive first, the flight-mode ones grouped, and the erases last,
+because each erase signs every account out.
+
+The round applies to `main-v5` at `80c042c`, dev flavour, label
+`Version 5.5.1-dev (build 8, 80c042c)`. A run against any other label - a different commit, a
+`+` for a dirty tree, or `unknown` - is not that round, and the plan says so in its first
+section.
+
+Three things the round deliberately cannot settle, each stated in the plan rather than left to
+be discovered: the true upgrade case, because the dev flavour is a separate application id and
+installs beside the release rather than over it; the backend's pruning of a dead token, which
+happens on the backend's own schedule; and the worker's behaviour under a long run of failures,
+which is not reachable by hand in a sitting.
+
+Record the outcome in the test device section below, with the label actually read on the screen.
+
 ## Test device
 
 Measured from the journal export of 2026-09-14, not from memory: it contains `listener.*`
