@@ -408,7 +408,7 @@ merge commit is read from the log rather than predicted here.
 | 1 | One erase instead of two, and it finishes on its own | merged, `f31c220` (#49) |
 | 2 | A profile-alert disable that survives a failed request | merged, `14bde5f` (#50) |
 | 3 | Tell the server when no alert category is active | on `feat/tell-the-server-nothing-is-active`, pull request open |
-| 4 | Rewrite the data deletion page, both copies | not started |
+| 4 | Rewrite the data deletion page, both copies, and one sentence of the privacy policy | on `feat/data-deletion-page-5-5-2`, pull request open; **both web copies are written but deliberately unpublished** |
 
 The first two are on `main-v5` and unreleased, so they belong to "Waiting for release"
 above as well; read them from the log rather than from a second copy of these rows.
@@ -463,6 +463,74 @@ in the pull request.
   until the deactivation is confirmed, the phone keeps that account's session so it can
   complete it.
 
+### Two web copies are written and must not be published yet
+
+The fourth pull request rewrites **two** pages in both of their copies - the data deletion page
+and, in one sentence, the privacy policy - with the same wording and the same
+"Last updated: 2026-09-26" on both. The bundled copies,
+`app/src/main/assets/policies/data_deletion.html` and `privacy.html`, merge with it. The
+published copies do **not** go out then, and this is not an oversight: `AGENTS.md` requires the
+web copy to precede the release that bundles the new text, and publishing at merge time would
+put public pages describing 5.5.2 behaviour in front of users who are all on 5.5.1 and have the
+old behaviour. The two disclosures would contradict each other in the opposite direction from
+the usual mistake.
+
+**Publishing them is one step of the 5.5.2 release, immediately before the tag** - between
+step 7 (confirming `main-v5` holds the code the artifacts were built from) and step 8
+(publishing the release) of the procedure in `AGENTS.md`. **Both pages in the same publication**,
+never two publications before one tag: that is how one of them gets forgotten, and a privacy
+policy that still describes the old retention while the deletion page describes the new
+behaviour is the exact contradiction the two-copies rule exists to prevent.
+
+The published copies are not stored a second time in this repository, because a stored snapshot
+is free to drift from the copy that ships. Each is **derived** from its bundled copy, and by
+nothing else - verified with `diff` at the time of writing:
+
+```
+report_block.html  -> report-block.html
+data_control.html  -> data-control.html
+data_deletion.html -> data-deletion.html
+```
+
+Applied to **every** `href`, not only the navigation: `privacy.html` links to the deletion page
+from its user-controls section as well, so it takes four substitutions where the deletion page
+takes three. `privacy.html`, `terms.html` and `credits.html` keep their own names in both. The
+published files are LF with a trailing newline, which for `privacy.html` is a real difference -
+the bundled copy has no trailing newline, and that is the difference this file has recorded
+since 5.5.1.
+
+Regenerate both at publication time, commit them as `tmc/data-deletion.html` and
+`tmc/privacy.html` in `unouidol/unouidol.github.io`, then fetch each back and compare it
+against the copy in the APK to confirm they agree apart from those links and that newline.
+
+#### What the privacy policy changed, and why the acceptance gate was not raised
+
+Section 5, Retention, said only that *"Some local settings remain on-device until the user
+clears app data, removes them, or uninstalls the app"*, which implied that removing an account
+removes everything kept for it. Since the second 5.5.2 change it does not: that account's
+sign-in with the server is kept until the server confirms its alerts are off. One added
+sentence says so in the reader's terms, and deliberately says nothing about the queue or the
+mechanism - the deletion page carries that detail.
+
+**Decision, 2026-09-26: `CURRENT_TERMS_VERSION` stays at 2**, so this does not re-show the
+acceptance gate. The criterion, recorded here so the next change to these pages is judged
+against it rather than by feel:
+
+> The gate is raised for a **material** change: data newly collected, a new recipient, or a new
+> purpose. It is not raised for a clarification, for a correction, or for behaviour that
+> collects nothing new.
+
+Neither 5.5.2 change is material by that test. A credential kept longer than the page implied
+is a correction to a disclosure, and the background work the owed-operations queue performs
+collects nothing new, adds no recipient, and serves a purpose section 3 already discloses
+("to provide optional push alerts and manage device registrations"). Re-showing the gate for a
+clarification teaches people to tap through it, and the gate is worth something only while they
+still read it - 5.5.1 raised it a month ago, on 2026-08-31.
+
+Also considered and deliberately **not** added: a note in section 2 about when the push
+notification token is deleted. Nothing new is collected, and the token's fate is deletion
+mechanics, which belong on the data deletion page.
+
 **What the second one changes.** Three things, in the order they matter:
 
 1. **The credentials outlive the attempt.** The backend session is removed only once the
@@ -503,6 +571,25 @@ acknowledged nothing, so a removal failing there would look as if it owed nothin
 explicit owed marker in `OwedServerOperationStore`, written only after an attempt has failed,
 covers it. That is an addition to the shape agreed for this work, stated rather than slipped
 in.
+
+**What the fourth one changes on the page.** The page described the old behaviour in three
+ways that are now wrong, each of which said something reassuring that was not true:
+
+- it documented *Erase everything on this device*, which no longer exists, and told the reader
+  its registration stays on the server and that they should choose the next option if they
+  want alerts to stop;
+- it said the erase wipes the phone *only after the server has confirmed*, and that nothing is
+  erased if the request fails. The erase now completes either way, and deleting the push token
+  is what stops the alerts;
+- it said the built-in browser data is cleared first and that nothing is erased if that fails.
+  The erase now completes and reports which part failed.
+
+What the new page is careful **not** to say: that the registration is removed the moment the
+user taps. It says the server drops it the next time it tries to reach the phone, and that the
+record can sit there if nothing is ever sent again. It also keeps the erase and
+*Delete app account and all data* apart - the erase does not delete profile-scoped server data
+- and describes switching a profile's alerts off as the server dropping that profile from this
+phone's list, never as deleting anything.
 
 **What the third one changes.** `PcgProfileRegistrationSyncPlanner.buildPlan` returned an
 empty plan whenever `selection.requiresFirebaseDelivery` was false, because the plan was
