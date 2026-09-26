@@ -8,9 +8,16 @@ request needs to be open beside it.
 
 | | |
 |---|---|
-| Branch and commit | `main-v5` at `80c042c` |
+| Code the round covers | `main-v5` at `80c042c` |
+| Build from | `80c042c` **or** `0f4cb8b`, the current `main-v5` |
 | Flavour | **dev** (`:app:assembleDevDebug`) |
-| Label on the login screen | **`Version 5.5.1-dev (build 8, 80c042c)`** |
+| Label on the login screen | **`Version 5.5.1-dev (build 8, 80c042c)`** or **`… (build 8, 0f4cb8b)`** |
+
+`0f4cb8b` is the commit that added this document. It changes `RELEASE-STATE.md` and this file
+and nothing else: `git diff 80c042c 0f4cb8b -- app/ gradle/ build.gradle.kts
+settings.gradle.kts gradle.properties` is empty, so the two produce the same application and
+either label is this round. Building from the tip of `main-v5` is the ordinary thing to do and
+is correct.
 
 Read that label at the foot of the login screen before starting. It comes from
 `app_version_label`, `Version %1$s (build %2$d, %3$s)`, filled with `versionName` `5.5.1`
@@ -21,7 +28,9 @@ plus the dev flavour's `-dev` suffix, `versionCode` 8, and `BuildConfig.GIT_SHA`
 - a trailing `+`, as in `80c042c+`, means the build came from a tree with uncommitted or
   untracked changes. It is not this commit, and results from it do not belong in this round;
 - `unknown` in place of the commit means the build could not read git at all;
-- any commit other than `80c042c` is a different build. Rebuild rather than reinterpret.
+- any commit other than those two is a different build. Rebuild rather than reinterpret. If
+  `main-v5` has moved again since `0f4cb8b`, check whether what came after touched `app/` or
+  `gradle/` before trusting a label that names it.
 
 `versionCode` and `versionName` are deliberately unchanged from 5.5.1 — this round happens
 **before** the release branch raises them.
