@@ -38,16 +38,60 @@ class OwedProfileDisablePolicyTest {
     }
 
     /**
-     * Void applies to the acknowledgement route into "owed" as well, not only to the
-     * explicit marker - otherwise half the ways of owing a disable would skip the guard.
+     * Replaces `an acknowledged-active profile signed in again is void without the marker`,
+     * which asserted `VOID_SIGNED_IN` here and so pinned the defect. Asked about a profile
+     * as if it were gone, the push policy answers `Push(DISABLED)` for any active
+     * acknowledged selection - which is every ordinary registered profile with alerts on -
+     * so the old rule put all of them into the cancellation branch at every start.
+     *
+     * Rejects an implementation that infers a debt from the acknowledged record alone for
+     * a profile that is still here. There was nothing to cancel, and reporting one says
+     * something untrue about a healthy installation.
      */
     @Test
-    fun `an acknowledged-active profile signed in again is void without the marker`() {
+    fun `a present profile with an active acknowledgement and no marker owes nothing`() {
+        assertEquals(
+            OwedProfileDisableDecision.NOTHING_OWED,
+            OwedProfileDisablePolicy.decide(
+                acknowledged = active,
+                explicitlyOwed = false,
+                local = PcgProfileLocalSelection.Present(
+                    PcgProfileAlertSelection.DISABLED
+                )
+            )
+        )
+    }
+
+    /**
+     * The same, for the shape an ordinary registered profile actually has: alerts on
+     * locally and the same selection acknowledged. This is the case that ran at every
+     * start on a healthy phone.
+     */
+    @Test
+    fun `an ordinary registered profile with alerts on owes nothing`() {
+        assertEquals(
+            OwedProfileDisableDecision.NOTHING_OWED,
+            OwedProfileDisablePolicy.decide(
+                acknowledged = active,
+                explicitlyOwed = false,
+                local = PcgProfileLocalSelection.Present(active)
+            )
+        )
+    }
+
+    /**
+     * And the guard it must not weaken: with a real failed attempt on record, an account
+     * signed in again still cancels rather than sends. Rejects a fix that reached
+     * `NOTHING_OWED` by dropping the cancellation branch altogether, which would let the
+     * queue silence a registration the user has just recreated.
+     */
+    @Test
+    fun `a real debt for a profile signed in again is still cancelled`() {
         assertEquals(
             OwedProfileDisableDecision.VOID_SIGNED_IN,
             OwedProfileDisablePolicy.decide(
                 acknowledged = active,
-                explicitlyOwed = false,
+                explicitlyOwed = true,
                 local = PcgProfileLocalSelection.Present(
                     PcgProfileAlertSelection.DISABLED
                 )
