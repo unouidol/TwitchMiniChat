@@ -17,19 +17,19 @@
 </div>
 
 <h1>Data Deletion</h1>
-<p class="small">Last updated: 2026-09-15</p>
+<p class="small">Last updated: 2026-09-26</p>
 
 <div class="card">
     <p>
         TwitchMiniChat has four ways to delete data from inside the app, and you can also ask
-        for deletion by email. <strong>Only two of the in-app options contact the server.</strong>
-        For each one, this page says what it removes from the phone and what it does, or does
-        not do, on the server.
+        for deletion by email. <strong>Three of the four contact the server.</strong> For each
+        one, this page says what it removes from the phone and what it does, or does not do, on
+        the server.
     </p>
     <p>
-        In the app, open Safety &amp; Privacy, then Data &amp; Account Control. "Reset local data"
-        offers the first three options below; "Delete app account and all data" is a separate
-        button. To remove a single account, use the X next to it in the account list.
+        In the app, open Safety &amp; Privacy, then Data &amp; Account Control. "Reset local
+        data" offers the first two options below; "Delete app account and all data" is a
+        separate button. To remove a single account, use the X next to it in the account list.
     </p>
 </div>
 
@@ -42,36 +42,41 @@
         browser's website data are kept, and so is the credential the server knows this phone
         by.</li>
     <li><strong>On the server: nothing.</strong> No request is sent. This phone stays
-        registered for alerts, and the options below can still remove that registration
+        registered for alerts, and the erase below can still remove that registration
         later.</li>
-</ul>
-
-<h2>Erase everything on this device</h2>
-<ul>
-    <li><strong>On this phone:</strong> removes every account and its sign-in with the
-        TwitchMiniChat server, the app's settings and preferences, hidden users, cached data,
-        the local diagnostic record, your acceptance of the terms, and the built-in browser's
-        website data, such as the cookies of the Pokémon Community Game pages. The browser data
-        is cleared first; if that fails, nothing is erased and the app shows the error.</li>
-    <li><strong>On the server: nothing.</strong> No request is sent. This phone stays
-        registered for alerts, so alerts for the accounts that were on it can keep arriving.
-        Erasing also removes the credential this phone would need to remove that registration
-        later. If you want alerts to stop, choose the next option instead. If you have already
-        erased, ask for the registration to be removed by email.</li>
 </ul>
 
 <h2>Erase everything and remove this device from the server</h2>
 <ul>
-    <li><strong>On the server, first:</strong> removes this phone's registration for alerts.
-        Data belonging to your accounts, such as uploaded Pokédex lists and sign-in records,
-        is kept, and your other devices are not affected.</li>
-    <li><strong>On this phone, only after the server has confirmed:</strong> everything the
-        previous option removes. If the server request fails, nothing on the phone is erased
-        and the app shows the error.</li>
-    <li><strong>Limit:</strong> the server identifies this phone by a credential stored in the
-        app. "Erase everything on this device" removes it, and so did every reset in versions
-        before 5.5.1. A registration this phone had before such an erase or reset is therefore
-        not reached; ask for its removal by email.</li>
+    <li><strong>On the server:</strong> removes this phone's registration for alerts. The data
+        belonging to your accounts — uploaded Pokédex lists, watchlists, and the sign-in
+        records TwitchMiniChat keeps — is <strong>not</strong> deleted, and your other devices
+        are not affected. To delete that data, use "Delete app account and all data" instead.
+    </li>
+    <li><strong>The push notification token is deleted from this phone.</strong> Without it the
+        phone can receive no alert at all, and the server drops this phone's registration the
+        next time it tries to reach it. That is not the same as the record being removed the
+        moment you tap: if nothing is ever sent to this phone again, the record can stay, with
+        a token that no longer reaches anything.</li>
+    <li><strong>On this phone:</strong> every account and its sign-in with the TwitchMiniChat
+        server, the app's settings and preferences, hidden users, cached data, the local
+        diagnostic record, your acceptance of the terms, and the built-in browser's website
+        data, such as the cookies of the Pokémon Community Game pages.</li>
+    <li><strong>The phone is erased even when the server cannot be reached.</strong> Erasing
+        your own data does not depend on a working connection. If the request to remove the
+        registration does not go through, the app tells you so and erases the phone anyway;
+        deleting the push token is what stops the alerts. If the token deletion does not go
+        through either, alerts can still arrive for a while, and the app keeps trying to delete
+        the token on its own until it succeeds.</li>
+    <li><strong>Clearing the built-in browser is a separate step.</strong> If its website data
+        cannot be cleared, the erase still completes and the app says which part failed. The
+        two are not one all-or-nothing step.</li>
+    <li><strong>Limit, for registrations left by earlier versions:</strong> before 5.5.2 there
+        was a second option, "Erase everything on this device", which erased the phone without
+        contacting the server and left its registration in place; every reset before 5.5.1
+        removed the credential the server identifies this phone by, with the same result. A
+        registration left behind either way is not reached by anything in the app. Ask for its
+        removal by email.</li>
 </ul>
 
 <h2>Delete app account and all data</h2>
@@ -88,11 +93,15 @@
         while the notice is in place, it reads the notice and erases all of its local
         TwitchMiniChat data, including any other accounts on it.</li>
     <li><strong>On this phone, only after the server has confirmed:</strong> everything,
-        including the built-in browser's website data. If the server request fails, nothing on
-        the phone is erased and the app shows the error. You will need to sign in again.</li>
-    <li><strong>Limit:</strong> the same as above. A registration left behind by an earlier
-        "Erase everything on this device", or by a reset in a version before 5.5.1, is not
-        reached.</li>
+        including the built-in browser's website data and the push notification token. If the
+        server request fails, nothing on the phone is erased and the app shows the error. This
+        is the one option that stops when the server cannot be reached, because it is the only
+        one that deletes data belonging to your accounts: erasing the phone as though it had
+        succeeded would tell you your server-side data was gone when it was not. You will need
+        to sign in again.</li>
+    <li><strong>Limit:</strong> the same as above. A registration left behind by an
+        "Erase everything on this device" in a version before 5.5.2, or by a reset in a version
+        before 5.5.1, is not reached.</li>
 </ul>
 
 <h2>Removing one account</h2>
@@ -100,10 +109,15 @@
     <li><strong>On this phone:</strong> removes that account and the data kept for it, such
         as its alert settings, Most Wanted selection, Pokédex and inventory snapshots and catch
         presets. Other accounts are kept.</li>
-    <li><strong>On the server:</strong> asks the server to stop alerts for that account on
-        this phone. The account's other server data, such as uploaded Pokédex lists and sign-in
-        records, is not deleted. The account is removed from the phone even if that request
-        fails.</li>
+    <li><strong>On the server:</strong> asks the server to switch that account's alerts off for
+        this phone, which makes the server drop that account from this phone's list. It does
+        <strong>not</strong> delete that account's data: uploaded Pokédex lists, watchlists and
+        sign-in records are kept.</li>
+    <li><strong>If that request fails:</strong> the account is removed from the phone anyway,
+        the app says that alerts for it may keep arriving for a while, and it keeps trying on
+        its own. Until it succeeds the phone keeps that account's sign-in with the
+        TwitchMiniChat server, because that sign-in is what lets it finish; it is removed as
+        soon as the server confirms, and an erase removes it in any case.</li>
 </ul>
 
 <h2>Asking for deletion by email</h2>

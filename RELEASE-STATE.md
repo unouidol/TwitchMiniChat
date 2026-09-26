@@ -408,7 +408,7 @@ merge commit is read from the log rather than predicted here.
 | 1 | One erase instead of two, and it finishes on its own | merged, `f31c220` (#49) |
 | 2 | A profile-alert disable that survives a failed request | merged, `14bde5f` (#50) |
 | 3 | Tell the server when no alert category is active | on `feat/tell-the-server-nothing-is-active`, pull request open |
-| 4 | Rewrite the data deletion page, both copies | not started |
+| 4 | Rewrite the data deletion page, both copies | on `feat/data-deletion-page-5-5-2`, pull request open; **the web copy is written but deliberately unpublished** |
 
 The first two are on `main-v5` and unreleased, so they belong to "Waiting for release"
 above as well; read them from the log rather than from a second copy of these rows.
@@ -463,6 +463,36 @@ in the pull request.
   until the deactivation is confirmed, the phone keeps that account's session so it can
   complete it.
 
+### The web copy of the data deletion page is written and must not be published yet
+
+The fourth pull request rewrites **both** copies, with the same wording and the same
+"Last updated: 2026-09-26". The bundled copy, `app/src/main/assets/policies/data_deletion.html`,
+merges with it. The published copy does **not** go out then, and this is not an oversight:
+`AGENTS.md` requires the web copy to precede the release that bundles the new text, and
+publishing it at merge time would put a public page describing 5.5.2 behaviour in front of
+users who are all on 5.5.1 and have the old behaviour. The two disclosures would contradict
+each other in the opposite direction from the usual mistake.
+
+**Publishing it is a step of the 5.5.2 release, immediately before the tag** - between step 7
+(confirming `main-v5` holds the code the artifacts were built from) and step 8 (publishing the
+release) of the procedure in `AGENTS.md`.
+
+The published copy is not stored a second time in this repository, because a stored snapshot
+is free to drift from the copy that ships. It is **derived** from the bundled copy by three
+substitutions in the navigation, and by nothing else - verified with `diff` at the time of
+writing:
+
+```
+report_block.html  -> report-block.html
+data_control.html  -> data-control.html
+data_deletion.html -> data-deletion.html
+```
+
+`privacy.html`, `terms.html` and `credits.html` keep their names in both. Regenerate the file
+from the bundled copy at publication time, commit it as `tmc/data-deletion.html` in
+`unouidol/unouidol.github.io`, then fetch it back and compare it against the copy in the APK
+to confirm the two agree apart from those three links.
+
 **What the second one changes.** Three things, in the order they matter:
 
 1. **The credentials outlive the attempt.** The backend session is removed only once the
@@ -503,6 +533,25 @@ acknowledged nothing, so a removal failing there would look as if it owed nothin
 explicit owed marker in `OwedServerOperationStore`, written only after an attempt has failed,
 covers it. That is an addition to the shape agreed for this work, stated rather than slipped
 in.
+
+**What the fourth one changes on the page.** The page described the old behaviour in three
+ways that are now wrong, each of which said something reassuring that was not true:
+
+- it documented *Erase everything on this device*, which no longer exists, and told the reader
+  its registration stays on the server and that they should choose the next option if they
+  want alerts to stop;
+- it said the erase wipes the phone *only after the server has confirmed*, and that nothing is
+  erased if the request fails. The erase now completes either way, and deleting the push token
+  is what stops the alerts;
+- it said the built-in browser data is cleared first and that nothing is erased if that fails.
+  The erase now completes and reports which part failed.
+
+What the new page is careful **not** to say: that the registration is removed the moment the
+user taps. It says the server drops it the next time it tries to reach the phone, and that the
+record can sit there if nothing is ever sent again. It also keeps the erase and
+*Delete app account and all data* apart - the erase does not delete profile-scoped server data
+- and describes switching a profile's alerts off as the server dropping that profile from this
+phone's list, never as deleting anything.
 
 **What the third one changes.** `PcgProfileRegistrationSyncPlanner.buildPlan` returned an
 empty plan whenever `selection.requiresFirebaseDelivery` was false, because the plan was
