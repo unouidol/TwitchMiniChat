@@ -38,11 +38,12 @@ class PcgProfileAlertSelectionTest {
     @Test
     fun mostWantedOnly_registrationRestoresSelectionAfterTokenUpload() {
         val plan = PcgProfileRegistrationSyncPlanner.buildPlan(
-            selection(
+            selection = selection(
                 regularMode = PcgSpawnAlertMode.NONE,
                 eventSpawnsEnabled = false,
                 mostWantedEnabled = true
-            )
+            ),
+            acknowledged = null
         )
 
         assertEquals(
@@ -54,12 +55,84 @@ class PcgProfileAlertSelectionTest {
         )
     }
 
+    /**
+     * An active profile is registered even when the backend has already acknowledged
+     * exactly this selection. Rejects an implementation that skips the whole pass on a
+     * matching acknowledgement: the token itself may have changed, and the acknowledged
+     * *alert selection* cannot tell.
+     */
     @Test
-    fun disabledProfile_registrationPerformsNoNetworkSteps() {
+    fun activeProfile_registersTokenEvenWhenSelectionIsAlreadyAcknowledged() {
+        val active = selection(
+            regularMode = PcgSpawnAlertMode.DEX_ONLY,
+            eventSpawnsEnabled = false,
+            mostWantedEnabled = false
+        )
+
+        assertEquals(
+            listOf(
+                PcgProfileRegistrationSyncStep.REGISTER_TOKEN,
+                PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION
+            ),
+            PcgProfileRegistrationSyncPlanner.buildPlan(
+                selection = active,
+                acknowledged = active
+            )
+        )
+    }
+
+    /**
+     * The case no test covered, and the one that matters. This replaces
+     * `disabledProfile_registrationPerformsNoNetworkSteps`, which pinned the defect:
+     * it asserted an empty plan for a profile with no category active, so a phone whose
+     * alerts were all switched off never told the server, and the server kept sending.
+     *
+     * Rejects that implementation, and also one that sends the selection while
+     * re-registering the token - which would put back the registration the disabled
+     * selection exists to remove.
+     */
+    @Test
+    fun disabledProfile_sendsTheDisabledSelectionAndRegistersNoToken() {
+        assertEquals(
+            listOf(PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION),
+            PcgProfileRegistrationSyncPlanner.buildPlan(
+                selection = disabledSelection(),
+                acknowledged = null
+            )
+        )
+    }
+
+    /**
+     * Rejects an implementation that sends the disable at every start, which would be one
+     * request per launch for ever on a phone that has simply switched its alerts off.
+     */
+    @Test
+    fun disabledProfile_sendsNothingOnceTheBackendHasAcknowledgedIt() {
         assertEquals(
             emptyList<PcgProfileRegistrationSyncStep>(),
             PcgProfileRegistrationSyncPlanner.buildPlan(
-                disabledSelection()
+                selection = disabledSelection(),
+                acknowledged = disabledSelection()
+            )
+        )
+    }
+
+    /**
+     * Rejects an implementation that reads a missing acknowledgement as "already
+     * disabled". An upgrading installation has acknowledged nothing, and it is exactly
+     * the one whose server copy may still be active.
+     */
+    @Test
+    fun disabledProfile_withAnActiveAcknowledgement_sendsTheDisable() {
+        assertEquals(
+            listOf(PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION),
+            PcgProfileRegistrationSyncPlanner.buildPlan(
+                selection = disabledSelection(),
+                acknowledged = selection(
+                    regularMode = PcgSpawnAlertMode.ALL_SPAWNS,
+                    eventSpawnsEnabled = true,
+                    mostWantedEnabled = true
+                )
             )
         )
     }

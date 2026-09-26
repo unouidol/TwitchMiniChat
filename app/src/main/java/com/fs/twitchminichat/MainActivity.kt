@@ -420,24 +420,17 @@ class MainActivity : AppCompatActivity() {
                 .filter(String::isNotBlank)
                 .distinct()
 
+            Log.d("FCM", "Boot registration pass profileCount=${profileIds.size}")
+
             for (profileId in profileIds) {
-                val selection = PcgProfileAlertSelectionStore.read(
-                    applicationContext,
-                    profileId
-                )
-                val deliveryRequired = selection.requiresFirebaseDelivery
-
-                Log.d(
-                    "FCM",
-                    "Boot registration check deliveryRequired=$deliveryRequired"
-                )
-
-                if (!deliveryRequired) {
-                    Log.d("FCM", "Skip token registration: no active alert category")
-                    continue
-                }
-
-                Log.d("FCM", "Registering token and restoring alert selection")
+                /*
+                 * No skip here any more. This loop used to leave out every profile whose
+                 * selection required no delivery, which is exactly the profile the
+                 * server has to be told about: one that wants no alerts while the server
+                 * may still hold an active mode. What to send is decided in one place,
+                 * PcgProfileRegistrationSyncPlanner, which also decides when there is
+                 * nothing left to send.
+                 */
                 FcmRegistrationUploader.uploadToken(applicationContext, token, profileId)
             }
         }
