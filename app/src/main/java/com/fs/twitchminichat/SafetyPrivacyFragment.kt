@@ -238,6 +238,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
                     val outcome = DeviceEraseOutcomePolicy.decide(
                         serverRemovalOk = serverResult.ok,
+                        serverNotRegistered = serverResult.notRegistered,
                         tokenDeletionOk = tokenOk
                     )
 
@@ -304,6 +305,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     ): String {
         val outcomeText = getString(
             when (outcome) {
+                DeviceEraseOutcome.NOT_REGISTERED -> R.string.erase_device_not_registered
                 DeviceEraseOutcome.REMOVED_FROM_SERVER -> R.string.erase_device_removed
                 DeviceEraseOutcome.ALERTS_STOPPED -> R.string.erase_device_alerts_stopped
                 DeviceEraseOutcome.NOTHING_REACHED -> R.string.erase_device_nothing_reached

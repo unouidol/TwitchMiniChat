@@ -411,6 +411,7 @@ and the merge commit is read from the log rather than predicted here.
 | 5 | The device round written into the repository | merged, `0f4cb8b` (#53), corrected by `a014d0e` (#54) and `4238a7b` (#55) |
 | 6 | What the round taught, folded back into the plan | on `docs/manual-plan-5-5-2-learned`, pull request open |
 | 7 | The owed-disable log must not report a cancellation with nothing to cancel | on `fix/owed-disable-no-false-cancel`, pull request open |
+| 8 | The erase must tell "never registered" apart from "the network refused" | on `fix/erase-never-registered`, pull request open |
 
 Rows 3 and 4 said "pull request open" until this edit, after both had merged. That is the
 failure this file exists to prevent, and it happened anyway, in the two rows nobody re-read
@@ -480,6 +481,15 @@ web copy to precede the release that bundles the new text, and publishing at mer
 put public pages describing 5.5.2 behaviour in front of users who are all on 5.5.1 and have the
 old behaviour. The two disclosures would contradict each other in the opposite direction from
 the usual mistake.
+
+**The two pages now carry different dates, deliberately.** `data_deletion.html` is
+`2026-09-28`, `privacy.html` is still `2026-09-26`. `AGENTS.md` does prescribe a rule about that
+date, but it governs the **two copies of one page** - "Change both in the same step, with the same
+wording and the same 'Last updated' date" - not two different pages. Nothing anywhere requires the
+deletion page and the privacy policy to agree with each other, and the earlier note in this file
+recording them both as `2026-09-26` was a record of what happened, not a rule. So the eighth
+change moved only the page it edited. Both copies of `data_deletion.html` carry `2026-09-28`, and
+both copies of `privacy.html` carry `2026-09-26`, which is what the rule actually asks.
 
 **Publishing them is one step of the 5.5.2 release, immediately before the tag** - between
 step 7 (confirming `main-v5` holds the code the artifacts were built from) and step 8
@@ -636,7 +646,22 @@ records the outcome and what the round taught, not the measurements.
 Two corrections came out of it, both inside 5.5.2 and neither touching an endpoint or a
 registration key, so no backend coordination: the owed-disable policy reporting a cancellation
 where there was no debt, and the erase failing to distinguish "never registered" from "the
-network refused". They are rows 7 and 8 of the table above as they are opened.
+network refused". They are rows 7 and 8 of the table above.
+
+**What the second one turns on.** `DeletionCredentials.Blocked` covers three reasons the request
+is not sent, and only one of them means the installation never registered: the device credential
+is **absent**. A missing backend session is the state of a phone whose accounts have all gone -
+which is registered, and still reports `ALERTS_STOPPED` - and a credential that exists but cannot
+be read means a registration may well exist while this phone can no longer prove it owns it, which
+is a failure. So the signal carried to the policy is `notRegistered`, set only for the absent case,
+rather than derived from `Blocked`. The new outcome takes precedence over the other two, because
+both of those describe a registration that exists.
+
+`tokenDeletionOwed` stays `!tokenDeletionOk` in that case too: the token and the registration are
+different things, and the user asked for everything on this phone to be gone. The message
+deliberately says nothing about the token, and nothing about a future removal - the defect it
+replaces was telling the user their device would be removed at the next attempt when there had
+never been anything to remove.
 
 The round is written down in `docs/manual-plan-5.5.2.md`, in the repository rather than spread
 across four pull request bodies, so it travels with the clone and can be run with nothing open

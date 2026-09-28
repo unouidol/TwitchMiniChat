@@ -50,7 +50,22 @@ object FcmRegistrationUploader {
     /** UI-facing deletion outcome that deliberately excludes raw backend metadata. */
     data class DeleteServerDataResult(
         val ok: Boolean,
-        val message: String
+        val message: String,
+
+        /**
+         * True when the request was never attempted because this installation has no
+         * device credential, so it never completed a registration.
+         *
+         * Distinct from every other reason `ok` is false, and the distinction is the
+         * point: with no credential there is nothing on the server to remove for this
+         * phone, and no later attempt would find anything. Telling the user their device
+         * could not be removed *yet* would be false twice over.
+         *
+         * Deliberately narrow. A credential that exists but cannot be read, and a
+         * missing backend session - the state of a phone whose accounts have all gone -
+         * are ordinary failures and leave this false.
+         */
+        val notRegistered: Boolean = false
     )
 
     /** UI-facing report outcome that deliberately excludes the reported content. */
@@ -444,7 +459,8 @@ object FcmRegistrationUploader {
                         onComplete,
                         DeleteServerDataResult(
                             ok = false,
-                            message = appContext.getString(credentials.messageRes)
+                            message = appContext.getString(credentials.messageRes),
+                            notRegistered = credentials.neverRegistered
                         )
                     )
                     return@thread
@@ -500,8 +516,17 @@ object FcmRegistrationUploader {
             val deviceSecret: String
         ) : DeletionCredentials
 
-        /** The request must not be attempted; [messageRes] explains why. */
-        data class Blocked(@param:StringRes val messageRes: Int) : DeletionCredentials
+        /**
+         * The request must not be attempted; [messageRes] explains why.
+         *
+         * [neverRegistered] separates the one reason that is not a failure at all: this
+         * installation has no device credential, so it never registered and there is
+         * nothing on the server to remove for it.
+         */
+        data class Blocked(
+            @param:StringRes val messageRes: Int,
+            val neverRegistered: Boolean = false
+        ) : DeletionCredentials
     }
 
     /**
@@ -540,21 +565,39 @@ object FcmRegistrationUploader {
             }
         }
 
-        val deviceSecret = runCatching {
+        /*
+         * Absent and unreadable are different answers and must not be merged. An absent
+         * credential means this installation never registered, so there is nothing on the
+         * server to remove for it; an unreadable one means a registration may well exist
+         * and this phone can no longer prove it owns it, which is a failure.
+         */
+        val storedSecret = runCatching {
             DeviceCredentialStore.getExistingDeviceSecret(appContext)
-        }.getOrElse { error ->
+        }
+
+        storedSecret.exceptionOrNull()?.let { error ->
             Log.e(
                 TAG,
                 "$logLabel skipped: invalid device credential " +
                     "errorType=${DiagnosticError.typeOf(error)}"
             )
-            null
+            return DeletionCredentials.Blocked(
+                messageRes = R.string.server_deletion_device_credential_missing,
+                neverRegistered = false
+            )
         }
 
+        val deviceSecret = storedSecret.getOrNull()
+
         if (deviceSecret.isNullOrBlank()) {
+            /*
+             * Message unchanged on purpose: it is the line the manual plan tells the
+             * tester to recognise this state by.
+             */
             Log.w(TAG, "$logLabel skipped: device credential missing")
             return DeletionCredentials.Blocked(
-                R.string.server_deletion_device_credential_missing
+                messageRes = R.string.server_deletion_device_credential_missing,
+                neverRegistered = true
             )
         }
 
