@@ -42,6 +42,62 @@ In both cases commit or stash the tree and rebuild, rather than reinterpreting t
 `versionCode` and `versionName` are deliberately unchanged from 5.5.1 — this round happens
 **before** the release branch raises them.
 
+## Status: executed once, 2026-09-26
+
+Run on the dev flavour at `80c042c`, every case passed, no blocking defect. Two corrections came
+out of it and are tracked in `RELEASE-STATE.md`; neither changes what the cases below check.
+
+Everything under **Naming**, **Capturing the log**, **Reading the backend registry** and
+**Injecting an owed record** was learned by running it, and is written here because each of those
+cost time or produced a wrong result the first time. Read them before starting, not when stuck.
+
+## Naming: there is no "Erase everything on this device"
+
+Use the labels exactly as the application shows them. Only these three actions exist, and two of
+them are inside one dialog:
+
+| Where | Exact label |
+|---|---|
+| Safety & Privacy → Data & Account Control | **Reset local data** (opens a dialog) |
+| …first button in that dialog | **Reset local data, keep accounts** |
+| …**second button in that dialog** | **Erase everything and remove this device from the server** |
+| Safety & Privacy → Data & Account Control, separate button | **Delete app account and all data** |
+
+**The device erase is the second button inside the *Reset local data* dialog.** Its full path is
+*Reset local data* → *Erase everything and remove this device from the server*.
+
+**"Erase everything on this device" does not exist.** It was removed in 5.5.2, and the phrase
+survives in this file only in cases D5 and A2, where it names the *old* option on purpose. On the
+first run, taking it for a live menu entry led to **Delete app account and all data** being run
+twice in place of the erase — a different action, with a different scope and a different failure
+rule — so two cases proved nothing and had to be redone. If a step below does not name one of the
+four labels in that table, it is not naming a real control.
+
+## Capturing the log
+
+**Use the Logcat panel in Android Studio, filter `package:com.fs.twitchminichat.dev`, level
+Debug.** That is the only method that worked for the whole round.
+
+Two dead ends, both measured:
+
+- `adb logcat -d TAG:D *:S` returns **nothing** for these tags. Do not conclude from silence that
+  the code did not run.
+- In PowerShell, redirecting with `>` writes UTF-16, which `findstr` then cannot read, so a grep
+  over the saved file comes back empty. Pipe instead: `adb logcat -d | Select-String OWED_SERVER_OP`.
+
+**Filter by package, not by process.** Several cases end in a wipe, after which the application
+restarts under a new pid; a process filter stops following it and the lines after the restart —
+which are usually the ones being checked — are lost.
+
+## Reading the backend registry
+
+The v10 console **does not print timestamps**. Do not use the order rows appear in it as evidence
+of when something changed.
+
+The authoritative time of a registry change is **`updated_at` in `registered_devices.json`**.
+Read that field when a case asks whether a `profile_ids` change happened, and record it beside the
+result.
+
 ## What the round needs
 
 - One Twitch account that can sign in, and a second one for the two-account cases.
@@ -87,6 +143,9 @@ Try it on the shortest screen available, and in landscape.
 action buttons above *Cancel* — *Reset local data, keep accounts* and *Erase everything and
 remove this device from the server*. The dialog scrolls if the text does not fit, and every
 button can be reached.
+
+This is also where to fix the naming in your head before section D: the second button **is** the
+device erase. Nothing anywhere is called *Erase everything on this device*.
 
 **Failing looks like.** Three action buttons, which would mean the old local-only erase is
 still wired. A button pushed off the bottom with no way to scroll to it. Text describing
@@ -211,6 +270,63 @@ entirely.
 
 ---
 
+## Injecting an owed record — needed by C3 and D3
+
+**C3 and D3 cannot be reached by hand.** Both need an owed record to still be owed at the moment
+an account is signed in again, and signing in needs the network — which is the same network that
+makes the queue drain, within a couple of minutes on the test device. The window closes before it
+can be used. Measured on the first run: every natural attempt drained instead of voiding.
+
+The only way to exercise them is to write the owed record directly, with the application stopped.
+
+**1. Stop the application.** Shared preferences are cached in memory and written back on exit, so
+a running process would overwrite the file.
+
+```
+adb shell am force-stop com.fs.twitchminichat.dev
+```
+
+**2. Write the record.** `run-as` gives the file the application's own uid, which a plain
+`adb push` would not.
+
+For an owed **token deletion** (D3):
+
+```
+adb shell run-as com.fs.twitchminichat.dev \
+  tee /data/data/com.fs.twitchminichat.dev/shared_prefs/owed_server_operations.xml <<'XML'
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <boolean name="firebase_token_deletion_owed" value="true" />
+</map>
+XML
+```
+
+For an owed **profile disable** (C3), where `<profile-id>` is that account's profile identifier
+as the registry shows it in this device's `profile_ids`, lowercase:
+
+```
+adb shell run-as com.fs.twitchminichat.dev \
+  tee /data/data/com.fs.twitchminichat.dev/shared_prefs/owed_server_operations.xml <<'XML'
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <set name="profile_alert_disables_owed">
+        <string><profile-id></string>
+    </set>
+</map>
+XML
+```
+
+That `set` entry is the **explicit** owed marker, which is what makes the debt real rather than
+inferred. C3 depends on it: a profile that merely has an active acknowledged selection and is
+present on the phone owes nothing, and reports `NOTHING_OWED`.
+
+**3. Reopen the application** with the account signed in and the network on, and read the
+`OWED_SERVER_OP` line.
+
+Both files can be written in one go to set up C5. The store is
+`owed_server_operations.xml`, kept by a keep-accounts reset and written after a wipe — which is
+why C4 and D2 can check it at all.
+
 ## C. Flight mode, then restore
 
 Group these together — each needs the network off at the moment of the action and back on
@@ -253,9 +369,10 @@ behind after it was no longer needed.
 
 **The case that would break a working install if it were wrong. Do not skip it.**
 
-**Do.** Reach the owed state as in C1. **Before** turning the network back on, turn flight
-mode off only long enough to sign the **same** account in again — or sign it in and then watch
-the next pass. Then let the queue run.
+**Do.** **Inject the owed disable** — see *Injecting an owed record* above. Doing it by hand
+does not work: signing the account back in needs the network, and the network drains the queue
+within a couple of minutes, so the debt is gone before it can be voided. Sign the account in,
+then reopen the application with the injected record in place.
 
 **Proves it.** `OWED_SERVER_OP owed profile disable decision=VOID_SIGNED_IN`, and **no**
 `owed profile disable sent` line. Alerts for that account work normally afterwards, and it is
@@ -291,7 +408,9 @@ and `owed profile disable decision=DISABLE` with `sent ok=true`.
 A failure in one kind preventing the other from being attempted at all.
 
 Because D2 erases the phone, run this case **after** D2 and sign back in to set up the
-removal side, or accept that it repeats part of D2.
+removal side, or accept that it repeats part of D2. Alternatively inject both records at once —
+one `owed_server_operations.xml` carrying the boolean and the set together — which is faster and
+checks the same pass.
 
 ---
 
@@ -301,8 +420,16 @@ Each of these signs every account out. Expect to sign in again between them.
 
 ### D1 — The erase, online, with an account signed in
 
-**Do.** Signed in, network on. *Reset local data* → *Erase everything and remove this device
-from the server*.
+**Precondition, and it is not optional.** The account must be **registered**, which means:
+sign in, then **force-stop the application and reopen it** before running the erase.
+`uploadToken` runs from the boot registration pass, so an account added inside a session that was
+already open has no device credential yet. Without it the erase never attempts the server call at
+all — `FCM_REGISTER delete_device_data skipped: device credential missing` — `ok` comes back
+false, and the case proves nothing about the online path. Measured on the first run, where it
+produced an `ALERTS_STOPPED` that looked like a defect and was not.
+
+**Do.** Signed in, registered as above, network on. *Reset local data* (dialog) → second button,
+*Erase everything and remove this device from the server*.
 
 **Proves it.** Toast **"Everything erased, and this device removed from the server"**. Logcat,
 in this order: `DEVICE_DELETE start profileCandidateCount=1`,
@@ -319,7 +446,13 @@ means the browser data was not cleared.
 
 ### D2 — The erase, offline: the phone is erased anyway
 
-**Do.** Sign in, alerts on, then flight mode on. Run the same erase.
+**Do.** Sign in, alerts on, register as in D1, then flight mode on. Run the same erase
+(*Reset local data* → second button).
+
+**Measured, so expect it:** `FirebaseMessaging.deleteToken()` really does fail with no network —
+it comes back as an `ExecutionException` and the line reads `Firebase token deletion ok=false` —
+and really does succeed once the network is back. Flight mode is therefore a valid way to produce
+the token debt; it does not silently succeed offline.
 
 **Proves it.** Toast **"Everything on this phone is erased, but alerts can still arrive. Twitch
 Mini Chat keeps trying to stop them on its own, as soon as this phone is online again."**
@@ -340,8 +473,9 @@ receiving alerts. `decision=NOTHING_OWED` on the pass after the network returns.
 
 **The second case that would break a working install. Do not skip it.**
 
-**Do.** Reach the owed state as in D2. **Before** the token deletion succeeds, sign an account
-back in. Then let the queue run.
+**Do.** **Inject the owed token deletion** — see *Injecting an owed record* above, and the
+same reason: the network needed to sign an account back in is the network that drains the debt.
+Sign an account in, then reopen the application with the injected record in place.
 
 **Proves it.** `OWED_SERVER_OP owed token deletion decision=VOID_SIGNED_IN`, and no
 `delete_firebase_token` line. Alerts for the newly signed-in account work normally.
@@ -447,4 +581,10 @@ checked: it is the only verification 5.5.2 has for anything involving GeckoView,
 backend registry or the software keyboard.
 
 Put the outcome in `RELEASE-STATE.md` under the test device section, with the date and the
-label read in step one — not the label expected, the one on the screen.
+label read in step one — not the label expected, the one on the screen. For any case that touched
+the registry, record `updated_at` from `registered_devices.json` beside the result, since the
+console gives no time of its own.
+
+The run of 2026-09-26 is recorded there. If the round is run again, add a run rather than
+overwriting that one: two runs disagreeing is information, and the older result is what the newer
+one has to be compared against.

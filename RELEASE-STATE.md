@@ -399,16 +399,21 @@ adds to `AGENTS.md`.
 
 ## 5.5.2 in progress — deletion does what it says
 
-Four pull requests, one objective each, in order. None of them is merged at the time this
-section was written; a row moves to "Waiting for release" once its merge exists, and the
-merge commit is read from the log rather than predicted here.
+One objective per pull request. A row moves to "Waiting for release" once its merge exists,
+and the merge commit is read from the log rather than predicted here.
 
 | # | Objective | State |
 |---|---|---|
 | 1 | One erase instead of two, and it finishes on its own | merged, `f31c220` (#49) |
 | 2 | A profile-alert disable that survives a failed request | merged, `14bde5f` (#50) |
-| 3 | Tell the server when no alert category is active | on `feat/tell-the-server-nothing-is-active`, pull request open |
-| 4 | Rewrite the data deletion page, both copies, and one sentence of the privacy policy | on `feat/data-deletion-page-5-5-2`, pull request open; **both web copies are written but deliberately unpublished** |
+| 3 | Tell the server when no alert category is active | merged, `cadc64f` (#51) |
+| 4 | Rewrite the data deletion page, both copies, and one sentence of the privacy policy | merged, `80c042c` (#52); **both web copies are written and deliberately unpublished** |
+| 5 | The device round written into the repository | merged, `0f4cb8b` (#53), corrected by `a014d0e` (#54) and `4238a7b` (#55) |
+| 6 | What the round taught, folded back into the plan | on `docs/manual-plan-5-5-2-learned`, pull request open |
+
+Rows 3 and 4 said "pull request open" until this edit, after both had merged. That is the
+failure this file exists to prevent, and it happened anyway, in the two rows nobody re-read
+after merging them.
 
 The first two are on `main-v5` and unreleased, so they belong to "Waiting for release"
 above as well; read them from the log rather than from a second copy of these rows.
@@ -622,9 +627,19 @@ window.
 
 ## The 5.5.2 device round
 
-All four 5.5.2 changes are merged and **none of them has been tested on a device**. The round is
-written down in `docs/manual-plan-5.5.2.md`, in the repository rather than spread across four
-pull request bodies, so it travels with the clone and can be run with nothing open beside it.
+**Executed once, 2026-09-26, on the dev flavour at `80c042c`: every case passed and no blocking
+defect was found.** Results and measurements are in the project document
+`claude/deletion-scope-architecture.md`, section "Giro dispositivo della 5.5.2"; this file
+records the outcome and what the round taught, not the measurements.
+
+Two corrections came out of it, both inside 5.5.2 and neither touching an endpoint or a
+registration key, so no backend coordination: the owed-disable policy reporting a cancellation
+where there was no debt, and the erase failing to distinguish "never registered" from "the
+network refused". They are rows 7 and 8 of the table above as they are opened.
+
+The round is written down in `docs/manual-plan-5.5.2.md`, in the repository rather than spread
+across four pull request bodies, so it travels with the clone and can be run with nothing open
+beside it.
 
 It is **one round for the whole objective**, not one per pull request: the cases are
 deduplicated, ordered non-destructive first, the flight-mode ones grouped, and the erases last,
@@ -642,6 +657,28 @@ happens on the backend's own schedule; and the worker's behaviour under a long r
 which is not reachable by hand in a sitting.
 
 Record the outcome in the test device section below, with the label actually read on the screen.
+
+**Four things the first run cost time on, now written into the plan** so a second run does not
+pay for them again:
+
+- the device erase is the **second button inside the *Reset local data* dialog**, and nothing is
+  called "Erase everything on this device" any more. Taking that phrase for a live menu entry
+  ran *Delete app account and all data* twice in its place, and two cases had to be redone;
+- the online erase needs the account **registered** first - sign in, then force-stop and reopen -
+  because `uploadToken` runs from the boot pass. Without it the server call is never attempted
+  (`delete_device_data skipped: device credential missing`) and the case proves nothing;
+- the two `VOID_SIGNED_IN` cases are **not reachable by hand**: signing an account back in needs
+  the network, and the network drains the queue within a couple of minutes. The plan carries the
+  `adb` recipe for injecting the owed record instead;
+- log capture that actually works is the **Android Studio Logcat panel** filtered
+  `package:com.fs.twitchminichat.dev` at Debug. `adb logcat -d TAG:D *:S` returns nothing, and
+  PowerShell's `>` writes UTF-16 that `findstr` cannot read. Filter by package, not process: the
+  wipes restart the application under a new pid.
+
+Also measured: `FirebaseMessaging.deleteToken()` fails without the network (`ExecutionException`)
+and succeeds with it, so flight mode is a valid way to produce the token debt. And the v10 console
+prints no timestamps - the authoritative time of a registry change is `updated_at` in
+`registered_devices.json`.
 
 ## Test device
 
