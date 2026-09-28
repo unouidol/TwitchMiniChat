@@ -144,11 +144,20 @@
     <string name="account_remove_alerts_owed">This account is gone from this phone, but alerts for it may keep arriving for a while. Twitch Mini Chat keeps trying to switch them off on its own.</string>
 
     <!--
-        The three outcomes of the single erase. None of them may claim more than the
+        The four outcomes of the single erase. None of them may claim more than the
         code did: the server record is dropped by the backend the next time it tries to
         send to a token that no longer exists, which is not the same as being deleted
         the moment the user taps.
+
+        erase_device_not_registered is the one that promises nothing at all, because
+        there is nothing to promise. "was not registered for alerts" is checkable: with
+        no device credential this installation never completed a registration, so the
+        server holds no token for it. "Nothing to remove from the server" is about this
+        phone's registration only, deliberately - an orphaned row from an earlier
+        installation can still exist, and this message is not a statement about
+        everything the server holds.
     -->
+    <string name="erase_device_not_registered">Everything on this phone is erased. It was not registered for alerts, so there was nothing to remove from the server.</string>
     <string name="erase_device_removed">Everything erased, and this device removed from the server</string>
     <string name="erase_device_alerts_stopped">Everything on this phone is erased and it has stopped receiving alerts. This device could not be removed from the server now; the server drops the registration the next time it tries to reach it.</string>
     <string name="erase_device_nothing_reached">Everything on this phone is erased, but alerts can still arrive. Twitch Mini Chat keeps trying to stop them on its own, as soon as this phone is online again.</string>

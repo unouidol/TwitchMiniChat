@@ -20,6 +20,7 @@ class DeviceEraseOutcomePolicyTest {
             DeviceEraseOutcome.REMOVED_FROM_SERVER,
             DeviceEraseOutcomePolicy.decide(
                 serverRemovalOk = true,
+                serverNotRegistered = false,
                 tokenDeletionOk = true
             )
         )
@@ -36,6 +37,7 @@ class DeviceEraseOutcomePolicyTest {
             DeviceEraseOutcome.REMOVED_FROM_SERVER,
             DeviceEraseOutcomePolicy.decide(
                 serverRemovalOk = true,
+                serverNotRegistered = false,
                 tokenDeletionOk = false
             )
         )
@@ -52,6 +54,7 @@ class DeviceEraseOutcomePolicyTest {
             DeviceEraseOutcome.ALERTS_STOPPED,
             DeviceEraseOutcomePolicy.decide(
                 serverRemovalOk = false,
+                serverNotRegistered = false,
                 tokenDeletionOk = true
             )
         )
@@ -67,9 +70,73 @@ class DeviceEraseOutcomePolicyTest {
             DeviceEraseOutcome.NOTHING_REACHED,
             DeviceEraseOutcomePolicy.decide(
                 serverRemovalOk = false,
+                serverNotRegistered = false,
                 tokenDeletionOk = false
             )
         )
+    }
+
+    /**
+     * The case 5.5.2's device round found. Rejects the implementation that reported an
+     * installation which had never registered as one whose removal had failed: the user was
+     * told their device could not be removed from the server now and would be removed at
+     * the next attempt, when there had never been anything to remove and no attempt would
+     * find anything.
+     */
+    @Test
+    fun `an installation that never registered is reported as such`() {
+        assertEquals(
+            DeviceEraseOutcome.NOT_REGISTERED,
+            DeviceEraseOutcomePolicy.decide(
+                serverRemovalOk = false,
+                serverNotRegistered = true,
+                tokenDeletionOk = true
+            )
+        )
+    }
+
+    /**
+     * Precedence, offline. Rejects an implementation that orders the checks the other way
+     * and reports NOTHING_REACHED, which would warn about alerts that cannot arrive: the
+     * server holds no registration for this installation to deliver through.
+     */
+    @Test
+    fun `never registered takes precedence over nothing reached`() {
+        assertEquals(
+            DeviceEraseOutcome.NOT_REGISTERED,
+            DeviceEraseOutcomePolicy.decide(
+                serverRemovalOk = false,
+                serverNotRegistered = true,
+                tokenDeletionOk = false
+            )
+        )
+    }
+
+    /**
+     * Precedence against a reported success. The two cannot both be true from the same
+     * request, so this pins the order rather than a reachable state: an implementation that
+     * preferred REMOVED_FROM_SERVER here would claim a removal that never happened.
+     */
+    @Test
+    fun `never registered takes precedence over a reported removal`() {
+        assertEquals(
+            DeviceEraseOutcome.NOT_REGISTERED,
+            DeviceEraseOutcomePolicy.decide(
+                serverRemovalOk = true,
+                serverNotRegistered = true,
+                tokenDeletionOk = true
+            )
+        )
+    }
+
+    /**
+     * Rejects an implementation that stops owing the token deletion once it decides the
+     * installation was never registered. The token and the registration are different
+     * things: the user asked for everything on this phone to be gone.
+     */
+    @Test
+    fun `a failed token deletion is owed on an installation that never registered`() {
+        assertTrue(DeviceEraseOutcomePolicy.tokenDeletionOwed(tokenDeletionOk = false))
     }
 
     /**

@@ -17,7 +17,7 @@
 </div>
 
 <h1>Data Deletion</h1>
-<p class="small">Last updated: 2026-09-26</p>
+<p class="small">Last updated: 2026-09-28</p>
 
 <div class="card">
     <p>
@@ -68,6 +68,10 @@
         deleting the push token is what stops the alerts. If the token deletion does not go
         through either, alerts can still arrive for a while, and the app keeps trying to delete
         the token on its own until it succeeds.</li>
+    <li><strong>If this phone is not registered for alerts, there is nothing to remove on
+        the server, and the app tells you that instead.</strong> An installation that never
+        completed its registration has no record here to remove, so no request is made and
+        none is owed.</li>
     <li><strong>Clearing the built-in browser is a separate step.</strong> If its website data
         cannot be cleared, the erase still completes and the app says which part failed. The
         two are not one all-or-nothing step.</li>
