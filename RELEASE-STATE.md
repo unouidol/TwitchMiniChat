@@ -410,6 +410,7 @@ and the merge commit is read from the log rather than predicted here.
 | 4 | Rewrite the data deletion page, both copies, and one sentence of the privacy policy | merged, `80c042c` (#52); **both web copies are written and deliberately unpublished** |
 | 5 | The device round written into the repository | merged, `0f4cb8b` (#53), corrected by `a014d0e` (#54) and `4238a7b` (#55) |
 | 6 | What the round taught, folded back into the plan | on `docs/manual-plan-5-5-2-learned`, pull request open |
+| 7 | The owed-disable log must not report a cancellation with nothing to cancel | on `fix/owed-disable-no-false-cancel`, pull request open |
 
 Rows 3 and 4 said "pull request open" until this edit, after both had merged. That is the
 failure this file exists to prevent, and it happened anyway, in the two rows nobody re-read
