@@ -409,16 +409,21 @@ and the merge commit is read from the log rather than predicted here.
 | 3 | Tell the server when no alert category is active | merged, `cadc64f` (#51) |
 | 4 | Rewrite the data deletion page, both copies, and one sentence of the privacy policy | merged, `80c042c` (#52); **both web copies are written and deliberately unpublished** |
 | 5 | The device round written into the repository | merged, `0f4cb8b` (#53), corrected by `a014d0e` (#54) and `4238a7b` (#55) |
-| 6 | What the round taught, folded back into the plan | on `docs/manual-plan-5-5-2-learned`, pull request open |
-| 7 | The owed-disable log must not report a cancellation with nothing to cancel | on `fix/owed-disable-no-false-cancel`, pull request open |
-| 8 | The erase must tell "never registered" apart from "the network refused" | on `fix/erase-never-registered`, pull request open |
+| 6 | What the round taught, folded back into the plan | merged, `eb22780` (#56) |
+| 7 | The owed-disable log must not report a cancellation with nothing to cancel | merged, `31cdedc` (#57) |
+| 8 | The erase must tell "never registered" apart from "the network refused" | merged, `50c3069` (#58) |
+| 9 | Re-anchor the round to `50c3069`, name the two new checks, address CI by SHA | on `docs/plan-reanchor-and-ci-sha`, pull request open |
 
-Rows 3 and 4 said "pull request open" until this edit, after both had merged. That is the
-failure this file exists to prevent, and it happened anyway, in the two rows nobody re-read
-after merging them.
+**Rows go stale in this table faster than anything else in this file.** Rows 3 and 4 said
+"pull request open" after both had merged, and rows 6, 7 and 8 did the same one round later,
+each corrected by the next pull request to touch the table. The pattern is the same every
+time: the row is written when the pull request opens and nobody returns to it when it merges.
+Either update the row in the merge that moves it, or read the state from
+`git log --first-parent v5.5.1..main-v5` and treat this table as a list of objectives rather
+than of states.
 
-The first two are on `main-v5` and unreleased, so they belong to "Waiting for release"
-above as well; read them from the log rather than from a second copy of these rows.
+Everything in rows 1 to 8 is on `main-v5` and unreleased, so it belongs to "Waiting for
+release" above as well; read it from the log rather than from a second copy of these rows.
 
 **What the first one changes.** *Reset local data* offered three actions; the local-only
 *Erase everything on this device* is gone, and the action that removes this device from the
@@ -683,6 +688,20 @@ happens on the backend's own schedule; and the worker's behaviour under a long r
 which is not reachable by hand in a sitting.
 
 Record the outcome in the test device section below, with the label actually read on the screen.
+
+**The 2026-09-26 run is not a result for the current tip.** It was made at `80c042c`, and the two
+corrections it produced have landed since, as `31cdedc` and `50c3069`. The plan is re-anchored to
+`50c3069`, and its own build check now reports the difference correctly. Two cases are new and have
+never been run: **A5**, the absence check for `31cdedc` - the line
+`owed profile disable decision=VOID_SIGNED_IN` must **not** appear at start-up on a healthy phone -
+and **D8**, the only check anywhere for the `NOT_REGISTERED` outcome, since
+`resolveDeletionCredentials` is private and no unit test reaches the flag. D8 is marked blocking:
+`ALERTS_STOPPED` or `NOTHING_REACHED` there means `notRegistered` never reaches the policy.
+
+**At release the build check will report a difference, and that is it working.** Raising
+`versionCode` and `versionName` changes `app/build.gradle.kts`, which the check watches on purpose.
+If the version is the only difference the round still describes the application; if anything else
+appears beside it, the code has moved too.
 
 **Four things the first run cost time on, now written into the plan** so a second run does not
 pay for them again:
