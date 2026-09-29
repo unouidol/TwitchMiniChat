@@ -60,8 +60,9 @@ before its own merge has to name a pull request, and then be replaced by the com
 merge produces, which is a second edit this file kept needing.
 
 Code changes for 5.5.2 have started landing; everything after the tag is no longer
-documentation only. What each one did is under "5.5.2 in progress" below, which records
-the objective and its condition rather than an identifier that does not exist yet.
+documentation only. What 5.5.2 set out to do is listed under "5.5.2 in progress" below, as
+objectives only: which of them have landed is this same log, and is not copied into a table
+that would then have to be kept true.
 
 ## What 5.5.1 shipped
 
@@ -399,37 +400,42 @@ adds to `AGENTS.md`.
 
 ## 5.5.2 in progress — deletion does what it says
 
-One objective per pull request. A row moves to "Waiting for release" once its merge exists,
-and the merge commit is read from the log rather than predicted here.
+**This table is a list of objectives. It records no state.** It answers *what does 5.5.2 set
+out to do*. What has landed is a different question, and git already answers it:
 
-| # | Objective | State |
-|---|---|---|
-| 1 | One erase instead of two, and it finishes on its own | merged, `f31c220` (#49) |
-| 2 | A profile-alert disable that survives a failed request | merged, `14bde5f` (#50) |
-| 3 | Tell the server when no alert category is active | merged, `cadc64f` (#51) |
-| 4 | Rewrite the data deletion page, both copies, and one sentence of the privacy policy | merged, `80c042c` (#52); **both web copies are written and deliberately unpublished** |
-| 5 | The device round written into the repository | merged, `0f4cb8b` (#53), corrected by `a014d0e` (#54) and `4238a7b` (#55) |
-| 6 | What the round taught, folded back into the plan | merged, `eb22780` (#56) |
-| 7 | The owed-disable log must not report a cancellation with nothing to cancel | merged, `31cdedc` (#57) |
-| 8 | The erase must tell "never registered" apart from "the network refused" | merged, `50c3069` (#58) |
-| 9 | Re-anchor the round to `50c3069`, name the two new checks, address CI by SHA | merged, `4f10476` (#59) |
+```
+git log --first-parent v5.5.1..main-v5
+```
 
-**Rows go stale in this table faster than anything else in this file.** Rows 3 and 4 said
-"pull request open" after both had merged, and rows 6, 7 and 8 did the same one round later,
-each corrected by the next pull request to touch the table. The pattern is the same every
-time: the row is written when the pull request opens and nobody returns to it when it merges.
-Either update the row in the merge that moves it, or read the state from
-`git log --first-parent v5.5.1..main-v5` and treat this table as a list of objectives rather
-than of states.
+One objective per pull request, and the log cannot disagree with itself.
 
-"In the merge that moves it" cannot be taken literally with a squash merge: the merge commit's
-identifier does not exist until the merge has happened, and a squash merge cannot edit its own
-tree. So a row that names a merge commit costs one bookkeeping commit after the fact, as row 9
-did. That commit is not an objective and takes no row of its own - otherwise every row would
-need a row, and the table would never settle.
+| # | Objective |
+|---|---|
+| 1 | One erase instead of two, and it finishes on its own |
+| 2 | A profile-alert disable that survives a failed request |
+| 3 | Tell the server when no alert category is active |
+| 4 | Rewrite the data deletion page, both copies, and one sentence of the privacy policy |
+| 5 | The device round written into the repository |
+| 6 | What the round taught, folded back into the plan |
+| 7 | The owed-disable log must not report a cancellation with nothing to cancel |
+| 8 | The erase must tell "never registered" apart from "the network refused" |
+| 9 | Re-anchor the round to `50c3069`, name the two new checks, address CI by SHA |
 
-Everything in rows 1 to 8 is on `main-v5` and unreleased, so it belongs to "Waiting for
-release" above as well; read it from the log rather than from a second copy of these rows.
+A condition git cannot answer - whether something was published outside this repository, what
+the test device is running - is not state of a change and does not belong in a row either. It
+has its own section below, where the reasoning can sit beside it.
+
+**Why the state column is gone, kept as the evidence for it.** Rows 3 and 4 said "pull request
+open" after both had merged. Rows 6, 7 and 8 did the same one round later. Row 9 recorded its
+own merge, which took a pull request of its own to write down - bookkeeping that produced work
+which then also needed recording. Each staleness was corrected by the next pull request to
+touch the table, which is not a process, only a coincidence repeated six times.
+
+The earlier fix was "update the row in the merge that moves it". It cannot be followed. A
+squash merge's commit identifier does not exist until the merge has happened, and a squash
+merge cannot edit its own tree, so a row naming a merge commit always costs a second commit
+after the fact. Removing the column removes the cost and the loop together: there is nothing
+left in a row that can go out of date, because a row now says only what the change was for.
 
 **What the first one changes.** *Reset local data* offered three actions; the local-only
 *Erase everything on this device* is gone, and the action that removes this device from the
