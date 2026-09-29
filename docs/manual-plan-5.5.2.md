@@ -8,18 +8,18 @@ request needs to be open beside it.
 
 | | |
 |---|---|
-| Code the round covers | `main-v5` at **`80c042c`** |
+| Code the round covers | `main-v5` at **`50c3069`** |
 | Build from | the tip of `main-v5`, after the check below |
 | Flavour | **dev** (`:app:assembleDevDebug`) |
 | Label on the login screen | `Version 5.5.1-dev (build 8, <commit>)` |
 
-**Build from the tip of `main-v5`**, and do not expect the label to read `80c042c`. Every
+**Build from the tip of `main-v5`**, and do not expect the label to read `50c3069`. Every
 document merged after the code - including this file - moves the tip without changing the
 application, so naming the acceptable commits in a list is wrong the moment the list is
 written. The rule instead:
 
 ```
-git diff 80c042c HEAD -- app/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties
+git diff 50c3069 HEAD -- app/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties
 ```
 
 **Empty output means the build is this round**, whatever commit the label names: nothing that
@@ -27,13 +27,21 @@ affects the application has changed since the code the round covers. Non-empty o
 code has moved, and this plan may no longer describe what the build does - read what changed
 before running anything.
 
+**On the release branch that comparison will not be empty, and that is correct.** Raising
+`versionCode` and `versionName` changes `app/build.gradle.kts`, which the check watches on
+purpose - a version bump is exactly the kind of change that must not pass unnoticed. Read what it
+lists: if the only difference is the version, the round still describes the application, and the
+label will name the release commit with `5.5.2` in place of `5.5.1-dev`. If anything else appears
+beside it, the code has moved too, and that is a separate question to answer before running. The
+check reporting a difference there is it working, not a defect in it.
+
 Read the label at the foot of the login screen before starting, and write down what it says. It
 comes from `app_version_label`, `Version %1$s (build %2$d, %3$s)`, filled with `versionName`
 `5.5.1` plus the dev flavour's `-dev` suffix, `versionCode` 8, and `BuildConfig.GIT_SHA`.
 
 **Two labels disqualify a run outright**, whatever the `git diff` says:
 
-- a trailing `+`, as in `80c042c+`: the build came from a tree with uncommitted or untracked
+- a trailing `+`, as in `50c3069+`: the build came from a tree with uncommitted or untracked
   changes, so no commit describes what is installed and the diff above proves nothing about it;
 - `unknown` in place of the commit: the build could not read git at all, so the same applies.
 
@@ -42,10 +50,22 @@ In both cases commit or stash the tree and rebuild, rather than reinterpreting t
 `versionCode` and `versionName` are deliberately unchanged from 5.5.1 — this round happens
 **before** the release branch raises them.
 
-## Status: executed once, 2026-09-26
+## Status: executed once, 2026-09-26, against code that has since changed
 
-Run on the dev flavour at `80c042c`, every case passed, no blocking defect. Two corrections came
-out of it and are tracked in `RELEASE-STATE.md`; neither changes what the cases below check.
+Run on the dev flavour at **`80c042c`**, every case passed, no blocking defect. That result stands
+for the code as it was then. This plan is now anchored to `50c3069`, which is not the same code:
+the two corrections the round produced have landed since, as `31cdedc` and `50c3069`.
+
+So the 2026-09-26 run is **not** a result for the current tip, and these parts have to be run
+again:
+
+- **A5** is new and has never been run. It is the check for `31cdedc`, and it is an absence.
+- **D8** is new and has never been run. It is the check for `50c3069`, and it covers the only part
+  of that change no unit test reaches.
+- **C1 to C5** still describe the same behaviour, but `31cdedc` changed what the start-up pass
+  logs on a healthy phone, so read A5 before trusting a C-section log capture.
+- **D1, D2 and D4** still expect the same outcomes, and `50c3069` added a fourth outcome they must
+  not now produce. D8 is where that is checked.
 
 Everything under **Naming**, **Capturing the log**, **Reading the backend registry** and
 **Injecting an owed record** was learned by running it, and is written here because each of those
@@ -195,6 +215,34 @@ accounts are **still signed in**. In the backend registry this device keeps the 
 mean the device credential was erased. No terms prompt.
 
 ---
+
+### A5 — No cancellation is reported when there is nothing to cancel
+
+The check for `31cdedc`, and **it is an absence**: no toast, no screen state, no new line to find.
+An absence nobody names is an absence nobody verifies, so it is a step of its own rather than a
+remark under A3.
+
+**Do.** The same restart as A3 — one account signed in, alerts on, force-stop and reopen — and
+read the whole start-up pass. One log capture serves A3 and A5 together.
+
+**Proves it.** This line
+
+```
+OWED_SERVER_OP owed profile disable decision=VOID_SIGNED_IN
+```
+
+**does not appear.** What may appear is `decision=NOTHING_OWED`, or no `owed profile disable` line
+at all for that profile. Both are correct.
+
+**Failing looks like.** That exact line present at start-up on a phone where nothing was ever
+removed and no disable ever failed. It means the policy is inferring a debt from the acknowledged
+selection alone, so every ordinary registered profile with alerts on is reported as a cancelled
+debt and `clearOwedProfileDisable` is written over nothing. Nothing breaks for the user, which is
+why it has to be looked for deliberately: the damage is to the log, and the next person reading it
+has to rule out a defect that is not there.
+
+Not blocking on its own — no user-visible behaviour depends on it — but report it, because it
+means `31cdedc` did not take.
 
 ## B. Connected network
 
@@ -553,6 +601,47 @@ the same.
 
 ---
 
+### D8 — An installation that was never registered says so
+
+The check for `50c3069`, and **the only part of it no unit test reaches**: `notRegistered` is set
+inside `resolveDeletionCredentials`, which is private, so the distinction between an *absent*
+device credential and an *unreadable* one is read in the code and exercised nowhere. This case is
+the only evidence that the flag reaches the policy at all.
+
+Read it together with **D4**. D4 is the erase on a *registered* phone with no accounts left, which
+must still report `ALERTS_STOPPED`. D8 is the erase on a phone that never registered. The two look
+alike — both fail to authenticate the server call — and they must report differently.
+
+**Do.** This reproduction is known because it happened by accident during the first round:
+
+1. run the erase (*Reset local data* → second button) and let the app restart;
+2. sign the account in again;
+3. **do not force-stop or reopen the app.** That is the whole point: `uploadToken` runs from the
+   boot registration pass, so within this session no device credential has been created;
+4. run the erase again.
+
+**Proves it.** `DEVICE_DELETE erase outcome=NOT_REGISTERED`, preceded by
+`FCM_REGISTER delete_device_data skipped: device credential missing` — that line is unchanged from
+before this case existed and is still how the state is recognised. On screen, the new message:
+
+> Everything on this phone is erased. It was not registered for alerts, so there was nothing to
+> remove from the server.
+
+It promises nothing about a future removal and says nothing about the push token. If the browser
+clear also fails, the browser clause follows it in the same toast, as for the other three outcomes.
+
+**Failing looks like**, and this one is **blocking**:
+
+- `erase outcome=ALERTS_STOPPED` or `erase outcome=NOTHING_REACHED` here means `notRegistered` is
+  **not reaching the policy**. The user is then told their device could not be removed from the
+  server and will be removed at the next attempt, when there was never anything to remove and no
+  attempt will find anything. That is the defect `50c3069` exists to remove, and seeing it here
+  means the change did not take;
+- the old wording on screen, for the same reason;
+- `erase outcome=NOT_REGISTERED` in **D4** instead, which would mean the flag is being set for a
+  missing *session* rather than a missing *credential*, and a registered phone is being told it was
+  never registered.
+
 ## What this round cannot check, and why
 
 - **The true upgrade case.** #51's behaviour on an installation that has acknowledged nothing
@@ -567,6 +656,10 @@ the same.
   backend tries to send to a deleted token happens inside the backend, on its schedule. D2 and
   D4 check that the token is deleted; whether and when the record disappears is a registry
   observation over time, not a step with a pass condition.
+- **Whether an *unreadable* device credential is told apart from an absent one.** D8 covers the
+  absent case, the one with a message of its own. A credential that exists and cannot be read is
+  meant to stay an ordinary failure, and reaching that state means corrupting the stored value on
+  purpose; it is read in the code and exercised nowhere.
 - **The worker's behaviour under a long failure.** The retry shape — exponential backoff from
   30 s, giving up after 8 attempts per enqueue while leaving the record owed for the next
   start — is not reachable by hand in a sitting. `OWED_SERVER_OP worker attempt failed
