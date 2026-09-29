@@ -412,7 +412,7 @@ and the merge commit is read from the log rather than predicted here.
 | 6 | What the round taught, folded back into the plan | merged, `eb22780` (#56) |
 | 7 | The owed-disable log must not report a cancellation with nothing to cancel | merged, `31cdedc` (#57) |
 | 8 | The erase must tell "never registered" apart from "the network refused" | merged, `50c3069` (#58) |
-| 9 | Re-anchor the round to `50c3069`, name the two new checks, address CI by SHA | on `docs/plan-reanchor-and-ci-sha`, pull request open |
+| 9 | Re-anchor the round to `50c3069`, name the two new checks, address CI by SHA | merged, `4f10476` (#59) |
 
 **Rows go stale in this table faster than anything else in this file.** Rows 3 and 4 said
 "pull request open" after both had merged, and rows 6, 7 and 8 did the same one round later,
@@ -421,6 +421,12 @@ time: the row is written when the pull request opens and nobody returns to it wh
 Either update the row in the merge that moves it, or read the state from
 `git log --first-parent v5.5.1..main-v5` and treat this table as a list of objectives rather
 than of states.
+
+"In the merge that moves it" cannot be taken literally with a squash merge: the merge commit's
+identifier does not exist until the merge has happened, and a squash merge cannot edit its own
+tree. So a row that names a merge commit costs one bookkeeping commit after the fact, as row 9
+did. That commit is not an objective and takes no row of its own - otherwise every row would
+need a row, and the table would never settle.
 
 Everything in rows 1 to 8 is on `main-v5` and unreleased, so it belongs to "Waiting for
 release" above as well; read it from the log rather than from a second copy of these rows.
