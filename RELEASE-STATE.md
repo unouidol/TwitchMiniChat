@@ -655,8 +655,9 @@ window.
 
 ## The 5.5.2 device round
 
-**Executed once, 2026-09-26, on the dev flavour at `80c042c`: every case passed and no blocking
-defect was found.** Results and measurements are in the project document
+**Executed once, 2026-09-26, on the dev flavour at `80c042c` - the commit the round was anchored
+to then, not the anchor now: every case passed and no blocking defect was found.** Results and
+measurements are in the project document
 `claude/deletion-scope-architecture.md`, section "Giro dispositivo della 5.5.2"; this file
 records the outcome and what the round taught, not the measurements.
 
@@ -688,10 +689,24 @@ It is **one round for the whole objective**, not one per pull request: the cases
 deduplicated, ordered non-destructive first, the flight-mode ones grouped, and the erases last,
 because each erase signs every account out.
 
-The round applies to `main-v5` at `80c042c`, dev flavour, label
-`Version 5.5.1-dev (build 8, 80c042c)`. A run against any other label - a different commit, a
-`+` for a dirty tree, or `unknown` - is not that round, and the plan says so in its first
-section.
+**The round applies to `main-v5` at `50c3069`**, dev flavour. It was re-anchored there by #59,
+after the two corrections landed; `80c042c` above is the commit the 2026-09-26 run was made
+against and is not the anchor any more.
+
+The label on the login screen names whichever commit was built, in the shape
+`Version 5.5.1-dev (build 8, <commit>)`, and it is **not** expected to read `50c3069`: every
+document merged after the code moves the tip without changing the application. Whether a build
+is this round is decided by the check in the plan's first section:
+
+```
+git diff 50c3069 HEAD -- app/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties
+```
+
+Empty means the build is this round, whatever commit its label names. Matching the label
+against a commit written here decides nothing, and naming an expected label in this file would
+make it a second place to keep true - the mistake this section has already made once. A `+` for
+a dirty tree, or `unknown` in place of the commit, disqualifies a run outright whatever that
+check says.
 
 Three things the round deliberately cannot settle, each stated in the plan rather than left to
 be discovered: the true upgrade case, because the dev flavour is a separate application id and
