@@ -523,6 +523,22 @@ class HistoryBackfillPolicyTest {
     }
 
     @Test
+    fun resume_oneSecondAwayRequestsEvenWithAnIrcClient() {
+        assertEquals(
+            Request(
+                source = RESUME,
+                requestedSec = 30,
+                details = listOf("awaySec" to 1),
+                effects = HistoryBackfillEffects(
+                    consumeLastPausedAt = true,
+                    armLastBackfillAtMs = NOW
+                )
+            ),
+            HistoryBackfillPolicy.onResume(inputs(lastPausedAtMs = NOW - 1_000L))
+        )
+    }
+
+    @Test
     fun resume_underOneSecondStillRequestsWhenNoIrcClientExists() {
         assertEquals(
             Request(
