@@ -148,7 +148,7 @@ object HistoryBackfillPolicy {
             /*
              * Marked before the answer arrives so a second connect cannot start a
              * duplicate hour-long request. A failure has to clear it again, which
-             * afterFailure does.
+             * the failure branches of loadHistoryFromBot do, as afterFailure decides.
              */
             return HistoryBackfillDecision.Request(
                 source = HistoryBackfillSource.FIRST_CONNECT,
@@ -162,20 +162,20 @@ object HistoryBackfillPolicy {
         }
 
         /*
-         * Reconnecting an already-initialized page. onResume used to be the only
-         * place that recovered this window, which covers every page the user
-         * actually looks at — but a page that never becomes the current one never
-         * reaches RESUMED, so nothing recovered it at all.
+         * Reconnecting an already-initialized fragment. onResume used to be
+         * the only place that recovered this window, which covers every page
+         * the user actually looks at — but a page that never becomes the
+         * current one never reaches RESUMED, so nothing recovered it at all.
          *
          * Seen on 2026-09-08: the streaming account's tab lost 09:16:46 to
          * 09:32:17, one whole spawn cycle, because the app was open for nine
-         * seconds and that page was never visible. Its two siblings, which did
-         * resume, recovered the same window correctly.
+         * seconds and that page was never visible. Its two siblings, which
+         * did resume, recovered the same window correctly.
          *
-         * The reference is consumed here so a later IRC reconnect within the same
-         * session does not ask again for a window it already holds. It is consumed
-         * before the checks below, so a skip loses it too.
+         * The reference is consumed here so a later IRC reconnect within the
+         * same session does not ask again for a window it already holds.
          */
+        /* Consumed before the checks below, so a skip loses it too. */
         val consumed = HistoryBackfillEffects(consumeOfflineRecovery = true)
         val offlineSec = inputs.offlineRecoveryAtMs
             .takeIf { it > 0L }
@@ -210,10 +210,11 @@ object HistoryBackfillPolicy {
 
             else -> {
                 /*
-                 * No onStop preceded this reconnect, so the offline reference was
-                 * never armed. That is not "nothing to recover": it is a mid-session
-                 * IRC drop. Fall back to the render watermark, the same reference the
-                 * no-pause resume uses for its own no-onStop case.
+                 * No onStop preceded this reconnect, so offlineRecoveryAtMs was
+                 * never armed. That is not "nothing to recover": it is a mid-
+                 * session IRC drop, the case an idle soTimeout is about to make
+                 * real. Fall back to the render watermark, the same reference
+                 * withoutPauseReference uses for its own no-onStop case.
                  */
                 val renderedGapSec = secondsSinceLastRenderedMessage(
                     nowMs = inputs.nowMs,
@@ -301,23 +302,24 @@ object HistoryBackfillPolicy {
     ): HistoryBackfillFailureEffects {
         val clearHistoryLoaded = when (failure) {
             /*
-             * A session can be established later, so the hour is still worth
-             * asking for. Without clearing the mark the page would never ask for
-             * it again and the window would be lost with nothing visible.
+             * A session can be established later, so the hour is still
+             * worth asking for. Without clearing the mark this fragment
+             * would take the history_already_loaded branch forever and
+             * the window would be lost with nothing visible to the user.
              */
             HistoryBackfillFailure.SESSION_MISSING -> true
 
             /*
-             * Deliberately left marked. Only the user can unblock this, so retrying
-             * on every connect would ask the backend for an hour it will keep
-             * refusing.
+             * Deliberately left marked. Only the user can unblock this,
+             * so retrying on every connect would ask the backend for an
+             * hour it will keep refusing.
              */
             HistoryBackfillFailure.REAUTHORIZATION_REQUIRED -> false
 
             /*
-             * Observed failing four milliseconds after the request left, which is a
-             * device with no network rather than a backend that said no. The next
-             * connect should ask again.
+             * Observed failing four milliseconds after the request left,
+             * which is a device with no network rather than a backend
+             * that said no. The next connect should ask again.
              */
             HistoryBackfillFailure.REQUEST_FAILED -> true
         }
