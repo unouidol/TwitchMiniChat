@@ -36,13 +36,15 @@ enum class HistoryBackfillFailure(val journalValue: String) {
  *
  * [lastBackfillAtMs] is when a request's result last arrived **successfully**, not
  * when a request left. [inFlightSinceMs] is when the request still awaiting its
- * result was sent, 0 when none is.
+ * result was sent, 0 when none is. [unrecoveredSinceMs] is the oldest moment a
+ * failed request did not recover, 0 when nothing is owed.
  */
 data class HistoryBackfillInputs(
     val nowMs: Long,
     val historyLoaded: Boolean,
     val lastBackfillAtMs: Long,
     val inFlightSinceMs: Long,
+    val unrecoveredSinceMs: Long,
     val lastPausedAtMs: Long,
     val lastStoppedAtMs: Long,
     val offlineRecoveryAtMs: Long,
@@ -111,9 +113,11 @@ sealed interface HistoryBackfillDecision {
  *
  * [inFlightSinceMs] is the in-flight marker's new value: cleared when it still
  * belongs to the failed request, left alone when a later request has replaced it.
+ * [unrecoveredSinceMs] is the start of the window still owed, after this failure.
  */
 data class HistoryBackfillFailureEffects(
     val inFlightSinceMs: Long,
+    val unrecoveredSinceMs: Long,
     val clearHistoryLoaded: Boolean,
     val journalFields: List<Pair<String, Any?>>
 ) {
@@ -127,10 +131,12 @@ data class HistoryBackfillFailureEffects(
  *
  * [inFlightSinceMs] follows the same rule as on failure. [lastBackfillAtMs] is the
  * instant the result arrived, which is what the five-second rule counts from.
+ * [unrecoveredSinceMs] is 0: a window that arrived owes nothing.
  */
 data class HistoryBackfillSuccessEffects(
     val inFlightSinceMs: Long,
-    val lastBackfillAtMs: Long
+    val lastBackfillAtMs: Long,
+    val unrecoveredSinceMs: Long
 )
 
 /**
@@ -241,9 +247,9 @@ object HistoryBackfillPolicy {
         )?.let { skip -> return skip }
 
         return when {
-            offlineSec != null -> HistoryBackfillDecision.Request(
+            offlineSec != null -> request(
                 source = HistoryBackfillSource.RECONNECT_OFFLINE,
-                requestedSec = historyWindowSeconds(offlineSec),
+                window = window(inputs, historyWindowSeconds(offlineSec)),
                 details = listOf("offlineSec" to offlineSec),
                 effects = consumed.copy(armInFlightSinceMs = inputs.nowMs)
             )
@@ -261,16 +267,19 @@ object HistoryBackfillPolicy {
                     lastRenderedMessageTsSec = inputs.lastRenderedMessageTsSec
                 )
 
-                if (renderedGapSec == null) {
+                /* A window a failed request still owes is a reference of its own. */
+                val requestWindow = windowOrOwed(inputs, renderedGapSec?.let(::historyWindowSeconds))
+
+                if (requestWindow == null) {
                     HistoryBackfillDecision.Skip(
                         reason = HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE_RECONNECT,
                         details = emptyList(),
                         effects = consumed
                     )
                 } else {
-                    HistoryBackfillDecision.Request(
+                    request(
                         source = HistoryBackfillSource.RECONNECT_NO_PAUSE_REFERENCE,
-                        requestedSec = historyWindowSeconds(renderedGapSec),
+                        window = requestWindow,
                         details = listOf("renderedGapSec" to renderedGapSec),
                         effects = consumed.copy(armInFlightSinceMs = inputs.nowMs)
                     )
@@ -301,9 +310,9 @@ object HistoryBackfillPolicy {
                 effects = consumed
             )?.let { skip -> return skip }
 
-            return HistoryBackfillDecision.Request(
+            return request(
                 source = HistoryBackfillSource.RESUME,
-                requestedSec = historyWindowSeconds(awaySec),
+                window = window(inputs, historyWindowSeconds(awaySec)),
                 details = listOf("awaySec" to awaySec),
                 effects = consumed.copy(armInFlightSinceMs = inputs.nowMs)
             )
@@ -318,9 +327,9 @@ object HistoryBackfillPolicy {
 
     /** Decides the request behind the refresh button. */
     fun onManualRefresh(inputs: HistoryBackfillInputs): HistoryBackfillDecision {
-        return HistoryBackfillDecision.Request(
+        return request(
             source = HistoryBackfillSource.MANUAL_REFRESH,
-            requestedSec = MANUAL_REFRESH_SECONDS,
+            window = window(inputs, MANUAL_REFRESH_SECONDS),
             details = emptyList(),
             effects = HistoryBackfillEffects(armInFlightSinceMs = inputs.nowMs)
         )
@@ -329,14 +338,23 @@ object HistoryBackfillPolicy {
     /**
      * Decides what a failed request changes, applied from the request's own thread.
      *
-     * [sentAtMs] is the instant the failed request armed the in-flight marker with,
-     * and [inFlightSinceMs] the marker as it stands now.
+     * [sentAtMs] is the instant the failed request armed the in-flight marker with;
+     * [inFlightSinceMs] and [unrecoveredSinceMs] are the stored values as they stand
+     * now.
+     *
+     * Every failure records the start of the window it asked for, the reauthorization
+     * one included: that changes nothing while the user is blocked, and covers the
+     * window once they unblock it. The start is the send instant minus the window,
+     * not the moment the failure arrived, which would start it later by the time the
+     * request took to fail. If a start is already recorded the older one is kept:
+     * the oldest moment not recovered is what the next request has to reach.
      */
     fun afterFailure(
         failure: HistoryBackfillFailure,
         requestedSec: Int,
         sentAtMs: Long,
-        inFlightSinceMs: Long
+        inFlightSinceMs: Long,
+        unrecoveredSinceMs: Long
     ): HistoryBackfillFailureEffects {
         val clearHistoryLoaded = when (failure) {
             /*
@@ -362,8 +380,15 @@ object HistoryBackfillPolicy {
             HistoryBackfillFailure.REQUEST_FAILED -> true
         }
 
+        val windowStartMs = sentAtMs - requestedSec * 1000L
+
         return HistoryBackfillFailureEffects(
             inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
+            unrecoveredSinceMs = if (unrecoveredSinceMs == 0L) {
+                windowStartMs
+            } else {
+                minOf(unrecoveredSinceMs, windowStartMs)
+            },
             clearHistoryLoaded = clearHistoryLoaded,
             journalFields = listOf(
                 "reason" to failure.journalValue,
@@ -384,7 +409,8 @@ object HistoryBackfillPolicy {
     ): HistoryBackfillSuccessEffects {
         return HistoryBackfillSuccessEffects(
             inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
-            lastBackfillAtMs = nowMs
+            lastBackfillAtMs = nowMs,
+            unrecoveredSinceMs = 0L
         )
     }
 
@@ -442,6 +468,18 @@ object HistoryBackfillPolicy {
         return ((nowMs - lastStoppedAtMs) / 1000).toInt()
     }
 
+    /**
+     * Returns the seconds elapsed since the oldest moment a failed request did not
+     * recover.
+     *
+     * Null means nothing is owed.
+     */
+    fun secondsSinceUnrecovered(nowMs: Long, unrecoveredSinceMs: Long): Int? {
+        if (unrecoveredSinceMs == 0L) return null
+
+        return ((nowMs - unrecoveredSinceMs) / 1000).toInt()
+    }
+
     /** Clamps one elapsed measure into a history request window. */
     fun historyWindowSeconds(elapsedSec: Int): Int {
         return (elapsedSec + 10).coerceIn(30, HISTORY_SECONDS)
@@ -473,20 +511,87 @@ object HistoryBackfillPolicy {
             lastStoppedAtMs = inputs.lastStoppedAtMs
         )
         val elapsedSec = listOfNotNull(renderedGapSec, offlineSec).maxOrNull()
+
+        /* A window a failed request still owes is a reference of its own. */
+        val requestWindow = windowOrOwed(inputs, elapsedSec?.let(::historyWindowSeconds))
             ?: return HistoryBackfillDecision.Skip(
                 reason = HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE,
                 details = listOf("historyLoaded" to inputs.historyLoaded),
                 effects = HistoryBackfillEffects()
             )
 
-        return HistoryBackfillDecision.Request(
+        return request(
             source = HistoryBackfillSource.RESUME_NO_PAUSE,
-            requestedSec = historyWindowSeconds(elapsedSec),
+            window = requestWindow,
             details = listOf(
                 "renderedGapSec" to renderedGapSec,
                 "offlineSec" to offlineSec
             ),
             effects = HistoryBackfillEffects(armInFlightSinceMs = inputs.nowMs)
+        )
+    }
+
+    /**
+     * One request's window, and how many seconds back the owed window reached when
+     * that is what made it wider.
+     */
+    private data class RequestWindow(
+        val requestedSec: Int,
+        val unrecoveredSec: Int?
+    )
+
+    /**
+     * Sizes a request: its own window, or the window back to the oldest moment a
+     * failed request did not recover, whichever is larger.
+     *
+     * Both pass through the same clamp, so a request is only reported as widened
+     * when the owed window actually asks for more.
+     */
+    private fun window(inputs: HistoryBackfillInputs, ownWindowSec: Int): RequestWindow {
+        val owed = owedWindow(inputs)
+
+        return if (owed != null && owed.requestedSec > ownWindowSec) {
+            owed
+        } else {
+            RequestWindow(ownWindowSec, null)
+        }
+    }
+
+    /**
+     * Sizes a request that may have no window of its own, which the owed window then
+     * stands in for. Null when neither exists.
+     */
+    private fun windowOrOwed(inputs: HistoryBackfillInputs, ownWindowSec: Int?): RequestWindow? {
+        return if (ownWindowSec != null) window(inputs, ownWindowSec) else owedWindow(inputs)
+    }
+
+    /** The window back to the oldest moment not recovered, null when nothing is owed. */
+    private fun owedWindow(inputs: HistoryBackfillInputs): RequestWindow? {
+        val unrecoveredSec = secondsSinceUnrecovered(
+            nowMs = inputs.nowMs,
+            unrecoveredSinceMs = inputs.unrecoveredSinceMs
+        ) ?: return null
+
+        return RequestWindow(historyWindowSeconds(unrecoveredSec), unrecoveredSec)
+    }
+
+    /**
+     * Builds a request, adding `unrecoveredSec` to its journal line when the owed
+     * window is what widened it.
+     */
+    private fun request(
+        source: HistoryBackfillSource,
+        window: RequestWindow,
+        details: List<Pair<String, Any?>>,
+        effects: HistoryBackfillEffects
+    ): HistoryBackfillDecision.Request {
+        return HistoryBackfillDecision.Request(
+            source = source,
+            requestedSec = window.requestedSec,
+            details = details + listOfNotNull(
+                window.unrecoveredSec?.let { seconds -> "unrecoveredSec" to seconds }
+            ),
+            effects = effects
         )
     }
 

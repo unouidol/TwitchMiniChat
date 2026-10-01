@@ -619,6 +619,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     @Volatile
     private var inFlightSinceMs: Long = 0L
 
+    /*
+     * The oldest moment a failed history request did not recover, 0 when nothing is
+     * owed. Every later request reaches back to it until one succeeds. Written from
+     * the history request thread, under backfillStateLock.
+     */
+    @Volatile
+    private var unrecoveredSinceMs: Long = 0L
+
     /* Guards the backfill state written from both the main and request threads. */
     private val backfillStateLock = Any()
 
@@ -1338,6 +1346,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         synchronized(backfillStateLock) {
             lastBackfillAtMs = 0L
             inFlightSinceMs = 0L
+            unrecoveredSinceMs = 0L
         }
         chatMessageDeduplicator.clear()
 
@@ -2808,6 +2817,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             historyLoaded = historyLoaded,
             lastBackfillAtMs = lastBackfillAtMs,
             inFlightSinceMs = inFlightSinceMs,
+            unrecoveredSinceMs = unrecoveredSinceMs,
             lastPausedAtMs = lastPausedAtMs,
             lastStoppedAtMs = lastStoppedAtMs,
             offlineRecoveryAtMs = offlineRecoveryAtMs,
@@ -2866,6 +2876,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             )
             inFlightSinceMs = effects.inFlightSinceMs
             lastBackfillAtMs = effects.lastBackfillAtMs
+            unrecoveredSinceMs = effects.unrecoveredSinceMs
         }
     }
 
@@ -2885,9 +2896,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 failure = failure,
                 requestedSec = requestedSec,
                 sentAtMs = sentAtMs,
-                inFlightSinceMs = inFlightSinceMs
+                inFlightSinceMs = inFlightSinceMs,
+                unrecoveredSinceMs = unrecoveredSinceMs
             ).also { decided ->
                 inFlightSinceMs = decided.inFlightSinceMs
+                unrecoveredSinceMs = decided.unrecoveredSinceMs
             }
         }
 
