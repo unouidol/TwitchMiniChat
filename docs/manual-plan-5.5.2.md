@@ -1,39 +1,45 @@
 # Manual test round — 5.5.2
 
 The device round for the four 5.5.2 changes, in one pass. It stands alone: every log line and
-every on-screen string below was read out of the code at the commit named here, so no pull
-request needs to be open beside it.
+every on-screen string below was read out of the code at `50c3069`, the commit the round was
+anchored to, so no pull request needs to be open beside it.
+
+5.5.2 will never be tagged or published. It was shelved, and the next release is 5.6.0, which
+carries everything 5.5.2 set out to do plus the chat work. "5.5.2" in this file names that work
+as it was planned; it reaches users as 5.6.0.
 
 ## Which build this round applies to
 
+**The anchor is retired.** The round applied to `main-v5` at `50c3069` only while 5.5.2 was
+heading for a tag. What the anchor protected was that tag: the build released as 5.5.2 had to be
+the application the round had tested. 5.5.2 will never be tagged, so there is nothing left for
+the anchor to protect, and it is not a constraint on anything any more.
+
+**Before 5.6.0 is released, the round has to be re-anchored and re-run against the final 5.6.0
+build**, because the chat work changes the application in between. The two runs under *Status*
+are results for the code they were made against, not for 5.6.0.
+
+While the anchor stood, a build was matched to the round like this:
+
 | | |
 |---|---|
-| Code the round covers | `main-v5` at **`50c3069`** |
-| Build from | the tip of `main-v5`, after the check below |
+| Code the round covered | `main-v5` at **`50c3069`** |
+| Built from | the tip of `main-v5`, after the check below |
 | Flavour | **dev** (`:app:assembleDevDebug`) |
 | Label on the login screen | `Version 5.5.1-dev (build 8, <commit>)` |
 
-**Build from the tip of `main-v5`**, and do not expect the label to read `50c3069`. Every
-document merged after the code - including this file - moves the tip without changing the
+The build came from the tip of `main-v5`, and the label was not expected to read `50c3069`.
+Every document merged after the code - including this file - moves the tip without changing the
 application, so naming the acceptable commits in a list is wrong the moment the list is
-written. The rule instead:
+written. The rule instead was:
 
 ```
 git diff 50c3069 HEAD -- app/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties
 ```
 
-**Empty output means the build is this round**, whatever commit the label names: nothing that
-affects the application has changed since the code the round covers. Non-empty output means the
-code has moved, and this plan may no longer describe what the build does - read what changed
-before running anything.
-
-**On the release branch that comparison will not be empty, and that is correct.** Raising
-`versionCode` and `versionName` changes `app/build.gradle.kts`, which the check watches on
-purpose - a version bump is exactly the kind of change that must not pass unnoticed. Read what it
-lists: if the only difference is the version, the round still describes the application, and the
-label will name the release commit with `5.5.2` in place of `5.5.1-dev`. If anything else appears
-beside it, the code has moved too, and that is a separate question to answer before running. The
-check reporting a difference there is it working, not a defect in it.
+**Empty output meant the build was this round**, whatever commit the label named: nothing that
+affects the application had changed since the code the round covered. Non-empty output meant the
+code had moved, and this plan might no longer describe what the build did.
 
 Read the label at the foot of the login screen before starting, and write down what it says. It
 comes from `app_version_label`, `Version %1$s (build %2$d, %3$s)`, filled with `versionName`
@@ -47,25 +53,28 @@ comes from `app_version_label`, `Version %1$s (build %2$d, %3$s)`, filled with `
 
 In both cases commit or stash the tree and rebuild, rather than reinterpreting the result.
 
-`versionCode` and `versionName` are deliberately unchanged from 5.5.1 — this round happens
-**before** the release branch raises them.
+`versionCode` and `versionName` were deliberately unchanged from 5.5.1 in both runs: the round
+was made **before** any release branch raised them.
 
-## Status: executed once, 2026-09-26, against code that has since changed
+## Status: executed in full, in two runs; to be re-run on the final 5.6.0 build
 
-Run on the dev flavour at **`80c042c`**, every case passed, no blocking defect. That result stands
-for the code as it was then. This plan is now anchored to `50c3069`, which is not the same code:
-the two corrections the round produced have landed since, as `31cdedc` and `50c3069`.
+**First run, 2026-09-26**, on the dev flavour at **`80c042c`**: every case passed, no blocking
+defect. That result stands for the code as it was then. The two corrections the round produced
+landed afterwards, as `31cdedc` and `50c3069`, which is why the plan was re-anchored to `50c3069`
+and these parts had to be run again:
 
-So the 2026-09-26 run is **not** a result for the current tip, and these parts have to be run
-again:
-
-- **A5** is new and has never been run. It is the check for `31cdedc`, and it is an absence.
-- **D8** is new and has never been run. It is the check for `50c3069`, and it covers the only part
-  of that change no unit test reaches.
+- **A5**, the check for `31cdedc`.
+- **D8**, the check for `50c3069`. It covers the only part of that change no unit test reaches.
 - **C1 to C5** still describe the same behaviour, but `31cdedc` changed what the start-up pass
   logs on a healthy phone, so read A5 before trusting a C-section log capture.
 - **D1, D2 and D4** still expect the same outcomes, and `50c3069` added a fourth outcome they must
   not now produce. D8 is where that is checked.
+
+**Second run, 2026-09-30**, on the dev flavour against `main-v5` at **`bf7dd65`**: A5 and D8, the
+two cases the first run never reached, were run, and both passed. No blocking defect was found in
+either run.
+
+Neither run is a result for 5.6.0: see *Which build this round applies to*.
 
 Everything under **Naming**, **Capturing the log**, **Reading the backend registry** and
 **Injecting an owed record** was learned by running it, and is written here because each of those
@@ -218,28 +227,46 @@ mean the device credential was erased. No terms prompt.
 
 ### A5 — No cancellation is reported when there is nothing to cancel
 
-The check for `31cdedc`, and **it is an absence**: no toast, no screen state, no new line to find.
-An absence nobody names is an absence nobody verifies, so it is a step of its own rather than a
-remark under A3.
+The check for `31cdedc`. The defect it guards against is a line that should not be there, but
+**the case passes on a line that is present**, not on one that is absent: an absent line also
+happens when the policy was never consulted, and then nothing has been tested. It is a step of its
+own rather than a remark under A3, because a check nobody names is a check nobody runs.
 
 **Do.** The same restart as A3 — one account signed in, alerts on, force-stop and reopen — and
 read the whole start-up pass. One log capture serves A3 and A5 together.
 
-**Proves it.** This line
+**Proves it.** This exact line:
+
+```
+OWED_SERVER_OP owed profile disable decision=NOTHING_OWED
+```
+
+**No `owed profile disable` line at all is not a pass.** It is an instruction: force-stop and
+reopen again, and read the next start-up pass. The owed-work attempt runs at start-up before the
+registration, and it consults the policy only for profiles it already knows about - one with an
+acknowledged selection, or one explicitly owed. On a phone where the acknowledgement does not exist
+yet there is nothing to decide, so no line is written.
+
+This is measured, not reasoned. On 2026-09-30 the first attempt produced no `owed profile disable`
+line at all, because the candidate set was empty: the owed-work attempt ran at 16:20:50.019, and
+the registration that writes the acknowledgement finished at 16:20:50.343, after it. The pass
+condition this case used to state - the line below absent, `NOTHING_OWED` or no line at all both
+accepted - was satisfied while nothing had been tested. The proof came from a second force-stop
+and reopen: the acknowledgement existed, there was a candidate, and the line read
+`decision=NOTHING_OWED`. Anyone running this on a cold install will hit the same thing.
+
+**Failing looks like.** This line, at start-up on a phone where nothing was ever removed and no
+disable ever failed:
 
 ```
 OWED_SERVER_OP owed profile disable decision=VOID_SIGNED_IN
 ```
 
-**does not appear.** What may appear is `decision=NOTHING_OWED`, or no `owed profile disable` line
-at all for that profile. Both are correct.
-
-**Failing looks like.** That exact line present at start-up on a phone where nothing was ever
-removed and no disable ever failed. It means the policy is inferring a debt from the acknowledged
-selection alone, so every ordinary registered profile with alerts on is reported as a cancelled
-debt and `clearOwedProfileDisable` is written over nothing. Nothing breaks for the user, which is
-why it has to be looked for deliberately: the damage is to the log, and the next person reading it
-has to rule out a defect that is not there.
+It means the policy is inferring a debt from the acknowledged selection alone, so every ordinary
+registered profile with alerts on is reported as a cancelled debt and `clearOwedProfileDisable` is
+written over nothing. Nothing breaks for the user, which is why it has to be looked for
+deliberately: the damage is to the log, and the next person reading it has to rule out a defect
+that is not there.
 
 Not blocking on its own — no user-visible behaviour depends on it — but report it, because it
 means `31cdedc` did not take.
@@ -678,6 +705,6 @@ label read in step one — not the label expected, the one on the screen. For an
 the registry, record `updated_at` from `registered_devices.json` beside the result, since the
 console gives no time of its own.
 
-The run of 2026-09-26 is recorded there. If the round is run again, add a run rather than
-overwriting that one: two runs disagreeing is information, and the older result is what the newer
-one has to be compared against.
+The runs of 2026-09-26 and 2026-09-30 are recorded in `RELEASE-STATE.md`. When the round is run
+again, add a run rather than overwriting those: two runs disagreeing is information, and the older
+result is what the newer one has to be compared against.
