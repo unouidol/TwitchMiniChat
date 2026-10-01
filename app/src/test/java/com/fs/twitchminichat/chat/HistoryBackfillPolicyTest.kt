@@ -8,8 +8,8 @@ import com.fs.twitchminichat.chat.HistoryBackfillFailure.SESSION_MISSING
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.AWAY_BELOW_THRESHOLD
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.BACKFILL_IN_FLIGHT
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.HISTORY_ALREADY_LOADED
-import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE
-import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE_RECONNECT
+import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NOTHING_TO_MEASURE_FROM
+import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NOTHING_TO_MEASURE_FROM_RECONNECT
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.RECENT_BACKFILL
 import com.fs.twitchminichat.chat.HistoryBackfillSource.FIRST_CONNECT
 import com.fs.twitchminichat.chat.HistoryBackfillSource.MANUAL_REFRESH
@@ -200,40 +200,56 @@ class HistoryBackfillPolicyTest {
     }
 
     @Test
-    fun frozen_noRecoveryReference_writesAJournalLineAndDoesNothingElse() {
+    fun noPauseNoWatermarkNoStop_fallsBackToTheLastSuccessfulBackfill() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: a page resumed for the first time with
-         * no rendered message, no onStop and no request in the last five seconds records
-         * reason=no_recovery_reference and stops there. It requests nothing, arms
-         * nothing and schedules nothing, so whatever that page missed stays missing
-         * until some other path happens to ask.
+         * Replaces frozen_noRecoveryReference_writesAJournalLineAndDoesNothingElse,
+         * which pinned a dead end: a page resumed for the first time with no rendered
+         * message, no onStop and no recent request wrote reason=no_recovery_reference
+         * and asked for nothing, even when a backfill had arrived since. The last
+         * successful backfill is a real reference now that it records an arrival, so
+         * the page asks for the window since then. Only with no successful backfill
+         * either does it skip, under a reason of its own.
          */
-        val nothing = inputs(historyLoaded = true)
-        val decision = HistoryBackfillPolicy.onResume(nothing)
+        val afterASuccess = HistoryBackfillPolicy.onResume(inputs(lastBackfillAtMs = NOW - 40_000L))
+        assertEquals(
+            Request(
+                source = RESUME_NO_PAUSE,
+                requestedSec = 50,
+                details = listOf(
+                    "renderedGapSec" to null,
+                    "offlineSec" to null,
+                    "sinceLastBackfillSec" to 40
+                ),
+                effects = HistoryBackfillEffects(armInFlightSinceMs = NOW)
+            ),
+            afterASuccess
+        )
+        assertEquals(
+            "backfill.triggered source=resume_no_pause sinceLastBackfillSec=40 requestedSec=50",
+            render(afterASuccess)
+        )
 
+        /* A success exactly five seconds old no longer suppresses, and is the reference. */
+        assertEquals(
+            "backfill.triggered source=resume_no_pause sinceLastBackfillSec=5 requestedSec=30",
+            render(HistoryBackfillPolicy.onResume(inputs(lastBackfillAtMs = NOW - 5_000L)))
+        )
+
+        /* Nothing at all: the one case left with nothing to measure from. */
+        val nothing = HistoryBackfillPolicy.onResume(inputs(historyLoaded = true))
         assertEquals(
             Skip(
-                reason = NO_RECOVERY_REFERENCE,
+                reason = NOTHING_TO_MEASURE_FROM,
                 details = listOf("historyLoaded" to true),
                 effects = HistoryBackfillEffects()
             ),
-            decision
+            nothing
         )
-        assertEquals("backfill.skipped reason=no_recovery_reference historyLoaded=true", render(decision))
+        assertEquals("backfill.skipped reason=nothing_to_measure_from historyLoaded=true", render(nothing))
 
-        /* A request exactly five seconds old is no longer recent, and changes nothing here. */
+        /* A newest message stamped in the future by a skewed clock still counts as none. */
         assertEquals(
-            "backfill.skipped reason=no_recovery_reference historyLoaded=false",
-            render(
-                HistoryBackfillPolicy.onResume(
-                    inputs(historyLoaded = false, lastBackfillAtMs = NOW - 5_000L)
-                )
-            )
-        )
-
-        /* A newest message stamped in the future by a skewed clock counts as none. */
-        assertEquals(
-            NO_RECOVERY_REFERENCE,
+            NOTHING_TO_MEASURE_FROM,
             (HistoryBackfillPolicy.onResume(
                 inputs(lastRenderedMessageTsSec = NOW / 1000.0 + 5.0)
             ) as Skip).reason
@@ -461,9 +477,13 @@ class HistoryBackfillPolicyTest {
             HistoryBackfillPolicy.onResume(inputs(lastPausedAtMs = NOW - 500L)) to
                     "backfill.skipped reason=away_below_threshold awaySec=0",
             HistoryBackfillPolicy.onResume(inputs(historyLoaded = true)) to
-                    "backfill.skipped reason=no_recovery_reference historyLoaded=true",
+                    "backfill.skipped reason=nothing_to_measure_from historyLoaded=true",
             HistoryBackfillPolicy.onConnect(inputs()) to
-                    "backfill.skipped reason=no_recovery_reference_reconnect"
+                    "backfill.skipped reason=nothing_to_measure_from_reconnect",
+            HistoryBackfillPolicy.onResume(inputs(lastBackfillAtMs = NOW - 40_000L)) to
+                    "backfill.triggered source=resume_no_pause sinceLastBackfillSec=40 requestedSec=50",
+            HistoryBackfillPolicy.onConnect(inputs(lastBackfillAtMs = NOW - 40_000L)) to
+                    "backfill.triggered source=reconnect_no_pause_reference sinceLastBackfillSec=40 requestedSec=50"
         )
 
         cases.forEach { (decision, expected) ->
@@ -572,7 +592,7 @@ class HistoryBackfillPolicyTest {
     fun connect_withoutAnyReferenceStillConsumesTheOfflineReference() {
         assertEquals(
             Skip(
-                reason = NO_RECOVERY_REFERENCE_RECONNECT,
+                reason = NOTHING_TO_MEASURE_FROM_RECONNECT,
                 details = emptyList(),
                 effects = HistoryBackfillEffects(consumeOfflineRecovery = true)
             ),
@@ -904,6 +924,64 @@ class HistoryBackfillPolicyTest {
         assertEquals(
             "backfill.triggered source=resume_no_pause unrecoveredSec=400 requestedSec=410",
             render(HistoryBackfillPolicy.onResume(inputs(unrecoveredSinceMs = NOW - 400_000L)))
+        )
+    }
+
+    @Test
+    fun reconnectWithNoReference_fallsBackToTheLastSuccessfulBackfill() {
+        assertEquals(
+            "backfill.triggered source=reconnect_no_pause_reference sinceLastBackfillSec=40 requestedSec=50",
+            render(HistoryBackfillPolicy.onConnect(inputs(lastBackfillAtMs = NOW - 40_000L)))
+        )
+        assertEquals(
+            "backfill.skipped reason=nothing_to_measure_from_reconnect",
+            render(HistoryBackfillPolicy.onConnect(inputs()))
+        )
+    }
+
+    @Test
+    fun theLastSuccessfulBackfillIsUsedOnlyWhenNothingCloserExists() {
+        assertEquals(
+            "backfill.triggered source=resume_no_pause renderedGapSec=100 requestedSec=110",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(
+                        lastBackfillAtMs = NOW - 40_000L,
+                        lastRenderedMessageTsSec = (NOW - 100_000L) / 1000.0
+                    )
+                )
+            )
+        )
+        assertEquals(
+            "backfill.triggered source=resume_no_pause offlineSec=20 requestedSec=30",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(lastBackfillAtMs = NOW - 400_000L, lastStoppedAtMs = NOW - 20_000L)
+                )
+            )
+        )
+        assertEquals(
+            "backfill.triggered source=reconnect_no_pause_reference renderedGapSec=100 requestedSec=110",
+            render(
+                HistoryBackfillPolicy.onConnect(
+                    inputs(
+                        lastBackfillAtMs = NOW - 400_000L,
+                        lastRenderedMessageTsSec = (NOW - 100_000L) / 1000.0
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun theLastSuccessfulBackfillIsStillWidenedByAnOwedWindow() {
+        assertEquals(
+            "backfill.triggered source=resume_no_pause sinceLastBackfillSec=40 unrecoveredSec=300 requestedSec=310",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(lastBackfillAtMs = NOW - 40_000L, unrecoveredSinceMs = NOW - 300_000L)
+                )
+            )
         )
     }
 

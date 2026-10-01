@@ -16,8 +16,13 @@ enum class HistoryBackfillSkipReason(val journalValue: String) {
     BACKFILL_IN_FLIGHT("backfill_in_flight"),
     HISTORY_ALREADY_LOADED("history_already_loaded"),
     AWAY_BELOW_THRESHOLD("away_below_threshold"),
-    NO_RECOVERY_REFERENCE("no_recovery_reference"),
-    NO_RECOVERY_REFERENCE_RECONNECT("no_recovery_reference_reconnect")
+    /*
+     * Not the old no_recovery_reference, on purpose: that reason was also written
+     * when a successful backfill existed and went unused, so the journal could not
+     * tell "nothing to go on" from "gave up". These two mean only the first.
+     */
+    NOTHING_TO_MEASURE_FROM("nothing_to_measure_from"),
+    NOTHING_TO_MEASURE_FROM_RECONNECT("nothing_to_measure_from_reconnect")
 }
 
 /** How a sent history request failed, spelled exactly as the diagnostics journal records it. */
@@ -266,13 +271,19 @@ object HistoryBackfillPolicy {
                     nowMs = inputs.nowMs,
                     lastRenderedMessageTsSec = inputs.lastRenderedMessageTsSec
                 )
+                val sinceLastBackfillSec = if (renderedGapSec == null) {
+                    secondsSinceLastBackfill(inputs.nowMs, inputs.lastBackfillAtMs)
+                } else {
+                    null
+                }
+                val ownElapsedSec = renderedGapSec ?: sinceLastBackfillSec
 
                 /* A window a failed request still owes is a reference of its own. */
-                val requestWindow = windowOrOwed(inputs, renderedGapSec?.let(::historyWindowSeconds))
+                val requestWindow = windowOrOwed(inputs, ownElapsedSec?.let(::historyWindowSeconds))
 
                 if (requestWindow == null) {
                     HistoryBackfillDecision.Skip(
-                        reason = HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE_RECONNECT,
+                        reason = HistoryBackfillSkipReason.NOTHING_TO_MEASURE_FROM_RECONNECT,
                         details = emptyList(),
                         effects = consumed
                     )
@@ -280,7 +291,8 @@ object HistoryBackfillPolicy {
                     request(
                         source = HistoryBackfillSource.RECONNECT_NO_PAUSE_REFERENCE,
                         window = requestWindow,
-                        details = listOf("renderedGapSec" to renderedGapSec),
+                        details = listOf("renderedGapSec" to renderedGapSec) +
+                                lastBackfillDetail(sinceLastBackfillSec),
                         effects = consumed.copy(armInFlightSinceMs = inputs.nowMs)
                     )
                 }
@@ -469,6 +481,17 @@ object HistoryBackfillPolicy {
     }
 
     /**
+     * Returns the seconds elapsed since a history result last arrived successfully.
+     *
+     * Null means none has.
+     */
+    fun secondsSinceLastBackfill(nowMs: Long, lastBackfillAtMs: Long): Int? {
+        if (lastBackfillAtMs == 0L) return null
+
+        return ((nowMs - lastBackfillAtMs) / 1000).toInt()
+    }
+
+    /**
      * Returns the seconds elapsed since the oldest moment a failed request did not
      * recover.
      *
@@ -493,6 +516,12 @@ object HistoryBackfillPolicy {
      * lose every message received while the page was started but not visible. The
      * newest message already displayed is the exact reference here, and the last
      * onStop is the fallback when nothing has been displayed with a timestamp.
+     *
+     * With neither, the last successful backfill is the reference: it records when
+     * a result arrived, so everything before it was delivered and the window since
+     * is what may be missing. The reconnect path falls back the same way. Only with
+     * no successful backfill either, and nothing owed, is there nothing to measure
+     * from.
      */
     private fun withoutPauseReference(inputs: HistoryBackfillInputs): HistoryBackfillDecision {
         /* A first connection or an earlier resume is covering, or has just covered, this window. */
@@ -511,11 +540,17 @@ object HistoryBackfillPolicy {
             lastStoppedAtMs = inputs.lastStoppedAtMs
         )
         val elapsedSec = listOfNotNull(renderedGapSec, offlineSec).maxOrNull()
+        val sinceLastBackfillSec = if (elapsedSec == null) {
+            secondsSinceLastBackfill(inputs.nowMs, inputs.lastBackfillAtMs)
+        } else {
+            null
+        }
+        val ownElapsedSec = elapsedSec ?: sinceLastBackfillSec
 
         /* A window a failed request still owes is a reference of its own. */
-        val requestWindow = windowOrOwed(inputs, elapsedSec?.let(::historyWindowSeconds))
+        val requestWindow = windowOrOwed(inputs, ownElapsedSec?.let(::historyWindowSeconds))
             ?: return HistoryBackfillDecision.Skip(
-                reason = HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE,
+                reason = HistoryBackfillSkipReason.NOTHING_TO_MEASURE_FROM,
                 details = listOf("historyLoaded" to inputs.historyLoaded),
                 effects = HistoryBackfillEffects()
             )
@@ -526,9 +561,17 @@ object HistoryBackfillPolicy {
             details = listOf(
                 "renderedGapSec" to renderedGapSec,
                 "offlineSec" to offlineSec
-            ),
+            ) + lastBackfillDetail(sinceLastBackfillSec),
             effects = HistoryBackfillEffects(armInFlightSinceMs = inputs.nowMs)
         )
+    }
+
+    /**
+     * The journal field naming the last successful backfill, when it is the
+     * reference a request was measured from.
+     */
+    private fun lastBackfillDetail(sinceLastBackfillSec: Int?): List<Pair<String, Any?>> {
+        return listOfNotNull(sinceLastBackfillSec?.let { seconds -> "sinceLastBackfillSec" to seconds })
     }
 
     /**
