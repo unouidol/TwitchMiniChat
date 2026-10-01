@@ -136,7 +136,8 @@ data class HistoryBackfillFailureEffects(
  *
  * [inFlightSinceMs] follows the same rule as on failure. [lastBackfillAtMs] is the
  * instant the result arrived, which is what the five-second rule counts from.
- * [unrecoveredSinceMs] is 0: a window that arrived owes nothing.
+ * [unrecoveredSinceMs] is 0 when the request reached back to the owed start, and the
+ * owed start unchanged when it did not.
  */
 data class HistoryBackfillSuccessEffects(
     val inFlightSinceMs: Long,
@@ -392,7 +393,7 @@ object HistoryBackfillPolicy {
             HistoryBackfillFailure.REQUEST_FAILED -> true
         }
 
-        val windowStartMs = sentAtMs - requestedSec * 1000L
+        val windowStartMs = coversFrom(sentAtMs, requestedSec)
 
         return HistoryBackfillFailureEffects(
             inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
@@ -412,18 +413,43 @@ object HistoryBackfillPolicy {
     /**
      * Decides what a successful result changes, applied from the request's own thread.
      *
-     * [nowMs] is the instant the result arrived.
+     * [nowMs] is the instant the result arrived; [inFlightSinceMs] and
+     * [unrecoveredSinceMs] are the stored values as they stand now.
+     *
+     * The owed window is cleared only when this request reached back to its start. A
+     * request that arrived having asked for less - one sized before the owed start was
+     * recorded - leaves the owed start where it is; it never moves forward. The one
+     * exception is the backend's own limit: nothing older than [HISTORY_SECONDS] can be
+     * asked for, so a request that reached back as far as the backend still keeps has
+     * recovered all that can be recovered, and an owed start older than that would
+     * otherwise turn every later request into an hour-long one for good.
      */
     fun afterSuccess(
         sentAtMs: Long,
+        requestedSec: Int,
         nowMs: Long,
-        inFlightSinceMs: Long
+        inFlightSinceMs: Long,
+        unrecoveredSinceMs: Long
     ): HistoryBackfillSuccessEffects {
+        val reachedOwedStart = unrecoveredSinceMs == 0L ||
+                coversFrom(sentAtMs, requestedSec) <=
+                maxOf(unrecoveredSinceMs, oldestRecoverableMs(nowMs))
+
         return HistoryBackfillSuccessEffects(
             inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
             lastBackfillAtMs = nowMs,
-            unrecoveredSinceMs = 0L
+            unrecoveredSinceMs = if (reachedOwedStart) 0L else unrecoveredSinceMs
         )
+    }
+
+    /** The instant a request sent at [sentAtMs] for [requestedSec] reaches back to. */
+    fun coversFrom(sentAtMs: Long, requestedSec: Int): Long {
+        return sentAtMs - requestedSec * 1000L
+    }
+
+    /** The oldest instant the backend still returns at [nowMs]. */
+    fun oldestRecoverableMs(nowMs: Long): Long {
+        return nowMs - HISTORY_SECONDS * 1000L
     }
 
     /**

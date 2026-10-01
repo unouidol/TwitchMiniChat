@@ -73,8 +73,8 @@ class HistoryBackfillState {
 
     /*
      * The oldest moment a failed history request did not recover, 0 when nothing is
-     * owed. Every later request reaches back to it until one succeeds. Written from
-     * the history request thread, under lock.
+     * owed. Every later request reaches back to it until one that did succeeds.
+     * Written from the history request thread, under lock.
      */
     @Volatile
     private var unrecoveredSinceMs: Long = 0L
@@ -192,8 +192,10 @@ class HistoryBackfillState {
         synchronized(lock) {
             val effects = HistoryBackfillPolicy.afterSuccess(
                 sentAtMs = send.sentAtMs,
+                requestedSec = send.requestedSec,
                 nowMs = nowMs,
-                inFlightSinceMs = inFlightSinceMs
+                inFlightSinceMs = inFlightSinceMs,
+                unrecoveredSinceMs = unrecoveredSinceMs
             )
             inFlightSinceMs = effects.inFlightSinceMs
             lastBackfillAtMs = effects.lastBackfillAtMs

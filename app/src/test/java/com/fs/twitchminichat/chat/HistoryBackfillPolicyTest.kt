@@ -184,8 +184,10 @@ class HistoryBackfillPolicyTest {
             .after(
                 HistoryBackfillPolicy.afterSuccess(
                     sentAtMs = NOW + 62_000L,
+                    requestedSec = (pageSwitch as Request).requestedSec,
                     nowMs = NOW + 63_000L,
-                    inFlightSinceMs = NOW + 62_000L
+                    inFlightSinceMs = NOW + 62_000L,
+                    unrecoveredSinceMs = NOW - 610_000L
                 )
             )
         assertEquals(0L, recovered.unrecoveredSinceMs)
@@ -697,8 +699,10 @@ class HistoryBackfillPolicyTest {
             .after(
                 HistoryBackfillPolicy.afterSuccess(
                     sentAtMs = NOW,
+                    requestedSec = 70,
                     nowMs = NOW + 2_000L,
-                    inFlightSinceMs = NOW
+                    inFlightSinceMs = NOW,
+                    unrecoveredSinceMs = 0L
                 )
             )
         assertEquals(0L, arrived.inFlightSinceMs)
@@ -737,16 +741,20 @@ class HistoryBackfillPolicyTest {
             NOW + 1_000L,
             HistoryBackfillPolicy.afterSuccess(
                 sentAtMs = NOW,
+                requestedSec = 70,
                 nowMs = NOW + 2_000L,
-                inFlightSinceMs = NOW + 1_000L
+                inFlightSinceMs = NOW + 1_000L,
+                unrecoveredSinceMs = 0L
             ).inFlightSinceMs
         )
         assertEquals(
             0L,
             HistoryBackfillPolicy.afterSuccess(
                 sentAtMs = NOW,
+                requestedSec = 70,
                 nowMs = NOW + 2_000L,
-                inFlightSinceMs = NOW
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = 0L
             ).inFlightSinceMs
         )
     }
@@ -833,7 +841,7 @@ class HistoryBackfillPolicyTest {
     }
 
     @Test
-    fun success_clearsTheOwedWindow() {
+    fun success_clearsTheOwedWindowWhenItReachedBackToItsStart() {
         assertEquals(
             HistoryBackfillSuccessEffects(
                 inFlightSinceMs = 0L,
@@ -842,9 +850,42 @@ class HistoryBackfillPolicyTest {
             ),
             HistoryBackfillPolicy.afterSuccess(
                 sentAtMs = NOW,
+                requestedSec = 700,
                 nowMs = NOW + 1_000L,
-                inFlightSinceMs = NOW
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = NOW - 600_000L
             )
+        )
+        /* Reaching back exactly to the owed start is reaching it. */
+        assertEquals(
+            0L,
+            success(requestedSec = 600, unrecoveredSinceMs = NOW - 600_000L).unrecoveredSinceMs
+        )
+    }
+
+    @Test
+    fun success_thatFellShortOfTheOwedStart_leavesItWhereItIs() {
+        assertEquals(
+            NOW - 600_000L,
+            success(requestedSec = 599, unrecoveredSinceMs = NOW - 600_000L).unrecoveredSinceMs
+        )
+        assertEquals(
+            NOW - 600_000L,
+            success(requestedSec = 30, unrecoveredSinceMs = NOW - 600_000L).unrecoveredSinceMs
+        )
+    }
+
+    @Test
+    fun success_reachingAsFarAsTheBackendKeeps_clearsAnOwedStartOlderThanThat() {
+        /* Owed for two hours; an hour is all the backend can return. */
+        assertEquals(
+            0L,
+            success(requestedSec = 3600, unrecoveredSinceMs = NOW - 7_200_000L).unrecoveredSinceMs
+        )
+        /* Fifty minutes is not as far as the backend keeps, so the debt stays. */
+        assertEquals(
+            NOW - 7_200_000L,
+            success(requestedSec = 3000, unrecoveredSinceMs = NOW - 7_200_000L).unrecoveredSinceMs
         )
     }
 
@@ -1047,6 +1088,16 @@ class HistoryBackfillPolicyTest {
             unrecoveredSinceMs = success.unrecoveredSinceMs
         )
     }
+
+    /** One success of a request sent at [NOW] for [requestedSec], arriving a second later. */
+    private fun success(requestedSec: Int, unrecoveredSinceMs: Long) =
+        HistoryBackfillPolicy.afterSuccess(
+            sentAtMs = NOW,
+            requestedSec = requestedSec,
+            nowMs = NOW + 1_000L,
+            inFlightSinceMs = NOW,
+            unrecoveredSinceMs = unrecoveredSinceMs
+        )
 
     /** One failure of a request sent at [NOW], with nothing else in flight or owed. */
     private fun failure(failure: HistoryBackfillFailure, requestedSec: Int) =

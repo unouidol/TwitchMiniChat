@@ -126,6 +126,34 @@ class HistoryBackfillStateTest {
         assertTrue(resumedAt - decision.requestedSec * 1000L <= arrivedAt)
     }
 
+    @Test
+    fun aSuccessThatDidNotReachTheOwedStart_leavesItOwed() {
+        openWithASuccess()
+
+        /* Ten minutes away; the reconnect asks for them. */
+        state.onStopped(T1)
+        val reconnectAt = T1 + 600_000L
+        val reconnect = sent(connect(reconnectAt))
+        assertEquals(610, reconnect.requestedSec)
+
+        /* A second later the user taps refresh: 120 s, asked for beside it. */
+        val refresh = sent(refresh(reconnectAt + 1_000L))
+        assertEquals(120, refresh.requestedSec)
+
+        /* The reconnect fails; the refresh, which did not reach that far back, succeeds. */
+        assertNotNull(fail(reconnect, reconnectAt + 2_000L))
+        succeed(refresh, reconnectAt + 3_000L)
+
+        /* The ten minutes are still owed: the next request reaches back to them. */
+        state.onPaused(reconnectAt + 10_000L)
+        val resumedAt = reconnectAt + 12_000L
+        val next = resume(resumedAt) as Request
+        assertTrue(
+            "next reaches back to ${resumedAt - next.requestedSec * 1000L}",
+            resumedAt - next.requestedSec * 1000L <= reconnect.sentAtMs - reconnect.requestedSec * 1000L
+        )
+    }
+
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
@@ -151,6 +179,9 @@ class HistoryBackfillStateTest {
 
     private fun resume(nowMs: Long): HistoryBackfillDecision =
         decide(HistoryBackfillPolicy.onResume(state.inputs(nowMs, ircClientPresent = true)))
+
+    private fun refresh(nowMs: Long): HistoryBackfillDecision =
+        decide(HistoryBackfillPolicy.onManualRefresh(state.inputs(nowMs, ircClientPresent = true)))
 
     /** Applies the decision, as ChatFragment does, and remembers what it asked to send. */
     private fun decide(decision: HistoryBackfillDecision): HistoryBackfillDecision {
