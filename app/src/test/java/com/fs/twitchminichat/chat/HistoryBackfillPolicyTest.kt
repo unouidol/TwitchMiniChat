@@ -418,7 +418,7 @@ class HistoryBackfillPolicyTest {
                 source = MANUAL_REFRESH,
                 requestedSec = 120,
                 details = emptyList(),
-                effects = HistoryBackfillEffects(armLastBackfillAtMs = NOW)
+                effects = HistoryBackfillEffects(armInFlightSinceMs = NOW)
             ),
             decision
         )
@@ -1075,21 +1075,3 @@ class HistoryBackfillPolicyTest {
         return if (rendered.isEmpty()) event else "$event $rendered"
     }
 }
-
-/**
- * TEMPORARY. Lets the four frozen tests that still spell the request's in-flight
- * effect by its old name compile and run unchanged until each is renamed in a
- * commit of its own; the last of those commits deletes this function.
- */
-@Suppress("FunctionName")
-private fun HistoryBackfillEffects(
-    consumeLastPausedAt: Boolean = false,
-    consumeOfflineRecovery: Boolean = false,
-    armHistoryLoaded: Boolean = false,
-    armLastBackfillAtMs: Long
-): HistoryBackfillEffects = HistoryBackfillEffects(
-    consumeLastPausedAt = consumeLastPausedAt,
-    consumeOfflineRecovery = consumeOfflineRecovery,
-    armHistoryLoaded = armHistoryLoaded,
-    armInFlightSinceMs = armLastBackfillAtMs
-)
