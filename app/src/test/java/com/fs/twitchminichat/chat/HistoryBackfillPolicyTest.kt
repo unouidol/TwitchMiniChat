@@ -460,10 +460,11 @@ class HistoryBackfillPolicyTest {
     @Test
     fun frozen_manualRefresh_ignoresTheFiveSecondWindowAndIsFixedAtTwoMinutes() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: the refresh button asks for 120
-         * seconds whatever the page actually missed, and it ignores the five-second
-         * window, so it can run beside a request that left a millisecond earlier. Only
-         * its own 1.5-second tap debounce, which stays in ChatFragment, limits it.
+         * PINS TODAY'S BEHAVIOUR. What is wrong: with nothing owed, the refresh button
+         * asks for 120 seconds whatever the page actually missed, and it ignores the
+         * five-second window, so it runs even when a backfill arrived a millisecond
+         * earlier. Only its own 1.5-second tap debounce, which stays in ChatFragment,
+         * limits it.
          */
         val decision = HistoryBackfillPolicy.onManualRefresh(
             inputs(
