@@ -215,6 +215,12 @@ object HistoryBackfillPolicy {
     /** Journal event of a sent request that did not deliver. */
     const val FAILED_EVENT = "backfill.failed"
 
+    /**
+     * Journal event of a result not applied, because its request was sent before a
+     * channel change; see HistoryBackfillState.onResult.
+     */
+    const val DISCARDED_EVENT = "backfill.discarded"
+
     /** Decides the history request that accompanies an IRC connection attempt. */
     fun onConnect(inputs: HistoryBackfillInputs): HistoryBackfillDecision {
         if (!inputs.historyLoaded) {

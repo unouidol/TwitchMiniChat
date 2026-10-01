@@ -48,6 +48,7 @@ import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.HistoryBackfillDecision
 import com.fs.twitchminichat.chat.HistoryBackfillInputs
 import com.fs.twitchminichat.chat.HistoryBackfillPolicy
+import com.fs.twitchminichat.chat.HistoryBackfillResultOutcome
 import com.fs.twitchminichat.chat.HistoryBackfillSend
 import com.fs.twitchminichat.chat.HistoryBackfillState
 import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
@@ -1301,7 +1302,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         Log.d("CHAN", "Recent channel count=${channelHistory.get(accountId).size}")
         refreshChannelsDropdown()
 
-        backfillState.resetForNewChannel()
+        backfillState.onChannelJoined(ch)
         chatMessageDeduplicator.clear()
 
         resetMentionUsersForCurrentChannel()
@@ -1919,20 +1920,25 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val newCfg = AccountRepository(requireContext()).getById(accountId) ?: return
 
-        val oldChannel = cfg?.channel
         cfg = newCfg
         emoteCatalogController?.selectChannel(newCfg.channel)
 
-        if (oldChannel != null && !oldChannel.equals(newCfg.channel, ignoreCase = true)) {
+        /*
+         * Taken before the channel check: a change forgets the stop with every other
+         * reference, and this line reports the stop that preceded this start.
+         */
+        val offlineSec = offlineSecondsSinceStop()
+
+        /* The same reset a join from the channel field makes; see HistoryBackfillState. */
+        if (backfillState.onStarted(newCfg.channel)) {
             clearPendingOutgoingState(removeViews = true)
             resetChannelBoundChatUi()
             closeIrcClient(resetBackoff = true)
-            backfillState.forgetHistoryLoaded()
         }
 
         recordDiagnostics(
             "lifecycle.start",
-            "offlineSec" to offlineSecondsSinceStop(),
+            "offlineSec" to offlineSec,
             "historyLoaded" to backfillState.historyLoaded,
             "ircConnected" to (ircClient != null)
         )
@@ -2801,6 +2807,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      *
      * Only [applyBackfillDecision] calls this, with the [send] that armed the in-flight
      * marker; the result, success or failure, is handed back to [backfillState] with it.
+     * A result the state discards, because the channel changed after the request left,
+     * is journalled and fed to spawn ingestion, and nothing else.
      */
     private fun loadHistoryFromBot(config: AccountConfig, send: HistoryBackfillSend) {
         val seconds = send.requestedSec
@@ -2819,11 +2827,45 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 channel = config.channel,
                 seconds = seconds
             )
-            val failure = backfillState.onResult(
+            val outcome = backfillState.onResult(
                 result = result,
                 send = send,
                 nowMs = System.currentTimeMillis()
             )
+
+            val failure = when (outcome) {
+                is HistoryBackfillResultOutcome.Applied -> outcome.failure
+
+                is HistoryBackfillResultOutcome.Discarded -> {
+                    Log.d(
+                        HISTORY_LOG_TAG,
+                        "History discarded: the channel changed after the request left"
+                    )
+                    recordDiagnostics(
+                        outcome.journalEvent,
+                        *outcome.journalFields.toTypedArray(),
+                        expectedGeneration = journalGeneration
+                    )
+
+                    /*
+                     * Still fed to spawn ingestion, as the live path feeds a message
+                     * from a connection already closed. A Pokemon Community Game spawn
+                     * is the same on every channel and there is one at a time, which is
+                     * why the spawn store is app-wide: a spawn the channel just left
+                     * announced is the current spawn, and an earlier sighting of it
+                     * improves the one recorded. The store keeps the earliest sighting
+                     * of a spawn, never replaces a newer spawn with an older one,
+                     * ignores anything older than 90 seconds, and posts no notification.
+                     *
+                     * Nothing else happens: no row, no render watermark, no Quick Catch
+                     * refresh. Those belong to the channel on screen.
+                     */
+                    (result as? BackendHistoryResult.Success)?.messages?.forEach { message ->
+                        ingestHistorySpawn(applicationContext, message)
+                    }
+                    return@thread
+                }
+            }
 
             when (result) {
                 is BackendHistoryResult.Success -> {
@@ -2854,14 +2896,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                     result.messages.forEach { message ->
                         /* History is also a spawn source even if its UI row is stale. */
-                        val spawnIngestion =
-                            SmartCatchSpawnIngestion.ingestIrcMessage(
-                                context = applicationContext,
-                                user = message.user,
-                                message = message.text,
-                                messageTimestampSec = message.timestampSec
-                                    .takeIf { timestamp -> timestamp > 0.0 }
-                            )
+                        val spawnIngestion = ingestHistorySpawn(applicationContext, message)
 
                         val key = message.messageId?.let { messageId ->
                             "id:$messageId"
@@ -2918,6 +2953,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 )
             }
         }
+    }
+
+    /** Feeds one history message to Smart Catch spawn ingestion. History request thread. */
+    private fun ingestHistorySpawn(
+        applicationContext: Context,
+        message: BackendHistoryMessage
+    ): SmartCatchSpawnIngestionResult {
+        return SmartCatchSpawnIngestion.ingestIrcMessage(
+            context = applicationContext,
+            user = message.user,
+            message = message.text,
+            messageTimestampSec = message.timestampSec
+                .takeIf { timestamp -> timestamp > 0.0 }
+        )
     }
 
     private fun isNearBottom(): Boolean {
