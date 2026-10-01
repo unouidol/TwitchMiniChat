@@ -19,10 +19,12 @@ data class HistoryBackfillSend(
  * Threading is what it was while these fields lived in the chat page:
  * - [lastPausedAtMs], [lastStoppedAtMs], [offlineRecoveryAtMs] and
  *   [lastRenderedMessageTsSec] are read and written on the main thread only;
- * - [historyLoaded], [lastBackfillAtMs], [inFlightSinceMs] and [unrecoveredSinceMs]
- *   are also written from the history request thread, so they are volatile;
- * - every update that reads one of the last three before writing it holds [lock], so a
- *   result cannot clear a newer request's marker or overwrite an older owed start.
+ * - [historyLoaded], [lastBackfillAtMs], [lastBackfillCoversFromMs],
+ *   [inFlightSinceMs], [inFlightCoversFromMs] and [unrecoveredSinceMs] are also
+ *   written from the history request thread, so they are volatile;
+ * - every update to any of the last five holds [lock], so a result cannot clear a
+ *   newer request's marker or overwrite an older owed start, and a marker and how far
+ *   back its request reached always change together.
  *
  * [inputs] takes no lock: it sees each field's latest value, not necessarily one
  * consistent group of them.
@@ -63,6 +65,10 @@ class HistoryBackfillState {
     @Volatile
     private var lastBackfillAtMs: Long = 0L
 
+    /* How far back the request behind lastBackfillAtMs reached. Under lock. */
+    @Volatile
+    private var lastBackfillCoversFromMs: Long = 0L
+
     /*
      * When the request still awaiting its result was sent, 0 when none is. Armed on
      * the main thread and cleared from the history request thread, under lock, so a
@@ -70,6 +76,10 @@ class HistoryBackfillState {
      */
     @Volatile
     private var inFlightSinceMs: Long = 0L
+
+    /* How far back the request behind inFlightSinceMs reaches. Under lock. */
+    @Volatile
+    private var inFlightCoversFromMs: Long = 0L
 
     /*
      * The oldest moment a failed history request did not recover, 0 when nothing is
@@ -88,7 +98,9 @@ class HistoryBackfillState {
             nowMs = nowMs,
             historyLoaded = historyLoaded,
             lastBackfillAtMs = lastBackfillAtMs,
+            lastBackfillCoversFromMs = lastBackfillCoversFromMs,
             inFlightSinceMs = inFlightSinceMs,
+            inFlightCoversFromMs = inFlightCoversFromMs,
             unrecoveredSinceMs = unrecoveredSinceMs,
             lastPausedAtMs = lastPausedAtMs,
             lastStoppedAtMs = lastStoppedAtMs,
@@ -127,14 +139,17 @@ class HistoryBackfillState {
         lastRenderedMessageTsSec = 0.0
         synchronized(lock) {
             lastBackfillAtMs = 0L
+            lastBackfillCoversFromMs = 0L
             inFlightSinceMs = 0L
+            inFlightCoversFromMs = 0L
             unrecoveredSinceMs = 0L
         }
     }
 
     /**
-     * Applies one decision: consumes and arms what it says, and for a request arms the
-     * in-flight marker and returns what to send. Main thread.
+     * Applies one decision: consumes and arms what it says, folds in what a skip left
+     * owed, and for a request arms the in-flight marker and returns what to send. Main
+     * thread.
      */
     fun apply(decision: HistoryBackfillDecision): HistoryBackfillSend? {
         val effects = decision.effects
@@ -148,6 +163,14 @@ class HistoryBackfillState {
         if (effects.armHistoryLoaded) {
             historyLoaded = true
         }
+        effects.owedSinceMs?.let { owedSinceMs ->
+            synchronized(lock) {
+                unrecoveredSinceMs = HistoryBackfillPolicy.olderOwedStart(
+                    currentMs = unrecoveredSinceMs,
+                    startMs = owedSinceMs
+                )
+            }
+        }
 
         if (decision !is HistoryBackfillDecision.Request) return null
 
@@ -156,6 +179,7 @@ class HistoryBackfillState {
         }
         synchronized(lock) {
             inFlightSinceMs = sentAtMs
+            inFlightCoversFromMs = HistoryBackfillPolicy.coversFrom(sentAtMs, decision.requestedSec)
         }
         return HistoryBackfillSend(requestedSec = decision.requestedSec, sentAtMs = sentAtMs)
     }
@@ -198,7 +222,9 @@ class HistoryBackfillState {
                 unrecoveredSinceMs = unrecoveredSinceMs
             )
             inFlightSinceMs = effects.inFlightSinceMs
+            if (inFlightSinceMs == 0L) inFlightCoversFromMs = 0L
             lastBackfillAtMs = effects.lastBackfillAtMs
+            lastBackfillCoversFromMs = effects.lastBackfillCoversFromMs
             unrecoveredSinceMs = effects.unrecoveredSinceMs
         }
     }
@@ -216,6 +242,7 @@ class HistoryBackfillState {
                 unrecoveredSinceMs = unrecoveredSinceMs
             ).also { decided ->
                 inFlightSinceMs = decided.inFlightSinceMs
+                if (inFlightSinceMs == 0L) inFlightCoversFromMs = 0L
                 unrecoveredSinceMs = decided.unrecoveredSinceMs
             }
         }

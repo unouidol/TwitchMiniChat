@@ -474,6 +474,13 @@ class HistoryBackfillPolicyTest {
             ) to "backfill.skipped reason=backfill_in_flight awaySec=42 inFlightMs=250",
             HistoryBackfillPolicy.onResume(inputs(inFlightSinceMs = NOW - 250L)) to
                     "backfill.skipped reason=backfill_in_flight inFlightMs=250",
+            HistoryBackfillPolicy.onResume(
+                inputs(
+                    lastPausedAtMs = NOW - 42_000L,
+                    inFlightSinceMs = NOW - 250L,
+                    inFlightCoversFromMs = NOW - 30_250L
+                )
+            ) to "backfill.skipped reason=backfill_in_flight awaySec=42 inFlightMs=250 uncoveredSec=12",
             HistoryBackfillPolicy.onConnect(inputs(offlineRecoveryAtMs = NOW - 500L)) to
                     "backfill.skipped reason=history_already_loaded offlineSec=0",
             HistoryBackfillPolicy.onResume(inputs(lastPausedAtMs = NOW - 500L)) to
@@ -846,6 +853,7 @@ class HistoryBackfillPolicyTest {
             HistoryBackfillSuccessEffects(
                 inFlightSinceMs = 0L,
                 lastBackfillAtMs = NOW + 1_000L,
+                lastBackfillCoversFromMs = NOW - 700_000L,
                 unrecoveredSinceMs = 0L
             ),
             HistoryBackfillPolicy.afterSuccess(
@@ -1026,6 +1034,143 @@ class HistoryBackfillPolicyTest {
         )
     }
 
+    @Test
+    fun aSkip_owesWhatTheRequestInFlightDoesNotReach() {
+        /* Ten minutes offline; the request in flight reaches back only two. */
+        val decision = HistoryBackfillPolicy.onConnect(
+            inputs(
+                offlineRecoveryAtMs = NOW - 600_000L,
+                inFlightSinceMs = NOW - 1_000L,
+                inFlightCoversFromMs = NOW - 121_000L
+            )
+        )
+        assertEquals(
+            Skip(
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("offlineSec" to 600, "inFlightMs" to 1_000L, "uncoveredSec" to 479),
+                effects = HistoryBackfillEffects(
+                    consumeOfflineRecovery = true,
+                    owedSinceMs = NOW - 600_000L
+                )
+            ),
+            decision
+        )
+        assertEquals(
+            "backfill.skipped reason=backfill_in_flight offlineSec=600 inFlightMs=1000 uncoveredSec=479",
+            render(decision)
+        )
+    }
+
+    @Test
+    fun aSkip_owesWhatTheLastSuccessDidNotReach() {
+        assertEquals(
+            Skip(
+                reason = RECENT_BACKFILL,
+                details = listOf("awaySec" to 300, "sinceLastBackfillMs" to 2_000L, "uncoveredSec" to 268),
+                effects = HistoryBackfillEffects(
+                    consumeLastPausedAt = true,
+                    owedSinceMs = NOW - 300_000L
+                )
+            ),
+            HistoryBackfillPolicy.onResume(
+                inputs(
+                    lastPausedAtMs = NOW - 300_000L,
+                    lastBackfillAtMs = NOW - 2_000L,
+                    lastBackfillCoversFromMs = NOW - 32_000L
+                )
+            )
+        )
+    }
+
+    @Test
+    fun aSkip_whoseReferenceTheCoveringRequestReached_owesNothing() {
+        /* Reaching back exactly to the reference covers it. */
+        assertEquals(
+            Skip(
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("offlineSec" to 600, "inFlightMs" to 1_000L),
+                effects = HistoryBackfillEffects(consumeOfflineRecovery = true)
+            ),
+            HistoryBackfillPolicy.onConnect(
+                inputs(
+                    offlineRecoveryAtMs = NOW - 600_000L,
+                    inFlightSinceMs = NOW - 1_000L,
+                    inFlightCoversFromMs = NOW - 600_000L
+                )
+            )
+        )
+        /* One millisecond short is a remainder, reported as a whole second. */
+        assertEquals(
+            "backfill.skipped reason=backfill_in_flight offlineSec=600 inFlightMs=1000 uncoveredSec=1",
+            render(
+                HistoryBackfillPolicy.onConnect(
+                    inputs(
+                        offlineRecoveryAtMs = NOW - 600_000L,
+                        inFlightSinceMs = NOW - 1_000L,
+                        inFlightCoversFromMs = NOW - 599_999L
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun aSkip_owesOnlyWhatTheBackendStillKeeps() {
+        /* Two hours offline; the request in flight reached back the full hour: nothing more exists. */
+        assertEquals(
+            HistoryBackfillEffects(consumeOfflineRecovery = true),
+            HistoryBackfillPolicy.onConnect(
+                inputs(
+                    offlineRecoveryAtMs = NOW - 7_200_000L,
+                    inFlightSinceMs = NOW - 1_000L,
+                    inFlightCoversFromMs = NOW - 3_601_000L
+                )
+            ).effects
+        )
+        /* It reached back fifty minutes: the last ten of the hour are owed, from the reference. */
+        val short = HistoryBackfillPolicy.onConnect(
+            inputs(
+                offlineRecoveryAtMs = NOW - 7_200_000L,
+                inFlightSinceMs = NOW - 1_000L,
+                inFlightCoversFromMs = NOW - 3_000_000L
+            )
+        )
+        assertEquals(NOW - 7_200_000L, short.effects.owedSinceMs)
+        assertEquals("uncoveredSec" to 600, short.journalFields.last())
+    }
+
+    @Test
+    fun aResumeWithoutPause_consumesNothingSoOwesNothing() {
+        assertEquals(
+            Skip(
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("inFlightMs" to 100L),
+                effects = HistoryBackfillEffects()
+            ),
+            HistoryBackfillPolicy.onResume(
+                inputs(
+                    inFlightSinceMs = NOW - 100L,
+                    inFlightCoversFromMs = NOW - 100L,
+                    lastStoppedAtMs = NOW - 600_000L
+                )
+            )
+        )
+    }
+
+    @Test
+    fun success_recordsHowFarBackItsRequestReached() {
+        assertEquals(
+            NOW - 70_000L,
+            HistoryBackfillPolicy.afterSuccess(
+                sentAtMs = NOW,
+                requestedSec = 70,
+                nowMs = NOW + 1_000L,
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = 0L
+            ).lastBackfillCoversFromMs
+        )
+    }
+
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
@@ -1035,12 +1180,21 @@ class HistoryBackfillPolicyTest {
         const val NOW = 1_790_000_000_000L
     }
 
+    /**
+     * The coverage a test gets when it does not say: the full hour before the request.
+     * A test about what a request did not cover states its coverage explicitly.
+     */
+    private fun coveringAnHourBefore(instantMs: Long): Long =
+        if (instantMs == 0L) 0L else instantMs - 3_600_000L
+
     /** Builds decision inputs; every reference defaults to "never". */
     private fun inputs(
         nowMs: Long = NOW,
         historyLoaded: Boolean = true,
         lastBackfillAtMs: Long = 0L,
+        lastBackfillCoversFromMs: Long? = null,
         inFlightSinceMs: Long = 0L,
+        inFlightCoversFromMs: Long? = null,
         unrecoveredSinceMs: Long = 0L,
         lastPausedAtMs: Long = 0L,
         lastStoppedAtMs: Long = 0L,
@@ -1051,7 +1205,9 @@ class HistoryBackfillPolicyTest {
         nowMs = nowMs,
         historyLoaded = historyLoaded,
         lastBackfillAtMs = lastBackfillAtMs,
+        lastBackfillCoversFromMs = lastBackfillCoversFromMs ?: coveringAnHourBefore(lastBackfillAtMs),
         inFlightSinceMs = inFlightSinceMs,
+        inFlightCoversFromMs = inFlightCoversFromMs ?: coveringAnHourBefore(inFlightSinceMs),
         unrecoveredSinceMs = unrecoveredSinceMs,
         lastPausedAtMs = lastPausedAtMs,
         lastStoppedAtMs = lastStoppedAtMs,
@@ -1063,9 +1219,18 @@ class HistoryBackfillPolicyTest {
     /** Applies a decision's effects to the stored references, as ChatFragment does. */
     private fun HistoryBackfillInputs.after(decision: HistoryBackfillDecision): HistoryBackfillInputs {
         val effects = decision.effects
+        val request = decision as? Request
         return copy(
             historyLoaded = historyLoaded || effects.armHistoryLoaded,
             inFlightSinceMs = effects.armInFlightSinceMs ?: inFlightSinceMs,
+            inFlightCoversFromMs = if (request != null && effects.armInFlightSinceMs != null) {
+                HistoryBackfillPolicy.coversFrom(effects.armInFlightSinceMs, request.requestedSec)
+            } else {
+                inFlightCoversFromMs
+            },
+            unrecoveredSinceMs = effects.owedSinceMs
+                ?.let { owed -> HistoryBackfillPolicy.olderOwedStart(unrecoveredSinceMs, owed) }
+                ?: unrecoveredSinceMs,
             lastPausedAtMs = if (effects.consumeLastPausedAt) 0L else lastPausedAtMs,
             offlineRecoveryAtMs = if (effects.consumeOfflineRecovery) 0L else offlineRecoveryAtMs
         )
@@ -1076,6 +1241,7 @@ class HistoryBackfillPolicyTest {
         return copy(
             historyLoaded = historyLoaded && !failure.clearHistoryLoaded,
             inFlightSinceMs = failure.inFlightSinceMs,
+            inFlightCoversFromMs = if (failure.inFlightSinceMs == 0L) 0L else inFlightCoversFromMs,
             unrecoveredSinceMs = failure.unrecoveredSinceMs
         )
     }
@@ -1084,7 +1250,9 @@ class HistoryBackfillPolicyTest {
     private fun HistoryBackfillInputs.after(success: HistoryBackfillSuccessEffects): HistoryBackfillInputs {
         return copy(
             inFlightSinceMs = success.inFlightSinceMs,
+            inFlightCoversFromMs = if (success.inFlightSinceMs == 0L) 0L else inFlightCoversFromMs,
             lastBackfillAtMs = success.lastBackfillAtMs,
+            lastBackfillCoversFromMs = success.lastBackfillCoversFromMs,
             unrecoveredSinceMs = success.unrecoveredSinceMs
         )
     }

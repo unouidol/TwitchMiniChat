@@ -154,6 +154,30 @@ class HistoryBackfillStateTest {
         )
     }
 
+    @Test
+    fun aSkipBehindANarrowerRequest_leavesTheRestOwed() {
+        openWithASuccess()
+
+        /* Ten minutes away. Just before the reconnect, a 120 s refresh is sent. */
+        state.onStopped(T1)
+        val refresh = sent(refresh(T1 + 599_500L))
+
+        /* The reconnect skips behind it, consumes the offline reference, and says what is left. */
+        val skip = connect(T1 + 600_000L) as Skip
+        assertEquals(BACKFILL_IN_FLIGHT, skip.reason)
+        assertEquals("uncoveredSec" to 480, skip.journalFields.last())
+
+        /* The refresh succeeds. It never reached ten minutes back, so they stay owed. */
+        succeed(refresh, T1 + 601_000L)
+        state.onPaused(T1 + 610_000L)
+        val resumedAt = T1 + 612_000L
+        val next = resume(resumedAt) as Request
+        assertTrue(
+            "next reaches back to ${resumedAt - next.requestedSec * 1000L}, not to $T1",
+            resumedAt - next.requestedSec * 1000L <= T1
+        )
+    }
+
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------

@@ -43,12 +43,20 @@ enum class HistoryBackfillFailure(val journalValue: String) {
  * when a request left. [inFlightSinceMs] is when the request still awaiting its
  * result was sent, 0 when none is. [unrecoveredSinceMs] is the oldest moment a
  * failed request did not recover, 0 when nothing is owed.
+ *
+ * [lastBackfillCoversFromMs] and [inFlightCoversFromMs] are how far back those two
+ * requests reached: the instant their window began. A skip that consumes a reference
+ * compares it with them, so that "a request happened" is never mistaken for "that
+ * window is covered". 0 means unknown, and is read as covering nothing before the
+ * request itself.
  */
 data class HistoryBackfillInputs(
     val nowMs: Long,
     val historyLoaded: Boolean,
     val lastBackfillAtMs: Long,
+    val lastBackfillCoversFromMs: Long,
     val inFlightSinceMs: Long,
+    val inFlightCoversFromMs: Long,
     val unrecoveredSinceMs: Long,
     val lastPausedAtMs: Long,
     val lastStoppedAtMs: Long,
@@ -60,15 +68,21 @@ data class HistoryBackfillInputs(
 /**
  * Stored references the caller must change when it applies a decision.
  *
- * The consumptions and [armHistoryLoaded] are applied before the journal line is
- * written, and [armInFlightSinceMs] just before the request leaves. Only a request
- * arms the in-flight marker, and every request does, with the decision's instant.
+ * The consumptions, [armHistoryLoaded] and [owedSinceMs] are applied before the
+ * journal line is written, and [armInFlightSinceMs] just before the request leaves.
+ * Only a request arms the in-flight marker, and every request does, with the
+ * decision's instant.
+ *
+ * [owedSinceMs] is set by a skip whose consumed reference reaches further back than
+ * the request that covered for it: the caller folds it into the owed start, keeping
+ * the older of the two.
  */
 data class HistoryBackfillEffects(
     val consumeLastPausedAt: Boolean = false,
     val consumeOfflineRecovery: Boolean = false,
     val armHistoryLoaded: Boolean = false,
-    val armInFlightSinceMs: Long? = null
+    val armInFlightSinceMs: Long? = null,
+    val owedSinceMs: Long? = null
 )
 
 /** One backfill decision: a request to send or a skip, with its journal line and side effects. */
@@ -137,11 +151,13 @@ data class HistoryBackfillFailureEffects(
  * [inFlightSinceMs] follows the same rule as on failure. [lastBackfillAtMs] is the
  * instant the result arrived, which is what the five-second rule counts from.
  * [unrecoveredSinceMs] is 0 when the request reached back to the owed start, and the
- * owed start unchanged when it did not.
+ * owed start unchanged when it did not. [lastBackfillCoversFromMs] is how far back the
+ * request reached.
  */
 data class HistoryBackfillSuccessEffects(
     val inFlightSinceMs: Long,
     val lastBackfillAtMs: Long,
+    val lastBackfillCoversFromMs: Long,
     val unrecoveredSinceMs: Long
 )
 
@@ -249,7 +265,8 @@ object HistoryBackfillPolicy {
         suppression(
             inputs = inputs,
             leadingDetails = listOf("offlineSec" to offlineSec),
-            effects = consumed
+            effects = consumed,
+            referenceMs = inputs.offlineRecoveryAtMs.takeIf { it > 0L }
         )?.let { skip -> return skip }
 
         return when {
@@ -320,7 +337,8 @@ object HistoryBackfillPolicy {
             suppression(
                 inputs = inputs,
                 leadingDetails = listOf("awaySec" to awaySec),
-                effects = consumed
+                effects = consumed,
+                referenceMs = pausedAt
             )?.let { skip -> return skip }
 
             return request(
@@ -397,11 +415,7 @@ object HistoryBackfillPolicy {
 
         return HistoryBackfillFailureEffects(
             inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
-            unrecoveredSinceMs = if (unrecoveredSinceMs == 0L) {
-                windowStartMs
-            } else {
-                minOf(unrecoveredSinceMs, windowStartMs)
-            },
+            unrecoveredSinceMs = olderOwedStart(unrecoveredSinceMs, windowStartMs),
             clearHistoryLoaded = clearHistoryLoaded,
             journalFields = listOf(
                 "reason" to failure.journalValue,
@@ -438,8 +452,26 @@ object HistoryBackfillPolicy {
         return HistoryBackfillSuccessEffects(
             inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
             lastBackfillAtMs = nowMs,
+            lastBackfillCoversFromMs = coversFrom(sentAtMs, requestedSec),
             unrecoveredSinceMs = if (reachedOwedStart) 0L else unrecoveredSinceMs
         )
+    }
+
+    /** Folds [startMs] into the owed start [currentMs], keeping the older; 0 means none. */
+    fun olderOwedStart(currentMs: Long, startMs: Long): Long {
+        return if (currentMs == 0L) startMs else minOf(currentMs, startMs)
+    }
+
+    /**
+     * Returns how much of the window back to [referenceMs] a request that reached back
+     * to [coveredFromMs] did not cover, null when it covered all of it.
+     *
+     * Only what the backend can still return counts: a reference older than an hour is
+     * compared from [oldestRecoverableMs], since nothing before that can be asked for.
+     */
+    fun uncoveredMs(referenceMs: Long, coveredFromMs: Long, nowMs: Long): Long? {
+        val reachable = maxOf(referenceMs, oldestRecoverableMs(nowMs))
+        return (coveredFromMs - reachable).takeIf { missing -> missing > 0L }
     }
 
     /** The instant a request sent at [sentAtMs] for [requestedSec] reaches back to. */
@@ -551,10 +583,12 @@ object HistoryBackfillPolicy {
      */
     private fun withoutPauseReference(inputs: HistoryBackfillInputs): HistoryBackfillDecision {
         /* A first connection or an earlier resume is covering, or has just covered, this window. */
+        /* This path consumes no reference, so a skip here leaves nothing behind. */
         suppression(
             inputs = inputs,
             leadingDetails = emptyList(),
-            effects = HistoryBackfillEffects()
+            effects = HistoryBackfillEffects(),
+            referenceMs = null
         )?.let { skip -> return skip }
 
         val renderedGapSec = secondsSinceLastRenderedMessage(
@@ -669,20 +703,30 @@ object HistoryBackfillPolicy {
      *
      * A request in flight is checked first: it is the newer fact, and it is the
      * case the rule exists for, a reconnect and a resume asking milliseconds apart.
+     *
+     * [referenceMs] is the reference this skip consumes, null when it consumes none. A
+     * request happening is not the same as that window being covered: when the
+     * reference reaches further back than the covering request did, the remainder is
+     * left owed, and the line says how much with `uncoveredSec`.
      */
     private fun suppression(
         inputs: HistoryBackfillInputs,
         leadingDetails: List<Pair<String, Any?>>,
-        effects: HistoryBackfillEffects
+        effects: HistoryBackfillEffects,
+        referenceMs: Long?
     ): HistoryBackfillDecision.Skip? {
         msInFlight(
             nowMs = inputs.nowMs,
             inFlightSinceMs = inputs.inFlightSinceMs
         )?.let { inFlightMs ->
-            return HistoryBackfillDecision.Skip(
+            return coveredSkip(
                 reason = HistoryBackfillSkipReason.BACKFILL_IN_FLIGHT,
                 details = leadingDetails + ("inFlightMs" to inFlightMs),
-                effects = effects
+                effects = effects,
+                referenceMs = referenceMs,
+                coveredFromMs = inputs.inFlightCoversFromMs
+                    .takeIf { it > 0L } ?: inputs.inFlightSinceMs,
+                nowMs = inputs.nowMs
             )
         }
 
@@ -690,14 +734,41 @@ object HistoryBackfillPolicy {
             nowMs = inputs.nowMs,
             lastBackfillAtMs = inputs.lastBackfillAtMs
         )?.let { sinceLastBackfillMs ->
-            return HistoryBackfillDecision.Skip(
+            return coveredSkip(
                 reason = HistoryBackfillSkipReason.RECENT_BACKFILL,
                 details = leadingDetails + ("sinceLastBackfillMs" to sinceLastBackfillMs),
-                effects = effects
+                effects = effects,
+                referenceMs = referenceMs,
+                coveredFromMs = inputs.lastBackfillCoversFromMs
+                    .takeIf { it > 0L } ?: inputs.lastBackfillAtMs,
+                nowMs = inputs.nowMs
             )
         }
 
         return null
+    }
+
+    /**
+     * Builds a suppression skip, owing whatever part of [referenceMs]'s window the
+     * covering request, which reached back to [coveredFromMs], missed.
+     */
+    private fun coveredSkip(
+        reason: HistoryBackfillSkipReason,
+        details: List<Pair<String, Any?>>,
+        effects: HistoryBackfillEffects,
+        referenceMs: Long?,
+        coveredFromMs: Long,
+        nowMs: Long
+    ): HistoryBackfillDecision.Skip {
+        val missingMs = referenceMs?.let { reference -> uncoveredMs(reference, coveredFromMs, nowMs) }
+            ?: return HistoryBackfillDecision.Skip(reason, details, effects)
+
+        return HistoryBackfillDecision.Skip(
+            reason = reason,
+            /* Rounded up: a remainder under a second must not read as uncoveredSec=0. */
+            details = details + ("uncoveredSec" to ((missingMs + 999L) / 1000L).toInt()),
+            effects = effects.copy(owedSinceMs = referenceMs)
+        )
     }
 
     /** Clears the in-flight marker only when it still belongs to the request whose result arrived. */
