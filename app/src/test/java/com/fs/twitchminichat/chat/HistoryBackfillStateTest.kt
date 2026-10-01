@@ -178,6 +178,23 @@ class HistoryBackfillStateTest {
         )
     }
 
+    @Test
+    fun aSkipBehindASuccessThatReachedBackToThePause_owesNothing() {
+        /* The page is left while the opening hour-long request is in flight. */
+        val opening = sent(connect(T0))
+        state.onPaused(T0 + 200L)
+        val arrivedAt = T0 + 1_000L
+        succeed(opening, arrivedAt)
+
+        /*
+         * Two seconds after it arrives the page comes back. The pause is older than the
+         * arrival but well inside the hour the request reached back over: nothing owed.
+         */
+        val skip = resume(arrivedAt + 2_000L) as Skip
+        assertEquals(RECENT_BACKFILL, skip.reason)
+        assertEquals(listOf("awaySec" to 2, "sinceLastBackfillMs" to 2_000L), skip.details)
+    }
+
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
