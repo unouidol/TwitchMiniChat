@@ -6,9 +6,10 @@ import com.fs.twitchminichat.chat.HistoryBackfillFailure.REAUTHORIZATION_REQUIRE
 import com.fs.twitchminichat.chat.HistoryBackfillFailure.REQUEST_FAILED
 import com.fs.twitchminichat.chat.HistoryBackfillFailure.SESSION_MISSING
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.AWAY_BELOW_THRESHOLD
+import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.BACKFILL_IN_FLIGHT
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.HISTORY_ALREADY_LOADED
-import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE
-import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NO_RECOVERY_REFERENCE_RECONNECT
+import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NOTHING_TO_MEASURE_FROM
+import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.NOTHING_TO_MEASURE_FROM_RECONNECT
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.RECENT_BACKFILL
 import com.fs.twitchminichat.chat.HistoryBackfillSource.FIRST_CONNECT
 import com.fs.twitchminichat.chat.HistoryBackfillSource.MANUAL_REFRESH
@@ -21,14 +22,15 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Characterizes the history backfill decision as it stood in ChatFragment at
- * `bf7dd65`, before it moved into [HistoryBackfillPolicy].
+ * Pins the history backfill decision in [HistoryBackfillPolicy].
  *
- * Every expected value was derived from that code, not from the policy.
+ * It began as a characterization of the decision as it stood in ChatFragment at
+ * `bf7dd65`, every expected value derived from that code. Each correction since has
+ * replaced the `frozen_…` test that pinned what it corrects, in a commit of its own.
  *
- * Tests named `frozen_…` pin behaviour that is known to be wrong, and each one says
- * what is wrong with it. They are meant to fail when that behaviour is corrected, so
- * that the correction changes a test on purpose rather than by accident.
+ * Tests still named `frozen_…` pin behaviour that is known to be wrong, and each one
+ * says what is wrong with it. They are meant to fail when that behaviour is
+ * corrected, so that the correction changes a test on purpose rather than by accident.
  *
  * Journal lines are asserted as rendered text: the diagnostics analysis of log31 is
  * the baseline for judging later changes, and a renamed field or value would
@@ -41,77 +43,97 @@ class HistoryBackfillPolicyTest {
     // ---------------------------------------------------------------------------
 
     @Test
-    fun frozen_recentBackfillIsStampedWhenTheRequestLeaves_soAFailureSuppressesTheNextFiveSeconds() {
+    fun inFlight_suppressesUntilItsResultArrives_andAFailureLiftsItAtOnce() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: the recent-backfill time is stamped
-         * when the request is sent, and no failure clears it, so for five seconds after
-         * a request that delivered nothing the resume paths skip with
-         * reason=recent_backfill, and the journal blames the skip on a backfill that
-         * never arrived. The connect path escapes only because the failure also clears
-         * historyLoaded and first_connect ignores the window (pinned separately).
+         * Replaces frozen_recentBackfillIsStampedWhenTheRequestLeaves_…, which pinned
+         * the five-second window stamped when a request left: a request that failed in
+         * four milliseconds suppressed every recovery for five seconds, and the journal
+         * blamed the skips on a backfill that never arrived. Now the request in flight
+         * is what suppresses - a reconnect and the resume after it ask milliseconds
+         * apart, before any result exists - and its failure lifts that at once.
          */
         val start = inputs(offlineRecoveryAtMs = NOW - 60_000L)
         val sent = HistoryBackfillPolicy.onConnect(start) as Request
-        assertEquals(NOW, sent.effects.armLastBackfillAtMs)
+        assertEquals(NOW, sent.effects.armInFlightSinceMs)
 
-        val failed = start
-            .after(sent)
-            .after(HistoryBackfillPolicy.afterFailure(REQUEST_FAILED, sent.requestedSec))
-        assertEquals(NOW, failed.lastBackfillAtMs)
+        val inFlight = start.after(sent)
+        assertEquals(NOW, inFlight.inFlightSinceMs)
+        assertEquals(0L, inFlight.lastBackfillAtMs)
 
         assertEquals(
             Skip(
-                reason = RECENT_BACKFILL,
-                details = listOf("awaySec" to 34, "sinceLastBackfillMs" to 4_999L),
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("awaySec" to 30, "inFlightMs" to 40L),
                 effects = HistoryBackfillEffects(consumeLastPausedAt = true)
             ),
             HistoryBackfillPolicy.onResume(
-                failed.copy(nowMs = NOW + 4_999L, lastPausedAtMs = NOW - 30_000L)
+                inFlight.copy(nowMs = NOW + 40L, lastPausedAtMs = NOW - 30_000L)
             )
         )
         assertEquals(
             Skip(
-                reason = RECENT_BACKFILL,
-                details = listOf("sinceLastBackfillMs" to 4_999L),
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("inFlightMs" to 40L),
                 effects = HistoryBackfillEffects()
             ),
-            HistoryBackfillPolicy.onResume(failed.copy(nowMs = NOW + 4_999L))
+            HistoryBackfillPolicy.onResume(inFlight.copy(nowMs = NOW + 40L))
         )
 
+        val failed = inFlight.after(
+            HistoryBackfillPolicy.afterFailure(
+                failure = REQUEST_FAILED,
+                requestedSec = sent.requestedSec,
+                sentAtMs = NOW,
+                inFlightSinceMs = inFlight.inFlightSinceMs,
+                unrecoveredSinceMs = inFlight.unrecoveredSinceMs
+            )
+        )
+        assertEquals(0L, failed.inFlightSinceMs)
+        assertEquals(0L, failed.lastBackfillAtMs)
+
+        /* Not suppressed; and it reaches back over the 70 s the failed request owed. */
         assertEquals(
             Request(
                 source = RESUME,
-                requestedSec = 45,
-                details = listOf("awaySec" to 35),
+                requestedSec = 80,
+                details = listOf("awaySec" to 30, "unrecoveredSec" to 70),
                 effects = HistoryBackfillEffects(
                     consumeLastPausedAt = true,
-                    armLastBackfillAtMs = NOW + 5_000L
+                    armInFlightSinceMs = NOW + 5L
                 )
             ),
             HistoryBackfillPolicy.onResume(
-                failed.copy(nowMs = NOW + 5_000L, lastPausedAtMs = NOW - 30_000L)
+                failed.copy(nowMs = NOW + 5L, lastPausedAtMs = NOW - 30_000L)
             )
         )
     }
 
     @Test
-    fun frozen_afterRequestFailed_nothingRecordsTheWindowThatWasLost() {
+    fun afterRequestFailed_theLostWindowIsRecordedAndTheNextRequestReachesBackToIt() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: the window a failed request asked for
-         * exists only in its journal line. The failure clears historyLoaded and nothing
-         * else, and the offline reference that measured the window was consumed before
-         * the request left. The next request is sized by whatever reference it finds
-         * then - the few seconds of a page switch while IRC stays up, or the full hour
-         * on the next connect - and never by the window that was lost.
+         * Replaces frozen_afterRequestFailed_nothingRecordsTheWindowThatWasLost, which
+         * pinned that the window a failed request asked for existed only in its journal
+         * line: the next request was sized by whatever reference it found then - the
+         * few seconds of a page switch while IRC stayed up - and the lost window was
+         * never asked for again. Now the failure records where that window began, and
+         * every later request reaches back to it until one succeeds.
          */
         val start = inputs(offlineRecoveryAtMs = NOW - 600_000L)
         val sent = HistoryBackfillPolicy.onConnect(start) as Request
         assertEquals(RECONNECT_OFFLINE, sent.source)
         assertEquals(610, sent.requestedSec)
 
-        val failure = HistoryBackfillPolicy.afterFailure(REQUEST_FAILED, sent.requestedSec)
+        val failure = HistoryBackfillPolicy.afterFailure(
+            failure = REQUEST_FAILED,
+            requestedSec = sent.requestedSec,
+            sentAtMs = NOW,
+            inFlightSinceMs = NOW,
+            unrecoveredSinceMs = 0L
+        )
         assertEquals(
             HistoryBackfillFailureEffects(
+                inFlightSinceMs = 0L,
+                unrecoveredSinceMs = NOW - 610_000L,
                 clearHistoryLoaded = true,
                 journalFields = listOf("reason" to "request_failed", "requestedSec" to 610)
             ),
@@ -120,74 +142,116 @@ class HistoryBackfillPolicyTest {
 
         val failed = start.after(sent).after(failure)
         assertEquals(
-            start.copy(historyLoaded = false, offlineRecoveryAtMs = 0L, lastBackfillAtMs = NOW),
+            start.copy(
+                historyLoaded = false,
+                offlineRecoveryAtMs = 0L,
+                unrecoveredSinceMs = NOW - 610_000L
+            ),
             failed
         )
 
+        /* IRC stays up; a minute later the user switches pages for two seconds. */
+        val pageSwitch = HistoryBackfillPolicy.onResume(
+            failed.copy(nowMs = NOW + 62_000L, lastPausedAtMs = NOW + 60_000L)
+        )
         assertEquals(
             Request(
                 source = RESUME,
-                requestedSec = 30,
-                details = listOf("awaySec" to 2),
+                requestedSec = 682,
+                details = listOf("awaySec" to 2, "unrecoveredSec" to 672),
                 effects = HistoryBackfillEffects(
                     consumeLastPausedAt = true,
-                    armLastBackfillAtMs = NOW + 62_000L
+                    armInFlightSinceMs = NOW + 62_000L
                 )
             ),
-            HistoryBackfillPolicy.onResume(
-                failed.copy(nowMs = NOW + 62_000L, lastPausedAtMs = NOW + 60_000L)
-            )
+            pageSwitch
+        )
+        assertEquals(
+            "backfill.triggered source=resume awaySec=2 unrecoveredSec=672 requestedSec=682",
+            render(pageSwitch)
         )
 
+        /* The next connect asks for the whole hour anyway, and says nothing more. */
         assertEquals(
-            Request(
-                source = FIRST_CONNECT,
-                requestedSec = 3600,
-                details = emptyList(),
-                effects = HistoryBackfillEffects(
-                    armHistoryLoaded = true,
-                    armLastBackfillAtMs = NOW + 120_000L
+            "backfill.triggered source=first_connect requestedSec=3600",
+            render(HistoryBackfillPolicy.onConnect(failed.copy(nowMs = NOW + 62_000L)))
+        )
+
+        /* The page switch's request succeeds: nothing is owed any more. */
+        val recovered = failed
+            .copy(nowMs = NOW + 62_000L, lastPausedAtMs = NOW + 60_000L)
+            .after(pageSwitch)
+            .after(
+                HistoryBackfillPolicy.afterSuccess(
+                    sentAtMs = NOW + 62_000L,
+                    requestedSec = (pageSwitch as Request).requestedSec,
+                    nowMs = NOW + 63_000L,
+                    inFlightSinceMs = NOW + 62_000L,
+                    unrecoveredSinceMs = NOW - 610_000L
                 )
-            ),
-            HistoryBackfillPolicy.onConnect(failed.copy(nowMs = NOW + 120_000L))
+            )
+        assertEquals(0L, recovered.unrecoveredSinceMs)
+        assertEquals(
+            "backfill.triggered source=resume awaySec=2 requestedSec=30",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    recovered.copy(nowMs = NOW + 120_000L, lastPausedAtMs = NOW + 118_000L)
+                )
+            )
         )
     }
 
     @Test
-    fun frozen_noRecoveryReference_writesAJournalLineAndDoesNothingElse() {
+    fun noPauseNoWatermarkNoStop_fallsBackToTheLastSuccessfulBackfill() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: a page resumed for the first time with
-         * no rendered message, no onStop and no request in the last five seconds records
-         * reason=no_recovery_reference and stops there. It requests nothing, arms
-         * nothing and schedules nothing, so whatever that page missed stays missing
-         * until some other path happens to ask.
+         * Replaces frozen_noRecoveryReference_writesAJournalLineAndDoesNothingElse,
+         * which pinned a dead end: a page resumed for the first time with no rendered
+         * message, no onStop and no recent request wrote reason=no_recovery_reference
+         * and asked for nothing, even when a backfill had arrived since. The last
+         * successful backfill is a real reference now that it records an arrival, so
+         * the page asks for the window since then. Only with no successful backfill
+         * either does it skip, under a reason of its own.
          */
-        val nothing = inputs(historyLoaded = true)
-        val decision = HistoryBackfillPolicy.onResume(nothing)
+        val afterASuccess = HistoryBackfillPolicy.onResume(inputs(lastBackfillAtMs = NOW - 40_000L))
+        assertEquals(
+            Request(
+                source = RESUME_NO_PAUSE,
+                requestedSec = 50,
+                details = listOf(
+                    "renderedGapSec" to null,
+                    "offlineSec" to null,
+                    "sinceLastBackfillSec" to 40
+                ),
+                effects = HistoryBackfillEffects(armInFlightSinceMs = NOW)
+            ),
+            afterASuccess
+        )
+        assertEquals(
+            "backfill.triggered source=resume_no_pause sinceLastBackfillSec=40 requestedSec=50",
+            render(afterASuccess)
+        )
 
+        /* A success exactly five seconds old no longer suppresses, and is the reference. */
+        assertEquals(
+            "backfill.triggered source=resume_no_pause sinceLastBackfillSec=5 requestedSec=30",
+            render(HistoryBackfillPolicy.onResume(inputs(lastBackfillAtMs = NOW - 5_000L)))
+        )
+
+        /* Nothing at all: the one case left with nothing to measure from. */
+        val nothing = HistoryBackfillPolicy.onResume(inputs(historyLoaded = true))
         assertEquals(
             Skip(
-                reason = NO_RECOVERY_REFERENCE,
+                reason = NOTHING_TO_MEASURE_FROM,
                 details = listOf("historyLoaded" to true),
                 effects = HistoryBackfillEffects()
             ),
-            decision
+            nothing
         )
-        assertEquals("backfill.skipped reason=no_recovery_reference historyLoaded=true", render(decision))
+        assertEquals("backfill.skipped reason=nothing_to_measure_from historyLoaded=true", render(nothing))
 
-        /* A request exactly five seconds old is no longer recent, and changes nothing here. */
+        /* A newest message stamped in the future by a skewed clock still counts as none. */
         assertEquals(
-            "backfill.skipped reason=no_recovery_reference historyLoaded=false",
-            render(
-                HistoryBackfillPolicy.onResume(
-                    inputs(historyLoaded = false, lastBackfillAtMs = NOW - 5_000L)
-                )
-            )
-        )
-
-        /* A newest message stamped in the future by a skewed clock counts as none. */
-        assertEquals(
-            NO_RECOVERY_REFERENCE,
+            NOTHING_TO_MEASURE_FROM,
             (HistoryBackfillPolicy.onResume(
                 inputs(lastRenderedMessageTsSec = NOW / 1000.0 + 5.0)
             ) as Skip).reason
@@ -195,20 +259,25 @@ class HistoryBackfillPolicyTest {
     }
 
     @Test
-    fun frozen_reconnectOffline_consumesItsReferenceBeforeTheSkipChecks() {
+    fun reconnectSkip_consumesItsReference_andOwesWhatTheCoveringRequestMissed() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: offlineRecoveryAtMs is consumed before
-         * the skip checks run, so a reconnect that skips - because a request left under
-         * five seconds ago, or because the stop was under a second ago - throws away
-         * the only record of when the page went offline. The next connect falls back to
-         * the render watermark, or to nothing.
+         * Replaces frozen_reconnectOffline_consumesItsReferenceBeforeTheSkipChecks, which
+         * pinned that a reconnect consumed offlineRecoveryAtMs before its skip checks, so
+         * a reconnect that skipped behind another request threw away the only record of
+         * when the page went offline. Consuming it is right: the reference must not be
+         * asked for twice. What was wrong was dropping it when the request it skipped
+         * behind had not reached that far back. Now the skip compares, and leaves the
+         * remainder owed.
          */
-        val start = inputs(
+
+        /* The success it skips behind reached back ninety seconds: the minute offline is covered. */
+        val covered = inputs(
             offlineRecoveryAtMs = NOW - 60_000L,
             lastBackfillAtMs = NOW - 1_000L,
+            lastBackfillCoversFromMs = NOW - 90_000L,
             lastRenderedMessageTsSec = (NOW - 90_000L) / 1000.0
         )
-        val skipped = HistoryBackfillPolicy.onConnect(start)
+        val skipped = HistoryBackfillPolicy.onConnect(covered)
         assertEquals(
             Skip(
                 reason = RECENT_BACKFILL,
@@ -217,20 +286,41 @@ class HistoryBackfillPolicyTest {
             ),
             skipped
         )
-
+        /* Consumed: the next connect measures from the watermark, and owes nothing. */
         assertEquals(
-            Request(
-                source = RECONNECT_NO_PAUSE_REFERENCE,
-                requestedSec = 110,
-                details = listOf("renderedGapSec" to 100),
-                effects = HistoryBackfillEffects(
-                    consumeOfflineRecovery = true,
-                    armLastBackfillAtMs = NOW + 10_000L
-                )
-            ),
-            HistoryBackfillPolicy.onConnect(start.after(skipped).copy(nowMs = NOW + 10_000L))
+            "backfill.triggered source=reconnect_no_pause_reference renderedGapSec=100 requestedSec=110",
+            render(HistoryBackfillPolicy.onConnect(covered.after(skipped).copy(nowMs = NOW + 10_000L)))
         )
 
+        /* It reached back only thirty-one seconds: twenty-nine of the minute are owed. */
+        val short = inputs(
+            offlineRecoveryAtMs = NOW - 60_000L,
+            lastBackfillAtMs = NOW - 1_000L,
+            lastBackfillCoversFromMs = NOW - 31_000L
+        )
+        val owing = HistoryBackfillPolicy.onConnect(short)
+        assertEquals(
+            Skip(
+                reason = RECENT_BACKFILL,
+                details = listOf(
+                    "offlineSec" to 60,
+                    "sinceLastBackfillMs" to 1_000L,
+                    "uncoveredSec" to 29
+                ),
+                effects = HistoryBackfillEffects(
+                    consumeOfflineRecovery = true,
+                    owedSinceMs = NOW - 60_000L
+                )
+            ),
+            owing
+        )
+        /* Still consumed, but the next connect reaches back to the stop through the owed window. */
+        assertEquals(
+            "backfill.triggered source=reconnect_no_pause_reference sinceLastBackfillSec=11 unrecoveredSec=70 requestedSec=80",
+            render(HistoryBackfillPolicy.onConnect(short.after(owing).copy(nowMs = NOW + 10_000L)))
+        )
+
+        /* A stop under a second ago has nothing to recover: consumed, nothing owed. */
         assertEquals(
             Skip(
                 reason = HISTORY_ALREADY_LOADED,
@@ -242,16 +332,23 @@ class HistoryBackfillPolicyTest {
     }
 
     @Test
-    fun frozen_resume_consumesItsReferenceBeforeItsOwnChecks() {
+    fun resumeSkip_consumesItsReference_andOwesWhatTheCoveringRequestMissed() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: lastPausedAtMs is consumed before the
-         * resume checks run, so a resume that skips - for a recent request, or for an
-         * absence under a second - discards the instant the page was paused. If the
-         * request that caused the skip did not cover that absence, no later resume can
-         * measure it: the next one measures from the next pause.
+         * Replaces frozen_resume_consumesItsReferenceBeforeItsOwnChecks, which pinned that
+         * a resume consumed lastPausedAtMs before its own checks, so a resume that skipped
+         * behind a recent backfill discarded the instant the page was paused, and the
+         * absence was lost whenever that backfill had not covered it. Consuming it is
+         * right; what was wrong was assuming the backfill covered it. Now the skip
+         * compares, and leaves what the backfill missed owed.
          */
-        val start = inputs(lastPausedAtMs = NOW - 30_000L, lastBackfillAtMs = NOW - 2_000L)
-        val skipped = HistoryBackfillPolicy.onResume(start)
+
+        /* The backfill it skips behind reached back forty seconds: the thirty away are covered. */
+        val covered = inputs(
+            lastPausedAtMs = NOW - 30_000L,
+            lastBackfillAtMs = NOW - 2_000L,
+            lastBackfillCoversFromMs = NOW - 40_000L
+        )
+        val skipped = HistoryBackfillPolicy.onResume(covered)
         assertEquals(
             Skip(
                 reason = RECENT_BACKFILL,
@@ -260,8 +357,51 @@ class HistoryBackfillPolicyTest {
             ),
             skipped
         )
-        assertEquals(0L, start.after(skipped).lastPausedAtMs)
+        assertEquals(0L, covered.after(skipped).lastPausedAtMs)
+        /* Paused again ten seconds later: only those ten seconds are measured. */
+        assertEquals(
+            "backfill.triggered source=resume awaySec=10 requestedSec=30",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    covered.after(skipped).copy(nowMs = NOW + 20_000L, lastPausedAtMs = NOW + 10_000L)
+                )
+            )
+        )
 
+        /* It reached back only twelve seconds: eighteen of the thirty are owed. */
+        val short = inputs(
+            lastPausedAtMs = NOW - 30_000L,
+            lastBackfillAtMs = NOW - 2_000L,
+            lastBackfillCoversFromMs = NOW - 12_000L
+        )
+        val owing = HistoryBackfillPolicy.onResume(short)
+        assertEquals(
+            Skip(
+                reason = RECENT_BACKFILL,
+                details = listOf(
+                    "awaySec" to 30,
+                    "sinceLastBackfillMs" to 2_000L,
+                    "uncoveredSec" to 18
+                ),
+                effects = HistoryBackfillEffects(
+                    consumeLastPausedAt = true,
+                    owedSinceMs = NOW - 30_000L
+                )
+            ),
+            owing
+        )
+        assertEquals(0L, short.after(owing).lastPausedAtMs)
+        /* The next resume reaches back to the first pause through the owed window. */
+        assertEquals(
+            "backfill.triggered source=resume awaySec=10 unrecoveredSec=50 requestedSec=60",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    short.after(owing).copy(nowMs = NOW + 20_000L, lastPausedAtMs = NOW + 10_000L)
+                )
+            )
+        )
+
+        /* Under a second away with IRC up has nothing to recover: consumed, nothing owed. */
         assertEquals(
             Skip(
                 reason = AWAY_BELOW_THRESHOLD,
@@ -270,29 +410,13 @@ class HistoryBackfillPolicyTest {
             ),
             HistoryBackfillPolicy.onResume(inputs(lastPausedAtMs = NOW - 999L))
         )
-
-        /* Paused again ten seconds later: only those ten seconds are measured. */
-        assertEquals(
-            Request(
-                source = RESUME,
-                requestedSec = 30,
-                details = listOf("awaySec" to 10),
-                effects = HistoryBackfillEffects(
-                    consumeLastPausedAt = true,
-                    armLastBackfillAtMs = NOW + 20_000L
-                )
-            ),
-            HistoryBackfillPolicy.onResume(
-                start.after(skipped).copy(nowMs = NOW + 20_000L, lastPausedAtMs = NOW + 10_000L)
-            )
-        )
     }
 
     @Test
     fun frozen_firstConnect_ignoresTheFiveSecondWindowAndLeavesOfflineRecoveryArmed() {
         /*
          * PINS TODAY'S BEHAVIOUR. What is wrong, twice over: first_connect asks for the
-         * full hour even when a request left a millisecond ago, and it does not consume
+         * full hour even when a backfill arrived a millisecond ago, and it does not consume
          * offlineRecoveryAtMs. The stale reference survives into the next mid-session
          * reconnect, which then asks again for a window measured from an old onStop that
          * the first connection's hour already covered.
@@ -310,7 +434,7 @@ class HistoryBackfillPolicyTest {
                 details = emptyList(),
                 effects = HistoryBackfillEffects(
                     armHistoryLoaded = true,
-                    armLastBackfillAtMs = NOW
+                    armInFlightSinceMs = NOW
                 )
             ),
             decision
@@ -326,7 +450,7 @@ class HistoryBackfillPolicyTest {
                 details = listOf("offlineSec" to 660),
                 effects = HistoryBackfillEffects(
                     consumeOfflineRecovery = true,
-                    armLastBackfillAtMs = NOW + 600_000L
+                    armInFlightSinceMs = NOW + 600_000L
                 )
             ),
             HistoryBackfillPolicy.onConnect(armed.copy(nowMs = NOW + 600_000L))
@@ -336,10 +460,11 @@ class HistoryBackfillPolicyTest {
     @Test
     fun frozen_manualRefresh_ignoresTheFiveSecondWindowAndIsFixedAtTwoMinutes() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: the refresh button asks for 120
-         * seconds whatever the page actually missed, and it ignores the five-second
-         * window, so it can run beside a request that left a millisecond earlier. Only
-         * its own 1.5-second tap debounce, which stays in ChatFragment, limits it.
+         * PINS TODAY'S BEHAVIOUR. What is wrong: with nothing owed, the refresh button
+         * asks for 120 seconds whatever the page actually missed, and it ignores the
+         * five-second window, so it runs even when a backfill arrived a millisecond
+         * earlier. Only its own 1.5-second tap debounce, which stays in ChatFragment,
+         * limits it.
          */
         val decision = HistoryBackfillPolicy.onManualRefresh(
             inputs(
@@ -356,7 +481,7 @@ class HistoryBackfillPolicyTest {
                 source = MANUAL_REFRESH,
                 requestedSec = 120,
                 details = emptyList(),
-                effects = HistoryBackfillEffects(armLastBackfillAtMs = NOW)
+                effects = HistoryBackfillEffects(armInFlightSinceMs = NOW)
             ),
             decision
         )
@@ -389,6 +514,9 @@ class HistoryBackfillPolicyTest {
                     "backfill.triggered source=resume_no_pause offlineSec=300 requestedSec=310",
             HistoryBackfillPolicy.onManualRefresh(inputs()) to
                     "backfill.triggered source=manual_refresh requestedSec=120",
+            HistoryBackfillPolicy.onConnect(
+                inputs(offlineRecoveryAtMs = NOW - 60_000L, unrecoveredSinceMs = NOW - 600_000L)
+            ) to "backfill.triggered source=reconnect_offline offlineSec=60 unrecoveredSec=600 requestedSec=610",
             HistoryBackfillPolicy.onResume(
                 inputs(lastPausedAtMs = NOW - 42_000L, lastBackfillAtMs = NOW - 3_000L)
             ) to "backfill.skipped reason=recent_backfill awaySec=42 sinceLastBackfillMs=3000",
@@ -399,14 +527,33 @@ class HistoryBackfillPolicyTest {
             ) to "backfill.skipped reason=recent_backfill offlineSec=60 sinceLastBackfillMs=3000",
             HistoryBackfillPolicy.onConnect(inputs(lastBackfillAtMs = NOW - 3_000L)) to
                     "backfill.skipped reason=recent_backfill sinceLastBackfillMs=3000",
+            HistoryBackfillPolicy.onConnect(
+                inputs(offlineRecoveryAtMs = NOW - 60_000L, inFlightSinceMs = NOW - 250L)
+            ) to "backfill.skipped reason=backfill_in_flight offlineSec=60 inFlightMs=250",
+            HistoryBackfillPolicy.onResume(
+                inputs(lastPausedAtMs = NOW - 42_000L, inFlightSinceMs = NOW - 250L)
+            ) to "backfill.skipped reason=backfill_in_flight awaySec=42 inFlightMs=250",
+            HistoryBackfillPolicy.onResume(inputs(inFlightSinceMs = NOW - 250L)) to
+                    "backfill.skipped reason=backfill_in_flight inFlightMs=250",
+            HistoryBackfillPolicy.onResume(
+                inputs(
+                    lastPausedAtMs = NOW - 42_000L,
+                    inFlightSinceMs = NOW - 250L,
+                    inFlightCoversFromMs = NOW - 30_250L
+                )
+            ) to "backfill.skipped reason=backfill_in_flight awaySec=42 inFlightMs=250 uncoveredSec=12",
             HistoryBackfillPolicy.onConnect(inputs(offlineRecoveryAtMs = NOW - 500L)) to
                     "backfill.skipped reason=history_already_loaded offlineSec=0",
             HistoryBackfillPolicy.onResume(inputs(lastPausedAtMs = NOW - 500L)) to
                     "backfill.skipped reason=away_below_threshold awaySec=0",
             HistoryBackfillPolicy.onResume(inputs(historyLoaded = true)) to
-                    "backfill.skipped reason=no_recovery_reference historyLoaded=true",
+                    "backfill.skipped reason=nothing_to_measure_from historyLoaded=true",
             HistoryBackfillPolicy.onConnect(inputs()) to
-                    "backfill.skipped reason=no_recovery_reference_reconnect"
+                    "backfill.skipped reason=nothing_to_measure_from_reconnect",
+            HistoryBackfillPolicy.onResume(inputs(lastBackfillAtMs = NOW - 40_000L)) to
+                    "backfill.triggered source=resume_no_pause sinceLastBackfillSec=40 requestedSec=50",
+            HistoryBackfillPolicy.onConnect(inputs(lastBackfillAtMs = NOW - 40_000L)) to
+                    "backfill.triggered source=reconnect_no_pause_reference sinceLastBackfillSec=40 requestedSec=50"
         )
 
         cases.forEach { (decision, expected) ->
@@ -440,15 +587,15 @@ class HistoryBackfillPolicyTest {
     fun journal_everyFailureKeepsItsEventFieldNamesAndValues() {
         assertEquals(
             "backfill.failed reason=session_missing requestedSec=3600",
-            render(HistoryBackfillPolicy.afterFailure(SESSION_MISSING, 3600))
+            render(failure(SESSION_MISSING, 3600))
         )
         assertEquals(
             "backfill.failed reason=reauthorization_required requestedSec=70",
-            render(HistoryBackfillPolicy.afterFailure(REAUTHORIZATION_REQUIRED, 70))
+            render(failure(REAUTHORIZATION_REQUIRED, 70))
         )
         assertEquals(
             "backfill.failed reason=request_failed requestedSec=120",
-            render(HistoryBackfillPolicy.afterFailure(REQUEST_FAILED, 120))
+            render(failure(REQUEST_FAILED, 120))
         )
     }
 
@@ -458,9 +605,9 @@ class HistoryBackfillPolicyTest {
 
     @Test
     fun failure_onlyReauthorizationKeepsHistoryLoaded() {
-        assertEquals(true, HistoryBackfillPolicy.afterFailure(SESSION_MISSING, 30).clearHistoryLoaded)
-        assertEquals(false, HistoryBackfillPolicy.afterFailure(REAUTHORIZATION_REQUIRED, 30).clearHistoryLoaded)
-        assertEquals(true, HistoryBackfillPolicy.afterFailure(REQUEST_FAILED, 30).clearHistoryLoaded)
+        assertEquals(true, failure(SESSION_MISSING, 30).clearHistoryLoaded)
+        assertEquals(false, failure(REAUTHORIZATION_REQUIRED, 30).clearHistoryLoaded)
+        assertEquals(true, failure(REQUEST_FAILED, 30).clearHistoryLoaded)
     }
 
     @Test
@@ -473,11 +620,12 @@ class HistoryBackfillPolicyTest {
         val connect = HistoryBackfillPolicy.onConnect(start)
         assertEquals("backfill.triggered source=reconnect_offline offlineSec=120 requestedSec=130", render(connect))
 
+        /* Forty milliseconds later the reconnect's request has no result yet: it is in flight. */
         val resume = HistoryBackfillPolicy.onResume(start.after(connect).copy(nowMs = NOW + 40L))
         assertEquals(
             Skip(
-                reason = RECENT_BACKFILL,
-                details = listOf("awaySec" to 120, "sinceLastBackfillMs" to 40L),
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("awaySec" to 120, "inFlightMs" to 40L),
                 effects = HistoryBackfillEffects(consumeLastPausedAt = true)
             ),
             resume
@@ -503,7 +651,7 @@ class HistoryBackfillPolicyTest {
                 details = listOf("offlineSec" to 1),
                 effects = HistoryBackfillEffects(
                     consumeOfflineRecovery = true,
-                    armLastBackfillAtMs = NOW
+                    armInFlightSinceMs = NOW
                 )
             ),
             HistoryBackfillPolicy.onConnect(inputs(offlineRecoveryAtMs = NOW - 1_000L))
@@ -514,7 +662,7 @@ class HistoryBackfillPolicyTest {
     fun connect_withoutAnyReferenceStillConsumesTheOfflineReference() {
         assertEquals(
             Skip(
-                reason = NO_RECOVERY_REFERENCE_RECONNECT,
+                reason = NOTHING_TO_MEASURE_FROM_RECONNECT,
                 details = emptyList(),
                 effects = HistoryBackfillEffects(consumeOfflineRecovery = true)
             ),
@@ -531,7 +679,7 @@ class HistoryBackfillPolicyTest {
                 details = listOf("awaySec" to 1),
                 effects = HistoryBackfillEffects(
                     consumeLastPausedAt = true,
-                    armLastBackfillAtMs = NOW
+                    armInFlightSinceMs = NOW
                 )
             ),
             HistoryBackfillPolicy.onResume(inputs(lastPausedAtMs = NOW - 1_000L))
@@ -547,7 +695,7 @@ class HistoryBackfillPolicyTest {
                 details = listOf("awaySec" to 0),
                 effects = HistoryBackfillEffects(
                     consumeLastPausedAt = true,
-                    armLastBackfillAtMs = NOW
+                    armInFlightSinceMs = NOW
                 )
             ),
             HistoryBackfillPolicy.onResume(
@@ -563,7 +711,7 @@ class HistoryBackfillPolicyTest {
                 source = RESUME_NO_PAUSE,
                 requestedSec = 610,
                 details = listOf("renderedGapSec" to 600, "offlineSec" to 45),
-                effects = HistoryBackfillEffects(armLastBackfillAtMs = NOW)
+                effects = HistoryBackfillEffects(armInFlightSinceMs = NOW)
             ),
             HistoryBackfillPolicy.onResume(
                 inputs(
@@ -611,6 +759,479 @@ class HistoryBackfillPolicyTest {
         assertEquals(61, HistoryBackfillPolicy.offlineSecondsSinceStop(NOW, NOW - 61_500L))
     }
 
+    @Test
+    fun success_startsTheFiveSecondWindowWhenTheResultArrives() {
+        val sent = HistoryBackfillPolicy.onConnect(inputs(offlineRecoveryAtMs = NOW - 60_000L))
+        val arrived = inputs(offlineRecoveryAtMs = NOW - 60_000L)
+            .after(sent)
+            .after(
+                HistoryBackfillPolicy.afterSuccess(
+                    sentAtMs = NOW,
+                    requestedSec = 70,
+                    nowMs = NOW + 2_000L,
+                    inFlightSinceMs = NOW,
+                    unrecoveredSinceMs = 0L
+                )
+            )
+        assertEquals(0L, arrived.inFlightSinceMs)
+        assertEquals(NOW + 2_000L, arrived.lastBackfillAtMs)
+
+        assertEquals(
+            Skip(
+                reason = RECENT_BACKFILL,
+                details = listOf("sinceLastBackfillMs" to 4_999L),
+                effects = HistoryBackfillEffects()
+            ),
+            HistoryBackfillPolicy.onResume(arrived.copy(nowMs = NOW + 6_999L))
+        )
+        assertEquals(
+            RESUME_NO_PAUSE,
+            (HistoryBackfillPolicy.onResume(
+                arrived.copy(nowMs = NOW + 7_000L, lastStoppedAtMs = NOW - 60_000L)
+            ) as Request).source
+        )
+    }
+
+    @Test
+    fun aResultClearsOnlyTheInFlightMarkerItSet() {
+        /* A later request has replaced the marker; an earlier one's result must not clear it. */
+        assertEquals(
+            NOW + 1_000L,
+            HistoryBackfillPolicy.afterFailure(
+                failure = REQUEST_FAILED,
+                requestedSec = 70,
+                sentAtMs = NOW,
+                inFlightSinceMs = NOW + 1_000L,
+                unrecoveredSinceMs = 0L
+            ).inFlightSinceMs
+        )
+        assertEquals(
+            NOW + 1_000L,
+            HistoryBackfillPolicy.afterSuccess(
+                sentAtMs = NOW,
+                requestedSec = 70,
+                nowMs = NOW + 2_000L,
+                inFlightSinceMs = NOW + 1_000L,
+                unrecoveredSinceMs = 0L
+            ).inFlightSinceMs
+        )
+        assertEquals(
+            0L,
+            HistoryBackfillPolicy.afterSuccess(
+                sentAtMs = NOW,
+                requestedSec = 70,
+                nowMs = NOW + 2_000L,
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = 0L
+            ).inFlightSinceMs
+        )
+    }
+
+    @Test
+    fun inFlight_stopsSuppressingAtTheCeiling() {
+        assertEquals(30_000L, HistoryBackfillPolicy.IN_FLIGHT_CEILING_MS)
+        assertNull(HistoryBackfillPolicy.msInFlight(NOW, 0L))
+        assertEquals(29_999L, HistoryBackfillPolicy.msInFlight(NOW, NOW - 29_999L))
+        assertNull(HistoryBackfillPolicy.msInFlight(NOW, NOW - 30_000L))
+
+        assertEquals(
+            BACKFILL_IN_FLIGHT,
+            (HistoryBackfillPolicy.onConnect(
+                inputs(offlineRecoveryAtMs = NOW - 60_000L, inFlightSinceMs = NOW - 29_999L)
+            ) as Skip).reason
+        )
+        assertEquals(
+            RECONNECT_OFFLINE,
+            (HistoryBackfillPolicy.onConnect(
+                inputs(offlineRecoveryAtMs = NOW - 60_000L, inFlightSinceMs = NOW - 30_000L)
+            ) as Request).source
+        )
+    }
+
+    @Test
+    fun inFlight_isReportedBeforeARecentSuccess() {
+        assertEquals(
+            Skip(
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("offlineSec" to 60, "inFlightMs" to 100L),
+                effects = HistoryBackfillEffects(consumeOfflineRecovery = true)
+            ),
+            HistoryBackfillPolicy.onConnect(
+                inputs(
+                    offlineRecoveryAtMs = NOW - 60_000L,
+                    inFlightSinceMs = NOW - 100L,
+                    lastBackfillAtMs = NOW - 1_000L
+                )
+            )
+        )
+    }
+
+    @Test
+    fun unrecovered_keepsTheOlderOfTwoStarts() {
+        /* The new failure's window starts at NOW - 70 s. */
+        assertEquals(
+            NOW - 900_000L,
+            HistoryBackfillPolicy.afterFailure(
+                failure = REQUEST_FAILED,
+                requestedSec = 70,
+                sentAtMs = NOW,
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = NOW - 900_000L
+            ).unrecoveredSinceMs
+        )
+        assertEquals(
+            NOW - 70_000L,
+            HistoryBackfillPolicy.afterFailure(
+                failure = REQUEST_FAILED,
+                requestedSec = 70,
+                sentAtMs = NOW,
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = NOW - 10_000L
+            ).unrecoveredSinceMs
+        )
+    }
+
+    @Test
+    fun unrecovered_isRecordedForEveryFailureReason_fromWhenTheRequestLeft() {
+        HistoryBackfillFailure.values().forEach { reason ->
+            assertEquals(
+                reason.name,
+                NOW - 120_000L,
+                HistoryBackfillPolicy.afterFailure(
+                    failure = reason,
+                    requestedSec = 120,
+                    sentAtMs = NOW,
+                    inFlightSinceMs = NOW,
+                    unrecoveredSinceMs = 0L
+                ).unrecoveredSinceMs
+            )
+        }
+    }
+
+    @Test
+    fun success_clearsTheOwedWindowWhenItReachedBackToItsStart() {
+        assertEquals(
+            HistoryBackfillSuccessEffects(
+                inFlightSinceMs = 0L,
+                lastBackfillAtMs = NOW + 1_000L,
+                lastBackfillCoversFromMs = NOW - 700_000L,
+                unrecoveredSinceMs = 0L
+            ),
+            HistoryBackfillPolicy.afterSuccess(
+                sentAtMs = NOW,
+                requestedSec = 700,
+                nowMs = NOW + 1_000L,
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = NOW - 600_000L
+            )
+        )
+        /* Reaching back exactly to the owed start is reaching it. */
+        assertEquals(
+            0L,
+            success(requestedSec = 600, unrecoveredSinceMs = NOW - 600_000L).unrecoveredSinceMs
+        )
+    }
+
+    @Test
+    fun success_thatFellShortOfTheOwedStart_leavesItWhereItIs() {
+        assertEquals(
+            NOW - 600_000L,
+            success(requestedSec = 599, unrecoveredSinceMs = NOW - 600_000L).unrecoveredSinceMs
+        )
+        assertEquals(
+            NOW - 600_000L,
+            success(requestedSec = 30, unrecoveredSinceMs = NOW - 600_000L).unrecoveredSinceMs
+        )
+    }
+
+    @Test
+    fun success_reachingAsFarAsTheBackendKeeps_clearsAnOwedStartOlderThanThat() {
+        /* Owed for two hours; an hour is all the backend can return. */
+        assertEquals(
+            0L,
+            success(requestedSec = 3600, unrecoveredSinceMs = NOW - 7_200_000L).unrecoveredSinceMs
+        )
+        /* Fifty minutes is not as far as the backend keeps, so the debt stays. */
+        assertEquals(
+            NOW - 7_200_000L,
+            success(requestedSec = 3000, unrecoveredSinceMs = NOW - 7_200_000L).unrecoveredSinceMs
+        )
+    }
+
+    @Test
+    fun window_isTheLargerOfTheRequestsOwnAndTheOwedOne() {
+        /* Its own is larger: no field, its own window. */
+        assertEquals(
+            "backfill.triggered source=resume awaySec=600 requestedSec=610",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(lastPausedAtMs = NOW - 600_000L, unrecoveredSinceMs = NOW - 100_000L)
+                )
+            )
+        )
+        /* The owed one is larger: widened, and the line says by what. */
+        assertEquals(
+            "backfill.triggered source=resume awaySec=100 unrecoveredSec=600 requestedSec=610",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(lastPausedAtMs = NOW - 100_000L, unrecoveredSinceMs = NOW - 600_000L)
+                )
+            )
+        )
+        /* Both clamp to the same 30 s: nothing was widened, so nothing is said. */
+        assertEquals(
+            "backfill.triggered source=resume awaySec=5 requestedSec=30",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(lastPausedAtMs = NOW - 5_000L, unrecoveredSinceMs = NOW - 15_000L)
+                )
+            )
+        )
+    }
+
+    @Test
+    fun window_owedForMoreThanAnHourStillAsksForTheHour() {
+        assertEquals(
+            "backfill.triggered source=reconnect_offline offlineSec=60 unrecoveredSec=7200 requestedSec=3600",
+            render(
+                HistoryBackfillPolicy.onConnect(
+                    inputs(offlineRecoveryAtMs = NOW - 60_000L, unrecoveredSinceMs = NOW - 7_200_000L)
+                )
+            )
+        )
+    }
+
+    @Test
+    fun manualRefresh_reachesBackOnlyWhenTheOwedWindowIsLonger() {
+        assertEquals(
+            "backfill.triggered source=manual_refresh requestedSec=120",
+            render(HistoryBackfillPolicy.onManualRefresh(inputs(unrecoveredSinceMs = NOW - 50_000L)))
+        )
+        assertEquals(
+            "backfill.triggered source=manual_refresh unrecoveredSec=300 requestedSec=310",
+            render(HistoryBackfillPolicy.onManualRefresh(inputs(unrecoveredSinceMs = NOW - 300_000L)))
+        )
+    }
+
+    @Test
+    fun firstConnect_alreadyAsksForTheHourAndIsNeverWidened() {
+        assertEquals(
+            "backfill.triggered source=first_connect requestedSec=3600",
+            render(
+                HistoryBackfillPolicy.onConnect(
+                    inputs(historyLoaded = false, unrecoveredSinceMs = NOW - 7_200_000L)
+                )
+            )
+        )
+    }
+
+    @Test
+    fun anOwedWindowIsAReferenceOfItsOwn() {
+        assertEquals(
+            "backfill.triggered source=reconnect_no_pause_reference unrecoveredSec=400 requestedSec=410",
+            render(HistoryBackfillPolicy.onConnect(inputs(unrecoveredSinceMs = NOW - 400_000L)))
+        )
+        assertEquals(
+            "backfill.triggered source=resume_no_pause unrecoveredSec=400 requestedSec=410",
+            render(HistoryBackfillPolicy.onResume(inputs(unrecoveredSinceMs = NOW - 400_000L)))
+        )
+    }
+
+    @Test
+    fun reconnectWithNoReference_fallsBackToTheLastSuccessfulBackfill() {
+        assertEquals(
+            "backfill.triggered source=reconnect_no_pause_reference sinceLastBackfillSec=40 requestedSec=50",
+            render(HistoryBackfillPolicy.onConnect(inputs(lastBackfillAtMs = NOW - 40_000L)))
+        )
+        assertEquals(
+            "backfill.skipped reason=nothing_to_measure_from_reconnect",
+            render(HistoryBackfillPolicy.onConnect(inputs()))
+        )
+    }
+
+    @Test
+    fun theLastSuccessfulBackfillIsUsedOnlyWhenNothingCloserExists() {
+        assertEquals(
+            "backfill.triggered source=resume_no_pause renderedGapSec=100 requestedSec=110",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(
+                        lastBackfillAtMs = NOW - 40_000L,
+                        lastRenderedMessageTsSec = (NOW - 100_000L) / 1000.0
+                    )
+                )
+            )
+        )
+        assertEquals(
+            "backfill.triggered source=resume_no_pause offlineSec=20 requestedSec=30",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(lastBackfillAtMs = NOW - 400_000L, lastStoppedAtMs = NOW - 20_000L)
+                )
+            )
+        )
+        assertEquals(
+            "backfill.triggered source=reconnect_no_pause_reference renderedGapSec=100 requestedSec=110",
+            render(
+                HistoryBackfillPolicy.onConnect(
+                    inputs(
+                        lastBackfillAtMs = NOW - 400_000L,
+                        lastRenderedMessageTsSec = (NOW - 100_000L) / 1000.0
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun theLastSuccessfulBackfillIsStillWidenedByAnOwedWindow() {
+        assertEquals(
+            "backfill.triggered source=resume_no_pause sinceLastBackfillSec=40 unrecoveredSec=300 requestedSec=310",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    inputs(lastBackfillAtMs = NOW - 40_000L, unrecoveredSinceMs = NOW - 300_000L)
+                )
+            )
+        )
+    }
+
+    @Test
+    fun aSkip_owesWhatTheRequestInFlightDoesNotReach() {
+        /* Ten minutes offline; the request in flight reaches back only two. */
+        val decision = HistoryBackfillPolicy.onConnect(
+            inputs(
+                offlineRecoveryAtMs = NOW - 600_000L,
+                inFlightSinceMs = NOW - 1_000L,
+                inFlightCoversFromMs = NOW - 121_000L
+            )
+        )
+        assertEquals(
+            Skip(
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("offlineSec" to 600, "inFlightMs" to 1_000L, "uncoveredSec" to 479),
+                effects = HistoryBackfillEffects(
+                    consumeOfflineRecovery = true,
+                    owedSinceMs = NOW - 600_000L
+                )
+            ),
+            decision
+        )
+        assertEquals(
+            "backfill.skipped reason=backfill_in_flight offlineSec=600 inFlightMs=1000 uncoveredSec=479",
+            render(decision)
+        )
+    }
+
+    @Test
+    fun aSkip_owesWhatTheLastSuccessDidNotReach() {
+        assertEquals(
+            Skip(
+                reason = RECENT_BACKFILL,
+                details = listOf("awaySec" to 300, "sinceLastBackfillMs" to 2_000L, "uncoveredSec" to 268),
+                effects = HistoryBackfillEffects(
+                    consumeLastPausedAt = true,
+                    owedSinceMs = NOW - 300_000L
+                )
+            ),
+            HistoryBackfillPolicy.onResume(
+                inputs(
+                    lastPausedAtMs = NOW - 300_000L,
+                    lastBackfillAtMs = NOW - 2_000L,
+                    lastBackfillCoversFromMs = NOW - 32_000L
+                )
+            )
+        )
+    }
+
+    @Test
+    fun aSkip_whoseReferenceTheCoveringRequestReached_owesNothing() {
+        /* Reaching back exactly to the reference covers it. */
+        assertEquals(
+            Skip(
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("offlineSec" to 600, "inFlightMs" to 1_000L),
+                effects = HistoryBackfillEffects(consumeOfflineRecovery = true)
+            ),
+            HistoryBackfillPolicy.onConnect(
+                inputs(
+                    offlineRecoveryAtMs = NOW - 600_000L,
+                    inFlightSinceMs = NOW - 1_000L,
+                    inFlightCoversFromMs = NOW - 600_000L
+                )
+            )
+        )
+        /* One millisecond short is a remainder, reported as a whole second. */
+        assertEquals(
+            "backfill.skipped reason=backfill_in_flight offlineSec=600 inFlightMs=1000 uncoveredSec=1",
+            render(
+                HistoryBackfillPolicy.onConnect(
+                    inputs(
+                        offlineRecoveryAtMs = NOW - 600_000L,
+                        inFlightSinceMs = NOW - 1_000L,
+                        inFlightCoversFromMs = NOW - 599_999L
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun aSkip_owesOnlyWhatTheBackendStillKeeps() {
+        /* Two hours offline; the request in flight reached back the full hour: nothing more exists. */
+        assertEquals(
+            HistoryBackfillEffects(consumeOfflineRecovery = true),
+            HistoryBackfillPolicy.onConnect(
+                inputs(
+                    offlineRecoveryAtMs = NOW - 7_200_000L,
+                    inFlightSinceMs = NOW - 1_000L,
+                    inFlightCoversFromMs = NOW - 3_601_000L
+                )
+            ).effects
+        )
+        /* It reached back fifty minutes: the last ten of the hour are owed, from the reference. */
+        val short = HistoryBackfillPolicy.onConnect(
+            inputs(
+                offlineRecoveryAtMs = NOW - 7_200_000L,
+                inFlightSinceMs = NOW - 1_000L,
+                inFlightCoversFromMs = NOW - 3_000_000L
+            )
+        )
+        assertEquals(NOW - 7_200_000L, short.effects.owedSinceMs)
+        assertEquals("uncoveredSec" to 600, short.journalFields.last())
+    }
+
+    @Test
+    fun aResumeWithoutPause_consumesNothingSoOwesNothing() {
+        assertEquals(
+            Skip(
+                reason = BACKFILL_IN_FLIGHT,
+                details = listOf("inFlightMs" to 100L),
+                effects = HistoryBackfillEffects()
+            ),
+            HistoryBackfillPolicy.onResume(
+                inputs(
+                    inFlightSinceMs = NOW - 100L,
+                    inFlightCoversFromMs = NOW - 100L,
+                    lastStoppedAtMs = NOW - 600_000L
+                )
+            )
+        )
+    }
+
+    @Test
+    fun success_recordsHowFarBackItsRequestReached() {
+        assertEquals(
+            NOW - 70_000L,
+            HistoryBackfillPolicy.afterSuccess(
+                sentAtMs = NOW,
+                requestedSec = 70,
+                nowMs = NOW + 1_000L,
+                inFlightSinceMs = NOW,
+                unrecoveredSinceMs = 0L
+            ).lastBackfillCoversFromMs
+        )
+    }
+
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
@@ -620,11 +1241,22 @@ class HistoryBackfillPolicyTest {
         const val NOW = 1_790_000_000_000L
     }
 
+    /**
+     * The coverage a test gets when it does not say: the full hour before the request.
+     * A test about what a request did not cover states its coverage explicitly.
+     */
+    private fun coveringAnHourBefore(instantMs: Long): Long =
+        if (instantMs == 0L) 0L else instantMs - 3_600_000L
+
     /** Builds decision inputs; every reference defaults to "never". */
     private fun inputs(
         nowMs: Long = NOW,
         historyLoaded: Boolean = true,
         lastBackfillAtMs: Long = 0L,
+        lastBackfillCoversFromMs: Long? = null,
+        inFlightSinceMs: Long = 0L,
+        inFlightCoversFromMs: Long? = null,
+        unrecoveredSinceMs: Long = 0L,
         lastPausedAtMs: Long = 0L,
         lastStoppedAtMs: Long = 0L,
         offlineRecoveryAtMs: Long = 0L,
@@ -634,6 +1266,10 @@ class HistoryBackfillPolicyTest {
         nowMs = nowMs,
         historyLoaded = historyLoaded,
         lastBackfillAtMs = lastBackfillAtMs,
+        lastBackfillCoversFromMs = lastBackfillCoversFromMs ?: coveringAnHourBefore(lastBackfillAtMs),
+        inFlightSinceMs = inFlightSinceMs,
+        inFlightCoversFromMs = inFlightCoversFromMs ?: coveringAnHourBefore(inFlightSinceMs),
+        unrecoveredSinceMs = unrecoveredSinceMs,
         lastPausedAtMs = lastPausedAtMs,
         lastStoppedAtMs = lastStoppedAtMs,
         offlineRecoveryAtMs = offlineRecoveryAtMs,
@@ -644,9 +1280,18 @@ class HistoryBackfillPolicyTest {
     /** Applies a decision's effects to the stored references, as ChatFragment does. */
     private fun HistoryBackfillInputs.after(decision: HistoryBackfillDecision): HistoryBackfillInputs {
         val effects = decision.effects
+        val request = decision as? Request
         return copy(
             historyLoaded = historyLoaded || effects.armHistoryLoaded,
-            lastBackfillAtMs = effects.armLastBackfillAtMs ?: lastBackfillAtMs,
+            inFlightSinceMs = effects.armInFlightSinceMs ?: inFlightSinceMs,
+            inFlightCoversFromMs = if (request != null && effects.armInFlightSinceMs != null) {
+                HistoryBackfillPolicy.coversFrom(effects.armInFlightSinceMs, request.requestedSec)
+            } else {
+                inFlightCoversFromMs
+            },
+            unrecoveredSinceMs = effects.owedSinceMs
+                ?.let { owed -> HistoryBackfillPolicy.olderOwedStart(unrecoveredSinceMs, owed) }
+                ?: unrecoveredSinceMs,
             lastPausedAtMs = if (effects.consumeLastPausedAt) 0L else lastPausedAtMs,
             offlineRecoveryAtMs = if (effects.consumeOfflineRecovery) 0L else offlineRecoveryAtMs
         )
@@ -654,8 +1299,44 @@ class HistoryBackfillPolicyTest {
 
     /** Applies a failure's effects to the stored references, as ChatFragment does. */
     private fun HistoryBackfillInputs.after(failure: HistoryBackfillFailureEffects): HistoryBackfillInputs {
-        return copy(historyLoaded = historyLoaded && !failure.clearHistoryLoaded)
+        return copy(
+            historyLoaded = historyLoaded && !failure.clearHistoryLoaded,
+            inFlightSinceMs = failure.inFlightSinceMs,
+            inFlightCoversFromMs = if (failure.inFlightSinceMs == 0L) 0L else inFlightCoversFromMs,
+            unrecoveredSinceMs = failure.unrecoveredSinceMs
+        )
     }
+
+    /** Applies a success's effects to the stored references, as ChatFragment does. */
+    private fun HistoryBackfillInputs.after(success: HistoryBackfillSuccessEffects): HistoryBackfillInputs {
+        return copy(
+            inFlightSinceMs = success.inFlightSinceMs,
+            inFlightCoversFromMs = if (success.inFlightSinceMs == 0L) 0L else inFlightCoversFromMs,
+            lastBackfillAtMs = success.lastBackfillAtMs,
+            lastBackfillCoversFromMs = success.lastBackfillCoversFromMs,
+            unrecoveredSinceMs = success.unrecoveredSinceMs
+        )
+    }
+
+    /** One success of a request sent at [NOW] for [requestedSec], arriving a second later. */
+    private fun success(requestedSec: Int, unrecoveredSinceMs: Long) =
+        HistoryBackfillPolicy.afterSuccess(
+            sentAtMs = NOW,
+            requestedSec = requestedSec,
+            nowMs = NOW + 1_000L,
+            inFlightSinceMs = NOW,
+            unrecoveredSinceMs = unrecoveredSinceMs
+        )
+
+    /** One failure of a request sent at [NOW], with nothing else in flight or owed. */
+    private fun failure(failure: HistoryBackfillFailure, requestedSec: Int) =
+        HistoryBackfillPolicy.afterFailure(
+            failure = failure,
+            requestedSec = requestedSec,
+            sentAtMs = NOW,
+            inFlightSinceMs = NOW,
+            unrecoveredSinceMs = 0L
+        )
 
     /**
      * Renders an event and its fields the way HistoryDiagnosticsLog.record does after

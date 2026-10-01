@@ -46,9 +46,10 @@ import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.HistoryBackfillDecision
-import com.fs.twitchminichat.chat.HistoryBackfillFailure
 import com.fs.twitchminichat.chat.HistoryBackfillInputs
 import com.fs.twitchminichat.chat.HistoryBackfillPolicy
+import com.fs.twitchminichat.chat.HistoryBackfillSend
+import com.fs.twitchminichat.chat.HistoryBackfillState
 import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
 import kotlinx.coroutines.Dispatchers
@@ -583,27 +584,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private val chatMessageDeduplicator = ChatMessageDeduplicator()
 
     /*
-     * Written from the history request thread as well as the UI thread, because a
-     * request that fails has to undo the mark the caller set before sending it.
+     * Everything this page stores about history backfill, and the application of the
+     * policy's answers to it. Read and written from the main thread and from the
+     * history request thread; HistoryBackfillState documents which field is which.
      */
-    @Volatile
-    private var historyLoaded = false
-    private var lastPausedAtMs: Long = 0L
-
-    private var lastStoppedAtMs: Long = 0L
-
-    /*
-     * Instant of the last onStop, consumed by the first reconnect that follows
-     * it. Distinct from lastStoppedAtMs, which is never consumed and therefore
-     * keeps growing while the app is open: reading that one on every connect
-     * would make an ordinary IRC reconnect ask for an hour it already has.
-     */
-    private var offlineRecoveryAtMs: Long = 0L
-
-    /* Epoch seconds of the newest message accepted for display, 0 when none. */
-    private var lastRenderedMessageTsSec: Double = 0.0
-
-    private var lastBackfillAtMs: Long = 0L
+    private val backfillState = HistoryBackfillState()
 
     /*
      * Application context retained after the first attach so a journal entry
@@ -1316,9 +1301,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         Log.d("CHAN", "Recent channel count=${channelHistory.get(accountId).size}")
         refreshChannelsDropdown()
 
-        historyLoaded = false
-        lastRenderedMessageTsSec = 0.0
-        lastBackfillAtMs = 0L
+        backfillState.resetForNewChannel()
         chatMessageDeduplicator.clear()
 
         resetMentionUsersForCurrentChannel()
@@ -1361,7 +1344,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val c = cfg ?: return
         appendSystemLine(getString(R.string.refreshing))
-        applyBackfillDecision(c, HistoryBackfillPolicy.onManualRefresh(backfillInputs()))
+        applyBackfillDecision(c, HistoryBackfillPolicy::onManualRefresh)
     }
 
     /**
@@ -1944,13 +1927,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             clearPendingOutgoingState(removeViews = true)
             resetChannelBoundChatUi()
             closeIrcClient(resetBackoff = true)
-            historyLoaded = false
+            backfillState.forgetHistoryLoaded()
         }
 
         recordDiagnostics(
             "lifecycle.start",
             "offlineSec" to offlineSecondsSinceStop(),
-            "historyLoaded" to historyLoaded,
+            "historyLoaded" to backfillState.historyLoaded,
             "ircConnected" to (ircClient != null)
         )
 
@@ -1959,7 +1942,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     override fun onPause() {
         super.onPause()
-        lastPausedAtMs = System.currentTimeMillis()
+        backfillState.onPaused(System.currentTimeMillis())
         recordDiagnostics("lifecycle.pause")
     }
 
@@ -1988,15 +1971,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        applyBackfillDecision(c, HistoryBackfillPolicy.onResume(backfillInputs()))
+        applyBackfillDecision(c, HistoryBackfillPolicy::onResume)
     }
 
     override fun onStop() {
         super.onStop()
 
         val stoppedAtMs = System.currentTimeMillis()
-        lastStoppedAtMs = stoppedAtMs
-        offlineRecoveryAtMs = stoppedAtMs
+        backfillState.onStopped(stoppedAtMs)
         recordDiagnostics(
             "lifecycle.stop",
             "ircConnected" to (ircClient != null)
@@ -2334,7 +2316,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        applyBackfillDecision(c, HistoryBackfillPolicy.onConnect(backfillInputs()))
+        applyBackfillDecision(c, HistoryBackfillPolicy::onConnect)
 
         val ch = c.channel.trim().removePrefix("#").lowercase()
         textStatus.text = getString(R.string.status_connecting, c.username, ch)
@@ -2778,78 +2760,28 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     /**
-     * Captures, at one instant, everything [HistoryBackfillPolicy] reads.
+     * Takes one backfill decision with [policy] and carries it out.
      *
-     * The clock is read once here; the policy has none of its own.
-     */
-    private fun backfillInputs(): HistoryBackfillInputs {
-        return HistoryBackfillInputs(
-            nowMs = System.currentTimeMillis(),
-            historyLoaded = historyLoaded,
-            lastBackfillAtMs = lastBackfillAtMs,
-            lastPausedAtMs = lastPausedAtMs,
-            lastStoppedAtMs = lastStoppedAtMs,
-            offlineRecoveryAtMs = offlineRecoveryAtMs,
-            lastRenderedMessageTsSec = lastRenderedMessageTsSec,
-            ircClientPresent = ircClient != null
-        )
-    }
-
-    /**
-     * Carries out one backfill decision exactly as [HistoryBackfillPolicy] states it.
-     *
-     * The order is the one the decision had while it lived here: references are
-     * consumed and historyLoaded is marked before the journal line, and the
-     * recent-backfill time is stamped just before the request leaves.
+     * [HistoryBackfillState.decide] captures the inputs, decides and applies in one
+     * locked step, with the clock read once here: the policy has none of its own. The
+     * journal line is written and the request sent afterwards, outside the lock.
      */
     private fun applyBackfillDecision(
         config: AccountConfig,
-        decision: HistoryBackfillDecision
+        policy: (HistoryBackfillInputs) -> HistoryBackfillDecision
     ) {
-        val effects = decision.effects
-
-        if (effects.consumeLastPausedAt) {
-            lastPausedAtMs = 0L
-        }
-        if (effects.consumeOfflineRecovery) {
-            offlineRecoveryAtMs = 0L
-        }
-        if (effects.armHistoryLoaded) {
-            historyLoaded = true
-        }
-
-        recordDiagnostics(decision.journalEvent, *decision.journalFields.toTypedArray())
-
-        effects.armLastBackfillAtMs?.let { stampedAtMs ->
-            lastBackfillAtMs = stampedAtMs
-        }
-
-        if (decision is HistoryBackfillDecision.Request) {
-            loadHistoryFromBot(config, seconds = decision.requestedSec)
-        }
-    }
-
-    /**
-     * Carries out what [HistoryBackfillPolicy] decides for one failed request.
-     *
-     * Runs on the history request thread, which is why historyLoaded is volatile.
-     */
-    private fun applyBackfillFailure(
-        failure: HistoryBackfillFailure,
-        requestedSec: Int,
-        journalGeneration: Long
-    ) {
-        val effects = HistoryBackfillPolicy.afterFailure(failure, requestedSec)
-
-        if (effects.clearHistoryLoaded) {
-            historyLoaded = false
-        }
+        val applied = backfillState.decide(
+            nowMs = System.currentTimeMillis(),
+            ircClientPresent = ircClient != null,
+            policy = policy
+        )
 
         recordDiagnostics(
-            effects.journalEvent,
-            *effects.journalFields.toTypedArray(),
-            expectedGeneration = journalGeneration
+            applied.decision.journalEvent,
+            *applied.decision.journalFields.toTypedArray()
         )
+
+        applied.send?.let { request -> loadHistoryFromBot(config, request) }
     }
 
     /**
@@ -2860,17 +2792,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun offlineSecondsSinceStop(): Int? {
         return HistoryBackfillPolicy.offlineSecondsSinceStop(
             nowMs = System.currentTimeMillis(),
-            lastStoppedAtMs = lastStoppedAtMs
+            lastStoppedAtMs = backfillState.lastStoppedAtMs
         )
     }
 
     /**
      * Sends one history request and renders its answer.
      *
-     * Only [applyBackfillDecision] calls this; it stamps the recent-backfill time
-     * first, as the decision requires.
+     * Only [applyBackfillDecision] calls this, with the [send] that armed the in-flight
+     * marker; the result, success or failure, is handed back to [backfillState] with it.
      */
-    private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
+    private fun loadHistoryFromBot(config: AccountConfig, send: HistoryBackfillSend) {
+        val seconds = send.requestedSec
         val applicationContext = requireContext().applicationContext
         val profileId = AccountProfileIdResolver.resolve(config)
         /*
@@ -2881,13 +2814,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val journalGeneration = HistoryDiagnosticsLog.generation()
 
         thread {
-            when (
-                val result = backendHistoryClient.load(
-                    profileId = profileId,
-                    channel = config.channel,
-                    seconds = seconds
-                )
-            ) {
+            val result = backendHistoryClient.load(
+                profileId = profileId,
+                channel = config.channel,
+                seconds = seconds
+            )
+            val failure = backfillState.onResult(
+                result = result,
+                send = send,
+                nowMs = System.currentTimeMillis()
+            )
+
+            when (result) {
                 is BackendHistoryResult.Success -> {
                     /*
                      * The account and the channel name the user to anyone who can
@@ -2955,22 +2893,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         HISTORY_LOG_TAG,
                         "History skipped: backend session missing"
                     )
-                    applyBackfillFailure(
-                        HistoryBackfillFailure.SESSION_MISSING,
-                        requestedSec = seconds,
-                        journalGeneration = journalGeneration
-                    )
                 }
 
                 BackendHistoryResult.ReauthorizationRequired -> {
                     Log.w(
                         HISTORY_LOG_TAG,
                         "History rejected: manual reauthorization required"
-                    )
-                    applyBackfillFailure(
-                        HistoryBackfillFailure.REAUTHORIZATION_REQUIRED,
-                        requestedSec = seconds,
-                        journalGeneration = journalGeneration
                     )
                 }
 
@@ -2979,12 +2907,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         HISTORY_LOG_TAG,
                         "History request failed"
                     )
-                    applyBackfillFailure(
-                        HistoryBackfillFailure.REQUEST_FAILED,
-                        requestedSec = seconds,
-                        journalGeneration = journalGeneration
-                    )
                 }
+            }
+
+            failure?.let { effects ->
+                recordDiagnostics(
+                    effects.journalEvent,
+                    *effects.journalFields.toTypedArray(),
+                    expectedGeneration = journalGeneration
+                )
             }
         }
     }
@@ -3571,11 +3502,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     ) {
         if (chatMessageDeduplicator.shouldSuppress(dedupKey)) return
 
-        if (
-            messageTimestampSec != null &&
-            messageTimestampSec > lastRenderedMessageTsSec
-        ) {
-            lastRenderedMessageTsSec = messageTimestampSec
+        if (messageTimestampSec != null) {
+            backfillState.onMessageRendered(messageTimestampSec)
         }
 
         val stable = dedupKey.startsWith("id:")
