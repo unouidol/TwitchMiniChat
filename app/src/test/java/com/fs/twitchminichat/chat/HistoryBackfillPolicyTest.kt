@@ -372,7 +372,7 @@ class HistoryBackfillPolicyTest {
                 details = emptyList(),
                 effects = HistoryBackfillEffects(
                     armHistoryLoaded = true,
-                    armLastBackfillAtMs = NOW
+                    armInFlightSinceMs = NOW
                 )
             ),
             decision
@@ -388,7 +388,7 @@ class HistoryBackfillPolicyTest {
                 details = listOf("offlineSec" to 660),
                 effects = HistoryBackfillEffects(
                     consumeOfflineRecovery = true,
-                    armLastBackfillAtMs = NOW + 600_000L
+                    armInFlightSinceMs = NOW + 600_000L
                 )
             ),
             HistoryBackfillPolicy.onConnect(armed.copy(nowMs = NOW + 600_000L))
