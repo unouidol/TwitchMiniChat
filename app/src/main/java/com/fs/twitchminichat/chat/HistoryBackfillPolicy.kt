@@ -13,6 +13,7 @@ enum class HistoryBackfillSource(val journalValue: String) {
 /** Why no history request was sent, spelled exactly as the diagnostics journal records it. */
 enum class HistoryBackfillSkipReason(val journalValue: String) {
     RECENT_BACKFILL("recent_backfill"),
+    BACKFILL_IN_FLIGHT("backfill_in_flight"),
     HISTORY_ALREADY_LOADED("history_already_loaded"),
     AWAY_BELOW_THRESHOLD("away_below_threshold"),
     NO_RECOVERY_REFERENCE("no_recovery_reference"),
@@ -32,11 +33,16 @@ enum class HistoryBackfillFailure(val journalValue: String) {
  * Instants are epoch milliseconds and use 0 for "never", as the chat page's own
  * fields do. [lastRenderedMessageTsSec] is epoch seconds, 0.0 when nothing with a
  * timestamp has been displayed.
+ *
+ * [lastBackfillAtMs] is when a request's result last arrived **successfully**, not
+ * when a request left. [inFlightSinceMs] is when the request still awaiting its
+ * result was sent, 0 when none is.
  */
 data class HistoryBackfillInputs(
     val nowMs: Long,
     val historyLoaded: Boolean,
     val lastBackfillAtMs: Long,
+    val inFlightSinceMs: Long,
     val lastPausedAtMs: Long,
     val lastStoppedAtMs: Long,
     val offlineRecoveryAtMs: Long,
@@ -48,14 +54,14 @@ data class HistoryBackfillInputs(
  * Stored references the caller must change when it applies a decision.
  *
  * The consumptions and [armHistoryLoaded] are applied before the journal line is
- * written, and [armLastBackfillAtMs] just before the request leaves: the order
- * these side effects had while the decision lived in the chat page.
+ * written, and [armInFlightSinceMs] just before the request leaves. Only a request
+ * arms the in-flight marker, and every request does, with the decision's instant.
  */
 data class HistoryBackfillEffects(
     val consumeLastPausedAt: Boolean = false,
     val consumeOfflineRecovery: Boolean = false,
     val armHistoryLoaded: Boolean = false,
-    val armLastBackfillAtMs: Long? = null
+    val armInFlightSinceMs: Long? = null
 )
 
 /** One backfill decision: a request to send or a skip, with its journal line and side effects. */
@@ -100,8 +106,14 @@ sealed interface HistoryBackfillDecision {
     }
 }
 
-/** What the caller does after one sent request failed. */
+/**
+ * What the caller stores after one sent request failed.
+ *
+ * [inFlightSinceMs] is the in-flight marker's new value: cleared when it still
+ * belongs to the failed request, left alone when a later request has replaced it.
+ */
 data class HistoryBackfillFailureEffects(
+    val inFlightSinceMs: Long,
     val clearHistoryLoaded: Boolean,
     val journalFields: List<Pair<String, Any?>>
 ) {
@@ -111,6 +123,17 @@ data class HistoryBackfillFailureEffects(
 }
 
 /**
+ * What the caller stores after one sent request's result arrived successfully.
+ *
+ * [inFlightSinceMs] follows the same rule as on failure. [lastBackfillAtMs] is the
+ * instant the result arrived, which is what the five-second rule counts from.
+ */
+data class HistoryBackfillSuccessEffects(
+    val inFlightSinceMs: Long,
+    val lastBackfillAtMs: Long
+)
+
+/**
  * Decides whether a chat page asks the backend for history, for which window,
  * and what it records in the diagnostics journal.
  *
@@ -118,17 +141,39 @@ data class HistoryBackfillFailureEffects(
  * time and every stored reference in [HistoryBackfillInputs] and applies the
  * returned [HistoryBackfillDecision].
  *
- * This is the decision as it stood inside the chat page, moved without change.
- * Several of its behaviours are known to be wrong and are pinned deliberately by
- * HistoryBackfillPolicyTest, so that correcting one has to change a test on purpose.
+ * It was moved out of the chat page without change, and is corrected here one
+ * behaviour at a time. What is still known to be wrong is pinned by the `frozen_`
+ * tests in HistoryBackfillPolicyTest, so correcting it has to change a test on
+ * purpose.
  */
 object HistoryBackfillPolicy {
 
     /** Longest window the backend serves, and the window a first connection asks for. */
     const val HISTORY_SECONDS = 3600
 
-    /** Suppresses a recovery request that would duplicate one just issued. */
+    /**
+     * Suppresses a recovery request within this long after a successful one.
+     *
+     * Counted from a result that arrived, not from a request that left: a request
+     * failing in four milliseconds used to block every retry for five seconds.
+     */
     const val RECENT_BACKFILL_WINDOW_MS = 5_000L
+
+    /**
+     * Age past which an in-flight marker no longer suppresses anything.
+     *
+     * The history transport has no overall deadline. It sets a 5 s connect timeout
+     * and a 5 s timeout per read, so a request that cannot reach the backend ends
+     * in about five seconds, and one that reaches it has its first byte within ten.
+     * Name resolution happens before the connect timeout applies, and a body that
+     * keeps arriving within five seconds per read is not bounded at all. Thirty
+     * seconds is three times the ten that bound covers, for those two. A marker
+     * older than that is treated as lost: the worst a live request past it can
+     * cause is one duplicate request, which is what the five-second window used
+     * to allow after five seconds, while a marker that was never cleared would
+     * otherwise suppress every recovery for good.
+     */
+    const val IN_FLIGHT_CEILING_MS = 30_000L
 
     /** Fixed window of the refresh button. */
     const val MANUAL_REFRESH_SECONDS = 120
@@ -156,7 +201,7 @@ object HistoryBackfillPolicy {
                 details = emptyList(),
                 effects = HistoryBackfillEffects(
                     armHistoryLoaded = true,
-                    armLastBackfillAtMs = inputs.nowMs
+                    armInFlightSinceMs = inputs.nowMs
                 )
             )
         }
@@ -180,32 +225,27 @@ object HistoryBackfillPolicy {
         val offlineSec = inputs.offlineRecoveryAtMs
             .takeIf { it > 0L }
             ?.let { ((inputs.nowMs - it) / 1000).toInt() }
-        val sinceLastBackfillMs = msSinceRecentBackfill(
-            nowMs = inputs.nowMs,
-            lastBackfillAtMs = inputs.lastBackfillAtMs
-        )
 
-        return when {
-            offlineSec != null && offlineSec < 1 -> HistoryBackfillDecision.Skip(
+        if (offlineSec != null && offlineSec < 1) {
+            return HistoryBackfillDecision.Skip(
                 reason = HistoryBackfillSkipReason.HISTORY_ALREADY_LOADED,
                 details = listOf("offlineSec" to offlineSec),
                 effects = consumed
             )
+        }
 
-            sinceLastBackfillMs != null -> HistoryBackfillDecision.Skip(
-                reason = HistoryBackfillSkipReason.RECENT_BACKFILL,
-                details = listOf(
-                    "offlineSec" to offlineSec,
-                    "sinceLastBackfillMs" to sinceLastBackfillMs
-                ),
-                effects = consumed
-            )
+        suppression(
+            inputs = inputs,
+            leadingDetails = listOf("offlineSec" to offlineSec),
+            effects = consumed
+        )?.let { skip -> return skip }
 
+        return when {
             offlineSec != null -> HistoryBackfillDecision.Request(
                 source = HistoryBackfillSource.RECONNECT_OFFLINE,
                 requestedSec = historyWindowSeconds(offlineSec),
                 details = listOf("offlineSec" to offlineSec),
-                effects = consumed.copy(armLastBackfillAtMs = inputs.nowMs)
+                effects = consumed.copy(armInFlightSinceMs = inputs.nowMs)
             )
 
             else -> {
@@ -232,7 +272,7 @@ object HistoryBackfillPolicy {
                         source = HistoryBackfillSource.RECONNECT_NO_PAUSE_REFERENCE,
                         requestedSec = historyWindowSeconds(renderedGapSec),
                         details = listOf("renderedGapSec" to renderedGapSec),
-                        effects = consumed.copy(armLastBackfillAtMs = inputs.nowMs)
+                        effects = consumed.copy(armInFlightSinceMs = inputs.nowMs)
                     )
                 }
             }
@@ -255,26 +295,17 @@ object HistoryBackfillPolicy {
              * The reconnect that precedes this resume may have just asked for the
              * same window. Without this the visible page would fetch it twice.
              */
-            val sinceLastBackfillMs = msSinceRecentBackfill(
-                nowMs = inputs.nowMs,
-                lastBackfillAtMs = inputs.lastBackfillAtMs
-            )
-            if (sinceLastBackfillMs != null) {
-                return HistoryBackfillDecision.Skip(
-                    reason = HistoryBackfillSkipReason.RECENT_BACKFILL,
-                    details = listOf(
-                        "awaySec" to awaySec,
-                        "sinceLastBackfillMs" to sinceLastBackfillMs
-                    ),
-                    effects = consumed
-                )
-            }
+            suppression(
+                inputs = inputs,
+                leadingDetails = listOf("awaySec" to awaySec),
+                effects = consumed
+            )?.let { skip -> return skip }
 
             return HistoryBackfillDecision.Request(
                 source = HistoryBackfillSource.RESUME,
                 requestedSec = historyWindowSeconds(awaySec),
                 details = listOf("awaySec" to awaySec),
-                effects = consumed.copy(armLastBackfillAtMs = inputs.nowMs)
+                effects = consumed.copy(armInFlightSinceMs = inputs.nowMs)
             )
         }
 
@@ -291,14 +322,21 @@ object HistoryBackfillPolicy {
             source = HistoryBackfillSource.MANUAL_REFRESH,
             requestedSec = MANUAL_REFRESH_SECONDS,
             details = emptyList(),
-            effects = HistoryBackfillEffects(armLastBackfillAtMs = inputs.nowMs)
+            effects = HistoryBackfillEffects(armInFlightSinceMs = inputs.nowMs)
         )
     }
 
-    /** Decides what a failed request changes, applied from the request's own thread. */
+    /**
+     * Decides what a failed request changes, applied from the request's own thread.
+     *
+     * [sentAtMs] is the instant the failed request armed the in-flight marker with,
+     * and [inFlightSinceMs] the marker as it stands now.
+     */
     fun afterFailure(
         failure: HistoryBackfillFailure,
-        requestedSec: Int
+        requestedSec: Int,
+        sentAtMs: Long,
+        inFlightSinceMs: Long
     ): HistoryBackfillFailureEffects {
         val clearHistoryLoaded = when (failure) {
             /*
@@ -325,6 +363,7 @@ object HistoryBackfillPolicy {
         }
 
         return HistoryBackfillFailureEffects(
+            inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
             clearHistoryLoaded = clearHistoryLoaded,
             journalFields = listOf(
                 "reason" to failure.journalValue,
@@ -334,11 +373,41 @@ object HistoryBackfillPolicy {
     }
 
     /**
-     * Returns the age of the last request when one was issued moments ago.
+     * Decides what a successful result changes, applied from the request's own thread.
+     *
+     * [nowMs] is the instant the result arrived.
+     */
+    fun afterSuccess(
+        sentAtMs: Long,
+        nowMs: Long,
+        inFlightSinceMs: Long
+    ): HistoryBackfillSuccessEffects {
+        return HistoryBackfillSuccessEffects(
+            inFlightSinceMs = inFlightAfterResult(sentAtMs, inFlightSinceMs),
+            lastBackfillAtMs = nowMs
+        )
+    }
+
+    /**
+     * Returns the age of the request still awaiting its result, while it counts.
+     *
+     * Null when no request is in flight, or when the marker is older than
+     * [IN_FLIGHT_CEILING_MS] and is treated as lost.
+     */
+    fun msInFlight(nowMs: Long, inFlightSinceMs: Long): Long? {
+        if (inFlightSinceMs == 0L) return null
+
+        return (nowMs - inFlightSinceMs)
+            .takeIf { age -> age < IN_FLIGHT_CEILING_MS }
+    }
+
+    /**
+     * Returns the age of the last successful result when it arrived moments ago.
      *
      * Two paths can ask for the same window within milliseconds — the reconnect
      * and the resume that may follow it — so both consult this rather than each
-     * carrying its own copy of the rule.
+     * carrying its own copy of the rule. That is also why a request in flight
+     * suppresses them: the second path usually asks before any result exists.
      */
     fun msSinceRecentBackfill(nowMs: Long, lastBackfillAtMs: Long): Long? {
         if (lastBackfillAtMs == 0L) return null
@@ -388,17 +457,12 @@ object HistoryBackfillPolicy {
      * onStop is the fallback when nothing has been displayed with a timestamp.
      */
     private fun withoutPauseReference(inputs: HistoryBackfillInputs): HistoryBackfillDecision {
-        msSinceRecentBackfill(
-            nowMs = inputs.nowMs,
-            lastBackfillAtMs = inputs.lastBackfillAtMs
-        )?.let { sinceLastBackfillMs ->
-            /* A first connection or an earlier resume has just covered this window. */
-            return HistoryBackfillDecision.Skip(
-                reason = HistoryBackfillSkipReason.RECENT_BACKFILL,
-                details = listOf("sinceLastBackfillMs" to sinceLastBackfillMs),
-                effects = HistoryBackfillEffects()
-            )
-        }
+        /* A first connection or an earlier resume is covering, or has just covered, this window. */
+        suppression(
+            inputs = inputs,
+            leadingDetails = emptyList(),
+            effects = HistoryBackfillEffects()
+        )?.let { skip -> return skip }
 
         val renderedGapSec = secondsSinceLastRenderedMessage(
             nowMs = inputs.nowMs,
@@ -422,7 +486,48 @@ object HistoryBackfillPolicy {
                 "renderedGapSec" to renderedGapSec,
                 "offlineSec" to offlineSec
             ),
-            effects = HistoryBackfillEffects(armLastBackfillAtMs = inputs.nowMs)
+            effects = HistoryBackfillEffects(armInFlightSinceMs = inputs.nowMs)
         )
+    }
+
+    /**
+     * Returns the skip for a window another request is covering or has just covered.
+     *
+     * A request in flight is checked first: it is the newer fact, and it is the
+     * case the rule exists for, a reconnect and a resume asking milliseconds apart.
+     */
+    private fun suppression(
+        inputs: HistoryBackfillInputs,
+        leadingDetails: List<Pair<String, Any?>>,
+        effects: HistoryBackfillEffects
+    ): HistoryBackfillDecision.Skip? {
+        msInFlight(
+            nowMs = inputs.nowMs,
+            inFlightSinceMs = inputs.inFlightSinceMs
+        )?.let { inFlightMs ->
+            return HistoryBackfillDecision.Skip(
+                reason = HistoryBackfillSkipReason.BACKFILL_IN_FLIGHT,
+                details = leadingDetails + ("inFlightMs" to inFlightMs),
+                effects = effects
+            )
+        }
+
+        msSinceRecentBackfill(
+            nowMs = inputs.nowMs,
+            lastBackfillAtMs = inputs.lastBackfillAtMs
+        )?.let { sinceLastBackfillMs ->
+            return HistoryBackfillDecision.Skip(
+                reason = HistoryBackfillSkipReason.RECENT_BACKFILL,
+                details = leadingDetails + ("sinceLastBackfillMs" to sinceLastBackfillMs),
+                effects = effects
+            )
+        }
+
+        return null
+    }
+
+    /** Clears the in-flight marker only when it still belongs to the request whose result arrived. */
+    private fun inFlightAfterResult(sentAtMs: Long, inFlightSinceMs: Long): Long {
+        return if (inFlightSinceMs == sentAtMs) 0L else inFlightSinceMs
     }
 }

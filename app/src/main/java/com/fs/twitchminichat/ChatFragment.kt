@@ -603,7 +603,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /* Epoch seconds of the newest message accepted for display, 0 when none. */
     private var lastRenderedMessageTsSec: Double = 0.0
 
+    /*
+     * When a history result last arrived successfully, 0 when none has. Not when a
+     * request left: a request that failed must not count as a recent backfill.
+     * Written from the history request thread.
+     */
+    @Volatile
     private var lastBackfillAtMs: Long = 0L
+
+    /*
+     * When the request still awaiting its result was sent, 0 when none is. Armed on
+     * the main thread and cleared from the history request thread, under
+     * backfillStateLock, so a result cannot clear a newer request's marker.
+     */
+    @Volatile
+    private var inFlightSinceMs: Long = 0L
+
+    /* Guards the backfill state written from both the main and request threads. */
+    private val backfillStateLock = Any()
 
     /*
      * Application context retained after the first attach so a journal entry
@@ -1318,7 +1335,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         historyLoaded = false
         lastRenderedMessageTsSec = 0.0
-        lastBackfillAtMs = 0L
+        synchronized(backfillStateLock) {
+            lastBackfillAtMs = 0L
+            inFlightSinceMs = 0L
+        }
         chatMessageDeduplicator.clear()
 
         resetMentionUsersForCurrentChannel()
@@ -2787,6 +2807,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             nowMs = System.currentTimeMillis(),
             historyLoaded = historyLoaded,
             lastBackfillAtMs = lastBackfillAtMs,
+            inFlightSinceMs = inFlightSinceMs,
             lastPausedAtMs = lastPausedAtMs,
             lastStoppedAtMs = lastStoppedAtMs,
             offlineRecoveryAtMs = offlineRecoveryAtMs,
@@ -2798,9 +2819,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Carries out one backfill decision exactly as [HistoryBackfillPolicy] states it.
      *
-     * The order is the one the decision had while it lived here: references are
-     * consumed and historyLoaded is marked before the journal line, and the
-     * recent-backfill time is stamped just before the request leaves.
+     * References are consumed and historyLoaded is marked before the journal line,
+     * and the in-flight marker is armed just before the request leaves, with the
+     * instant the request's result will be matched against.
      */
     private fun applyBackfillDecision(
         config: AccountConfig,
@@ -2820,12 +2841,31 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         recordDiagnostics(decision.journalEvent, *decision.journalFields.toTypedArray())
 
-        effects.armLastBackfillAtMs?.let { stampedAtMs ->
-            lastBackfillAtMs = stampedAtMs
-        }
-
         if (decision is HistoryBackfillDecision.Request) {
-            loadHistoryFromBot(config, seconds = decision.requestedSec)
+            val sentAtMs = checkNotNull(effects.armInFlightSinceMs) {
+                "Every history request arms the in-flight marker"
+            }
+            synchronized(backfillStateLock) {
+                inFlightSinceMs = sentAtMs
+            }
+            loadHistoryFromBot(config, seconds = decision.requestedSec, sentAtMs = sentAtMs)
+        }
+    }
+
+    /**
+     * Carries out what [HistoryBackfillPolicy] decides when a result arrives.
+     *
+     * Runs on the history request thread, before the messages are posted to the UI.
+     */
+    private fun applyBackfillSuccess(sentAtMs: Long) {
+        synchronized(backfillStateLock) {
+            val effects = HistoryBackfillPolicy.afterSuccess(
+                sentAtMs = sentAtMs,
+                nowMs = System.currentTimeMillis(),
+                inFlightSinceMs = inFlightSinceMs
+            )
+            inFlightSinceMs = effects.inFlightSinceMs
+            lastBackfillAtMs = effects.lastBackfillAtMs
         }
     }
 
@@ -2837,9 +2877,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun applyBackfillFailure(
         failure: HistoryBackfillFailure,
         requestedSec: Int,
+        sentAtMs: Long,
         journalGeneration: Long
     ) {
-        val effects = HistoryBackfillPolicy.afterFailure(failure, requestedSec)
+        val effects = synchronized(backfillStateLock) {
+            HistoryBackfillPolicy.afterFailure(
+                failure = failure,
+                requestedSec = requestedSec,
+                sentAtMs = sentAtMs,
+                inFlightSinceMs = inFlightSinceMs
+            ).also { decided ->
+                inFlightSinceMs = decided.inFlightSinceMs
+            }
+        }
 
         if (effects.clearHistoryLoaded) {
             historyLoaded = false
@@ -2867,10 +2917,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Sends one history request and renders its answer.
      *
-     * Only [applyBackfillDecision] calls this; it stamps the recent-backfill time
-     * first, as the decision requires.
+     * Only [applyBackfillDecision] calls this, after arming the in-flight marker with
+     * [sentAtMs]; the result, success or failure, is matched back to it.
      */
-    private fun loadHistoryFromBot(config: AccountConfig, seconds: Int) {
+    private fun loadHistoryFromBot(config: AccountConfig, seconds: Int, sentAtMs: Long) {
         val applicationContext = requireContext().applicationContext
         val profileId = AccountProfileIdResolver.resolve(config)
         /*
@@ -2900,6 +2950,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         "History loaded messageCount=${result.messages.size} " +
                                 "seconds=$seconds"
                     )
+
+                    applyBackfillSuccess(sentAtMs)
 
                     val timestamps = result.messages
                         .map { message -> message.timestampSec }
@@ -2958,6 +3010,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     applyBackfillFailure(
                         HistoryBackfillFailure.SESSION_MISSING,
                         requestedSec = seconds,
+                        sentAtMs = sentAtMs,
                         journalGeneration = journalGeneration
                     )
                 }
@@ -2970,6 +3023,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     applyBackfillFailure(
                         HistoryBackfillFailure.REAUTHORIZATION_REQUIRED,
                         requestedSec = seconds,
+                        sentAtMs = sentAtMs,
                         journalGeneration = journalGeneration
                     )
                 }
@@ -2982,6 +3036,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     applyBackfillFailure(
                         HistoryBackfillFailure.REQUEST_FAILED,
                         requestedSec = seconds,
+                        sentAtMs = sentAtMs,
                         journalGeneration = journalGeneration
                     )
                 }
