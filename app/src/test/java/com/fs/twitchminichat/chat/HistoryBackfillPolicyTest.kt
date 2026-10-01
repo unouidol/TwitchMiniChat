@@ -332,16 +332,23 @@ class HistoryBackfillPolicyTest {
     }
 
     @Test
-    fun frozen_resume_consumesItsReferenceBeforeItsOwnChecks() {
+    fun resumeSkip_consumesItsReference_andOwesWhatTheCoveringRequestMissed() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: lastPausedAtMs is consumed before the
-         * resume checks run, so a resume that skips - for a recent request, or for an
-         * absence under a second - discards the instant the page was paused. If the
-         * request that caused the skip did not cover that absence, no later resume can
-         * measure it: the next one measures from the next pause.
+         * Replaces frozen_resume_consumesItsReferenceBeforeItsOwnChecks, which pinned that
+         * a resume consumed lastPausedAtMs before its own checks, so a resume that skipped
+         * behind a recent backfill discarded the instant the page was paused, and the
+         * absence was lost whenever that backfill had not covered it. Consuming it is
+         * right; what was wrong was assuming the backfill covered it. Now the skip
+         * compares, and leaves what the backfill missed owed.
          */
-        val start = inputs(lastPausedAtMs = NOW - 30_000L, lastBackfillAtMs = NOW - 2_000L)
-        val skipped = HistoryBackfillPolicy.onResume(start)
+
+        /* The backfill it skips behind reached back forty seconds: the thirty away are covered. */
+        val covered = inputs(
+            lastPausedAtMs = NOW - 30_000L,
+            lastBackfillAtMs = NOW - 2_000L,
+            lastBackfillCoversFromMs = NOW - 40_000L
+        )
+        val skipped = HistoryBackfillPolicy.onResume(covered)
         assertEquals(
             Skip(
                 reason = RECENT_BACKFILL,
@@ -350,8 +357,51 @@ class HistoryBackfillPolicyTest {
             ),
             skipped
         )
-        assertEquals(0L, start.after(skipped).lastPausedAtMs)
+        assertEquals(0L, covered.after(skipped).lastPausedAtMs)
+        /* Paused again ten seconds later: only those ten seconds are measured. */
+        assertEquals(
+            "backfill.triggered source=resume awaySec=10 requestedSec=30",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    covered.after(skipped).copy(nowMs = NOW + 20_000L, lastPausedAtMs = NOW + 10_000L)
+                )
+            )
+        )
 
+        /* It reached back only twelve seconds: eighteen of the thirty are owed. */
+        val short = inputs(
+            lastPausedAtMs = NOW - 30_000L,
+            lastBackfillAtMs = NOW - 2_000L,
+            lastBackfillCoversFromMs = NOW - 12_000L
+        )
+        val owing = HistoryBackfillPolicy.onResume(short)
+        assertEquals(
+            Skip(
+                reason = RECENT_BACKFILL,
+                details = listOf(
+                    "awaySec" to 30,
+                    "sinceLastBackfillMs" to 2_000L,
+                    "uncoveredSec" to 18
+                ),
+                effects = HistoryBackfillEffects(
+                    consumeLastPausedAt = true,
+                    owedSinceMs = NOW - 30_000L
+                )
+            ),
+            owing
+        )
+        assertEquals(0L, short.after(owing).lastPausedAtMs)
+        /* The next resume reaches back to the first pause through the owed window. */
+        assertEquals(
+            "backfill.triggered source=resume awaySec=10 unrecoveredSec=50 requestedSec=60",
+            render(
+                HistoryBackfillPolicy.onResume(
+                    short.after(owing).copy(nowMs = NOW + 20_000L, lastPausedAtMs = NOW + 10_000L)
+                )
+            )
+        )
+
+        /* Under a second away with IRC up has nothing to recover: consumed, nothing owed. */
         assertEquals(
             Skip(
                 reason = AWAY_BELOW_THRESHOLD,
@@ -359,22 +409,6 @@ class HistoryBackfillPolicyTest {
                 effects = HistoryBackfillEffects(consumeLastPausedAt = true)
             ),
             HistoryBackfillPolicy.onResume(inputs(lastPausedAtMs = NOW - 999L))
-        )
-
-        /* Paused again ten seconds later: only those ten seconds are measured. */
-        assertEquals(
-            Request(
-                source = RESUME,
-                requestedSec = 30,
-                details = listOf("awaySec" to 10),
-                effects = HistoryBackfillEffects(
-                    consumeLastPausedAt = true,
-                    armInFlightSinceMs = NOW + 20_000L
-                )
-            ),
-            HistoryBackfillPolicy.onResume(
-                start.after(skipped).copy(nowMs = NOW + 20_000L, lastPausedAtMs = NOW + 10_000L)
-            )
         )
     }
 
