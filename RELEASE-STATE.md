@@ -11,7 +11,7 @@ A change to the code that reaches `main-v5` without appearing under "Waiting for
 is a change nobody can account for later. Documentation commits are read from the log
 instead, for the reason given in that section.
 
-Last verified: 2026-09-25, against `origin/main-v5` at `54e0317`, with `v5.5.1` published.
+Last verified: 2026-10-01, against `origin/main-v5` at `4b8abe1`, with `v5.5.1` published.
 
 ## Published — what users have
 
@@ -59,10 +59,10 @@ Everything merged since the `v5.5.1` tag. None of this has reached users. Read i
 before its own merge has to name a pull request, and then be replaced by the commit the
 merge produces, which is a second edit this file kept needing.
 
-Code changes for 5.5.2 have started landing; everything after the tag is no longer
-documentation only. What 5.5.2 set out to do is listed under "5.5.2 in progress" below, as
-objectives only: which of them have landed is this same log, and is not copied into a table
-that would then have to be kept true.
+Code changes for 5.6.0 have started landing; everything after the tag is no longer
+documentation only. 5.6.0 carries everything 5.5.2 set out to do, listed under "5.6.0 in
+progress" below as objectives only, and the chat work. Which of them have landed is this same
+log, and is not copied into a table that would then have to be kept true.
 
 ## What 5.5.1 shipped
 
@@ -223,7 +223,7 @@ One limit remains, and the page states it: the full erase still removes the cred
 every reset did before 5.5.1, so a registration orphaned that way is reached only by an
 email request. The first 5.5.2 change ends that limit by a different route - deleting the
 push token, so the backend prunes the record itself - and reverses one part of `86566d7`:
-the all-or-nothing rule, not the browser clear. See "5.5.2 in progress" below.
+the all-or-nothing rule, not the browser clear. See "5.6.0 in progress" below.
 
 Both published pages went out in one publication on 2026-09-16,
 `unouidol/unouidol.github.io@bcfbe2a`, before the tag. Fetched afterwards, each is identical
@@ -398,10 +398,20 @@ The page stays as it is and describes today's behaviour truthfully. When the beh
 changes, the page changes with it, and both copies change together: the rule `000318a` (#38)
 adds to `AGENTS.md`.
 
-## 5.5.2 in progress — deletion does what it says
+## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
-**This table is a list of objectives. It records no state.** It answers *what does 5.5.2 set
-out to do*. What has landed is a different question, and git already answers it:
+**5.5.2 will never be tagged or published.** It is formally closed and fully tested, and it
+was deliberately shelved. The decision was: the chat work is urgent, the previous release was
+only a week earlier, and shipping another update for this alone was not worth it. The next
+release is **5.6.0**, which carries everything 5.5.2 set out to do plus the chat work. The
+5.5.2 version number retires unused.
+
+So "5.5.2" elsewhere in this file - "the first 5.5.2 change", "the 5.5.2 device round" - names
+this work as it was planned. It reaches users as 5.6.0.
+
+**This table is a list of objectives. It records no state.** It answers *what did 5.5.2 set out
+to do*, which is now part of what 5.6.0 sets out to do; the chat work is not in it. What has
+landed is a different question, and git already answers it:
 
 ```
 git log --first-parent v5.5.1..main-v5
@@ -508,7 +518,7 @@ recording them both as `2026-09-26` was a record of what happened, not a rule. S
 change moved only the page it edited. Both copies of `data_deletion.html` carry `2026-09-28`, and
 both copies of `privacy.html` carry `2026-09-26`, which is what the rule actually asks.
 
-**Publishing them is one step of the 5.5.2 release, immediately before the tag** - between
+**Publishing them is one step of the 5.6.0 release, immediately before the tag** - between
 step 7 (confirming `main-v5` holds the code the artifacts were built from) and step 8
 (publishing the release) of the procedure in `AGENTS.md`. **Both pages in the same publication**,
 never two publications before one tag: that is how one of them gets forgotten, and a privacy
@@ -599,7 +609,7 @@ mechanics, which belong on the data deletion page.
 
 A profile with no acknowledgement is deliberately **not** read as acknowledged-disabled:
 nothing is known about the backend's copy, so no request is made on a guess. That leaves one
-gap the acknowledgement alone cannot cover - an installation upgrading into 5.5.2 has
+gap the acknowledgement alone cannot cover - an installation upgrading into 5.6.0 has
 acknowledged nothing, so a removal failing there would look as if it owed nothing - and an
 explicit owed marker in `OwedServerOperationStore`, written only after an attempt has failed,
 covers it. That is an addition to the shape agreed for this work, stated rather than slipped
@@ -655,11 +665,13 @@ window.
 
 ## The 5.5.2 device round
 
-**Executed once, 2026-09-26, on the dev flavour at `80c042c` - the commit the round was anchored
-to then, not the anchor now: every case passed and no blocking defect was found.** Results and
-measurements are in the project document
-`claude/deletion-scope-architecture.md`, section "Giro dispositivo della 5.5.2"; this file
-records the outcome and what the round taught, not the measurements.
+**Executed in full, in two runs on the dev flavour, and no blocking defect was found in
+either.** The first, 2026-09-26, at `80c042c` - the commit the round was anchored to then:
+every case passed. The second, 2026-09-30, against `main-v5` at `bf7dd65`, covered the two
+checks the first run never reached, A5 and D8: both passed. Results and measurements are in
+the project document `claude/deletion-scope-architecture.md`, sections "Giro dispositivo della
+5.5.2" and "Seconda esecuzione, 2026-09-30"; this file records the outcome and what the round
+taught, not the measurements.
 
 Two corrections came out of it, both inside 5.5.2 and neither touching an endpoint or a
 registration key, so no backend coordination: the owed-disable policy reporting a cancellation
@@ -689,23 +701,30 @@ It is **one round for the whole objective**, not one per pull request: the cases
 deduplicated, ordered non-destructive first, the flight-mode ones grouped, and the erases last,
 because each erase signs every account out.
 
-**The round applies to `main-v5` at `50c3069`**, dev flavour. It was re-anchored there by #59,
-after the two corrections landed; `80c042c` above is the commit the 2026-09-26 run was made
-against and is not the anchor any more.
+**The anchor is retired.** "The round applies to `main-v5` at `50c3069`" - set by #59, after the
+two corrections landed - was true only while 5.5.2 was heading for a tag. What it protected was
+the release: the build tagged as 5.5.2 had to be the application the round had tested. 5.5.2
+will never be tagged, so there is nothing left for the anchor to protect, and it is not a
+constraint on anything any more. Code merged after `50c3069` breaks no rule by moving away from
+it.
 
-The label on the login screen names whichever commit was built, in the shape
-`Version 5.5.1-dev (build 8, <commit>)`, and it is **not** expected to read `50c3069`: every
-document merged after the code moves the tip without changing the application. Whether a build
-is this round is decided by the check in the plan's first section:
+What replaces it: **the round has to be re-run on the final 5.6.0 build before that release**,
+because the chat work changes the application between now and then. The two runs above are
+results for the code they were made against, not for 5.6.0.
+
+While the anchor stood, the label on the login screen named whichever commit was built, in the
+shape `Version 5.5.1-dev (build 8, <commit>)`, and was **not** expected to read `50c3069`:
+every document merged after the code moves the tip without changing the application. Whether
+a build was this round was decided by the check in the plan's first section:
 
 ```
 git diff 50c3069 HEAD -- app/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties
 ```
 
-Empty means the build is this round, whatever commit its label names. Matching the label
+Empty meant the build was this round, whatever commit its label named. Matching the label
 against a commit written here decides nothing, and naming an expected label in this file would
 make it a second place to keep true - the mistake this section has already made once. A `+` for
-a dirty tree, or `unknown` in place of the commit, disqualifies a run outright whatever that
+a dirty tree, or `unknown` in place of the commit, disqualifies a run outright whatever any
 check says.
 
 Three things the round deliberately cannot settle, each stated in the plan rather than left to
@@ -716,19 +735,15 @@ which is not reachable by hand in a sitting.
 
 Record the outcome in the test device section below, with the label actually read on the screen.
 
-**The 2026-09-26 run is not a result for the current tip.** It was made at `80c042c`, and the two
-corrections it produced have landed since, as `31cdedc` and `50c3069`. The plan is re-anchored to
-`50c3069`, and its own build check now reports the difference correctly. Two cases are new and have
-never been run: **A5**, the absence check for `31cdedc` - the line
+**Why there was a second run.** The 2026-09-26 run was made at `80c042c`, and the two
+corrections it produced landed after it, as `31cdedc` and `50c3069`; that is why #59
+re-anchored the plan to `50c3069`. Two cases were added for them, and the second run, on
+2026-09-30, was their first: **A5**, the absence check for `31cdedc` - the line
 `owed profile disable decision=VOID_SIGNED_IN` must **not** appear at start-up on a healthy phone -
 and **D8**, the only check anywhere for the `NOT_REGISTERED` outcome, since
 `resolveDeletionCredentials` is private and no unit test reaches the flag. D8 is marked blocking:
-`ALERTS_STOPPED` or `NOTHING_REACHED` there means `notRegistered` never reaches the policy.
-
-**At release the build check will report a difference, and that is it working.** Raising
-`versionCode` and `versionName` changes `app/build.gradle.kts`, which the check watches on purpose.
-If the version is the only difference the round still describes the application; if anything else
-appears beside it, the code has moved too.
+`ALERTS_STOPPED` or `NOTHING_REACHED` there means `notRegistered` never reaches the policy. Both
+passed.
 
 **Four things the first run cost time on, now written into the plan** so a second run does not
 pay for them again:
