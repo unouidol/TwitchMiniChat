@@ -416,7 +416,7 @@ class HistoryBackfillPolicyTest {
     fun frozen_firstConnect_ignoresTheFiveSecondWindowAndLeavesOfflineRecoveryArmed() {
         /*
          * PINS TODAY'S BEHAVIOUR. What is wrong, twice over: first_connect asks for the
-         * full hour even when a request left a millisecond ago, and it does not consume
+         * full hour even when a backfill arrived a millisecond ago, and it does not consume
          * offlineRecoveryAtMs. The stale reference survives into the next mid-session
          * reconnect, which then asks again for a window measured from an old onStop that
          * the first connection's hour already covered.
