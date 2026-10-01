@@ -1344,7 +1344,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val c = cfg ?: return
         appendSystemLine(getString(R.string.refreshing))
-        applyBackfillDecision(c, HistoryBackfillPolicy.onManualRefresh(backfillInputs()))
+        applyBackfillDecision(c, HistoryBackfillPolicy::onManualRefresh)
     }
 
     /**
@@ -1971,7 +1971,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        applyBackfillDecision(c, HistoryBackfillPolicy.onResume(backfillInputs()))
+        applyBackfillDecision(c, HistoryBackfillPolicy::onResume)
     }
 
     override fun onStop() {
@@ -2316,7 +2316,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        applyBackfillDecision(c, HistoryBackfillPolicy.onConnect(backfillInputs()))
+        applyBackfillDecision(c, HistoryBackfillPolicy::onConnect)
 
         val ch = c.channel.trim().removePrefix("#").lowercase()
         textStatus.text = getString(R.string.status_connecting, c.username, ch)
@@ -2760,31 +2760,28 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     /**
-     * Captures, at one instant, everything [HistoryBackfillPolicy] reads.
+     * Takes one backfill decision with [policy] and carries it out.
      *
-     * The clock is read once here; the policy has none of its own.
-     */
-    private fun backfillInputs(): HistoryBackfillInputs {
-        return backfillState.inputs(
-            nowMs = System.currentTimeMillis(),
-            ircClientPresent = ircClient != null
-        )
-    }
-
-    /**
-     * Carries out one backfill decision exactly as [HistoryBackfillPolicy] states it:
-     * [HistoryBackfillState] consumes and arms what it says, the journal line is
-     * written, and a request is sent.
+     * [HistoryBackfillState.decide] captures the inputs, decides and applies in one
+     * locked step, with the clock read once here: the policy has none of its own. The
+     * journal line is written and the request sent afterwards, outside the lock.
      */
     private fun applyBackfillDecision(
         config: AccountConfig,
-        decision: HistoryBackfillDecision
+        policy: (HistoryBackfillInputs) -> HistoryBackfillDecision
     ) {
-        val send = backfillState.apply(decision)
+        val applied = backfillState.decide(
+            nowMs = System.currentTimeMillis(),
+            ircClientPresent = ircClient != null,
+            policy = policy
+        )
 
-        recordDiagnostics(decision.journalEvent, *decision.journalFields.toTypedArray())
+        recordDiagnostics(
+            applied.decision.journalEvent,
+            *applied.decision.journalFields.toTypedArray()
+        )
 
-        send?.let { request -> loadHistoryFromBot(config, request) }
+        applied.send?.let { request -> loadHistoryFromBot(config, request) }
     }
 
     /**

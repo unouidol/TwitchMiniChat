@@ -195,6 +195,24 @@ class HistoryBackfillStateTest {
         assertEquals(listOf("awaySec" to 2, "sinceLastBackfillMs" to 2_000L), skip.details)
     }
 
+    @Test
+    fun aDecisionIsTakenInsideTheMonitorThatResultsAlsoTake() {
+        /*
+         * The one part of the locking a unit test can state without simulating a race:
+         * the policy runs while this thread holds the state's own monitor, the monitor
+         * onResult also takes. A result therefore cannot land between the inputs being
+         * captured and the decision being applied. The interleavings that excludes are
+         * named in HistoryBackfillState's documentation; provoking them would need two
+         * threads and timing, which a unit test should not depend on.
+         */
+        var heldWhileDeciding = false
+        state.decide(T0, ircClientPresent = false) { inputs ->
+            heldWhileDeciding = Thread.holdsLock(state)
+            HistoryBackfillPolicy.onConnect(inputs)
+        }
+        assertTrue(heldWhileDeciding)
+    }
+
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
@@ -216,20 +234,19 @@ class HistoryBackfillStateTest {
     }
 
     private fun connect(nowMs: Long): HistoryBackfillDecision =
-        decide(HistoryBackfillPolicy.onConnect(state.inputs(nowMs, ircClientPresent = false)))
+        record(state.decide(nowMs, ircClientPresent = false, policy = HistoryBackfillPolicy::onConnect))
 
     private fun resume(nowMs: Long): HistoryBackfillDecision =
-        decide(HistoryBackfillPolicy.onResume(state.inputs(nowMs, ircClientPresent = true)))
+        record(state.decide(nowMs, ircClientPresent = true, policy = HistoryBackfillPolicy::onResume))
 
     private fun refresh(nowMs: Long): HistoryBackfillDecision =
-        decide(HistoryBackfillPolicy.onManualRefresh(state.inputs(nowMs, ircClientPresent = true)))
+        record(state.decide(nowMs, ircClientPresent = true, policy = HistoryBackfillPolicy::onManualRefresh))
 
-    /** Applies the decision, as ChatFragment does, and remembers what it asked to send. */
-    private fun decide(decision: HistoryBackfillDecision): HistoryBackfillDecision {
-        val send = state.apply(decision)
-        assertEquals(decision is Request, send != null)
-        if (send != null) sends[decision] = send
-        return decision
+    /** Remembers what a decision, taken as ChatFragment takes it, asked to send. */
+    private fun record(applied: HistoryBackfillApplied): HistoryBackfillDecision {
+        assertEquals(applied.decision is Request, applied.send != null)
+        applied.send?.let { send -> sends[applied.decision] = send }
+        return applied.decision
     }
 
     private val sends = HashMap<HistoryBackfillDecision, HistoryBackfillSend>()
