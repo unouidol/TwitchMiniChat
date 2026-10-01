@@ -341,7 +341,7 @@ class HistoryBackfillPolicyTest {
                 details = listOf("awaySec" to 10),
                 effects = HistoryBackfillEffects(
                     consumeLastPausedAt = true,
-                    armLastBackfillAtMs = NOW + 20_000L
+                    armInFlightSinceMs = NOW + 20_000L
                 )
             ),
             HistoryBackfillPolicy.onResume(
