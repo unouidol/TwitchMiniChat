@@ -287,7 +287,7 @@ class HistoryBackfillPolicyTest {
                 details = listOf("renderedGapSec" to 100),
                 effects = HistoryBackfillEffects(
                     consumeOfflineRecovery = true,
-                    armLastBackfillAtMs = NOW + 10_000L
+                    armInFlightSinceMs = NOW + 10_000L
                 )
             ),
             HistoryBackfillPolicy.onConnect(start.after(skipped).copy(nowMs = NOW + 10_000L))
