@@ -259,20 +259,25 @@ class HistoryBackfillPolicyTest {
     }
 
     @Test
-    fun frozen_reconnectOffline_consumesItsReferenceBeforeTheSkipChecks() {
+    fun reconnectSkip_consumesItsReference_andOwesWhatTheCoveringRequestMissed() {
         /*
-         * PINS TODAY'S BEHAVIOUR. What is wrong: offlineRecoveryAtMs is consumed before
-         * the skip checks run, so a reconnect that skips - because a request left under
-         * five seconds ago, or because the stop was under a second ago - throws away
-         * the only record of when the page went offline. The next connect falls back to
-         * the render watermark, or to nothing.
+         * Replaces frozen_reconnectOffline_consumesItsReferenceBeforeTheSkipChecks, which
+         * pinned that a reconnect consumed offlineRecoveryAtMs before its skip checks, so
+         * a reconnect that skipped behind another request threw away the only record of
+         * when the page went offline. Consuming it is right: the reference must not be
+         * asked for twice. What was wrong was dropping it when the request it skipped
+         * behind had not reached that far back. Now the skip compares, and leaves the
+         * remainder owed.
          */
-        val start = inputs(
+
+        /* The success it skips behind reached back ninety seconds: the minute offline is covered. */
+        val covered = inputs(
             offlineRecoveryAtMs = NOW - 60_000L,
             lastBackfillAtMs = NOW - 1_000L,
+            lastBackfillCoversFromMs = NOW - 90_000L,
             lastRenderedMessageTsSec = (NOW - 90_000L) / 1000.0
         )
-        val skipped = HistoryBackfillPolicy.onConnect(start)
+        val skipped = HistoryBackfillPolicy.onConnect(covered)
         assertEquals(
             Skip(
                 reason = RECENT_BACKFILL,
@@ -281,20 +286,41 @@ class HistoryBackfillPolicyTest {
             ),
             skipped
         )
-
+        /* Consumed: the next connect measures from the watermark, and owes nothing. */
         assertEquals(
-            Request(
-                source = RECONNECT_NO_PAUSE_REFERENCE,
-                requestedSec = 110,
-                details = listOf("renderedGapSec" to 100),
-                effects = HistoryBackfillEffects(
-                    consumeOfflineRecovery = true,
-                    armInFlightSinceMs = NOW + 10_000L
-                )
-            ),
-            HistoryBackfillPolicy.onConnect(start.after(skipped).copy(nowMs = NOW + 10_000L))
+            "backfill.triggered source=reconnect_no_pause_reference renderedGapSec=100 requestedSec=110",
+            render(HistoryBackfillPolicy.onConnect(covered.after(skipped).copy(nowMs = NOW + 10_000L)))
         )
 
+        /* It reached back only thirty-one seconds: twenty-nine of the minute are owed. */
+        val short = inputs(
+            offlineRecoveryAtMs = NOW - 60_000L,
+            lastBackfillAtMs = NOW - 1_000L,
+            lastBackfillCoversFromMs = NOW - 31_000L
+        )
+        val owing = HistoryBackfillPolicy.onConnect(short)
+        assertEquals(
+            Skip(
+                reason = RECENT_BACKFILL,
+                details = listOf(
+                    "offlineSec" to 60,
+                    "sinceLastBackfillMs" to 1_000L,
+                    "uncoveredSec" to 29
+                ),
+                effects = HistoryBackfillEffects(
+                    consumeOfflineRecovery = true,
+                    owedSinceMs = NOW - 60_000L
+                )
+            ),
+            owing
+        )
+        /* Still consumed, but the next connect reaches back to the stop through the owed window. */
+        assertEquals(
+            "backfill.triggered source=reconnect_no_pause_reference sinceLastBackfillSec=11 unrecoveredSec=70 requestedSec=80",
+            render(HistoryBackfillPolicy.onConnect(short.after(owing).copy(nowMs = NOW + 10_000L)))
+        )
+
+        /* A stop under a second ago has nothing to recover: consumed, nothing owed. */
         assertEquals(
             Skip(
                 reason = HISTORY_ALREADY_LOADED,
