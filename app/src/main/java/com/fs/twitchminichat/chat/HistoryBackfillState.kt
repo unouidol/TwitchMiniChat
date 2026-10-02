@@ -2,10 +2,16 @@ package com.fs.twitchminichat.chat
 
 import com.fs.twitchminichat.BackendHistoryResult
 
-/** One history request the caller is to send, as its decision armed it. */
+/**
+ * One history request the caller is to send, as its decision armed it.
+ *
+ * [channelGeneration] is the state's own stamp, read back only by
+ * [HistoryBackfillState.onResult]: the caller carries it there and reads nothing from it.
+ */
 data class HistoryBackfillSend(
     val requestedSec: Int,
-    val sentAtMs: Long
+    val sentAtMs: Long,
+    internal val channelGeneration: Long
 )
 
 /** A decision taken by [HistoryBackfillState.decide], and the request it armed, if any. */
@@ -13,6 +19,29 @@ data class HistoryBackfillApplied(
     val decision: HistoryBackfillDecision,
     val send: HistoryBackfillSend?
 )
+
+/** What [HistoryBackfillState.onResult] did with one request's result. */
+sealed interface HistoryBackfillResultOutcome {
+
+    /**
+     * The result was applied. [failure] is what a failure changed, whose journal line
+     * the caller writes; null for a success.
+     */
+    data class Applied(val failure: HistoryBackfillFailureEffects?) : HistoryBackfillResultOutcome
+
+    /**
+     * The result was not applied, because the page changed channel after its request
+     * left: nothing was written. The caller writes [journalFields], shows none of the
+     * messages, and does nothing else with it but spawn ingestion.
+     */
+    data class Discarded(
+        val journalFields: List<Pair<String, Any?>>
+    ) : HistoryBackfillResultOutcome {
+        /** Journal event name. */
+        val journalEvent: String
+            get() = HistoryBackfillPolicy.DISCARDED_EVENT
+    }
+}
 
 /**
  * Holds one chat page's history backfill state and applies [HistoryBackfillPolicy]'s
@@ -44,12 +73,34 @@ data class HistoryBackfillApplied(
  *
  * Nothing that blocks runs inside the monitor: the policy is pure, and the request and
  * the journal stay with the caller, outside it.
+ *
+ * **A channel change forgets everything, and outlives no request.** Every reference
+ * here was measured on one channel, and none of them measures another: after a change
+ * the page is as it was when it opened, and its first connect asks for the full hour.
+ * A request sent before the change can still answer after it. The send instant cannot
+ * tell that answer from the new channel's - both requests may leave in the same
+ * millisecond - so each request is stamped with [channelGeneration], and a result whose
+ * stamp is not the current one is discarded before it touches anything.
  */
 class HistoryBackfillState {
 
+    /* The channel everything below was measured on; null until the first start. */
+    private var channel: String? = null
+
     /*
-     * Cleared by a failed request on the request thread, set by a first connection on the
-     * main thread.
+     * Advanced by every channel change, and nowhere else; stamped on each request as it
+     * is sent and compared when its result arrives. Never read outside this class.
+     *
+     * Not HistoryDiagnosticsLog's generation, which a journal erase advances, nor
+     * ChatFragment's IRC connection generation, which every reconnect advances: the
+     * first would not see a channel change, and the second advances between the
+     * first connect's request and its own connection.
+     */
+    private var channelGeneration: Long = 0L
+
+    /*
+     * Cleared by a failed request on the request thread and by a channel change, set by a
+     * first connection on the main thread.
      */
     var historyLoaded: Boolean = false
         @Synchronized get
@@ -58,7 +109,7 @@ class HistoryBackfillState {
     /* The last onPause, consumed by the resume that follows it. */
     private var lastPausedAtMs: Long = 0L
 
-    /** The last onStop, 0 before the first. Never consumed. */
+    /** The last onStop, 0 before the first and after a channel change. Never consumed. */
     var lastStoppedAtMs: Long = 0L
         @Synchronized get
         private set
@@ -138,50 +189,106 @@ class HistoryBackfillState {
         }
     }
 
-    /** Makes the next connect a first connection again. Main thread. */
+    /**
+     * Records a start on [channel], and returns true when it is not the channel the page
+     * last started or joined on. Everything stored has then been forgotten, as
+     * [onChannelJoined] forgets it, and the caller resets what it holds about the
+     * previous channel. The first start only records the channel. Main thread.
+     */
     @Synchronized
-    fun forgetHistoryLoaded() {
-        historyLoaded = false
+    fun onStarted(channel: String): Boolean {
+        val previous = this.channel
+        if (previous == null) {
+            this.channel = channel
+            return false
+        }
+        if (previous.equals(channel, ignoreCase = true)) return false
+
+        resetForChannel(channel)
+        return true
     }
 
-    /** Forgets everything measured on the previous channel. Main thread. */
+    /** Records a switch to [channel] from the chat page itself, forgetting everything stored. Main thread. */
     @Synchronized
-    fun resetForNewChannel() {
-        historyLoaded = false
-        lastRenderedMessageTsSec = 0.0
-        lastBackfillAtMs = 0L
-        lastBackfillCoversFromMs = 0L
-        inFlightSinceMs = 0L
-        inFlightCoversFromMs = 0L
-        unrecoveredSinceMs = 0L
+    fun onChannelJoined(channel: String) {
+        resetForChannel(channel)
     }
 
     /**
      * Applies one request's result, arrived at [nowMs]. History request thread.
      *
-     * Returns the failure's effects, whose journal line the caller writes, or null
-     * for a success.
+     * A result whose request was sent before the last channel change is discarded
+     * whole: it sets no arrival, owes no window, and leaves the in-flight marker and
+     * the loaded mark alone, whichever request they now belong to.
      */
     @Synchronized
     fun onResult(
         result: BackendHistoryResult,
         send: HistoryBackfillSend,
         nowMs: Long
-    ): HistoryBackfillFailureEffects? {
+    ): HistoryBackfillResultOutcome {
+        val failure = failureOf(result)
+
+        if (send.channelGeneration != channelGeneration) {
+            return HistoryBackfillResultOutcome.Discarded(
+                journalFields = listOf(
+                    "result" to (failure?.journalValue ?: SUCCESS_JOURNAL_VALUE),
+                    "requestedSec" to send.requestedSec,
+                    "messageCount" to (result as? BackendHistoryResult.Success)?.messages?.size,
+                    "requestChannelGeneration" to send.channelGeneration,
+                    "currentChannelGeneration" to channelGeneration
+                )
+            )
+        }
+
+        if (failure != null) {
+            return HistoryBackfillResultOutcome.Applied(failure = onFailure(failure, send))
+        }
+        onSuccess(send, nowMs)
+        return HistoryBackfillResultOutcome.Applied(failure = null)
+    }
+
+    /**
+     * Forgets everything measured on the previous channel and binds [channel]. Called
+     * under the monitor, by both kinds of channel change and only by them.
+     *
+     * Each reference is returned to the value it has when the page opens:
+     *
+     * - The loaded mark, so the first connect asks for the new channel's full hour.
+     * - The pause, the stop and the offline reference. Each would measure a time away
+     *   from the old channel as though it were from the new one: the offline reference
+     *   is not consumed by a first connect, so it would size the new channel's first
+     *   reconnect, and the stop would size every resume that has no pause. The full hour
+     *   asked for on the first connect already covers whatever they could have.
+     * - The render watermark: it dates the old channel's messages.
+     * - The last success and the request in flight, with how far back each reached: they
+     *   covered the old channel, and must not suppress or cover anything on this one.
+     * - The owed window: what the old channel did not recover is not owed by this one.
+     *
+     * Then the generation advances, so a result still on its way from before is discarded.
+     */
+    private fun resetForChannel(channel: String) {
+        historyLoaded = false
+        lastPausedAtMs = 0L
+        lastStoppedAtMs = 0L
+        offlineRecoveryAtMs = 0L
+        lastRenderedMessageTsSec = 0.0
+        lastBackfillAtMs = 0L
+        lastBackfillCoversFromMs = 0L
+        inFlightSinceMs = 0L
+        inFlightCoversFromMs = 0L
+        unrecoveredSinceMs = 0L
+        channelGeneration++
+        this.channel = channel
+    }
+
+    /** The failure a result reports, null for a success. */
+    private fun failureOf(result: BackendHistoryResult): HistoryBackfillFailure? {
         return when (result) {
-            is BackendHistoryResult.Success -> {
-                onSuccess(send, nowMs)
-                null
-            }
-
-            BackendHistoryResult.SessionRequired ->
-                onFailure(HistoryBackfillFailure.SESSION_MISSING, send)
-
-            BackendHistoryResult.ReauthorizationRequired ->
-                onFailure(HistoryBackfillFailure.REAUTHORIZATION_REQUIRED, send)
-
-            BackendHistoryResult.Failed ->
-                onFailure(HistoryBackfillFailure.REQUEST_FAILED, send)
+            is BackendHistoryResult.Success -> null
+            BackendHistoryResult.SessionRequired -> HistoryBackfillFailure.SESSION_MISSING
+            BackendHistoryResult.ReauthorizationRequired -> HistoryBackfillFailure.REAUTHORIZATION_REQUIRED
+            BackendHistoryResult.Failed -> HistoryBackfillFailure.REQUEST_FAILED
         }
     }
 
@@ -234,7 +341,11 @@ class HistoryBackfillState {
         }
         inFlightSinceMs = sentAtMs
         inFlightCoversFromMs = HistoryBackfillPolicy.coversFrom(sentAtMs, decision.requestedSec)
-        return HistoryBackfillSend(requestedSec = decision.requestedSec, sentAtMs = sentAtMs)
+        return HistoryBackfillSend(
+            requestedSec = decision.requestedSec,
+            sentAtMs = sentAtMs,
+            channelGeneration = channelGeneration
+        )
     }
 
     /** Called under the monitor. */
@@ -272,5 +383,10 @@ class HistoryBackfillState {
             historyLoaded = false
         }
         return effects
+    }
+
+    private companion object {
+        /** How a discarded line names a result that arrived successfully. */
+        const val SUCCESS_JOURNAL_VALUE = "success"
     }
 }

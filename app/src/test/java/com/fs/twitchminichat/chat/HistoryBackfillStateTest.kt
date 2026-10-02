@@ -1,8 +1,11 @@
 package com.fs.twitchminichat.chat
 
 import com.fs.twitchminichat.BackendHistoryResult
+import com.fs.twitchminichat.BackendHistoryMessage
 import com.fs.twitchminichat.chat.HistoryBackfillDecision.Request
 import com.fs.twitchminichat.chat.HistoryBackfillDecision.Skip
+import com.fs.twitchminichat.chat.HistoryBackfillResultOutcome.Applied
+import com.fs.twitchminichat.chat.HistoryBackfillResultOutcome.Discarded
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.BACKFILL_IN_FLIGHT
 import com.fs.twitchminichat.chat.HistoryBackfillSkipReason.RECENT_BACKFILL
 import com.fs.twitchminichat.chat.HistoryBackfillSource.FIRST_CONNECT
@@ -214,6 +217,145 @@ class HistoryBackfillStateTest {
     }
 
     // ---------------------------------------------------------------------------
+    // Channel changes. Each runs once per path - a join from the channel field and a
+    // start on another channel - since both must do exactly the same thing.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun aJoin_discardsASuccessSentBeforeIt() =
+        discardsASuccessSentBeforeTheChange { state.onChannelJoined("beta") }
+
+    @Test
+    fun aStartOnAnotherChannel_discardsASuccessSentBeforeIt() =
+        discardsASuccessSentBeforeTheChange { assertTrue(state.onStarted("beta")) }
+
+    @Test
+    fun aJoin_discardsAFailureSentBeforeIt_andLeavesTheNewRequestsMarker() =
+        discardsAFailureSentBeforeTheChange { state.onChannelJoined("beta") }
+
+    @Test
+    fun aStartOnAnotherChannel_discardsAFailureSentBeforeIt_andLeavesTheNewRequestsMarker() =
+        discardsAFailureSentBeforeTheChange { assertTrue(state.onStarted("beta")) }
+
+    @Test
+    fun aJoin_forgetsEveryReferenceTakenOnThePreviousChannel() =
+        forgetsEveryReferenceTakenBeforeTheChange { state.onChannelJoined("beta") }
+
+    @Test
+    fun aStartOnAnotherChannel_forgetsEveryReferenceTakenOnThePreviousChannel() =
+        forgetsEveryReferenceTakenBeforeTheChange { assertTrue(state.onStarted("beta")) }
+
+    @Test
+    fun aStartOnTheSameChannel_forgetsNothing() {
+        assertFalse("the first start only binds the channel", state.onStarted("alpha"))
+        val opening = connectSending(T0)
+        state.onStopped(T0 + 100L)
+
+        /* Case aside, the same channel: not a change. */
+        assertFalse(state.onStarted("Alpha"))
+
+        /* The opening request is still this channel's: its result is applied. */
+        succeed(opening, T0 + 1_000L)
+        assertEquals(RECENT_BACKFILL, (resume(T0 + 1_500L) as Skip).reason)
+    }
+
+    @Test
+    fun aStartAfterAJoin_isOnTheJoinedChannel() {
+        state.onStarted("alpha")
+        state.onChannelJoined("beta")
+        val opening = connectSending(T0)
+        state.onStopped(T0 + 100L)
+
+        assertFalse(state.onStarted("beta"))
+        succeed(opening, T0 + 1_000L)
+    }
+
+    /** Alpha's opening hour arrives after [change], before beta has asked for anything. */
+    private fun discardsASuccessSentBeforeTheChange(change: () -> Unit) {
+        state.onStarted("alpha")
+        val alphaOpening = connectSending(T0)
+        change()
+
+        val outcome = state.onResult(BackendHistoryResult.Success(listOf(ROW)), alphaOpening, T0 + 1_000L)
+        assertEquals(
+            "backfill.discarded result=success requestedSec=3600 messageCount=1 " +
+                    "requestChannelGeneration=0 currentChannelGeneration=1",
+            render(outcome)
+        )
+
+        /* Nothing arrived for beta: no five seconds hold, and there is nothing to measure from. */
+        assertEquals(
+            "backfill.skipped reason=nothing_to_measure_from historyLoaded=false",
+            render(resume(T0 + 1_500L))
+        )
+    }
+
+    /**
+     * Beta's first connect leaves in the same millisecond as alpha's, which the send
+     * instant cannot tell apart; then alpha's fails.
+     */
+    private fun discardsAFailureSentBeforeTheChange(change: () -> Unit) {
+        state.onStarted("alpha")
+        val alphaOpening = connectSending(T0)
+        change()
+        val betaOpening = connectSending(T0)
+
+        assertEquals(
+            "backfill.discarded result=request_failed requestedSec=3600 " +
+                    "requestChannelGeneration=0 currentChannelGeneration=1",
+            render(state.onResult(BackendHistoryResult.Failed, alphaOpening, T0 + 4L))
+        )
+
+        /* Beta's request still holds the marker. */
+        assertEquals(BACKFILL_IN_FLIGHT, (resume(T0 + 5L) as Skip).reason)
+
+        /* Beta's hour arrives. Nobody owes alpha's hour, and beta stays loaded. */
+        succeed(betaOpening, T0 + 1_000L)
+        assertEquals(
+            "backfill.triggered source=resume_no_pause sinceLastBackfillSec=9 requestedSec=30",
+            render(resume(T0 + 10_000L))
+        )
+        assertEquals(
+            "backfill.skipped reason=backfill_in_flight inFlightMs=1000",
+            render(connect(T0 + 11_000L))
+        )
+    }
+
+    /**
+     * Sets every reference on alpha, changes channel with [change], and asks the probe
+     * decisions of the page and of one that has just opened on beta: they must agree.
+     */
+    private fun forgetsEveryReferenceTakenBeforeTheChange(change: () -> Unit) {
+        state.onStarted("alpha")
+
+        /* The loaded mark, and a success with how far back it reached. */
+        openWithASuccess()
+        /* The render watermark, a pause, a stop and the offline reference it arms. */
+        state.onMessageRendered((T1 - 30_000L) / 1000.0)
+        state.onPaused(T1 - 20_000L)
+        state.onStopped(T1 - 10_000L)
+        /* A window owed by a failure, and a request in flight with its reach. */
+        assertNotNull(fail(sent(refresh(T1 - 5_000L)), T1 - 4_000L))
+        sent(refresh(T1 - 1_000L))
+
+        change()
+
+        val opened = HistoryBackfillState().apply { onStarted("beta") }
+        assertEquals(probe(opened), probe(state))
+    }
+
+    /**
+     * Three decisions that between them read every reference: a resume reads the pause,
+     * the marker, the last success, the watermark, the stop, the owed window and the
+     * loaded mark; a connect reads the loaded mark; a reconnect the offline reference.
+     */
+    private fun probe(target: HistoryBackfillState): List<HistoryBackfillDecision> = listOf(
+        target.decide(T1 + 2_000L, ircClientPresent = true, policy = HistoryBackfillPolicy::onResume),
+        target.decide(T1 + 3_000L, ircClientPresent = false, policy = HistoryBackfillPolicy::onConnect),
+        target.decide(T1 + 4_000L, ircClientPresent = true, policy = HistoryBackfillPolicy::onConnect)
+    ).map { applied -> applied.decision }
+
+    // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
 
@@ -223,6 +365,15 @@ class HistoryBackfillStateTest {
 
         /** Ten minutes later. */
         const val T1 = T0 + 600_000L
+
+        /** One history row; the state only counts it. */
+        val ROW = BackendHistoryMessage(
+            user = "viewer",
+            text = "hello",
+            emotesRaw = null,
+            messageId = "m-1",
+            timestampSec = (T0 - 60_000L) / 1000.0
+        )
     }
 
     /** First connection, answered with an empty success one second later; returns the arrival. */
@@ -255,16 +406,35 @@ class HistoryBackfillStateTest {
         checkNotNull(sends[decision]) { "$decision sent nothing" }
 
     private fun succeed(send: HistoryBackfillSend, atMs: Long) {
-        assertNull(state.onResult(BackendHistoryResult.Success(emptyList()), send, atMs))
+        assertNull(applied(state.onResult(BackendHistoryResult.Success(emptyList()), send, atMs)))
     }
 
     private fun fail(send: HistoryBackfillSend, atMs: Long): HistoryBackfillFailureEffects? =
-        state.onResult(BackendHistoryResult.Failed, send, atMs)
+        applied(state.onResult(BackendHistoryResult.Failed, send, atMs))
 
-    private fun render(decision: HistoryBackfillDecision): String {
-        val fields = decision.journalFields
+    /** The failure effects of a result the state applied; fails the test if it discarded it. */
+    private fun applied(outcome: HistoryBackfillResultOutcome): HistoryBackfillFailureEffects? {
+        assertTrue("the result was discarded: $outcome", outcome is Applied)
+        return (outcome as Applied).failure
+    }
+
+    /** Sends a connect's request, read from the decision's own result rather than [sends]. */
+    private fun connectSending(nowMs: Long): HistoryBackfillSend =
+        checkNotNull(state.decide(nowMs, ircClientPresent = false, policy = HistoryBackfillPolicy::onConnect).send)
+
+    private fun render(decision: HistoryBackfillDecision): String =
+        line(decision.journalEvent, decision.journalFields)
+
+    private fun render(outcome: HistoryBackfillResultOutcome): String {
+        assertTrue("the result was applied: $outcome", outcome is Discarded)
+        return line((outcome as Discarded).journalEvent, outcome.journalFields)
+    }
+
+    /** One journal line as the journal writes it, null fields omitted. */
+    private fun line(event: String, journalFields: List<Pair<String, Any?>>): String {
+        val fields = journalFields
             .filter { (_, value) -> value != null }
             .joinToString(separator = " ") { (key, value) -> "$key=$value" }
-        return "${decision.journalEvent} $fields"
+        return "$event $fields"
     }
 }
