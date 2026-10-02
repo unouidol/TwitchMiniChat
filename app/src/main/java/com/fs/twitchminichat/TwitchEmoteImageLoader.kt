@@ -21,16 +21,49 @@ import com.bumptech.glide.request.transition.Transition
 import java.util.Collections
 
 /**
+ * One chat row that holds animated emotes, as [TwitchEmoteImageLoader] reports it to
+ * whoever decides when they run. Main thread.
+ */
+interface AnimatedEmoteRow {
+
+    /** The row's view in the timeline. */
+    val view: View
+
+    /**
+     * Lets the row's animated emotes run, or stops them on the frame they show.
+     *
+     * They run only while this is true and the row is attached to the window. A Glide
+     * GIF that is stopped and run again continues from where it stopped: it is not
+     * decoded again from its first frame.
+     */
+    fun setAnimationsWanted(wanted: Boolean)
+}
+
+/** Told when a row comes to hold animated emotes, and when that row is released. Main thread. */
+interface AnimatedEmoteRowListener {
+
+    /** [row] installed its first animated emote. Its emotes do not run until it is told to. */
+    fun onAnimatedRowAdded(row: AnimatedEmoteRow)
+
+    /** [row] was released, and its emotes stopped and cleared. */
+    fun onAnimatedRowReleased(row: AnimatedEmoteRow)
+}
+
+/**
  * Loads inline Twitch emotes and owns their Glide lifecycle for rendered chat rows.
  *
  * Animated media is attempted once per emote ID. When Twitch exposes only the static
  * Portable Network Graphics (PNG) version, a Hypertext Transfer Protocol (HTTP) 404
  * response is remembered for the current process and later rows load the static
  * resource directly.
+ *
+ * Whether an animated emote runs is not decided here: each row that holds one is
+ * reported to [animatedRows], which tells it.
  */
 class TwitchEmoteImageLoader(
     private val requestManager: RequestManager,
-    private val chatPageView: View
+    private val chatPageView: View,
+    private val animatedRows: AnimatedEmoteRowListener
 ) {
     private val sessions = mutableSetOf<LoadSession>()
     private val staticOnlyEmoteIds = Collections.synchronizedSet(mutableSetOf<String>())
@@ -254,10 +287,19 @@ class TwitchEmoteImageLoader(
         private val textView: TextView,
         private val text: Spannable,
         private val onReleased: (LoadSession) -> Unit
-    ) : View.OnAttachStateChangeListener {
+    ) : View.OnAttachStateChangeListener, AnimatedEmoteRow {
         private val targets = mutableSetOf<Target<*>>()
         private val animatedDrawables = mutableSetOf<Animatable>()
         private var isAttachedToWindow = textView.isAttachedToWindow
+
+        /* Set by whoever decides; false until it first says otherwise. */
+        private var animationsWanted = false
+
+        /* Whether this row has been reported to animatedRows, and so must be withdrawn. */
+        private var reportedAsAnimated = false
+
+        override val view: View
+            get() = textView
 
         /** Invalidates the TextView whenever an animated drawable advances a frame. */
         private val drawableCallback = object : Drawable.Callback {
@@ -374,27 +416,42 @@ class TwitchEmoteImageLoader(
 
             if (drawable is Animatable) {
                 animatedDrawables += drawable
+                /* Visibility stays true: running and stopping go through start and stop. */
+                drawable.setVisible(true, false)
 
-                if (isAttachedToWindow) {
-                    drawable.setVisible(true, true)
-                    drawable.start()
-                    textView.postInvalidateOnAnimation()
-                } else {
-                    drawable.stop()
+                if (!reportedAsAnimated) {
+                    reportedAsAnimated = true
+                    animatedRows.onAnimatedRowAdded(this)
                 }
+                applyAnimationState()
             }
         }
 
-        /** Restarts paused animations when ViewPager2 reattaches the account page. */
+        override fun setAnimationsWanted(wanted: Boolean) {
+            if (isReleased || animationsWanted == wanted) return
+
+            animationsWanted = wanted
+            applyAnimationState()
+        }
+
+        /** Runs every animated emote of the row while it is wanted and attached, and stops them otherwise. */
+        private fun applyAnimationState() {
+            val run = animationsWanted && isAttachedToWindow
+
+            animatedDrawables.forEach { drawable ->
+                if (run) drawable.start() else drawable.stop()
+            }
+            if (run) {
+                textView.postInvalidateOnAnimation()
+            }
+        }
+
+        /** Resumes the row's animations, if they are wanted, when ViewPager2 reattaches the account page. */
         override fun onViewAttachedToWindow(view: View) {
             if (isReleased) return
 
             isAttachedToWindow = true
-            animatedDrawables.forEach { drawable ->
-                (drawable as? Drawable)?.setVisible(true, false)
-                drawable.start()
-            }
-            textView.postInvalidateOnAnimation()
+            applyAnimationState()
         }
 
         /**
@@ -408,7 +465,7 @@ class TwitchEmoteImageLoader(
             if (isReleased) return
 
             isAttachedToWindow = false
-            animatedDrawables.forEach { drawable -> drawable.stop() }
+            applyAnimationState()
 
             textView.post {
                 if (isReleased || textView.isAttachedToWindow) return@post
@@ -433,6 +490,9 @@ class TwitchEmoteImageLoader(
             animatedDrawables.clear()
             targets.toList().forEach { target -> requestManager.clear(target) }
             targets.clear()
+            if (reportedAsAnimated) {
+                animatedRows.onAnimatedRowReleased(this)
+            }
             onReleased(this)
         }
     }

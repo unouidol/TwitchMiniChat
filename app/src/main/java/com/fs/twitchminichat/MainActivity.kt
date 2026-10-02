@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
@@ -23,12 +24,35 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.fs.twitchminichat.ui.input.PagerKeyboardDismissController
 
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), CurrentChatPageSource {
 
     private lateinit var pager: ViewPager2
     private lateinit var repo: AccountRepository
     private lateinit var adapter: AccountsPagerAdapter
     private var startupAfterDeletionCheckDone = false
+
+    /* Chat pages to tell when the current page may have changed. */
+    private val currentChatPageListeners = LinkedHashSet<() -> Unit>()
+
+    private val currentChatPageCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            notifyCurrentChatPageListeners()
+        }
+    }
+
+    /*
+     * A reload can move the current account's page to another position without a page
+     * being selected. Posted, because the adapter's observers run before the pager
+     * has updated its current item.
+     */
+    private val currentChatPageDataObserver = object : RecyclerView.AdapterDataObserver() {
+        override fun onChanged() = postCurrentChatPageCheck()
+        override fun onItemRangeChanged(positionStart: Int, itemCount: Int) = postCurrentChatPageCheck()
+        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) = postCurrentChatPageCheck()
+        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) = postCurrentChatPageCheck()
+        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) =
+            postCurrentChatPageCheck()
+    }
 
     /** The acceptance gate, while it is on screen. Owned here so there is only one. */
     private var termsGateDialog: AlertDialog? = null
@@ -65,6 +89,8 @@ class MainActivity : AppCompatActivity() {
 
         adapter = AccountsPagerAdapter(this, repo)
         pager.adapter = adapter
+        pager.registerOnPageChangeCallback(currentChatPageCallback)
+        adapter.registerAdapterDataObserver(currentChatPageDataObserver)
 
         pagerKeyboardDismissController = PagerKeyboardDismissController(pager)
         pagerKeyboardDismissCallback = pagerKeyboardDismissController?.installOn(pager)
@@ -89,6 +115,31 @@ class MainActivity : AppCompatActivity() {
 
     fun goToLoginPage() {
         pager.currentItem = 0
+    }
+
+    override fun isCurrentChatPage(accountId: String): Boolean {
+        if (!this::pager.isInitialized || !this::adapter.isInitialized) return false
+
+        val index = adapter.pageIndexForAccountId(accountId)
+        return index >= 0 && index == pager.currentItem
+    }
+
+    override fun addCurrentChatPageListener(listener: () -> Unit) {
+        currentChatPageListeners += listener
+    }
+
+    override fun removeCurrentChatPageListener(listener: () -> Unit) {
+        currentChatPageListeners -= listener
+    }
+
+    private fun notifyCurrentChatPageListeners() {
+        currentChatPageListeners.toList().forEach { listener -> listener() }
+    }
+
+    private fun postCurrentChatPageCheck() {
+        if (this::pager.isInitialized) {
+            pager.post { notifyCurrentChatPageListeners() }
+        }
     }
 
     private fun openSingleAccountOnStartupIfPossible() {
@@ -363,6 +414,13 @@ class MainActivity : AppCompatActivity() {
                 pager.unregisterOnPageChangeCallback(callback)
             }
         }
+        if (this::pager.isInitialized) {
+            pager.unregisterOnPageChangeCallback(currentChatPageCallback)
+        }
+        if (this::adapter.isInitialized) {
+            adapter.unregisterAdapterDataObserver(currentChatPageDataObserver)
+        }
+        currentChatPageListeners.clear()
 
         pagerKeyboardDismissCallback = null
         pagerKeyboardDismissController = null
