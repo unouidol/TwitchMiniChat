@@ -44,6 +44,8 @@ import com.fs.twitchminichat.pcg.PcgActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
+import com.fs.twitchminichat.chat.ChannelBoundPage
+import com.fs.twitchminichat.chat.ChatChannelBinding
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.HistoryBackfillDecision
 import com.fs.twitchminichat.chat.HistoryBackfillInputs
@@ -590,6 +592,48 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * history request thread; HistoryBackfillState documents which field is which.
      */
     private val backfillState = HistoryBackfillState()
+
+    /*
+     * The one answer to "the channel changed", for both ways this page changes channel.
+     * The page's side of it is below; ChatChannelBinding says what each part is for.
+     */
+    private val channelBinding = ChatChannelBinding(
+        backfillState = backfillState,
+        deduplicator = chatMessageDeduplicator,
+        mentionUsers = mentionUserTracker,
+        authenticatedUsername = { cfg?.username },
+        page = object : ChannelBoundPage {
+            override fun forgetPendingSends() = clearPendingOutgoingState(removeViews = false)
+
+            override fun clearTimeline() = resetChannelBoundChatUi()
+
+            override fun returnToBottom() {
+                unseenMessages = 0
+                stickToBottom = true
+                updateJumpToBottomButton()
+            }
+
+            override fun showMentionSuggestions() = refreshMentionSuggestions()
+
+            /*
+             * If OAuth lacks user:read:emotes, the picker then shows this channel's
+             * cache or an empty catalog instead of the previous channel's emotes.
+             */
+            override fun selectEmoteCatalog(channel: String) {
+                emoteCatalogController?.selectChannel(channel)
+            }
+
+            override fun reloadStream() = reloadStreamForCurrentChannel()
+
+            override fun recordRecentChannel(channel: String) {
+                channelHistory.add(accountId, channel)
+                Log.d("CHAN", "Recent channel count=${channelHistory.get(accountId).size}")
+                refreshChannelsDropdown()
+            }
+
+            override fun closeConnection() = closeIrcClient(resetBackoff = true)
+        }
+    )
 
     /*
      * Application context retained after the first attach so a journal entry
@@ -1283,37 +1327,21 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return false
         }
 
-        appendSystemLine(getString(R.string.channel_switch, ch))
-
+        /*
+         * Join only: the user typed this channel, so the account is written here. A start
+         * finds the account already written by whoever changed it.
+         */
         AccountRepository(requireContext()).updateChannel(accountId, ch)
         cfg = AccountRepository(requireContext()).getById(accountId)
 
+        channelBinding.changeTo(ch)
+
         /*
-         * Select the new channel immediately. If OAuth lacks user:read:emotes,
-         * the picker now shows this channel's cache or an empty catalog instead
-         * of retaining emotes belonging to the previous channel.
+         * Join only, and after the change: it answers the user's own action, and it is
+         * the first line of the new timeline. Appended before, the change cleared it.
          */
-        emoteCatalogController?.selectChannel(ch)
+        appendSystemLine(getString(R.string.channel_switch, ch))
 
-        reloadStreamForCurrentChannel()
-
-        Log.d("CHAN", "JOIN recorded in recent channels")
-        channelHistory.add(accountId, ch)
-        Log.d("CHAN", "Recent channel count=${channelHistory.get(accountId).size}")
-        refreshChannelsDropdown()
-
-        backfillState.onChannelJoined(ch)
-        chatMessageDeduplicator.clear()
-
-        resetMentionUsersForCurrentChannel()
-
-        unseenMessages = 0
-        stickToBottom = true
-        clearPendingOutgoingState(removeViews = false)
-        resetChannelBoundChatUi()
-        updateJumpToBottomButton()
-
-        closeIrcClient(resetBackoff = true)
         connectIfNeeded()
 
         return true
@@ -1929,12 +1957,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          */
         val offlineSec = offlineSecondsSinceStop()
 
-        /* The same reset a join from the channel field makes; see HistoryBackfillState. */
-        if (backfillState.onStarted(newCfg.channel)) {
-            clearPendingOutgoingState(removeViews = true)
-            resetChannelBoundChatUi()
-            closeIrcClient(resetBackoff = true)
-        }
+        /* On another channel, the same change a join from the channel field makes. */
+        channelBinding.onStarted(newCfg.channel)
 
         recordDiagnostics(
             "lifecycle.start",
