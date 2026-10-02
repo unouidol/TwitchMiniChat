@@ -80,12 +80,11 @@ sealed interface HistoryBackfillResultOutcome {
  * A request sent before the change can still answer after it. The send instant cannot
  * tell that answer from the new channel's - both requests may leave in the same
  * millisecond - so each request is stamped with [channelGeneration], and a result whose
- * stamp is not the current one is discarded before it touches anything.
+ * stamp is not the current one is discarded before it touches anything. Whether the
+ * channel changed is not decided here: ChatChannelBinding decides it, and calls
+ * [onChannelChanged] as part of what a change means.
  */
 class HistoryBackfillState {
-
-    /* The channel everything below was measured on; null until the first start. */
-    private var channel: String? = null
 
     /*
      * Advanced by every channel change, and nowhere else; stamped on each request as it
@@ -190,31 +189,6 @@ class HistoryBackfillState {
     }
 
     /**
-     * Records a start on [channel], and returns true when it is not the channel the page
-     * last started or joined on. Everything stored has then been forgotten, as
-     * [onChannelJoined] forgets it, and the caller resets what it holds about the
-     * previous channel. The first start only records the channel. Main thread.
-     */
-    @Synchronized
-    fun onStarted(channel: String): Boolean {
-        val previous = this.channel
-        if (previous == null) {
-            this.channel = channel
-            return false
-        }
-        if (previous.equals(channel, ignoreCase = true)) return false
-
-        resetForChannel(channel)
-        return true
-    }
-
-    /** Records a switch to [channel] from the chat page itself, forgetting everything stored. Main thread. */
-    @Synchronized
-    fun onChannelJoined(channel: String) {
-        resetForChannel(channel)
-    }
-
-    /**
      * Applies one request's result, arrived at [nowMs]. History request thread.
      *
      * A result whose request was sent before the last channel change is discarded
@@ -249,8 +223,8 @@ class HistoryBackfillState {
     }
 
     /**
-     * Forgets everything measured on the previous channel and binds [channel]. Called
-     * under the monitor, by both kinds of channel change and only by them.
+     * Forgets everything measured on the previous channel. Main thread; called by
+     * ChatChannelBinding's change, and by nothing else.
      *
      * Each reference is returned to the value it has when the page opens:
      *
@@ -267,7 +241,8 @@ class HistoryBackfillState {
      *
      * Then the generation advances, so a result still on its way from before is discarded.
      */
-    private fun resetForChannel(channel: String) {
+    @Synchronized
+    fun onChannelChanged() {
         historyLoaded = false
         lastPausedAtMs = 0L
         lastStoppedAtMs = 0L
@@ -279,7 +254,6 @@ class HistoryBackfillState {
         inFlightCoversFromMs = 0L
         unrecoveredSinceMs = 0L
         channelGeneration++
-        this.channel = channel
     }
 
     /** The failure a result reports, null for a success. */

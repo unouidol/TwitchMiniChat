@@ -217,64 +217,15 @@ class HistoryBackfillStateTest {
     }
 
     // ---------------------------------------------------------------------------
-    // Channel changes. Each runs once per path - a join from the channel field and a
-    // start on another channel - since both must do exactly the same thing.
+    // Channel changes. Whether one happened, and that both ways of changing channel
+    // make the same one, is ChatChannelBinding's, tested in ChatChannelBindingTest.
     // ---------------------------------------------------------------------------
 
+    /** Alpha's opening hour arrives after the change, before beta has asked for anything. */
     @Test
-    fun aJoin_discardsASuccessSentBeforeIt() =
-        discardsASuccessSentBeforeTheChange { state.onChannelJoined("beta") }
-
-    @Test
-    fun aStartOnAnotherChannel_discardsASuccessSentBeforeIt() =
-        discardsASuccessSentBeforeTheChange { assertTrue(state.onStarted("beta")) }
-
-    @Test
-    fun aJoin_discardsAFailureSentBeforeIt_andLeavesTheNewRequestsMarker() =
-        discardsAFailureSentBeforeTheChange { state.onChannelJoined("beta") }
-
-    @Test
-    fun aStartOnAnotherChannel_discardsAFailureSentBeforeIt_andLeavesTheNewRequestsMarker() =
-        discardsAFailureSentBeforeTheChange { assertTrue(state.onStarted("beta")) }
-
-    @Test
-    fun aJoin_forgetsEveryReferenceTakenOnThePreviousChannel() =
-        forgetsEveryReferenceTakenBeforeTheChange { state.onChannelJoined("beta") }
-
-    @Test
-    fun aStartOnAnotherChannel_forgetsEveryReferenceTakenOnThePreviousChannel() =
-        forgetsEveryReferenceTakenBeforeTheChange { assertTrue(state.onStarted("beta")) }
-
-    @Test
-    fun aStartOnTheSameChannel_forgetsNothing() {
-        assertFalse("the first start only binds the channel", state.onStarted("alpha"))
-        val opening = connectSending(T0)
-        state.onStopped(T0 + 100L)
-
-        /* Case aside, the same channel: not a change. */
-        assertFalse(state.onStarted("Alpha"))
-
-        /* The opening request is still this channel's: its result is applied. */
-        succeed(opening, T0 + 1_000L)
-        assertEquals(RECENT_BACKFILL, (resume(T0 + 1_500L) as Skip).reason)
-    }
-
-    @Test
-    fun aStartAfterAJoin_isOnTheJoinedChannel() {
-        state.onStarted("alpha")
-        state.onChannelJoined("beta")
-        val opening = connectSending(T0)
-        state.onStopped(T0 + 100L)
-
-        assertFalse(state.onStarted("beta"))
-        succeed(opening, T0 + 1_000L)
-    }
-
-    /** Alpha's opening hour arrives after [change], before beta has asked for anything. */
-    private fun discardsASuccessSentBeforeTheChange(change: () -> Unit) {
-        state.onStarted("alpha")
+    fun aChannelChange_discardsASuccessSentBeforeIt() {
         val alphaOpening = connectSending(T0)
-        change()
+        state.onChannelChanged()
 
         val outcome = state.onResult(BackendHistoryResult.Success(listOf(ROW)), alphaOpening, T0 + 1_000L)
         assertEquals(
@@ -294,10 +245,10 @@ class HistoryBackfillStateTest {
      * Beta's first connect leaves in the same millisecond as alpha's, which the send
      * instant cannot tell apart; then alpha's fails.
      */
-    private fun discardsAFailureSentBeforeTheChange(change: () -> Unit) {
-        state.onStarted("alpha")
+    @Test
+    fun aChannelChange_discardsAFailureSentBeforeIt_andLeavesTheNewRequestsMarker() {
         val alphaOpening = connectSending(T0)
-        change()
+        state.onChannelChanged()
         val betaOpening = connectSending(T0)
 
         assertEquals(
@@ -322,12 +273,11 @@ class HistoryBackfillStateTest {
     }
 
     /**
-     * Sets every reference on alpha, changes channel with [change], and asks the probe
-     * decisions of the page and of one that has just opened on beta: they must agree.
+     * Sets every reference on alpha, changes channel, and asks the probe decisions of
+     * the page and of one that has just opened: they must agree.
      */
-    private fun forgetsEveryReferenceTakenBeforeTheChange(change: () -> Unit) {
-        state.onStarted("alpha")
-
+    @Test
+    fun aChannelChange_forgetsEveryReferenceTakenOnThePreviousChannel() {
         /* The loaded mark, and a success with how far back it reached. */
         openWithASuccess()
         /* The render watermark, a pause, a stop and the offline reference it arms. */
@@ -338,10 +288,9 @@ class HistoryBackfillStateTest {
         assertNotNull(fail(sent(refresh(T1 - 5_000L)), T1 - 4_000L))
         sent(refresh(T1 - 1_000L))
 
-        change()
+        state.onChannelChanged()
 
-        val opened = HistoryBackfillState().apply { onStarted("beta") }
-        assertEquals(probe(opened), probe(state))
+        assertEquals(probe(HistoryBackfillState()), probe(state))
     }
 
     /**
