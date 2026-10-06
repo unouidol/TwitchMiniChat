@@ -2,7 +2,10 @@ package com.fs.twitchminichat
 
 import android.view.View
 import android.view.ViewGroup
-import java.util.WeakHashMap
+import com.fs.twitchminichat.chat.ChatTimeline
+import com.fs.twitchminichat.chat.ChatTimelineRow
+import com.fs.twitchminichat.chat.ChatTimelineViewSync
+import com.fs.twitchminichat.chat.ChatTimelineViews
 
 /** Identifies the stable chronological position of one rendered chat row. */
 data class ChatTimelinePosition(
@@ -33,73 +36,66 @@ object ChatTimelineOrderer {
     }
 }
 
-/** Keeps rendered chat rows ordered across asynchronous history and live delivery. */
+/**
+ * Keeps rendered chat rows ordered across asynchronous history and live delivery.
+ *
+ * The order is decided by a [ChatTimeline], the list of rows, and the container's
+ * children follow it: the child at an index is the view of the row at that index, and
+ * carries that row as its tag. This controller must be the only writer of the container.
+ */
 class ChatTimelineController(
-    private val container: ViewGroup,
-    private val currentTimeMillis: () -> Long = System::currentTimeMillis
+    container: ViewGroup,
+    currentTimeMillis: () -> Long = System::currentTimeMillis
 ) {
-    private val positionsByView = WeakHashMap<View, ChatTimelinePosition>()
-    private var nextSequence = 0L
+    private val sync = ChatTimelineViewSync(
+        views = ContainerTimelineViews(container),
+        timeline = ChatTimeline(currentTimeMillis)
+    )
 
-    /** Inserts one row according to its Twitch timestamp. */
+    /** Inserts one row according to its Twitch timestamp, with the data [row] builds for it. */
     fun insert(
         view: View,
         messageTimestampSec: Double?,
-        preservedPosition: ChatTimelinePosition? = null
+        preservedPosition: ChatTimelinePosition? = null,
+        row: (ChatTimelinePosition) -> ChatTimelineRow
     ): ChatTimelinePosition {
-        val position = ChatTimelinePosition(
-            timestampMillis = resolveTimestampMillis(messageTimestampSec),
-            sequence = preservedPosition?.sequence ?: nextSequence++
-        )
-
-        val existingPositions = buildList {
-            for (index in 0 until container.childCount) {
-                val child = container.getChildAt(index)
-                add(
-                    positionsByView[child] ?: ChatTimelinePosition(
-                        timestampMillis = Long.MIN_VALUE,
-                        sequence = index.toLong()
-                    )
-                )
-            }
-        }
-
-        val insertionIndex = ChatTimelineOrderer.insertionIndex(
-            existingPositions = existingPositions,
-            candidate = position
-        )
-
-        positionsByView[view] = position
-        container.addView(view, insertionIndex)
-        return position
+        return sync.insert(view, messageTimestampSec, preservedPosition, row).position
     }
 
     /** Removes one row and returns its former chronological position. */
     fun removeAndTakePosition(view: View): ChatTimelinePosition? {
-        val position = positionsByView.remove(view)
-        container.removeView(view)
-        return position
+        return sync.removeAndTakePosition(view)
     }
 
     /** Removes one row without preserving its chronological position. */
     fun remove(view: View) {
-        positionsByView.remove(view)
-        container.removeView(view)
+        sync.remove(view)
     }
 
     /** Clears the rendered timeline and its ordering metadata. */
     fun clear() {
-        positionsByView.clear()
-        nextSequence = 0L
-        container.removeAllViews()
+        sync.clear()
+    }
+}
+
+/** The timeline's views as the children of [container], each with its row as its tag. */
+private class ContainerTimelineViews(
+    private val container: ViewGroup
+) : ChatTimelineViews<View> {
+
+    override fun indexOf(view: View): Int = container.indexOfChild(view)
+
+    override fun add(view: View, row: ChatTimelineRow, index: Int) {
+        /* Set before the view is added, as the message rows' tag always was. */
+        view.tag = row
+        container.addView(view, index)
     }
 
-    /** Converts a valid Twitch timestamp to milliseconds or uses local time as fallback. */
-    private fun resolveTimestampMillis(messageTimestampSec: Double?): Long {
-        return messageTimestampSec
-            ?.takeIf { timestamp -> timestamp.isFinite() && timestamp > 0.0 }
-            ?.times(1000.0)
-            ?.toLong()
-            ?: currentTimeMillis()
+    override fun removeAt(index: Int) {
+        container.removeViewAt(index)
+    }
+
+    override fun removeAll() {
+        container.removeAllViews()
     }
 }
