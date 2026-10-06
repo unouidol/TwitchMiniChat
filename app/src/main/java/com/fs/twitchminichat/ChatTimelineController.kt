@@ -76,6 +76,16 @@ class ChatTimelineController(
     fun clear() {
         sync.clear()
     }
+
+    /** Hides the messages of [usernameLower], a trimmed and lowercased name. Returns whether any row changed. */
+    fun hideUser(usernameLower: String): Boolean {
+        return sync.hideUser(usernameLower)
+    }
+
+    /** Makes [users], trimmed and lowercased, the hidden users. Returns whether any row changed. */
+    fun setHiddenUsers(users: Set<String>): Boolean {
+        return sync.setHiddenUsers(users)
+    }
 }
 
 /** The timeline's views as the children of [container], each with its row as its tag. */
@@ -97,5 +107,9 @@ private class ContainerTimelineViews(
 
     override fun removeAll() {
         container.removeAllViews()
+    }
+
+    override fun setShown(index: Int, shown: Boolean) {
+        container.getChildAt(index).visibility = if (shown) View.VISIBLE else View.GONE
     }
 }
