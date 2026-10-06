@@ -125,6 +125,43 @@ class ChatTimelineEchoTest {
     }
 
     @Test
+    fun theEchoIsFoundPastAMessageFromAUserNamedLikeItsLocalId() {
+        message("m1", "local-1", 9.0)
+        echo("e1", "local-1", 10.0)
+
+        assertTrue(sync.applyEchoEvent("local-1", TIMEOUT))
+        assertEquals(listOf(Rebind("e1", ChatTimelineChange.ECHO_STATUS, PendingEchoStatus.UNCONFIRMED)), views.rebinds)
+    }
+
+    @Test
+    fun ifTwoEchoesEverSharedALocalId_theEarlierOneWouldBeTheOneMoved() {
+        echo("e1", "local-1", 10.0)
+        echo("e2", "local-1", 11.0)
+
+        sync.applyEchoEvent("local-1", NOTICE)
+
+        assertEquals(listOf(Rebind("e1", ChatTimelineChange.ECHO_STATUS, PendingEchoStatus.REJECTED)), views.rebinds)
+    }
+
+    @Test
+    fun aSecondTimeout_rebindsNothing() {
+        echo("e1", "local-1", 10.0)
+
+        assertTrue(sync.applyEchoEvent("local-1", TIMEOUT))
+        assertFalse(sync.applyEchoEvent("local-1", TIMEOUT))
+        assertEquals(1, views.rebinds.size)
+    }
+
+    @Test
+    fun aRejectedEcho_isNotReboundByALaterUserState() {
+        echo("e1", "local-1", 10.0)
+        sync.applyEchoEvent("local-1", NOTICE)
+
+        assertFalse(sync.applyEchoEvent("local-1", USERSTATE))
+        assertEquals(listOf(Rebind("e1", ChatTimelineChange.ECHO_STATUS, PendingEchoStatus.REJECTED)), views.rebinds)
+    }
+
+    @Test
     fun theRightEchoIsRebound_afterRowsBeforeItAreRemoved() {
         message("m1", "alice", 1.0)
         message("m2", "alice", 2.0)

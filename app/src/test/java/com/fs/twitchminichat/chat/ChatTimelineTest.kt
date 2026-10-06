@@ -238,6 +238,37 @@ class ChatTimelineTest {
     }
 
     @Test
+    fun indexOfFirst_returnsTheEarliestOfMatchesThatAreNotNeighbours() {
+        add("x", 1.0)
+        add("y", 2.0)
+        add("x", 3.0)
+        add("y", 4.0)
+
+        assertEquals(0, timeline.indexOfFirst { row -> (row as SystemLineRow).text == "x" })
+        assertEquals(1, timeline.indexOfFirst { row -> (row as SystemLineRow).text == "y" })
+    }
+
+    @Test
+    fun aReplacingRowWithTheSameTimestampButAnotherSequence_isRefused() {
+        add("a", 1.0)
+        val position = timeline.rows[0].position
+
+        assertThrows(IllegalArgumentException::class.java) {
+            timeline.replaceAt(0, SystemLineRow(position.copy(sequence = position.sequence + 1), "a2"))
+        }
+    }
+
+    @Test
+    fun aReplacingRowWithTheSameSequenceButAnotherTimestamp_isRefused() {
+        add("a", 1.0)
+        val position = timeline.rows[0].position
+
+        assertThrows(IllegalArgumentException::class.java) {
+            timeline.replaceAt(0, SystemLineRow(position.copy(timestampMillis = position.timestampMillis + 1), "a2"))
+        }
+    }
+
+    @Test
     fun aReplacingRowAtAnotherPosition_isRefused() {
         add("a", 1.0)
         add("b", 2.0)
