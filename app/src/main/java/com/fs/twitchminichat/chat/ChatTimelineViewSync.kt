@@ -19,6 +19,14 @@ interface ChatTimelineViews<V> {
 
     /** Removes every view. */
     fun removeAll()
+
+    /**
+     * Shows or hides the view at [index], leaving it where it is.
+     *
+     * While every row's view stays in the layout, this is how the layout presents
+     * [ChatTimelineVisibility]; a list fed with only the shown rows would not need it.
+     */
+    fun setShown(index: Int, shown: Boolean)
 }
 
 /**
@@ -27,11 +35,23 @@ interface ChatTimelineViews<V> {
  *
  * Nothing else may add or remove a view, so the view at an index is always the view of
  * the row at that index, and a view is found again by its index alone.
+ *
+ * Which views are shown follows [ChatTimelineVisibility] over the timeline and the
+ * hidden users given to it: a view is hidden or shown again in place, never removed
+ * and rebuilt, and its row never leaves the timeline. Nothing else may change whether
+ * a view is shown, so each view always shows what the derivation says of its row.
  */
 class ChatTimelineViewSync<V>(
     private val views: ChatTimelineViews<V>,
     private val timeline: ChatTimeline
 ) {
+
+    /* Trimmed and lowercased; kept across clear, like the hidden users themselves. */
+    private var hiddenUsers: Set<String> = emptySet()
+
+    /** The rows that are shown, in timeline order. */
+    val shownRows: List<ChatTimelineRow>
+        get() = ChatTimelineVisibility.shownRows(timeline.rows, hiddenUsers)
 
     /** Inserts [view] with the row [create] builds, where the timeline places it, and returns the row. */
     fun insert(
@@ -43,7 +63,37 @@ class ChatTimelineViewSync<V>(
         val index = timeline.insert(messageTimestampSec, preservedPosition, create)
         val row = timeline.rows[index]
         views.add(view, row, index)
+        if (!ChatTimelineVisibility.isShown(row, hiddenUsers)) {
+            views.setShown(index, false)
+        }
         return row
+    }
+
+    /**
+     * Hides the rows of [usernameLower], a trimmed and lowercased name, on top of the
+     * users already hidden. Returns whether any view changed.
+     */
+    fun hideUser(usernameLower: String): Boolean {
+        return setHiddenUsers(hiddenUsers + usernameLower)
+    }
+
+    /**
+     * Makes [users], trimmed and lowercased, the hidden users, and shows or hides each view
+     * whose row that changes. Returns whether any view changed.
+     */
+    fun setHiddenUsers(users: Set<String>): Boolean {
+        val previous = hiddenUsers
+        hiddenUsers = users.toSet()
+
+        var changed = false
+        timeline.rows.forEachIndexed { index, row ->
+            val shown = ChatTimelineVisibility.isShown(row, hiddenUsers)
+            if (shown != ChatTimelineVisibility.isShown(row, previous)) {
+                views.setShown(index, shown)
+                changed = true
+            }
+        }
+        return changed
     }
 
     /** Removes [view] and its row and returns the row's position, or null when [view] is not in the timeline. */
@@ -61,7 +111,7 @@ class ChatTimelineViewSync<V>(
         removeAndTakePosition(view)
     }
 
-    /** Removes every view and row, and restarts the timeline's sequence. */
+    /** Removes every view and row, and restarts the timeline's sequence. The hidden users stay hidden. */
     fun clear() {
         timeline.clear()
         views.removeAll()

@@ -179,6 +179,11 @@ class ChatTimelineViewSyncTest {
             shown.clear()
             rowsShown.clear()
         }
+
+        /* No user is hidden in these tests; ChatTimelineHiddenUsersTest covers this. */
+        override fun setShown(index: Int, shown: Boolean) {
+            error("no view should be shown or hidden here: index $index, shown $shown")
+        }
     }
 
     /**
