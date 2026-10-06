@@ -51,6 +51,8 @@ import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.SystemLineRow
 import com.fs.twitchminichat.chat.ViewOnlyRow
+import com.fs.twitchminichat.chat.EmoteAnimationGate
+import com.fs.twitchminichat.chat.TimelineSpan
 import com.fs.twitchminichat.chat.HistoryBackfillDecision
 import com.fs.twitchminichat.chat.HistoryBackfillInputs
 import com.fs.twitchminichat.chat.HistoryBackfillPolicy
@@ -192,6 +194,25 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private lateinit var chatTimelineController: ChatTimelineController
     /** Owns inline emote requests and animated drawable lifecycles for chat rows. */
     private var emoteImageLoader: TwitchEmoteImageLoader? = null
+
+    /**
+     * Decides which rows' animated emotes run, for the life of the chat view. This page
+     * only reports to it: started or stopped, current page or not, and the viewport.
+     */
+    private var emoteAnimationGate: EmoteAnimationGate<AnimatedEmoteRow>? = null
+
+    /* True while a viewport reconcile is posted and has not run yet. */
+    private var emoteAnimationReconcilePending = false
+
+    private val emoteAnimationReconcile = Runnable {
+        emoteAnimationReconcilePending = false
+        reportEmoteAnimationViewport()
+    }
+
+    /* Re-asks the pager's owner; registered from onStart to onStop. */
+    private val currentChatPageListener: () -> Unit = {
+        emoteAnimationGate?.onCurrentPage(isCurrentChatPage())
+    }
     /** Resolves the authenticated account's own outgoing emotes from a cached catalog. */
     private var emoteCatalogController: TwitchEmoteCatalogController? = null
 
@@ -1463,10 +1484,30 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         scrollChat = view.findViewById(R.id.scrollChat)
         chatContainer = view.findViewById(R.id.chatContainer)
         chatTimelineController = ChatTimelineController(chatContainer)
+        val animationGate = EmoteAnimationGate<AnimatedEmoteRow>(
+            spanOf = { row -> timelineSpanOf(row.view) },
+            setAnimating = { row, animating -> row.setAnimationsWanted(animating) }
+        )
+        emoteAnimationGate = animationGate
         emoteImageLoader = TwitchEmoteImageLoader(
             requestManager = Glide.with(this),
-            chatPageView = view
+            chatPageView = view,
+            animatedRows = object : AnimatedEmoteRowListener {
+                override fun onAnimatedRowAdded(row: AnimatedEmoteRow) {
+                    animationGate.add(row)
+                    /* Usually not laid out yet: the next reconcile places it. */
+                    scheduleEmoteAnimationReconcile()
+                }
+
+                override fun onAnimatedRowReleased(row: AnimatedEmoteRow) {
+                    animationGate.remove(row)
+                }
+            }
         )
+        /* Rows inserted or resized above the viewport move the others without a scroll. */
+        chatContainer.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            scheduleEmoteAnimationReconcile()
+        }
         emoteCatalogController = TwitchEmoteCatalogController(
             context = requireContext(),
             accountId = accountId
@@ -1895,6 +1936,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
 
             updateJumpToBottomButton()
+            scheduleEmoteAnimationReconcile()
         }
 
         updateJumpToBottomButton()
@@ -1939,6 +1981,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         emoteImageLoader?.clearAll()
         emoteImageLoader = null
+        if (this::scrollChat.isInitialized) {
+            scrollChat.removeCallbacks(emoteAnimationReconcile)
+        }
+        emoteAnimationReconcilePending = false
+        emoteAnimationGate = null
         emoteCatalogController?.close()
         emoteCatalogController = null
 
@@ -1950,6 +1997,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     override fun onStart() {
         super.onStart()
+
+        /*
+         * Started, and current only if the pager's owner says so: a neighbour page is
+         * started too, and is never resumed or paused while it is not current.
+         */
+        emoteAnimationGate?.onStarted()
+        (activity as? CurrentChatPageSource)?.addCurrentChatPageListener(currentChatPageListener)
+        emoteAnimationGate?.onCurrentPage(isCurrentChatPage())
 
         val newCfg = AccountRepository(requireContext()).getById(accountId) ?: return
 
@@ -2011,6 +2066,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     override fun onStop() {
         super.onStop()
+
+        /* The app went to the background, or something covers it: nothing runs. */
+        (activity as? CurrentChatPageSource)?.removeCurrentChatPageListener(currentChatPageListener)
+        emoteAnimationGate?.onStopped()
 
         val stoppedAtMs = System.currentTimeMillis()
         backfillState.onStopped(stoppedAtMs)
@@ -3674,6 +3733,46 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
+    /** Whether the pager's owner says this is its current page; true outside such a host. */
+    private fun isCurrentChatPage(): Boolean {
+        return (activity as? CurrentChatPageSource)?.isCurrentChatPage(accountId) ?: true
+    }
+
+    /**
+     * Reports the viewport to [emoteAnimationGate] once, [EMOTE_ANIMATION_RECONCILE_DELAY_MS]
+     * after the first scroll or layout that asks for it. Those that arrive before it runs
+     * are absorbed, and it reads the position when it runs: at most one reconcile per
+     * interval, however fast the scroll events come, and never one per event.
+     */
+    private fun scheduleEmoteAnimationReconcile() {
+        if (emoteAnimationReconcilePending || !this::scrollChat.isInitialized) return
+
+        emoteAnimationReconcilePending = true
+        scrollChat.postDelayed(emoteAnimationReconcile, EMOTE_ANIMATION_RECONCILE_DELAY_MS)
+    }
+
+    private fun reportEmoteAnimationViewport() {
+        val gate = emoteAnimationGate ?: return
+        if (!this::scrollChat.isInitialized || !this::chatContainer.isInitialized) return
+
+        /* The timeline's coordinates are the container's; the scroll offset is the view's. */
+        val top = scrollChat.scrollY - chatContainer.top
+        gate.onViewport(top = top, bottom = top + scrollChat.height)
+    }
+
+    /** Where [row] is in the timeline's coordinates, or null when it is not in the timeline. */
+    private fun timelineSpanOf(row: View): TimelineSpan? {
+        if (!this::chatContainer.isInitialized) return null
+
+        var top = 0
+        var current: View = row
+        while (current !== chatContainer) {
+            top += current.top
+            current = current.parent as? View ?: return null
+        }
+        return TimelineSpan(top = top, bottom = top + row.height)
+    }
+
     private fun isDarkTheme(): Boolean {
         val nightMode = resources.configuration.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK
@@ -4142,6 +4241,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * taps feel delayed.
          */
         private const val COMPOSER_FOCUS_GUARD_MS = 420L
+
+        /**
+         * How long a scroll or a layout waits before the visible rows are reconciled.
+         *
+         * A row that scrolls into view shows the frame it stopped on until then; a row
+         * that leaves keeps running until then. A tenth of a second is short enough not
+         * to be seen as a frozen emote, and caps the work at ten reconciles a second
+         * during a fling.
+         */
+        private const val EMOTE_ANIMATION_RECONCILE_DELAY_MS = 100L
 
         /**
          * Maximum time after composer ACTION_DOWN where an outside click can be considered
