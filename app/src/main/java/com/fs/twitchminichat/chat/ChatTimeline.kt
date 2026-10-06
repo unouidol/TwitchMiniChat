@@ -58,6 +58,18 @@ class ChatTimeline(
     /** Removes and returns the row at [index]. */
     fun removeAt(index: Int): ChatTimelineRow = entries.removeAt(index)
 
+    /** The index of the first row [matches] accepts, or -1. */
+    fun indexOfFirst(matches: (ChatTimelineRow) -> Boolean): Int = entries.indexOfFirst(matches)
+
+    /**
+     * Puts [row] at [index] in place of the row there, which it must replace at the same
+     * position: nothing moves, and no sequence is taken.
+     */
+    fun replaceAt(index: Int, row: ChatTimelineRow) {
+        require(row.position == entries[index].position) { "A replacing row must keep the position of the row it replaces." }
+        entries[index] = row
+    }
+
     /** Removes every row and starts the sequence again from zero. */
     fun clear() {
         entries.clear()

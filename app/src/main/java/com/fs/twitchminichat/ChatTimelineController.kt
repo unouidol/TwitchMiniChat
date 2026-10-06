@@ -3,9 +3,12 @@ package com.fs.twitchminichat
 import android.view.View
 import android.view.ViewGroup
 import com.fs.twitchminichat.chat.ChatTimeline
+import com.fs.twitchminichat.chat.ChatTimelineChange
 import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.ChatTimelineViewSync
 import com.fs.twitchminichat.chat.ChatTimelineViews
+import com.fs.twitchminichat.chat.PendingEchoEvent
+import com.fs.twitchminichat.chat.RebindableTimelineView
 
 /** Identifies the stable chronological position of one rendered chat row. */
 data class ChatTimelinePosition(
@@ -62,16 +65,6 @@ class ChatTimelineController(
         return sync.insert(view, messageTimestampSec, preservedPosition, row).position
     }
 
-    /** Removes one row and returns its former chronological position. */
-    fun removeAndTakePosition(view: View): ChatTimelinePosition? {
-        return sync.removeAndTakePosition(view)
-    }
-
-    /** Removes one row without preserving its chronological position. */
-    fun remove(view: View) {
-        sync.remove(view)
-    }
-
     /** Clears the rendered timeline and its ordering metadata. */
     fun clear() {
         sync.clear()
@@ -85,6 +78,16 @@ class ChatTimelineController(
     /** Makes [users], trimmed and lowercased, the hidden users. Returns whether any row changed. */
     fun setHiddenUsers(users: Set<String>): Boolean {
         return sync.setHiddenUsers(users)
+    }
+
+    /** Moves the echo of [localId] by [event], rebinding its view in place. Returns whether its status changed. */
+    fun applyEchoEvent(localId: String, event: PendingEchoEvent): Boolean {
+        return sync.applyEchoEvent(localId, event)
+    }
+
+    /** Removes the echo of [localId] and returns its position for the canonical message, or null. */
+    fun removeEcho(localId: String): ChatTimelinePosition? {
+        return sync.removeEcho(localId)
     }
 }
 
@@ -111,5 +114,12 @@ private class ContainerTimelineViews(
 
     override fun setShown(index: Int, shown: Boolean) {
         container.getChildAt(index).visibility = if (shown) View.VISIBLE else View.GONE
+    }
+
+    override fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange) {
+        val view = container.getChildAt(index)
+        /* The tag follows the row, as add set it; the view itself applies the change. */
+        view.tag = row
+        (view as? RebindableTimelineView)?.rebind(row, change)
     }
 }

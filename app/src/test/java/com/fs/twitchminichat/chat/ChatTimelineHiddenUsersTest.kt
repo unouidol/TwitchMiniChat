@@ -256,8 +256,8 @@ class ChatTimelineHiddenUsersTest {
                     }
                     6 -> {
                         val name = "v${nextName++}"
-                        old.insert(name, 8.0) { position -> ViewOnlyRow(position) }
-                        sync.insert(name, 8.0, null) { position -> ViewOnlyRow(position) }
+                        old.insert(name, 8.0) { position -> echoRow(position) }
+                        sync.insert(name, 8.0, null) { position -> echoRow(position) }
                     }
                     7 -> if (old.views.isNotEmpty()) {
                         val name = old.views[random.nextInt(old.views.size)]
@@ -321,8 +321,19 @@ class ChatTimelineHiddenUsersTest {
     }
 
     private fun echo(view: String, timestampSec: Double) {
-        sync.insert(view, timestampSec, null) { position -> ViewOnlyRow(position) }
+        sync.insert(view, timestampSec, null) { position -> echoRow(position) }
     }
+
+    private fun echoRow(position: ChatTimelinePosition) = PendingEchoRow(
+        position = position,
+        localId = "local-${position.sequence}",
+        user = "me",
+        messageText = "text",
+        emotesRaw = null,
+        replyParentUserLogin = null,
+        sentAtSec = position.timestampMillis / 1000.0,
+        status = PendingEchoStatus.SENDING
+    )
 
     private fun messageRow(position: ChatTimelinePosition, user: String): ChatMessageRow {
         return ChatMessageRow(
@@ -369,6 +380,11 @@ class ChatTimelineHiddenUsersTest {
             val view = views[index]
             setShownCalls += view to shown
             if (shown) hidden -= view else hidden += view
+        }
+
+        /* No echo changes status in these tests; ChatTimelineEchoTest covers this. */
+        override fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange) {
+            error("no view should be rebound here: index $index, change $change")
         }
     }
 

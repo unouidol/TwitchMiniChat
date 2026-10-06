@@ -108,5 +108,14 @@ class ChatTimelineVisibilityTest {
 
     private fun systemLine(text: String) = SystemLineRow(position(), text)
 
-    private fun echo() = ViewOnlyRow(position())
+    private fun echo() = PendingEchoRow(
+        position = position(),
+        localId = "local",
+        user = "me",
+        messageText = "text",
+        emotesRaw = null,
+        replyParentUserLogin = null,
+        sentAtSec = 1.0,
+        status = PendingEchoStatus.SENDING
+    )
 }

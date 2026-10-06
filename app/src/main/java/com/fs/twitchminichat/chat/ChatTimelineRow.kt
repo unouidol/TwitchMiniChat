@@ -55,12 +55,28 @@ data class SystemLineRow(
 ) : ChatTimelineRow
 
 /**
- * A row whose content exists only in its views.
+ * The local echo of a message this account sent, shown at once while Twitch has not
+ * confirmed it, with everything its view was built from and where its sending stands.
  *
- * Today that is the pending outgoing echo: its status line and its opacity are changed
- * in place on the views as the message is confirmed, left unconfirmed or rejected, and
- * nothing describes them as data yet. The timeline still needs its place in the order.
+ * The echo is found by [localId], the identifier OutgoingChatMessageTracker gave the
+ * write. Only [status] changes during its life, and a change of status rebinds the
+ * existing view instead of building a new one: the message part, with its emotes, is
+ * never rebuilt. The echo ends when the canonical message replaces it, or with the
+ * timeline.
  */
-data class ViewOnlyRow(
-    override val position: ChatTimelinePosition
+data class PendingEchoRow(
+    override val position: ChatTimelinePosition,
+    /** The write's identifier in OutgoingChatMessageTracker. */
+    val localId: String,
+    /** This account's username, as the row shows it. */
+    val user: String,
+    /** The message as the tracker recorded it. */
+    val messageText: String,
+    /** The emotes tag built from this account's emote catalog when the message was sent. */
+    val emotesRaw: String?,
+    /** The login of the user being replied to, or null when the message is not a reply. */
+    val replyParentUserLogin: String?,
+    /** When the write left, in seconds; what [position] was ordered by. */
+    val sentAtSec: Double,
+    val status: PendingEchoStatus
 ) : ChatTimelineRow

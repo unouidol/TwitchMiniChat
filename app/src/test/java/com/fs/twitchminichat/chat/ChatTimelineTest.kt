@@ -199,6 +199,86 @@ class ChatTimelineTest {
         assertEquals(0L, timeline.rows.single().position.sequence)
     }
 
+    // ---------------------------------------------------------------------------
+    // Finding and replacing a row
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun indexOfFirst_findsTheFirstMatchingRow_orMinusOne() {
+        add("a", 1.0)
+        add("b", 2.0)
+        add("b", 3.0)
+
+        assertEquals(1, timeline.indexOfFirst { row -> (row as SystemLineRow).text == "b" })
+        assertEquals(-1, timeline.indexOfFirst { row -> (row as SystemLineRow).text == "z" })
+    }
+
+    @Test
+    fun replaceAt_putsTheNewRowInTheSamePlace_andMovesNothing() {
+        add("a", 1.0)
+        add("b", 2.0)
+        add("c", 3.0)
+        val position = timeline.rows[1].position
+
+        timeline.replaceAt(1, SystemLineRow(position, "b2"))
+
+        assertEquals(listOf("a", "b2", "c"), order())
+        assertEquals(position, timeline.rows[1].position)
+    }
+
+    @Test
+    fun replaceAt_takesNoSequence() {
+        add("a", 1.0)
+        val position = timeline.rows[0].position
+        timeline.replaceAt(0, SystemLineRow(position, "a2"))
+
+        add("b", 2.0)
+
+        assertEquals(1L, timeline.rows[1].position.sequence)
+    }
+
+    @Test
+    fun indexOfFirst_returnsTheEarliestOfMatchesThatAreNotNeighbours() {
+        add("x", 1.0)
+        add("y", 2.0)
+        add("x", 3.0)
+        add("y", 4.0)
+
+        assertEquals(0, timeline.indexOfFirst { row -> (row as SystemLineRow).text == "x" })
+        assertEquals(1, timeline.indexOfFirst { row -> (row as SystemLineRow).text == "y" })
+    }
+
+    @Test
+    fun aReplacingRowWithTheSameTimestampButAnotherSequence_isRefused() {
+        add("a", 1.0)
+        val position = timeline.rows[0].position
+
+        assertThrows(IllegalArgumentException::class.java) {
+            timeline.replaceAt(0, SystemLineRow(position.copy(sequence = position.sequence + 1), "a2"))
+        }
+    }
+
+    @Test
+    fun aReplacingRowWithTheSameSequenceButAnotherTimestamp_isRefused() {
+        add("a", 1.0)
+        val position = timeline.rows[0].position
+
+        assertThrows(IllegalArgumentException::class.java) {
+            timeline.replaceAt(0, SystemLineRow(position.copy(timestampMillis = position.timestampMillis + 1), "a2"))
+        }
+    }
+
+    @Test
+    fun aReplacingRowAtAnotherPosition_isRefused() {
+        add("a", 1.0)
+        add("b", 2.0)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            timeline.replaceAt(0, SystemLineRow(timeline.rows[1].position, "moved"))
+        }
+        assertEquals(listOf("a", "b"), order())
+    }
+
     @Test
     fun aRowThatDoesNotTakeThePositionItIsGiven_isRefused() {
         assertThrows(IllegalArgumentException::class.java) {
