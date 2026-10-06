@@ -184,6 +184,11 @@ class ChatTimelineViewSyncTest {
         override fun setShown(index: Int, shown: Boolean) {
             error("no view should be shown or hidden here: index $index, shown $shown")
         }
+
+        /* No echo changes status in these tests; ChatTimelineEchoTest covers this. */
+        override fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange) {
+            error("no view should be rebound here: index $index, change $change")
+        }
     }
 
     /**

@@ -27,6 +27,27 @@ interface ChatTimelineViews<V> {
      * [ChatTimelineVisibility]; a list fed with only the shown rows would not need it.
      */
     fun setShown(index: Int, shown: Boolean)
+
+    /**
+     * Updates the view at [index], which showed the row [row] replaced, to show [row].
+     *
+     * Only what [change] names is applied, to the view that is already there. The view is
+     * not rebuilt, so nothing it loaded - an echo's emotes - is loaded again.
+     */
+    fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange)
+}
+
+/** A row's view that can show a changed row in place, without being rebuilt. */
+interface RebindableTimelineView {
+
+    /** Shows [row], applying only what [change] names. */
+    fun rebind(row: ChatTimelineRow, change: ChatTimelineChange)
+}
+
+/** What changed in a row that is rebound in place: the payload of [ChatTimelineViews.rebind]. */
+enum class ChatTimelineChange {
+    /** A pending echo's status, and with it its status line and opacity. */
+    ECHO_STATUS
 }
 
 /**
@@ -109,6 +130,42 @@ class ChatTimelineViewSync<V>(
     /** Removes [view] and its row, when it is in the timeline. */
     fun remove(view: V) {
         removeAndTakePosition(view)
+    }
+
+    /**
+     * Moves the echo of [localId] by [event] and rebinds its view when its status changes.
+     * Returns whether it did: false when no echo of [localId] is in the timeline, or the
+     * event leaves its status as it was.
+     */
+    fun applyEchoEvent(localId: String, event: PendingEchoEvent): Boolean {
+        val index = indexOfEcho(localId)
+        if (index < 0) return false
+
+        val echo = timeline.rows[index] as PendingEchoRow
+        val status = echo.status.after(event)
+        if (status == echo.status) return false
+
+        val updated = echo.copy(status = status)
+        timeline.replaceAt(index, updated)
+        views.rebind(index, updated, ChatTimelineChange.ECHO_STATUS)
+        return true
+    }
+
+    /**
+     * Removes the echo of [localId] and its view, and returns its position for the
+     * canonical message that replaces it; null when no echo of [localId] is in the timeline.
+     */
+    fun removeEcho(localId: String): ChatTimelinePosition? {
+        val index = indexOfEcho(localId)
+        if (index < 0) return null
+
+        val row = timeline.removeAt(index)
+        views.removeAt(index)
+        return row.position
+    }
+
+    private fun indexOfEcho(localId: String): Int {
+        return timeline.indexOfFirst { row -> row is PendingEchoRow && row.localId == localId }
     }
 
     /** Removes every view and row, and restarts the timeline's sequence. The hidden users stay hidden. */
