@@ -47,6 +47,10 @@ import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChannelBoundPage
 import com.fs.twitchminichat.chat.ChatChannelBinding
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
+import com.fs.twitchminichat.chat.ChatMessageRow
+import com.fs.twitchminichat.chat.ChatTimelineRow
+import com.fs.twitchminichat.chat.SystemLineRow
+import com.fs.twitchminichat.chat.ViewOnlyRow
 import com.fs.twitchminichat.chat.HistoryBackfillDecision
 import com.fs.twitchminichat.chat.HistoryBackfillInputs
 import com.fs.twitchminichat.chat.HistoryBackfillPolicy
@@ -84,6 +88,14 @@ import kotlin.coroutines.resume
 
 /** Logcat tag for non-sensitive backend history diagnostics. */
 private const val HISTORY_LOG_TAG = "TMC_HISTORY"
+
+/**
+ * The row a chat message view carries as its tag, under the name its readers still use.
+ *
+ * The hidden-user paths and the long-press handler read it back from the view; they move
+ * to the timeline's list one at a time, and this name goes with the last of them.
+ */
+private typealias ChatViewMeta = ChatMessageRow
 
 
 
@@ -212,13 +224,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     /** Prevents overlapping backend writes from repeated alert-menu taps. */
     private var profileAlertSyncInProgress = false
-
-    private data class ChatViewMeta(
-        val usernameLower: String,
-        val messageId: String?,
-        val messageText: String,
-        val messageTimestampSec: Double
-    )
 
     private data class PendingOutgoingView(
         val row: LinearLayout,
@@ -2455,7 +2460,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             view = row,
             forceScroll = true,
             countAsUnread = false,
-            messageTimestampSec = pending.sentAtSec
+            messageTimestampSec = pending.sentAtSec,
+            row = ::ViewOnlyRow
         )
 
         val timeout = Runnable {
@@ -3184,13 +3190,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    /** Inserts one chat row chronologically without disturbing composer focus. */
+    /**
+     * Inserts one chat row chronologically without disturbing composer focus.
+     *
+     * [row] builds the row's data from the position the timeline gives it; the timeline
+     * keeps that row, and the view carries it as its tag.
+     */
     private fun appendChatView(
         view: View,
         forceScroll: Boolean = false,
         countAsUnread: Boolean = true,
         messageTimestampSec: Double? = null,
-        preservedTimelinePosition: ChatTimelinePosition? = null
+        preservedTimelinePosition: ChatTimelinePosition? = null,
+        row: (ChatTimelinePosition) -> ChatTimelineRow
     ) {
         val hadComposerFocus = this::editMessage.isInitialized && editMessage.hasFocus()
         val oldSelectionStart = if (hadComposerFocus) editMessage.selectionStart else 0
@@ -3203,7 +3215,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         chatTimelineController.insert(
             view = view,
             messageTimestampSec = messageTimestampSec,
-            preservedPosition = preservedTimelinePosition
+            preservedPosition = preservedTimelinePosition,
+            row = row
         )
 
         if (shouldAutoScroll) {
@@ -3230,7 +3243,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         tv.setTextColor(colorOnSurfaceVariant())
         tv.textSize = 12f
 
-        appendChatView(tv, forceScroll = false, countAsUnread = false)
+        appendChatView(tv, forceScroll = false, countAsUnread = false) { position ->
+            SystemLineRow(position = position, text = text)
+        }
     }
 
     private fun currentChannelNormalized(): String {
@@ -3605,13 +3620,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             replyParentUserLogin = replyParentUserLogin
         )
 
-        tv.tag = ChatViewMeta(
-            usernameLower = normalizeChatUser(user),
-            messageId = msgId,
-            messageText = message,
-            messageTimestampSec = resolvedMessageTimestampSec
-        )
-
         tv.setOnLongClickListener {
             val meta = tv.tag as? ChatViewMeta
 
@@ -3643,7 +3651,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             countAsUnread = true,
             messageTimestampSec = resolvedMessageTimestampSec,
             preservedTimelinePosition = preservedTimelinePosition
-        )
+        ) { position ->
+            ChatMessageRow(
+                position = position,
+                user = user,
+                usernameLower = normalizeChatUser(user),
+                messageId = msgId,
+                messageText = message,
+                messageTimestampSec = resolvedMessageTimestampSec,
+                emotesRaw = emotesRaw,
+                replyParentUserLogin = replyParentUserLogin
+            )
+        }
     }
 
     private fun scrollToBottom() {
