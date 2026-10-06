@@ -55,17 +55,6 @@ data class SystemLineRow(
 ) : ChatTimelineRow
 
 /**
- * A row whose content exists only in its views.
- *
- * Today that is the pending outgoing echo: its status line and its opacity are changed
- * in place on the views as the message is confirmed, left unconfirmed or rejected, and
- * nothing describes them as data yet. The timeline still needs its place in the order.
- */
-data class ViewOnlyRow(
-    override val position: ChatTimelinePosition
-) : ChatTimelineRow
-
-/**
  * The local echo of a message this account sent, shown at once while Twitch has not
  * confirmed it, with everything its view was built from and where its sending stands.
  *

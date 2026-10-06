@@ -50,7 +50,9 @@ import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.SystemLineRow
-import com.fs.twitchminichat.chat.ViewOnlyRow
+import com.fs.twitchminichat.chat.PendingEchoEvent
+import com.fs.twitchminichat.chat.PendingEchoRow
+import com.fs.twitchminichat.chat.PendingEchoStatus
 import com.fs.twitchminichat.chat.EmoteAnimationGate
 import com.fs.twitchminichat.chat.TimelineSpan
 import com.fs.twitchminichat.chat.HistoryBackfillDecision
@@ -123,7 +125,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private val outgoingChatMessageTracker = OutgoingChatMessageTracker()
     private val outgoingMessageHandler = Handler(Looper.getMainLooper())
-    private val pendingOutgoingViews = LinkedHashMap<String, PendingOutgoingView>()
+    /* The echoes' 10 s timeouts, by local id; the echoes themselves are rows of the timeline. */
     private val pendingOutgoingTimeouts = HashMap<String, Runnable>()
 
     private var suppressComposerRestore = false
@@ -245,11 +247,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     /** Prevents overlapping backend writes from repeated alert-menu taps. */
     private var profileAlertSyncInProgress = false
-
-    private data class PendingOutgoingView(
-        val row: LinearLayout,
-        val status: TextView
-    )
 
 
     private fun requestBallPurchase(
@@ -629,7 +626,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         mentionUsers = mentionUserTracker,
         authenticatedUsername = { cfg?.username },
         page = object : ChannelBoundPage {
-            override fun forgetPendingSends() = clearPendingOutgoingState(removeViews = false)
+            override fun forgetPendingSends() = clearPendingOutgoingState()
 
             override fun clearTimeline() = resetChannelBoundChatUi()
 
@@ -1940,7 +1937,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     override fun onDestroyView() {
-        clearPendingOutgoingState(removeViews = false)
+        clearPendingOutgoingState()
         cancelScheduledIrcReconnect()
         clearComposerFocusRestoreCallbacks()
         composerFocusGuardUntilMs = 0L
@@ -2455,57 +2452,54 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    /** Adds one immediate local echo after the socket write succeeds. */
+    /**
+     * Adds one immediate local echo after the socket write succeeds.
+     *
+     * The echo is a row of the timeline, found again by its local id. Its message view is
+     * built here, once; every later change of status rebinds the echo's view in place.
+     */
     private fun appendPendingOutgoingMessage(
         pending: PendingOutgoingChatMessage,
         replyParentUserLogin: String?
     ) {
-        val row = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            alpha = 0.72f
-        }
+        val user = cfg?.username.orEmpty()
+        val emotesRaw = emoteCatalogController?.buildOutgoingIrcTag(pending.message)
 
         val messageView = createMessageTextView(
-            user = cfg?.username.orEmpty(),
+            user = user,
             rawMessage = pending.message,
-            emotesRaw = emoteCatalogController
-                ?.buildOutgoingIrcTag(pending.message),
+            emotesRaw = emotesRaw,
             replyParentUserLogin = replyParentUserLogin
         )
 
-        val statusView = TextView(requireContext()).apply {
-            text = getString(R.string.chat_send_pending)
-            setTextColor(colorOnSurfaceVariant())
-            textSize = 10f
+        val echoView = PendingEchoView(requireContext()).apply {
+            setMessage(messageView, statusTextColor = colorOnSurfaceVariant())
         }
 
-        row.addView(messageView)
-        row.addView(statusView)
-
-        pendingOutgoingViews[pending.localId] = PendingOutgoingView(
-            row = row,
-            status = statusView
-        )
-
         appendChatView(
-            view = row,
+            view = echoView,
             forceScroll = true,
             countAsUnread = false,
-            messageTimestampSec = pending.sentAtSec,
-            row = ::ViewOnlyRow
-        )
+            messageTimestampSec = pending.sentAtSec
+        ) { position ->
+            PendingEchoRow(
+                position = position,
+                localId = pending.localId,
+                user = user,
+                messageText = pending.message,
+                emotesRaw = emotesRaw,
+                replyParentUserLogin = replyParentUserLogin,
+                sentAtSec = pending.sentAtSec,
+                status = PendingEchoStatus.SENDING
+            )
+        }
 
         val timeout = Runnable {
             if (!outgoingChatMessageTracker.contains(pending.localId)) {
                 return@Runnable
             }
 
-            pendingOutgoingViews[pending.localId]?.let { pendingView ->
-                pendingView.status.text = getString(
-                    R.string.chat_send_unconfirmed
-                )
-                pendingView.row.alpha = 0.62f
-            }
+            chatTimelineController.applyEchoEvent(pending.localId, PendingEchoEvent.TIMEOUT)
         }
 
         pendingOutgoingTimeouts[pending.localId] = timeout
@@ -2521,10 +2515,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         cancelPendingOutgoingTimeout(confirmed.localId)
 
-        pendingOutgoingViews[confirmed.localId]?.let { pendingView ->
-            pendingView.status.visibility = View.GONE
-            pendingView.row.alpha = 1f
-        }
+        chatTimelineController.applyEchoEvent(confirmed.localId, PendingEchoEvent.USERSTATE)
 
         Log.d(
             "TWITCH_IRC",
@@ -2532,7 +2523,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
     }
 
-    /** Replaces one local echo when canonical live/history data becomes available. */
+    /**
+     * Replaces one local echo when canonical live/history data becomes available.
+     *
+     * The echo is removed and its position returned: the canonical message is inserted as
+     * a row of its own, at its own timestamp, keeping the echo's sequence. It is not the
+     * echo rebound - it is a different message view, with its own id, server timestamp,
+     * server emotes tag and actions - and when its timestamp differs from the echo's, the
+     * place it takes is the one that timestamp gives.
+     */
     private fun reconcilePendingOutgoingMessage(
         user: String,
         message: String,
@@ -2546,9 +2545,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         ) ?: return null
 
         cancelPendingOutgoingTimeout(confirmed.localId)
-        val preservedPosition = pendingOutgoingViews.remove(confirmed.localId)?.row?.let { row ->
-            chatTimelineController.removeAndTakePosition(row)
-        }
+        val preservedPosition = chatTimelineController.removeEcho(confirmed.localId)
 
         Log.d(
             "TWITCH_IRC",
@@ -2566,10 +2563,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         cancelPendingOutgoingTimeout(rejected.localId)
 
-        pendingOutgoingViews[rejected.localId]?.let { pendingView ->
-            pendingView.status.text = getString(R.string.chat_send_rejected)
-            pendingView.row.alpha = 0.5f
-        }
+        chatTimelineController.applyEchoEvent(rejected.localId, PendingEchoEvent.NOTICE)
 
         if (editMessage.text.isNullOrBlank()) {
             editMessage.setText(rejected.message)
@@ -2583,21 +2577,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         outgoingMessageHandler.removeCallbacks(timeout)
     }
 
-    /** Clears pending outgoing state when the view or channel is replaced. */
-    private fun clearPendingOutgoingState(removeViews: Boolean) {
+    /**
+     * Clears pending outgoing state when the view or channel is replaced.
+     *
+     * The echoes stay where they are, as they are: a channel change clears the timeline
+     * right after, and a destroyed view takes them with it. Nothing can move them any
+     * more, since the tracker forgets their writes.
+     */
+    private fun clearPendingOutgoingState() {
         pendingOutgoingTimeouts.values.forEach { timeout ->
             outgoingMessageHandler.removeCallbacks(timeout)
         }
         pendingOutgoingTimeouts.clear()
         outgoingChatMessageTracker.clear()
-
-        if (removeViews && this::chatTimelineController.isInitialized) {
-            pendingOutgoingViews.values.forEach { pendingView ->
-                chatTimelineController.remove(pendingView.row)
-            }
-        }
-
-        pendingOutgoingViews.clear()
         outgoingWriteInProgress = false
     }
 

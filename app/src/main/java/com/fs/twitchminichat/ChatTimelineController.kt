@@ -65,16 +65,6 @@ class ChatTimelineController(
         return sync.insert(view, messageTimestampSec, preservedPosition, row).position
     }
 
-    /** Removes one row and returns its former chronological position. */
-    fun removeAndTakePosition(view: View): ChatTimelinePosition? {
-        return sync.removeAndTakePosition(view)
-    }
-
-    /** Removes one row without preserving its chronological position. */
-    fun remove(view: View) {
-        sync.remove(view)
-    }
-
     /** Clears the rendered timeline and its ordering metadata. */
     fun clear() {
         sync.clear()
