@@ -92,10 +92,10 @@ import kotlin.coroutines.resume
 private const val HISTORY_LOG_TAG = "TMC_HISTORY"
 
 /**
- * The row a chat message view carries as its tag, under the name its readers still use.
+ * The row a chat message view carries as its tag, under the name its last reader uses.
  *
- * The hidden-user paths and the long-press handler read it back from the view; they move
- * to the timeline's list one at a time, and this name goes with the last of them.
+ * The long-press handler still reads it back from the view; the hidden-user paths now ask
+ * the timeline. This name goes when the long-press handler moves too.
  */
 private typealias ChatViewMeta = ChatMessageRow
 
@@ -1008,24 +1008,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Hides all currently rendered messages from a locally hidden user.
      *
-     * The views are kept inside chatContainer instead of being removed. This allows
-     * them to become visible again immediately if the user is later unblocked.
+     * The rows stay in the timeline and their views in chatContainer; only which are
+     * shown changes. This allows them to become visible again immediately if the user is
+     * later unblocked.
      */
     private fun removeMessagesOfHiddenUser(user: String) {
         val normalized = normalizeChatUser(user)
         if (normalized.isBlank()) return
 
-        var changedAnyView = false
-
-        for (i in chatContainer.childCount - 1 downTo 0) {
-            val child = chatContainer.getChildAt(i)
-            val meta = child.tag as? ChatViewMeta ?: continue
-
-            if (meta.usernameLower == normalized && child.visibility != View.GONE) {
-                child.visibility = View.GONE
-                changedAnyView = true
-            }
-        }
+        val changedAnyView = chatTimelineController.hideUser(normalized)
 
         val pendingReplyUserNormalized = normalizeChatUser(pendingReplyUser)
         if (pendingReplyUserNormalized == normalized) {
@@ -1048,28 +1039,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!this::chatContainer.isInitialized) return
         if (!isAdded) return
 
-        var changedAnyView = false
-
-        for (i in 0 until chatContainer.childCount) {
-            val child = chatContainer.getChildAt(i)
-            val meta = child.tag as? ChatViewMeta ?: continue
-
-            val shouldBeHidden = HiddenUsersStore.isHidden(
-                requireContext(),
-                meta.usernameLower
-            )
-
-            val targetVisibility = if (shouldBeHidden) {
-                View.GONE
-            } else {
-                View.VISIBLE
-            }
-
-            if (child.visibility != targetVisibility) {
-                child.visibility = targetVisibility
-                changedAnyView = true
-            }
-        }
+        val changedAnyView = chatTimelineController.setHiddenUsers(
+            HiddenUsersStore.getAll(requireContext())
+        )
 
         val pendingReplyUserNormalized = normalizeChatUser(pendingReplyUser)
         if (
