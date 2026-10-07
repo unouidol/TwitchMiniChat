@@ -27,15 +27,36 @@ data class ChatTimelinePosition(
 /** Calculates deterministic insertion points without Android framework dependencies. */
 object ChatTimelineOrderer {
 
-    /** Returns the index before the first position newer than the candidate. */
+    /**
+     * Returns the index before the first position newer than the candidate: after every
+     * position equal to it or older, so a row whose position equals an existing one goes
+     * after it.
+     *
+     * [existingPositions] must be in non-decreasing order, as the timeline keeps them. Over
+     * such a list this is the index a scan from the start for the first newer position
+     * finds, read in at most one position for a candidate not older than the last - a
+     * message appended at the end, the usual case - and by binary search otherwise.
+     */
     fun insertionIndex(
         existingPositions: List<ChatTimelinePosition>,
         candidate: ChatTimelinePosition
     ): Int {
-        val index = existingPositions.indexOfFirst { existing ->
-            candidate < existing
+        val size = existingPositions.size
+        /* Nothing is newer than a candidate that is not older than the last position. */
+        if (size == 0 || !(candidate < existingPositions[size - 1])) return size
+
+        /* The last position is newer, so the first newer one is in low..high. */
+        var low = 0
+        var high = size - 1
+        while (low < high) {
+            val middle = low + (high - low) / 2
+            if (candidate < existingPositions[middle]) {
+                high = middle
+            } else {
+                low = middle + 1
+            }
         }
-        return if (index >= 0) index else existingPositions.size
+        return low
     }
 }
 

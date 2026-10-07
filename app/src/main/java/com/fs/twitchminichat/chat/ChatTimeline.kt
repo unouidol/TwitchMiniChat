@@ -27,6 +27,14 @@ class ChatTimeline(
     val rows: List<ChatTimelineRow>
         get() = entries
 
+    /* The rows' positions, read in place: placing a row does not copy them. */
+    private val positions = object : AbstractList<ChatTimelinePosition>() {
+        override val size: Int
+            get() = entries.size
+
+        override fun get(index: Int): ChatTimelinePosition = entries[index].position
+    }
+
     /**
      * Inserts the row [create] builds at its chronological place and returns that index.
      *
@@ -48,7 +56,7 @@ class ChatTimeline(
         require(row.position == position) { "A timeline row must take the position it is given." }
 
         val index = ChatTimelineOrderer.insertionIndex(
-            existingPositions = entries.map { existing -> existing.position },
+            existingPositions = positions,
             candidate = position
         )
         entries.add(index, row)
