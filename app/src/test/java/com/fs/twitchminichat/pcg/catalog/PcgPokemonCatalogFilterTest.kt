@@ -11,7 +11,7 @@ class PcgPokemonCatalogFilterTest {
     fun apply_normalizesNameSearch() {
         val entries = listOf(
             entry(
-                displayName = "FlabÃ©bÃ© (Blue)",
+                displayName = "Flabébé (Blue)",
                 normalizedName = "flabebe blue"
             ),
             entry(
@@ -25,7 +25,7 @@ class PcgPokemonCatalogFilterTest {
             query = PcgPokemonCatalogQuery(nameQuery = "Flabebe blue")
         )
 
-        assertEquals(listOf("FlabÃ©bÃ© (Blue)"), result.map { it.displayName })
+        assertEquals(listOf("Flabébé (Blue)"), result.map { it.displayName })
     }
 
     /** Type, tier and generation constraints must all match. */
