@@ -243,6 +243,7 @@ class ChatTimelineEchoTest {
     fun randomSendingAndAnswers_produceTheSameEchoes_asChatFragmentAt4f90dbd() {
         val texts = listOf("hi", "gg", "pog", "/me waves")
 
+        val coverage = OracleCoverage("4f90dbd", seeds = 200, operations = 300)
         for (seed in 1..200) {
             val random = Random(seed)
             var nowSec = 1_000.0
@@ -293,6 +294,7 @@ class ChatTimelineEchoTest {
                         val oldPosition = confirmed?.let { old.reconcile(it.localId) }
                         val newPosition = confirmed?.let { sync.removeEcho(it.localId) }
                         assertEquals(where, oldPosition, newPosition)
+                    if (newPosition != null) coverage.removed(echo = true, hidden = false) else if (confirmed != null) coverage.missed()
 
                         val view = "v${nextView++}"
                         old.appendChatLine(view, "me", timestampSec, oldPosition)
@@ -315,6 +317,7 @@ class ChatTimelineEchoTest {
                         armed.clear()
                         tracker.clear()
                         old.clearPendingOutgoingState()
+                        coverage.cleared(old.views.size)
                         old.clearTimeline()
                         sync.clear()
                     }
@@ -322,8 +325,10 @@ class ChatTimelineEchoTest {
 
                 assertEquals(where, old.views, views.views)
                 assertEquals(where, old.echoLooks(), views.echoLooks())
+                coverage.step(timelineRows = views.views.size, hiddenViews = views.hidden.size)
             }
         }
+        println(coverage)
     }
 
     // ---------------------------------------------------------------------------

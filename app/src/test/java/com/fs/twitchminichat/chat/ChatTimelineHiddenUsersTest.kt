@@ -227,9 +227,11 @@ class ChatTimelineHiddenUsersTest {
     fun randomHidingAndUnHiding_showsTheSameViews_asChatFragmentAt692a7dc() {
         val users = listOf("alice", "Bob", "bob", " carol ", "dave")
 
+        val coverage = OracleCoverage("692a7dc", seeds = 200, operations = 300)
         for (seed in 1..200) {
             val random = Random(seed)
             val store = mutableSetOf<String>()
+            val echoViews = mutableSetOf<String>()
             val old = Fragment692a7dc()
             val views = LayoutViews()
             val sync = ChatTimelineViewSync(views, ChatTimeline(currentTimeMillis = { 1_000_000L }))
@@ -257,11 +259,13 @@ class ChatTimelineHiddenUsersTest {
                     }
                     6 -> {
                         val name = "v${nextName++}"
+                        echoViews += name
                         old.insert(name, 8.0) { position -> echoRow(position) }
                         sync.insert(name, 8.0, null) { position -> echoRow(position) }
                     }
                     7 -> if (old.views.isNotEmpty()) {
                         val name = old.views[random.nextInt(old.views.size)]
+                        coverage.removed(echo = name in echoViews, hidden = name in views.hidden)
                         old.remove(name)
                         sync.remove(name)
                     }
@@ -281,6 +285,7 @@ class ChatTimelineHiddenUsersTest {
                         assertEquals(where, old.refreshHiddenUserVisibilityInChat(store), sync.setHiddenUsers(store))
                     }
                     else -> if (random.nextInt(6) == 0) {
+                        coverage.cleared(old.views.size)
                         old.clear()
                         sync.clear()
                     }
@@ -288,8 +293,10 @@ class ChatTimelineHiddenUsersTest {
 
                 assertEquals(where, old.views, views.views)
                 assertEquals(where, old.visible(), views.visible())
+                coverage.step(timelineRows = views.views.size, hiddenViews = views.hidden.size)
             }
         }
+        println(coverage)
     }
 
     @Test

@@ -101,6 +101,7 @@ class ChatTimelineViewSyncTest {
     fun randomOperations_produceTheSameTimeline_asTheControllerAtFc60273() {
         val timestamps = listOf(null, 0.0, -2.0, Double.NaN, 1.0, 1.0, 2.0, 2.5, 3.0, 3.0, 4.0)
 
+        val coverage = OracleCoverage("fc60273", seeds = 200, operations = 300)
         for (seed in 1..200) {
             val random = Random(seed)
             val old = Fc60273Controller(currentTimeMillis = { clockMillis })
@@ -130,17 +131,23 @@ class ChatTimelineViewSyncTest {
                     }
                     in 5..6 -> if (old.container.isNotEmpty()) {
                         val name = old.container[random.nextInt(old.container.size)]
+                        coverage.removed(echo = views.rowsShown[views.shown.indexOf(name)] is PendingEchoRow, hidden = false)
                         val expected = old.removeAndTakePosition(name)
                         assertEquals(where, expected, sync.removeAndTakePosition(name))
                         if (expected != null) taken += expected
                     }
                     7 -> if (old.container.isNotEmpty()) {
                         val name = old.container[random.nextInt(old.container.size)]
+                        coverage.removed(echo = views.rowsShown[views.shown.indexOf(name)] is PendingEchoRow, hidden = false)
                         old.remove(name)
                         sync.remove(name)
                     }
-                    8 -> assertEquals(where, old.removeAndTakePosition("stranger"), sync.removeAndTakePosition("stranger"))
+                    8 -> {
+                        coverage.missed()
+                        assertEquals(where, old.removeAndTakePosition("stranger"), sync.removeAndTakePosition("stranger"))
+                    }
                     else -> if (random.nextInt(10) == 0) {
+                        coverage.cleared(old.container.size)
                         old.clear()
                         sync.clear()
                         taken.clear()
@@ -148,8 +155,10 @@ class ChatTimelineViewSyncTest {
                 }
 
                 assertEquals(where, old.container, views.shown)
+                coverage.step(timelineRows = old.container.size, hiddenViews = 0)
             }
         }
+        println(coverage)
     }
 
     // ---------------------------------------------------------------------------

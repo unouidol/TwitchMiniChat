@@ -23,6 +23,7 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         var largest = 0
         var hiddenSteps = 0L
         var countChecks = 0L
+        val coverage = OracleCoverage("4850a83", seeds = SEEDS, operations = OPERATIONS_PER_SEED)
 
         repeat(SEEDS) { seed ->
             val random = Random(seed)
@@ -59,12 +60,14 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                     }
                     in 61..66 -> {
                         val view = pickView(random, oldLayout)
+                        coverageOfViewRemoval(coverage, newLayout, view)
                         val expected = old.removeAndTakePosition(view)
                         assertEquals("$where removeAndTakePosition", expected, sync.removeAndTakePosition(view))
                         if (expected != null) taken += expected
                     }
                     in 67..70 -> {
                         val view = pickView(random, oldLayout)
+                        coverageOfViewRemoval(coverage, newLayout, view)
                         old.remove(view)
                         sync.remove(view)
                     }
@@ -75,11 +78,14 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                     }
                     in 85..96 -> {
                         val localId = "local-${random.nextInt(0, nextView + 2)}"
+                        val echoView = newLayout.views.firstOrNull { view -> (newLayout.tags[view] as? PendingEchoRow)?.localId == localId }
+                        if (echoView != null) coverage.removed(echo = true, hidden = echoView in newLayout.hidden) else coverage.missed()
                         val expected = old.removeEcho(localId)
                         assertEquals("$where removeEcho", expected, sync.removeEcho(localId))
                         if (expected != null) taken += expected
                     }
                     else -> if (seed % 3 == 0) {
+                        coverage.cleared(oldLayout.views.size)
                         old.clear()
                         sync.clear()
                         taken.clear()
@@ -94,11 +100,19 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                 /* The count the sync keeps, against one made afresh from the transcription's rows. */
                 assertEquals("$where hiddenRowCount", old.rowCount - old.shownRows.size, sync.hiddenRowCount)
                 countChecks++
+                coverage.step(timelineRows = oldLayout.views.size, hiddenViews = oldLayout.hidden.size)
                 largest = maxOf(largest, oldLayout.views.size)
                 if (oldLayout.hidden.isNotEmpty()) hiddenSteps++
             }
         }
         println("seeds=$SEEDS operations=$OPERATIONS_PER_SEED largestTimeline=$largest stepsWithHiddenViews=$hiddenSteps hiddenRowCountChecks=$countChecks")
+        println(coverage)
+    }
+
+    /* A removal by view: of a row, hidden or not, when the view is in the layout; of nothing otherwise. */
+    private fun coverageOfViewRemoval(coverage: OracleCoverage, layout: RecordingLayout, view: String) {
+        val row = layout.tags[view]
+        if (row == null) coverage.missed() else coverage.removed(echo = row is PendingEchoRow, hidden = view in layout.hidden)
     }
 
     /* A view in the layout, or one that never was, so the unknown-view path is replayed too. */
