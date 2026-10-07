@@ -3,7 +3,7 @@ package com.fs.twitchminichat.pcg.catalog
 import android.content.Context
 
 /**
- * Loads the versioned PokÃ©mon Community Game (PCG) catalog from app assets.
+ * Loads the versioned Pokémon Community Game (PCG) catalog from app assets.
  *
  * Loading is exposed as Result so a damaged asset never has to crash the
  * settings screen that will consume the catalog in a later patch.

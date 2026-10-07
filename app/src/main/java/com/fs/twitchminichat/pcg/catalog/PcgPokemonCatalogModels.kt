@@ -8,7 +8,7 @@ enum class PcgPokemonTier {
     C
 }
 
-/** PokÃ©mon elemental types used by catalog filters. */
+/** Pokémon elemental types used by catalog filters. */
 enum class PcgPokemonType {
     NORMAL,
     FIRE,
@@ -55,7 +55,7 @@ enum class PcgSpawnAvailability {
 }
 
 /**
- * One selectable PokÃ©mon or form exactly as named by PCG.
+ * One selectable Pokémon or form exactly as named by PCG.
  *
  * The display name is preserved for synchronization with the backend. The
  * normalized name is used only for local matching and search.
