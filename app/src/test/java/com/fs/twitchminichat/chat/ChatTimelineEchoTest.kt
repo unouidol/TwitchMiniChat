@@ -163,10 +163,11 @@ class ChatTimelineEchoTest {
 
     @Test
     fun theRightEchoIsRebound_afterRowsBeforeItAreRemoved() {
-        message("m1", "alice", 1.0)
+        echo("e0", "local-0", 1.0)
         message("m2", "alice", 2.0)
         echo("e1", "local-1", 3.0)
-        sync.remove("m1")
+        /* The row before the echo leaves as rows leave the page: an earlier echo replaced by its canonical message. */
+        assertEquals(ChatTimelinePosition(timestampMillis = 1_000L, sequence = 0L), sync.removeEcho("local-0"))
 
         sync.applyEchoEvent("local-1", TIMEOUT)
 

@@ -170,11 +170,12 @@ class ChatTimelineHiddenUsersTest {
 
     @Test
     fun theRightViewIsHidden_afterRowsBeforeItAreRemoved() {
-        message("a1", "alice", 1.0)
+        echo("e0", 1.0)
         message("b1", "bob", 2.0)
         message("a2", "alice", 3.0)
         message("b2", "bob", 4.0)
-        sync.remove("a1")
+        /* The first row leaves as rows leave the page: an echo replaced by its canonical message. */
+        assertEquals(ChatTimelinePosition(timestampMillis = 1_000L, sequence = 0L), sync.removeEcho("local-0"))
 
         sync.hideUser("bob")
         assertEquals(listOf("a2"), views.visible())

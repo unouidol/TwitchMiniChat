@@ -86,10 +86,12 @@ class ChatTimelineViewSyncTest {
 
     @Test
     fun anEchoReplacedByItsCanonicalMessage_keepsItsPlaceBeforeABotReplyOfTheSameSecond() {
-        insert("echo", 10.0)
+        sync.insert("echo", 10.0, null) { position ->
+            PendingEchoRow(position, "local-echo", "me", "echo", null, null, 10.0, PendingEchoStatus.SENDING)
+        }
         insert("botReply", 10.0)
 
-        val taken = sync.removeAndTakePosition("echo")
+        val taken = sync.removeEcho("local-echo")
         insert("canonical", 10.0, preserved = taken)
 
         assertEquals(listOf("canonical", "botReply"), views.shown)
