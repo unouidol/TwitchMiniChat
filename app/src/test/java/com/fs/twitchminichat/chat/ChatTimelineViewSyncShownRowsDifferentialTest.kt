@@ -22,6 +22,7 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
     fun everyOperation_leavesTheLayoutAsTheSyncAt4850a83Did() {
         var largest = 0
         var hiddenSteps = 0L
+        var countChecks = 0L
 
         repeat(SEEDS) { seed ->
             val random = Random(seed)
@@ -90,11 +91,14 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                 assertEquals("$where tags", oldLayout.tags, newLayout.tags)
                 assertEquals("$where calls", oldLayout.calls, newLayout.calls)
                 assertEquals("$where shownRows", old.shownRows, sync.shownRows)
+                /* The count the sync keeps, against one made afresh from the transcription's rows. */
+                assertEquals("$where hiddenRowCount", old.rowCount - old.shownRows.size, sync.hiddenRowCount)
+                countChecks++
                 largest = maxOf(largest, oldLayout.views.size)
                 if (oldLayout.hidden.isNotEmpty()) hiddenSteps++
             }
         }
-        println("seeds=$SEEDS operations=$OPERATIONS_PER_SEED largestTimeline=$largest stepsWithHiddenViews=$hiddenSteps")
+        println("seeds=$SEEDS operations=$OPERATIONS_PER_SEED largestTimeline=$largest stepsWithHiddenViews=$hiddenSteps hiddenRowCountChecks=$countChecks")
     }
 
     /* A view in the layout, or one that never was, so the unknown-view path is replayed too. */
@@ -159,6 +163,10 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
 
         val shownRows: List<ChatTimelineRow>
             get() = timeline.rows.filter { row -> isShown(row, hiddenUsers) }
+
+        /* Read only by the hidden-row count invariant; the transcription itself never needs it. */
+        val rowCount: Int
+            get() = timeline.rows.size
 
         fun insert(
             view: V,

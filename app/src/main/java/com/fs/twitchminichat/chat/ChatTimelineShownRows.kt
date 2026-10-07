@@ -32,26 +32,59 @@ sealed interface ShownRowsUpdate {
  * Translates between a row's index in the timeline and its position among the shown rows,
  * and says what each change of the timeline does to the list of shown rows. Pure.
  *
- * Which rows are shown is [ChatTimelineVisibility] over the rows and the hidden users. With
- * no user hidden every row is shown, a row's position is its index, and nothing is counted;
- * otherwise a translation counts the shown rows before the one it is asked about.
+ * Which rows are shown is [ChatTimelineVisibility] over the rows and the hidden users. The
+ * translations take `hiddenRowCount`, how many of the rows are not shown, which the caller
+ * keeps as rows come and go. With no row hidden - no user hidden, or only users with no row
+ * in the timeline - a row's position is its index, and nothing is counted. Otherwise a
+ * translation counts the shown rows from whichever end of the timeline is nearer, so a row
+ * at either end, as an appended message is, costs a read or two.
  */
 object ChatTimelineShownRows {
 
-    /** The position among the shown rows of the row at [timelineIndex], or null when it is not shown. */
-    fun positionOf(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, timelineIndex: Int): Int? {
+    /**
+     * The position among the shown rows of the row at [timelineIndex], or null when it is not
+     * shown. [hiddenRowCount] must be how many of [rows] are not shown.
+     */
+    fun positionOf(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, hiddenRowCount: Int, timelineIndex: Int): Int? {
         if (!ChatTimelineVisibility.isShown(rows[timelineIndex], hiddenUsers)) return null
-        if (hiddenUsers.isEmpty()) return timelineIndex
-        return positionOf(timelineIndex) { index -> ChatTimelineVisibility.isShown(rows[index], hiddenUsers) }
+        if (hiddenRowCount == 0) return timelineIndex
+
+        val isShownAt = { index: Int -> ChatTimelineVisibility.isShown(rows[index], hiddenUsers) }
+        if (timelineIndex <= rows.size - 1 - timelineIndex) return positionOf(timelineIndex, isShownAt)
+
+        /* Nearer the end: the last shown position, less the shown rows after this one. */
+        var shownAfter = 0
+        for (index in timelineIndex + 1 until rows.size) {
+            if (isShownAt(index)) shownAfter++
+        }
+        return rows.size - hiddenRowCount - 1 - shownAfter
     }
 
-    /** The timeline index of the row at [position] among the shown rows. */
-    fun timelineIndexOf(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, position: Int): Int {
-        if (hiddenUsers.isEmpty()) {
-            if (position !in rows.indices) throw IndexOutOfBoundsException("position $position of ${rows.size} shown rows")
-            return position
+    /**
+     * The timeline index of the row at [position] among the shown rows. [hiddenRowCount] must
+     * be how many of [rows] are not shown.
+     */
+    fun timelineIndexOf(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, hiddenRowCount: Int, position: Int): Int {
+        val shownCount = rows.size - hiddenRowCount
+        if (position !in 0 until shownCount) throw IndexOutOfBoundsException("position $position of $shownCount shown rows")
+        if (hiddenRowCount == 0) return position
+
+        val isShownAt = { index: Int -> ChatTimelineVisibility.isShown(rows[index], hiddenUsers) }
+        val fromEnd = shownCount - 1 - position
+        if (position < fromEnd) return timelineIndexOf(rows.size, position, isShownAt)
+
+        /*
+         * Nearer the end, or as near: the shown row that many shown rows before the last. The
+         * last shown position, where an appended row lands, is always counted from the end,
+         * in one read, however many rows before it are hidden.
+         */
+        var seen = 0
+        for (index in rows.size - 1 downTo 0) {
+            if (!isShownAt(index)) continue
+            if (seen == fromEnd) return index
+            seen++
         }
-        return timelineIndexOf(rows.size, position) { index -> ChatTimelineVisibility.isShown(rows[index], hiddenUsers) }
+        throw IndexOutOfBoundsException("position $position of $shownCount shown rows")
     }
 
     /** How many rows before [timelineIndex] are shown, as [isShownAt] says of each index. */
@@ -74,30 +107,38 @@ object ChatTimelineShownRows {
         throw IndexOutOfBoundsException("position $position of $seen shown rows")
     }
 
-    /** What inserting the row now at [timelineIndex] of [rows] did to the shown rows; null when it is not shown. */
-    fun inserted(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, timelineIndex: Int): ShownRowsUpdate.Insert? {
-        val position = positionOf(rows, hiddenUsers, timelineIndex) ?: return null
+    /**
+     * What inserting the row now at [timelineIndex] of [rows] did to the shown rows; null when
+     * it is not shown. [hiddenRowCount] counts the rows not shown; it is read only when the
+     * inserted row is shown, and is then the same before the insert and after it.
+     */
+    fun inserted(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, hiddenRowCount: Int, timelineIndex: Int): ShownRowsUpdate.Insert? {
+        val position = positionOf(rows, hiddenUsers, hiddenRowCount, timelineIndex) ?: return null
         return ShownRowsUpdate.Insert(position, rows[timelineIndex])
     }
 
-    /** What removing the row at [timelineIndex] of [rows], before it goes, does to the shown rows; null when it is not shown. */
-    fun removed(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, timelineIndex: Int): ShownRowsUpdate.Remove? {
-        val position = positionOf(rows, hiddenUsers, timelineIndex) ?: return null
+    /**
+     * What removing the row at [timelineIndex] of [rows], before it goes, does to the shown
+     * rows; null when it is not shown. [hiddenRowCount] counts the rows not shown before it goes.
+     */
+    fun removed(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, hiddenRowCount: Int, timelineIndex: Int): ShownRowsUpdate.Remove? {
+        val position = positionOf(rows, hiddenUsers, hiddenRowCount, timelineIndex) ?: return null
         return ShownRowsUpdate.Remove(position)
     }
 
     /**
      * What replacing a row in place with the row now at [timelineIndex] of [rows] did to the
      * shown rows; null when it is not shown. The replacing row must be shown exactly when the
-     * replaced one was, as an echo always is.
+     * replaced one was, as an echo always is, so [hiddenRowCount] is the same before and after.
      */
     fun replaced(
         rows: List<ChatTimelineRow>,
         hiddenUsers: Set<String>,
+        hiddenRowCount: Int,
         timelineIndex: Int,
         change: ChatTimelineChange
     ): ShownRowsUpdate.Change? {
-        val position = positionOf(rows, hiddenUsers, timelineIndex) ?: return null
+        val position = positionOf(rows, hiddenUsers, hiddenRowCount, timelineIndex) ?: return null
         return ShownRowsUpdate.Change(position, rows[timelineIndex], change)
     }
 

@@ -77,6 +77,15 @@ class ChatTimelineViewSync<V>(
     /* Trimmed and lowercased; kept across clear, like the hidden users themselves. */
     private var hiddenUsers: Set<String> = emptySet()
 
+    /**
+     * How many rows of the timeline are not shown, kept as rows come and go and as users are
+     * hidden and shown again, so that no translation has to count them: one near either end
+     * of the timeline reads a row or two. Internal only so the tests can check it, after
+     * every operation, against a count made afresh; nothing else reads it.
+     */
+    internal var hiddenRowCount = 0
+        private set
+
     /** The rows that are shown, in timeline order. */
     val shownRows: List<ChatTimelineRow>
         get() = ChatTimelineVisibility.shownRows(timeline.rows, hiddenUsers)
@@ -91,10 +100,11 @@ class ChatTimelineViewSync<V>(
         val index = timeline.insert(messageTimestampSec, preservedPosition, create)
         val row = timeline.rows[index]
 
-        val update = ChatTimelineShownRows.inserted(timeline.rows, hiddenUsers, index)
+        val update = ChatTimelineShownRows.inserted(timeline.rows, hiddenUsers, hiddenRowCount, index)
         if (update != null) {
             views.add(view, update.row, timelineIndexOf(update.position))
         } else {
+            hiddenRowCount++
             views.add(view, row, index)
             views.setShown(index, false)
         }
@@ -128,6 +138,7 @@ class ChatTimelineViewSync<V>(
                     /* Each removal leaves the next row of the range at the same position. */
                     val index = ChatTimelineShownRows.timelineIndexOf(rows.size, update.position) { i -> shown[i] }
                     shown[index] = false
+                    hiddenRowCount++
                     views.setShown(index, false)
                 }
                 is ShownRowsUpdate.InsertRange -> {
@@ -140,6 +151,7 @@ class ChatTimelineViewSync<V>(
                     for (row in update.rows) {
                         val index = indexOfRow(row, from)
                         shown[index] = true
+                        hiddenRowCount--
                         views.setShown(index, true)
                         from = index + 1
                     }
@@ -179,7 +191,7 @@ class ChatTimelineViewSync<V>(
         val updated = echo.copy(status = status)
         timeline.replaceAt(index, updated)
 
-        val update = ChatTimelineShownRows.replaced(timeline.rows, hiddenUsers, index, ChatTimelineChange.ECHO_STATUS)
+        val update = ChatTimelineShownRows.replaced(timeline.rows, hiddenUsers, hiddenRowCount, index, ChatTimelineChange.ECHO_STATUS)
         if (update != null) {
             views.rebind(timelineIndexOf(update.position), update.row, update.change)
         } else {
@@ -202,6 +214,7 @@ class ChatTimelineViewSync<V>(
     /** Removes every view and row, and restarts the timeline's sequence. The hidden users stay hidden. */
     fun clear() {
         timeline.clear()
+        hiddenRowCount = 0
         /* The views can be reset only to no rows: they hold no view for a row they were not given. */
         val reset = ChatTimelineShownRows.cleared()
         check(reset.rows.isEmpty()) { "the views cannot be reset to rows they hold no view for" }
@@ -210,16 +223,17 @@ class ChatTimelineViewSync<V>(
 
     /* Removes the row at [index] and its view. The update is decided before the row goes. */
     private fun removeRowAt(index: Int): ChatTimelineRow {
-        val update = ChatTimelineShownRows.removed(timeline.rows, hiddenUsers, index)
+        val update = ChatTimelineShownRows.removed(timeline.rows, hiddenUsers, hiddenRowCount, index)
         val viewIndex = if (update != null) timelineIndexOf(update.position) else index
         val row = timeline.removeAt(index)
+        if (update == null) hiddenRowCount--
         views.removeAt(viewIndex)
         return row
     }
 
     /* Where the views keep the row at [position] among the shown rows: its timeline index. */
     private fun timelineIndexOf(position: Int): Int {
-        return ChatTimelineShownRows.timelineIndexOf(timeline.rows, hiddenUsers, position)
+        return ChatTimelineShownRows.timelineIndexOf(timeline.rows, hiddenUsers, hiddenRowCount, position)
     }
 
     /* The index of [row] itself, not of a row equal to it, from [from] on. */

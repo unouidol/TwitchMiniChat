@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import kotlin.random.Random
 
 /**
  * Pins [ChatTimelineShownRows] on small timelines read as names: a row's position among the
@@ -31,29 +32,29 @@ class ChatTimelineShownRowsTest {
     @Test
     fun withNoUserHidden_aRowsPositionIsItsIndex_andBack() {
         rows.indices.forEach { index ->
-            assertEquals(index, ChatTimelineShownRows.positionOf(rows, emptySet(), index))
-            assertEquals(index, ChatTimelineShownRows.timelineIndexOf(rows, emptySet(), index))
+            assertEquals(index, ChatTimelineShownRows.positionOf(rows, emptySet(), hiddenRowCount(rows, emptySet()), index))
+            assertEquals(index, ChatTimelineShownRows.timelineIndexOf(rows, emptySet(), hiddenRowCount(rows, emptySet()), index))
         }
     }
 
     @Test
     fun aRowsPosition_countsOnlyTheShownRowsBeforeIt() {
         val hidden = setOf("bob")
-        assertEquals(listOf(0, null, 1, 2, 3, null, 4), rows.indices.map { ChatTimelineShownRows.positionOf(rows, hidden, it) })
+        assertEquals(listOf(0, null, 1, 2, 3, null, 4), rows.indices.map { ChatTimelineShownRows.positionOf(rows, hidden, hiddenRowCount(rows, hidden), it) })
     }
 
     @Test
     fun aPositionTranslatesBack_toTheIndexOfThatShownRow() {
         val hidden = setOf("bob", "carol")
-        assertEquals(listOf(0, 2, 3, 4), (0..3).map { ChatTimelineShownRows.timelineIndexOf(rows, hidden, it) })
+        assertEquals(listOf(0, 2, 3, 4), (0..3).map { ChatTimelineShownRows.timelineIndexOf(rows, hidden, hiddenRowCount(rows, hidden), it) })
     }
 
     @Test
     fun systemLinesAndEchoes_areShown_whoeverIsHidden() {
         val hidden = setOf("alice", "bob", "carol")
-        assertEquals(0, ChatTimelineShownRows.positionOf(rows, hidden, 2))
-        assertEquals(1, ChatTimelineShownRows.positionOf(rows, hidden, 4))
-        assertEquals(listOf(2, 4), (0..1).map { ChatTimelineShownRows.timelineIndexOf(rows, hidden, it) })
+        assertEquals(0, ChatTimelineShownRows.positionOf(rows, hidden, hiddenRowCount(rows, hidden), 2))
+        assertEquals(1, ChatTimelineShownRows.positionOf(rows, hidden, hiddenRowCount(rows, hidden), 4))
+        assertEquals(listOf(2, 4), (0..1).map { ChatTimelineShownRows.timelineIndexOf(rows, hidden, hiddenRowCount(rows, hidden), it) })
     }
 
     @Test
@@ -62,8 +63,8 @@ class ChatTimelineShownRowsTest {
         for (mask in 0 until (1 shl users.size)) {
             val hidden = users.filterIndexed { i, _ -> mask and (1 shl i) != 0 }.toSet()
             rows.indices.forEach { index ->
-                val position = ChatTimelineShownRows.positionOf(rows, hidden, index) ?: return@forEach
-                assertEquals("hidden $hidden index $index", index, ChatTimelineShownRows.timelineIndexOf(rows, hidden, position))
+                val position = ChatTimelineShownRows.positionOf(rows, hidden, hiddenRowCount(rows, hidden), index) ?: return@forEach
+                assertEquals("hidden $hidden index $index", index, ChatTimelineShownRows.timelineIndexOf(rows, hidden, hiddenRowCount(rows, hidden), position))
             }
         }
     }
@@ -76,10 +77,33 @@ class ChatTimelineShownRowsTest {
     }
 
     @Test
+    fun countingFromTheNearerEnd_agreesWithCountingFromTheStart_atEveryRow() {
+        val users = listOf("alice", "bob", "carol")
+        repeat(1_000) { seed ->
+            val random = Random(seed)
+            val timeline = List(random.nextInt(1, 60)) { i ->
+                if (random.nextInt(8) == 0) echo(i, "e$i") else message(i, "m$i", users[random.nextInt(users.size)])
+            }
+            val hidden = users.filter { random.nextBoolean() }.toSet()
+            val count = hiddenRowCount(timeline, hidden)
+            /* Written out here: the shown rows' indices, in order. */
+            val shownIndices = timeline.indices.filter { index -> ChatTimelineVisibility.isShown(timeline[index], hidden) }
+
+            timeline.indices.forEach { index ->
+                val expected = shownIndices.indexOf(index).takeIf { position -> position >= 0 }
+                assertEquals("seed $seed index $index", expected, ChatTimelineShownRows.positionOf(timeline, hidden, count, index))
+            }
+            shownIndices.forEachIndexed { position, index ->
+                assertEquals("seed $seed position $position", index, ChatTimelineShownRows.timelineIndexOf(timeline, hidden, count, position))
+            }
+        }
+    }
+
+    @Test
     fun aPositionPastTheShownRows_isRefused_withOrWithoutHiddenUsers() {
-        assertThrows(IndexOutOfBoundsException::class.java) { ChatTimelineShownRows.timelineIndexOf(rows, emptySet(), rows.size) }
-        assertThrows(IndexOutOfBoundsException::class.java) { ChatTimelineShownRows.timelineIndexOf(rows, emptySet(), -1) }
-        assertThrows(IndexOutOfBoundsException::class.java) { ChatTimelineShownRows.timelineIndexOf(rows, setOf("bob"), 5) }
+        assertThrows(IndexOutOfBoundsException::class.java) { ChatTimelineShownRows.timelineIndexOf(rows, emptySet(), hiddenRowCount(rows, emptySet()), rows.size) }
+        assertThrows(IndexOutOfBoundsException::class.java) { ChatTimelineShownRows.timelineIndexOf(rows, emptySet(), hiddenRowCount(rows, emptySet()), -1) }
+        assertThrows(IndexOutOfBoundsException::class.java) { ChatTimelineShownRows.timelineIndexOf(rows, setOf("bob"), hiddenRowCount(rows, setOf("bob")), 5) }
     }
 
     // ---------------------------------------------------------------------------
@@ -89,20 +113,20 @@ class ChatTimelineShownRowsTest {
     @Test
     fun aShownRow_isInsertedRemovedAndChanged_atItsPosition() {
         val hidden = setOf("bob")
-        assertEquals(ShownRowsUpdate.Insert(3, rows[4]), ChatTimelineShownRows.inserted(rows, hidden, 4))
-        assertEquals(ShownRowsUpdate.Remove(2), ChatTimelineShownRows.removed(rows, hidden, 3))
+        assertEquals(ShownRowsUpdate.Insert(3, rows[4]), ChatTimelineShownRows.inserted(rows, hidden, hiddenRowCount(rows, hidden), 4))
+        assertEquals(ShownRowsUpdate.Remove(2), ChatTimelineShownRows.removed(rows, hidden, hiddenRowCount(rows, hidden), 3))
         assertEquals(
             ShownRowsUpdate.Change(3, rows[4], ChatTimelineChange.ECHO_STATUS),
-            ChatTimelineShownRows.replaced(rows, hidden, 4, ChatTimelineChange.ECHO_STATUS)
+            ChatTimelineShownRows.replaced(rows, hidden, hiddenRowCount(rows, hidden), 4, ChatTimelineChange.ECHO_STATUS)
         )
     }
 
     @Test
     fun aRowThatIsNotShown_changesNothingInTheList() {
         val hidden = setOf("bob")
-        assertNull(ChatTimelineShownRows.inserted(rows, hidden, 1))
-        assertNull(ChatTimelineShownRows.removed(rows, hidden, 5))
-        assertNull(ChatTimelineShownRows.replaced(rows, hidden, 1, ChatTimelineChange.ECHO_STATUS))
+        assertNull(ChatTimelineShownRows.inserted(rows, hidden, hiddenRowCount(rows, hidden), 1))
+        assertNull(ChatTimelineShownRows.removed(rows, hidden, hiddenRowCount(rows, hidden), 5))
+        assertNull(ChatTimelineShownRows.replaced(rows, hidden, hiddenRowCount(rows, hidden), 1, ChatTimelineChange.ECHO_STATUS))
     }
 
     @Test
@@ -174,4 +198,8 @@ class ChatTimelineShownRowsTest {
 
     private fun echo(i: Int, localId: String) =
         PendingEchoRow(position(i), localId, "me", "text", null, null, i.toDouble(), PendingEchoStatus.SENDING)
+
+    /* How many of [rows] are not shown, counted afresh here: the count the sync keeps. */
+    private fun hiddenRowCount(rows: List<ChatTimelineRow>, hidden: Set<String>): Int =
+        rows.count { row -> !ChatTimelineVisibility.isShown(row, hidden) }
 }

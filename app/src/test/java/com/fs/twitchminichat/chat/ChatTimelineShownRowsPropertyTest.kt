@@ -37,12 +37,12 @@ class ChatTimelineShownRowsPropertyTest {
                     in 0..49 -> {
                         val index = random.nextInt(rows.size + 1)
                         rows.add(index, randomRow(random, ChatTimelinePosition(random.nextLong(0L, 50L), nextSequence++)))
-                        updates = listOfNotNull(ChatTimelineShownRows.inserted(rows, hidden, index))
+                        updates = listOfNotNull(ChatTimelineShownRows.inserted(rows, hidden, hiddenRowCount(rows, hidden), index))
                     }
                     in 50..64 -> {
                         if (rows.isEmpty()) return@repeat
                         val index = random.nextInt(rows.size)
-                        updates = listOfNotNull(ChatTimelineShownRows.removed(rows, hidden, index))
+                        updates = listOfNotNull(ChatTimelineShownRows.removed(rows, hidden, hiddenRowCount(rows, hidden), index))
                         rows.removeAt(index)
                     }
                     in 65..74 -> {
@@ -52,7 +52,7 @@ class ChatTimelineShownRowsPropertyTest {
                         val echo = rows[index] as PendingEchoRow
                         rows[index] = echo.copy(status = PendingEchoStatus.values()[random.nextInt(PendingEchoStatus.values().size)])
                         updates = listOfNotNull(
-                            ChatTimelineShownRows.replaced(rows, hidden, index, ChatTimelineChange.ECHO_STATUS)
+                            ChatTimelineShownRows.replaced(rows, hidden, hiddenRowCount(rows, hidden), index, ChatTimelineChange.ECHO_STATUS)
                         )
                     }
                     in 75..97 -> {
@@ -137,4 +137,8 @@ class ChatTimelineShownRowsPropertyTest {
         const val CHANGES_PER_SEED = 400
         val USERS = listOf("Alice", " bob ", "carol", "DAVE", "eve")
     }
+
+    /* How many of [rows] are not shown, counted afresh here: the count the sync keeps. */
+    private fun hiddenRowCount(rows: List<ChatTimelineRow>, hidden: Set<String>): Int =
+        rows.count { row -> !ChatTimelineVisibility.isShown(row, hidden) }
 }
