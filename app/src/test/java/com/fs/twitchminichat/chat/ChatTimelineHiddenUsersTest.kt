@@ -231,7 +231,9 @@ class ChatTimelineHiddenUsersTest {
         for (seed in 1..200) {
             val random = Random(seed)
             val store = mutableSetOf<String>()
-            val echoViews = mutableSetOf<String>()
+            val echoIds = mutableListOf<String>()
+            val pendingEchoIds = mutableListOf<String>()
+            val echoViewOf = HashMap<String, String>()
             val old = Fragment692a7dc()
             val views = LayoutViews()
             val sync = ChatTimelineViewSync(views, ChatTimeline(currentTimeMillis = { 1_000_000L }))
@@ -259,15 +261,29 @@ class ChatTimelineHiddenUsersTest {
                     }
                     6 -> {
                         val name = "v${nextName++}"
-                        echoViews += name
                         old.insert(name, 8.0) { position -> echoRow(position) }
-                        sync.insert(name, 8.0, null) { position -> echoRow(position) }
+                        val echo = sync.insert(name, 8.0, null) { position -> echoRow(position) } as PendingEchoRow
+                        echoIds += echo.localId
+                        pendingEchoIds += echo.localId
+                        echoViewOf[echo.localId] = name
                     }
-                    7 -> if (old.views.isNotEmpty()) {
-                        val name = old.views[random.nextInt(old.views.size)]
-                        coverage.removed(echo = name in echoViews, hidden = name in views.hidden)
-                        old.remove(name)
-                        sync.remove(name)
+                    7 -> {
+                        /* The page's one removal: an echo's, by its local id, as its canonical message arrives; or an id it no longer holds. */
+                        /* Mostly an echo still in the timeline; else one already gone, or an id never given. */
+                        val localId = when {
+                            pendingEchoIds.isNotEmpty() && random.nextInt(4) != 0 -> pendingEchoIds[random.nextInt(pendingEchoIds.size)]
+                            echoIds.isNotEmpty() && random.nextBoolean() -> echoIds[random.nextInt(echoIds.size)]
+                            else -> "local-none"
+                        }
+                        val wasHidden = echoViewOf[localId]?.let { view -> view in views.views && view in views.hidden } ?: false
+                        val expected = old.removeEcho(localId)
+                        assertEquals(where, expected, sync.removeEcho(localId))
+                        if (expected != null) {
+                            pendingEchoIds -= localId
+                            coverage.removed(echo = true, hidden = wasHidden)
+                        } else {
+                            coverage.missed()
+                        }
                     }
                     in 8..9 -> {
                         /* onHideUserRequested: HiddenUsersStore.add, then removeMessagesOfHiddenUser. */
@@ -288,6 +304,7 @@ class ChatTimelineHiddenUsersTest {
                         coverage.cleared(old.views.size)
                         old.clear()
                         sync.clear()
+                        pendingEchoIds.clear()
                     }
                 }
 
@@ -366,8 +383,6 @@ class ChatTimelineHiddenUsersTest {
 
         fun visible(): List<String> = views.filter { view -> view !in hidden }
 
-        override fun indexOf(view: String): Int = views.indexOf(view)
-
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             views.add(index, view)
             adds++
@@ -397,30 +412,60 @@ class ChatTimelineHiddenUsersTest {
     }
 
     /**
-     * ChatFragment's hidden-user code at 692a7dc, with chatContainer replaced by a list.
-     * The order of the views comes from a [ChatTimeline], as it did through
-     * ChatTimelineController; the visibility of each is what the fragment set on it.
+     * ChatFragment's hidden-user code at 692a7dc, with chatContainer replaced by a list, and
+     * the timeline it placed rows with, written out: ChatTimeline at 692a7dc, its sequence
+     * counter, its fallback to the clock and its scan for the first newer position. A row
+     * left only as an echo, through pendingOutgoingViews and the controller's removal by view.
+     *
+     * Self-contained: nothing here calls ChatTimeline, ChatTimelineOrderer or the sync, so a
+     * later change to any of them cannot change this oracle with it.
      */
     private class Fragment692a7dc {
-        private val timeline = ChatTimeline(currentTimeMillis = { 1_000_000L })
+        private val rows = ArrayList<ChatTimelineRow>()
+        private var nextSequence = 0L
         val views = mutableListOf<String>()
         private val gone = mutableSetOf<String>()
 
+        /* ChatFragment.pendingOutgoingViews at 692a7dc. */
+        private val pendingOutgoingViews = HashMap<String, String>()
+
         fun visible(): List<String> = views.filter { view -> view !in gone }
 
+        /* ChatTimeline.insert at 692a7dc, with the view put at the index it gives. */
         fun insert(view: String, timestampSec: Double, create: (ChatTimelinePosition) -> ChatTimelineRow) {
-            views.add(timeline.insert(timestampSec, null, create), view)
+            val millis = timestampSec.takeIf { timestamp -> timestamp.isFinite() && timestamp > 0.0 }?.times(1000.0)?.toLong() ?: 1_000_000L
+            val position = ChatTimelinePosition(millis, nextSequence++)
+            val row = create(position)
+            val found = rows.indexOfFirst { existing ->
+                position.timestampMillis < existing.position.timestampMillis ||
+                    (position.timestampMillis == existing.position.timestampMillis && position.sequence < existing.position.sequence)
+            }
+            val index = if (found >= 0) found else rows.size
+            rows.add(index, row)
+            views.add(index, view)
+            if (row is PendingEchoRow) pendingOutgoingViews[row.localId] = view
         }
 
-        fun remove(view: String) {
+        /* reconcilePendingOutgoingMessage at 692a7dc: the echo's view by its local id, then removal by that view. */
+        fun removeEcho(localId: String): ChatTimelinePosition? {
+            return pendingOutgoingViews.remove(localId)?.let { view -> removeAndTakePosition(view) }
+        }
+
+        /* ChatTimelineViewSync.removeAndTakePosition at 692a7dc: the view's index, both removed there. */
+        private fun removeAndTakePosition(view: String): ChatTimelinePosition? {
             val index = views.indexOf(view)
-            timeline.removeAt(index)
+            if (index < 0) return null
+            val row = rows.removeAt(index)
             views.removeAt(index)
             gone -= view
+            return row.position
         }
 
+        /* A channel change: clearPendingOutgoingState forgets the echoes, then the timeline clears. */
         fun clear() {
-            timeline.clear()
+            pendingOutgoingViews.clear()
+            rows.clear()
+            nextSequence = 0L
             views.clear()
             gone.clear()
         }
@@ -429,7 +474,7 @@ class ChatTimelineHiddenUsersTest {
         fun removeMessagesOfHiddenUser(normalized: String): Boolean {
             var changedAnyView = false
             for (i in views.size - 1 downTo 0) {
-                val meta = timeline.rows[i] as? ChatMessageRow ?: continue
+                val meta = rows[i] as? ChatMessageRow ?: continue
                 if (meta.usernameLower == normalized && views[i] !in gone) {
                     gone += views[i]
                     changedAnyView = true
@@ -442,7 +487,7 @@ class ChatTimelineHiddenUsersTest {
         fun refreshHiddenUserVisibilityInChat(store: Set<String>): Boolean {
             var changedAnyView = false
             for (i in 0 until views.size) {
-                val meta = timeline.rows[i] as? ChatMessageRow ?: continue
+                val meta = rows[i] as? ChatMessageRow ?: continue
                 val normalized = meta.usernameLower.trim().lowercase()
                 val shouldBeHidden = normalized.isNotBlank() && normalized in store
                 val isGone = views[i] in gone

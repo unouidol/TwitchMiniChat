@@ -58,26 +58,14 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                         val users = USERS.filter { random.nextInt(3) == 0 }.map { user -> user.trim().lowercase() }.toSet()
                         assertEquals("$where setHiddenUsers", old.setHiddenUsers(users), sync.setHiddenUsers(users))
                     }
-                    in 61..66 -> {
-                        val view = pickView(random, oldLayout)
-                        coverageOfViewRemoval(coverage, newLayout, view)
-                        val expected = old.removeAndTakePosition(view)
-                        assertEquals("$where removeAndTakePosition", expected, sync.removeAndTakePosition(view))
-                        if (expected != null) taken += expected
-                    }
-                    in 67..70 -> {
-                        val view = pickView(random, oldLayout)
-                        coverageOfViewRemoval(coverage, newLayout, view)
-                        old.remove(view)
-                        sync.remove(view)
-                    }
-                    in 71..84 -> {
+                    in 61..74 -> {
                         val localId = "local-${random.nextInt(0, nextView + 2)}"
                         val event = PendingEchoEvent.values()[random.nextInt(PendingEchoEvent.values().size)]
                         assertEquals("$where applyEchoEvent", old.applyEchoEvent(localId, event), sync.applyEchoEvent(localId, event))
                     }
-                    in 85..96 -> {
-                        val localId = "local-${random.nextInt(0, nextView + 2)}"
+                    in 75..96 -> {
+                        /* The page's one removal. Echo ids are local-0 to local-6; 7 and 8 name no echo. */
+                        val localId = "local-${random.nextInt(0, 9)}"
                         val echoView = newLayout.views.firstOrNull { view -> (newLayout.tags[view] as? PendingEchoRow)?.localId == localId }
                         if (echoView != null) coverage.removed(echo = true, hidden = echoView in newLayout.hidden) else coverage.missed()
                         val expected = old.removeEcho(localId)
@@ -109,18 +97,6 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         println(coverage)
     }
 
-    /* A removal by view: of a row, hidden or not, when the view is in the layout; of nothing otherwise. */
-    private fun coverageOfViewRemoval(coverage: OracleCoverage, layout: RecordingLayout, view: String) {
-        val row = layout.tags[view]
-        if (row == null) coverage.missed() else coverage.removed(echo = row is PendingEchoRow, hidden = view in layout.hidden)
-    }
-
-    /* A view in the layout, or one that never was, so the unknown-view path is replayed too. */
-    private fun pickView(random: Random, layout: RecordingLayout): String {
-        if (layout.views.isEmpty() || random.nextInt(8) == 0) return "stranger"
-        return layout.views[random.nextInt(layout.views.size)]
-    }
-
     private fun row(kind: Int, user: String, position: ChatTimelinePosition): ChatTimelineRow = when (kind) {
         in 0..5 -> ChatMessageRow(position, user, user.trim().lowercase(), null, "text", 1.0, null, null)
         6 -> SystemLineRow(position, user)
@@ -134,8 +110,6 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         val hidden = mutableSetOf<String>()
         val tags = HashMap<String, ChatTimelineRow>()
         val calls = mutableListOf<String>()
-
-        override fun indexOf(view: String): Int = views.indexOf(view)
 
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             calls += "add $view at $index"
@@ -209,18 +183,6 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                 }
             }
             return changed
-        }
-
-        fun removeAndTakePosition(view: V): ChatTimelinePosition? {
-            val index = views.indexOf(view)
-            if (index < 0) return null
-            val row = timeline.removeAt(index)
-            views.removeAt(index)
-            return row.position
-        }
-
-        fun remove(view: V) {
-            removeAndTakePosition(view)
         }
 
         fun applyEchoEvent(localId: String, event: PendingEchoEvent): Boolean {

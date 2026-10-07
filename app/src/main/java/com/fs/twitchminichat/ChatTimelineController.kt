@@ -117,8 +117,6 @@ private class ContainerTimelineViews(
     private val container: ViewGroup
 ) : ChatTimelineViews<View> {
 
-    override fun indexOf(view: View): Int = container.indexOfChild(view)
-
     override fun add(view: View, row: ChatTimelineRow, index: Int) {
         /* Set before the view is added, as the message rows' tag always was. */
         view.tag = row

@@ -8,9 +8,6 @@ import com.fs.twitchminichat.ChatTimelinePosition
  */
 interface ChatTimelineViews<V> {
 
-    /** The index of [view], or -1 when it is not in the timeline. */
-    fun indexOf(view: V): Int
-
     /** Puts [view], which shows [row], at [index]. */
     fun add(view: V, row: ChatTimelineRow, index: Int)
 
@@ -160,19 +157,6 @@ class ChatTimelineViewSync<V>(
             }
         }
         return updates.isNotEmpty()
-    }
-
-    /** Removes [view] and its row and returns the row's position, or null when [view] is not in the timeline. */
-    fun removeAndTakePosition(view: V): ChatTimelinePosition? {
-        val index = views.indexOf(view)
-        if (index < 0) return null
-
-        return removeRowAt(index).position
-    }
-
-    /** Removes [view] and its row, when it is in the timeline. */
-    fun remove(view: V) {
-        removeAndTakePosition(view)
     }
 
     /**
