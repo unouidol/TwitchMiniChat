@@ -195,6 +195,7 @@ class TwitchEmoteImageLoader(
         }
 
         session.track(target)
+        com.fs.twitchminichat.probe.StartupProbe.emoteRequest(session.probeView)
         requestManager
             .asGif()
             .load(url)
@@ -275,6 +276,7 @@ class TwitchEmoteImageLoader(
         }
 
         session.track(target)
+        com.fs.twitchminichat.probe.StartupProbe.emoteRequest(session.probeView)
         requestManager
             .asDrawable()
             .load(url)
@@ -289,6 +291,9 @@ class TwitchEmoteImageLoader(
         private val onReleased: (LoadSession) -> Unit
     ) : View.OnAttachStateChangeListener, AnimatedEmoteRow {
         private val targets = mutableSetOf<Target<*>>()
+
+        /* SCAFFOLD: the row's view, for StartupProbe. */
+        val probeView: View get() = textView
         private val animatedDrawables = mutableSetOf<Animatable>()
         private var isAttachedToWindow = textView.isAttachedToWindow
 

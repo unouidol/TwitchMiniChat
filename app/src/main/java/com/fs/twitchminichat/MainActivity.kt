@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity(), CurrentChatPageSource {
     private var pagerKeyboardDismissCallback: ViewPager2.OnPageChangeCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        com.fs.twitchminichat.probe.StartupProbe.boundary(com.fs.twitchminichat.probe.StartupProbe.B_ACT_IN)
         super.onCreate(savedInstanceState)
 
         /*
@@ -107,6 +108,8 @@ class MainActivity : AppCompatActivity(), CurrentChatPageSource {
                 continueStartupAfterDeletionCheck()
             }
         )
+        com.fs.twitchminichat.probe.StartupProbe.activityCreated(this)
+        com.fs.twitchminichat.probe.StartupProbe.boundary(com.fs.twitchminichat.probe.StartupProbe.B_ACT_OUT)
     }
 
     private fun getViewPager(): ViewPager2? {
