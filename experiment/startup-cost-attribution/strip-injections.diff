@@ -1,0 +1,278 @@
+diff --git a/app/src/main/java/com/fs/twitchminichat/ChatFragment.kt b/app/src/main/java/com/fs/twitchminichat/ChatFragment.kt
+index eb9c611..701f7e3 100644
+--- a/app/src/main/java/com/fs/twitchminichat/ChatFragment.kt
++++ b/app/src/main/java/com/fs/twitchminichat/ChatFragment.kt
+@@ -1437,7 +1437,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+     ): View? {
+         probeSlot = com.fs.twitchminichat.probe.StartupProbe.pageSlot(this)
+         com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_INFLATE_IN)
+-        com.fs.twitchminichat.probe.StartupProbe.inject("inflate", probeSlot)
+         val inflated = super.onCreateView(inflater, container, savedInstanceState)
+         com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_INFLATE_OUT)
+         return inflated
+@@ -1447,15 +1446,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+         com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_VIEW_IN)
+         try {
+             onViewCreatedProbed(view, savedInstanceState)
+-            com.fs.twitchminichat.probe.StartupProbe.inject("viewcreated", probeSlot)
+-            com.fs.twitchminichat.probe.StartupProbe.inject("spin", probeSlot) { com.fs.twitchminichat.probe.StartupProbe.spin(50) }
+         } finally {
+             com.fs.twitchminichat.probe.StartupProbe.pageAccount(probeSlot, accountId, cfg?.channel)
+-            com.fs.twitchminichat.probe.StartupProbe.registerPage(
+-                probeSlot,
+-                frameEvaluator = { probeViewportAtFrame() },
+-                scroller = { if (this::scrollChat.isInitialized) scrollChat.scrollTo(0, 0) }
+-            )
+             com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_VIEW_OUT)
+         }
+     }
+@@ -2910,7 +2902,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+         val probeSlotForHistory = probeSlot
+         thread {
+             com.fs.twitchminichat.probe.StartupProbe.historyRequestStarted(probeSlotForHistory)
+-            com.fs.twitchminichat.probe.StartupProbe.inject("history", probeSlotForHistory)
+             val result = backendHistoryClient.load(
+                 profileId = profileId,
+                 channel = config.channel,
+@@ -2959,7 +2950,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+             when (result) {
+                 is BackendHistoryResult.Success -> {
+                     com.fs.twitchminichat.probe.StartupProbe.historyArrived(probeSlotForHistory, result.messages.size, seconds.toLong())
+-                    com.fs.twitchminichat.probe.StartupProbe.inject("spinbg", probeSlotForHistory) { com.fs.twitchminichat.probe.StartupProbe.spin(50) }
+                     /*
+                      * The account and the channel name the user to anyone who can
+                      * read Logcat. The diagnostic journal already records both,
+@@ -2986,12 +2976,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+                     )
+ 
+                     result.messages.forEach { message ->
+-                        val probeOrdinal = com.fs.twitchminichat.probe.StartupProbe.historyPostQueued(probeSlotForHistory)
+-                        if (probeOrdinal == 200) {
+-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+-                                com.fs.twitchminichat.probe.StartupProbe.inject("gap", probeSlotForHistory)
+-                            }
+-                        }
++                        com.fs.twitchminichat.probe.StartupProbe.historyPostQueued(probeSlotForHistory)
+                         /* History is also a spawn source even if its UI row is stale. */
+                         val spawnIngestion = ingestHistorySpawn(applicationContext, message)
+ 
+@@ -3274,7 +3259,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+         row: (ChatTimelinePosition) -> ChatTimelineRow
+     ) {
+         val probeRow = com.fs.twitchminichat.probe.StartupProbe.insertIn(probeSlot, view)
+-        if (com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow() >= 0) com.fs.twitchminichat.probe.StartupProbe.inject("row", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+         try {
+             appendChatViewProbed(view, forceScroll, countAsUnread, messageTimestampSec, preservedTimelinePosition, row)
+         } finally {
+@@ -3708,7 +3692,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+         }
+ 
+         com.fs.twitchminichat.probe.StartupProbe.rowBuildIn(probeRow)
+-        if (com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow() >= 0) com.fs.twitchminichat.probe.StartupProbe.inject("build", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+         val tv = createMessageTextView(
+             user = user,
+             rawMessage = message,
+@@ -3805,18 +3788,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
+         ) { rowView -> timelineSpanOf(rowView) }
+     }
+ 
+-    /* SCAFFOLD, qualification only: the same viewport test at every frame. */
+-    private fun probeViewportAtFrame() {
+-        if (!this::scrollChat.isInitialized || !this::chatContainer.isInitialized) return
+-        val top = scrollChat.scrollY - chatContainer.top
+-        com.fs.twitchminichat.probe.StartupProbe.viewportAtFrame(
+-            probeSlot, top, top + scrollChat.height,
+-            current = isCurrentChatPage(),
+-            started = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED),
+-            container = chatContainer
+-        ) { rowView -> timelineSpanOf(rowView) }
+-    }
+-
+     /** Where [row] is in the timeline's coordinates, or null when it is not in the timeline. */
+     private fun timelineSpanOf(row: View): TimelineSpan? {
+         if (!this::chatContainer.isInitialized) return null
+diff --git a/app/src/main/java/com/fs/twitchminichat/probe/ProbeApplication.kt b/app/src/main/java/com/fs/twitchminichat/probe/ProbeApplication.kt
+index c28ecb1..608a6df 100644
+--- a/app/src/main/java/com/fs/twitchminichat/probe/ProbeApplication.kt
++++ b/app/src/main/java/com/fs/twitchminichat/probe/ProbeApplication.kt
+@@ -19,7 +19,6 @@ class ProbeApplication : Application() {
+     override fun onCreate() {
+         StartupProbe.boundary(StartupProbe.B_APP_IN)
+         super.onCreate()
+-        StartupProbe.inject("app")
+         StartupProbe.boundary(StartupProbe.B_APP_OUT)
+         StartupProbe.start(this)
+     }
+diff --git a/app/src/main/java/com/fs/twitchminichat/probe/StartupProbe.kt b/app/src/main/java/com/fs/twitchminichat/probe/StartupProbe.kt
+index 02897b8..2683d32 100644
+--- a/app/src/main/java/com/fs/twitchminichat/probe/StartupProbe.kt
++++ b/app/src/main/java/com/fs/twitchminichat/probe/StartupProbe.kt
+@@ -91,8 +91,6 @@ object StartupProbe {
+ 
+     @JvmField var anchorNs = 0L
+     @JvmField var mode = MODE_OFF
+-    @JvmField var inject = ""
+-    @JvmField var injectArg = 0L
+     @JvmField var harness = false
+     @Volatile private var closed = false
+ 
+@@ -122,8 +120,6 @@ object StartupProbe {
+     private val pageEverCurrent = BooleanArray(PAGES)
+     private val pageViewportCalls = IntArray(PAGES)
+     private val pageViewportNs = LongArray(PAGES)
+-    private val pageFrameEvaluators = arrayOfNulls<() -> Unit>(PAGES)
+-    private val pageScrollers = arrayOfNulls<() -> Unit>(PAGES)
+ 
+     /* Rows: every appendChatLine call, and every other appendChatView call. */
+     private lateinit var rowPage: IntArray
+@@ -142,7 +138,6 @@ object StartupProbe {
+     private lateinit var rowReqLater: IntArray
+     private lateinit var rowSeenAt: LongArray
+     private lateinit var rowInViewportAt: LongArray
+-    private lateinit var rowSeenFrameAt: LongArray
+     private lateinit var rowView: Array<View?>
+     private val rowOfView = IdentityHashMap<View, Int>(ROW_CAP * 2)
+     private var rowCount = 0
+@@ -194,11 +189,6 @@ object StartupProbe {
+     private val threadNames = HashMap<Int, String>()
+     private var snapCostNs = 0L
+ 
+-    /* Qualification only: when the injected delay ran. */
+-    private var injectStartNs = -1L
+-    private var injectEndNs = -1L
+-    private var injectThreadTid = 0
+-
+     private var activityRef: WeakReference<Activity>? = null
+ 
+     /** Offset of now from the anchor. */
+@@ -219,8 +209,6 @@ object StartupProbe {
+         if (mode == MODE_OFF) return
+         for (word in words.drop(1)) {
+             when {
+-                word.startsWith("inject=") -> inject = word.removePrefix("inject=")
+-                word.startsWith("arg=") -> injectArg = word.removePrefix("arg=").toLongOrNull() ?: 0L
+                 word == "harness" -> harness = true
+             }
+         }
+@@ -253,7 +241,6 @@ object StartupProbe {
+         rowReqLater = IntArray(ROW_CAP)
+         rowSeenAt = LongArray(ROW_CAP) { -1L }
+         rowInViewportAt = LongArray(ROW_CAP) { -1L }
+-        rowSeenFrameAt = LongArray(ROW_CAP) { -1L }
+         rowView = arrayOfNulls(ROW_CAP)
+         snapAt = LongArray(SNAP_CAP)
+         snapDone = LongArray(SNAP_CAP)
+@@ -276,18 +263,6 @@ object StartupProbe {
+         val thread = Thread({ probeLoop() }, "tmc-probe")
+         probeThread = thread
+         thread.start()
+-        if (inject == "stall") {
+-            Handler(Looper.getMainLooper()).postAtTime(
+-                { injected { Thread.sleep(50) } },
+-                (anchorNs + injectArg * 1_000_000L) / 1_000_000L
+-            )
+-        }
+-        if (inject == "scroll") {
+-            Handler(Looper.getMainLooper()).postAtTime(
+-                { injected { pageScrollers.forEachIndexed { slot, scroller -> if (pageEverCurrent[slot]) scroller?.invoke() } } },
+-                (anchorNs + 8_000_000_000L) / 1_000_000L
+-            )
+-        }
+     }
+ 
+     fun activityCreated(activity: Activity) {
+@@ -312,7 +287,6 @@ object StartupProbe {
+                     probeThread?.let(LockSupport::unpark)
+                 }
+             }
+-            if (inject == "everyframe") pageFrameEvaluators.forEach { evaluator -> evaluator?.invoke() }
+             Choreographer.getInstance().postFrameCallback(this)
+         }
+     }
+@@ -353,12 +327,6 @@ object StartupProbe {
+         pageChannel[slot] = channel
+     }
+ 
+-    fun registerPage(slot: Int, frameEvaluator: () -> Unit, scroller: () -> Unit) {
+-        if (slot !in 0 until PAGES) return
+-        pageFrameEvaluators[slot] = frameEvaluator
+-        pageScrollers[slot] = scroller
+-    }
+-
+     // ---------------------------------------------------------------------------------
+     // History (background thread, then the posts it makes)
+     // ---------------------------------------------------------------------------------
+@@ -516,19 +484,6 @@ object StartupProbe {
+         pageViewportNs[slot] += rel() - now
+     }
+ 
+-    /** Qualification only: the same test at every frame, to see what the reconcile sampling misses. */
+-    fun viewportAtFrame(
+-        slot: Int, top: Int, bottom: Int, current: Boolean, started: Boolean,
+-        container: ViewGroup, spanOf: (View) -> TimelineSpan?
+-    ) {
+-        if (mode != MODE_FULL || closed || slot !in 0 until PAGES || !current || !started) return
+-        val now = rel()
+-        if (now > WINDOW_NS) return
+-        forEachIntersecting(container, top, bottom, spanOf) { row ->
+-            if (rowSeenFrameAt[row] < 0L) rowSeenFrameAt[row] = now
+-        }
+-    }
+-
+     /*
+      * The recorded rows whose span intersects [top, bottom), by the gate's own rule. The
+      * container's children are laid out in order, so the walk starts from the nearer end
+@@ -558,35 +513,6 @@ object StartupProbe {
+         }
+     }
+ 
+-    // ---------------------------------------------------------------------------------
+-    // Qualification injections (build Q only)
+-    // ---------------------------------------------------------------------------------
+-
+-    /** Runs [delay] if [name] is the injection this run asked for, on [slot] 0 only. */
+-    fun inject(name: String, slot: Int = 0, ordinal: Int = -1, delay: () -> Unit = { Thread.sleep(50) }) {
+-        if (mode != MODE_FULL || inject != name || slot != 0) return
+-        if (ordinal >= 0 && ordinal.toLong() != (if (injectArg > 0) injectArg else 100L)) return
+-        injected(delay)
+-    }
+-
+-    fun historyOrdinalOfCurrentRow(): Int = if (currentRow >= 0) rowOrdinal[currentRow] else -1
+-
+-    private inline fun injected(delay: () -> Unit) {
+-        if (injectStartNs >= 0L) return
+-        injectThreadTid = Process.myTid()
+-        injectStartNs = rel()
+-        delay()
+-        injectEndNs = rel()
+-    }
+-
+-    /** A busy loop of [ms] milliseconds of CPU, for the CPU instrument's qualification. */
+-    fun spin(ms: Long) {
+-        val end = System.nanoTime() + ms * 1_000_000L
+-        var x = 0L
+-        while (System.nanoTime() < end) x += 1
+-        if (x == -1L) Log.d(TAG, "unreachable")
+-    }
+-
+     // ---------------------------------------------------------------------------------
+     // The probe thread: CPU snapshots, the 10 s boundary, the close and the dump
+     // ---------------------------------------------------------------------------------
+@@ -772,9 +698,6 @@ object StartupProbe {
+     private fun toJson(): String {
+         val b = StringBuilder(1 shl 20)
+         b.append("{\"mode\":").append(mode)
+-        b.append(",\"inject\":\"").append(inject).append("\",\"injectArg\":").append(injectArg)
+-        b.append(",\"injectStartNs\":").append(injectStartNs).append(",\"injectEndNs\":").append(injectEndNs)
+-        b.append(",\"injectTid\":").append(injectThreadTid)
+         b.append(",\"anchorNs\":").append(anchorNs)
+         b.append(",\"processStartRelNs\":").append(processStartRelNs)
+         b.append(",\"mainTid\":").append(mainTid)
+@@ -830,7 +753,6 @@ object StartupProbe {
+             b.append(",\"reqLater\":").ints(rowReqLater, rowCount)
+             b.append(",\"seenAt\":").longs(rowSeenAt, rowCount)
+             b.append(",\"inViewportAt\":").longs(rowInViewportAt, rowCount)
+-            b.append(",\"seenFrameAt\":").longs(rowSeenFrameAt, rowCount)
+             b.append('}')
+             b.append(",\"snaps\":{\"n\":").append(snapCount).append(",\"costNs\":").append(snapCostNs)
+             b.append(",\"at\":").longs(snapAt, snapCount)
