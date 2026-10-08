@@ -48,8 +48,8 @@ object StartupProbe {
 
     const val WINDOW_NS = 10_000_000_000L
     const val CLOSE_NS = 14_000_000_000L
-    private const val SNAP_PERIOD_NS = 1_000_000_000L
-    private const val LONG_FRAME_NS = 32_000_000L
+    /* A snapshot after a stall long enough to be a line of the startup burst: 30 frames at 90 Hz. */
+    private const val LONG_FRAME_NS = 330_000_000L
     private const val REASON_LONG_FRAME_END = 1L shl 62
 
     /* Boundaries. Page boundaries are PAGE_BASE + slot * PAGE_STRIDE + K_*. */
@@ -86,12 +86,15 @@ object StartupProbe {
     private const val PAGES = 2
     private const val ROW_CAP = 3072
     private const val FRAME_CAP = 4096
-    private const val SNAP_CAP = 420
-    private const val THREADS_PER_SNAP = 192
+    private const val SNAP_CAP = 96
+    private const val THREADS_PER_SNAP = 128
 
     @JvmField var anchorNs = 0L
     @JvmField var mode = MODE_OFF
     @JvmField var harness = false
+    /* Components that can be left off, so that each one's cost can be measured on its own. */
+    @JvmField var snapshots = true
+    @JvmField var looperLog = true
     @Volatile private var closed = false
 
     private lateinit var appContext: Context
@@ -148,7 +151,7 @@ object StartupProbe {
     private var pendingSourceSlot = -1
 
     /* Main-thread messages, from the Looper's own dispatch log: start and end of each. */
-    private const val MSG_CAP = 32768
+    private const val MSG_CAP = 16384
     private lateinit var msgStart: LongArray
     private lateinit var msgEnd: LongArray
     private var msgCount = 0
@@ -210,6 +213,8 @@ object StartupProbe {
         for (word in words.drop(1)) {
             when {
                 word == "harness" -> harness = true
+                word == "nosnap" -> snapshots = false
+                word == "nolooper" -> looperLog = false
             }
         }
         processStartRelNs = Process.getStartUptimeMillis() * 1_000_000L - anchorNs
@@ -230,17 +235,17 @@ object StartupProbe {
         rowOrdinal = IntArray(ROW_CAP)
         rowAbort = IntArray(ROW_CAP)
         rowBegin = LongArray(ROW_CAP)
-        rowMark0 = LongArray(ROW_CAP) { -1L }
-        rowMark1 = LongArray(ROW_CAP) { -1L }
-        rowMark2 = LongArray(ROW_CAP) { -1L }
-        rowBuildIn = LongArray(ROW_CAP) { -1L }
-        rowBuildOut = LongArray(ROW_CAP) { -1L }
-        rowInsertIn = LongArray(ROW_CAP) { -1L }
-        rowInsertOut = LongArray(ROW_CAP) { -1L }
+        rowMark0 = LongArray(ROW_CAP).also { it.fill(-1L) }
+        rowMark1 = LongArray(ROW_CAP).also { it.fill(-1L) }
+        rowMark2 = LongArray(ROW_CAP).also { it.fill(-1L) }
+        rowBuildIn = LongArray(ROW_CAP).also { it.fill(-1L) }
+        rowBuildOut = LongArray(ROW_CAP).also { it.fill(-1L) }
+        rowInsertIn = LongArray(ROW_CAP).also { it.fill(-1L) }
+        rowInsertOut = LongArray(ROW_CAP).also { it.fill(-1L) }
         rowReqBuild = IntArray(ROW_CAP)
         rowReqLater = IntArray(ROW_CAP)
-        rowSeenAt = LongArray(ROW_CAP) { -1L }
-        rowInViewportAt = LongArray(ROW_CAP) { -1L }
+        rowSeenAt = LongArray(ROW_CAP).also { it.fill(-1L) }
+        rowInViewportAt = LongArray(ROW_CAP).also { it.fill(-1L) }
         rowView = arrayOfNulls(ROW_CAP)
         snapAt = LongArray(SNAP_CAP)
         snapDone = LongArray(SNAP_CAP)
@@ -259,7 +264,7 @@ object StartupProbe {
         if (mode == MODE_OFF) return
         appContext = context.applicationContext
         Choreographer.getInstance().postFrameCallback(frameCallback)
-        if (mode == MODE_FULL) Looper.getMainLooper().setMessageLogging(looperPrinter)
+        if (mode == MODE_FULL && looperLog) Looper.getMainLooper().setMessageLogging(looperPrinter)
         val thread = Thread({ probeLoop() }, "tmc-probe")
         probeThread = thread
         thread.start()
@@ -519,7 +524,6 @@ object StartupProbe {
 
     private fun probeLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT)
-        var nextPeriodic = rel()
         var tenDone = false
         val buffer = ByteArray(1024)
         while (true) {
@@ -534,17 +538,14 @@ object StartupProbe {
             }
             if (mode == MODE_FULL) {
                 val reason = pendingSnap.getAndSet(0L)
-                if (reason != 0L || now >= nextPeriodic) {
-                    snapshot(reason, buffer)
-                    if (now >= nextPeriodic) nextPeriodic = now + SNAP_PERIOD_NS
-                }
+                if (reason != 0L && snapshots) snapshot(reason, buffer)
             }
-            val wait = minOf(if (mode == MODE_FULL) nextPeriodic else CLOSE_NS, if (tenDone) CLOSE_NS else WINDOW_NS) - rel()
+            val wait = (if (tenDone) CLOSE_NS else WINDOW_NS) - rel()
             if (wait > 0L) LockSupport.parkNanos(wait)
         }
         if (mode == MODE_FULL) {
             boundaryNs[B_CLOSE] = rel()
-            snapshot(1L shl B_CLOSE, buffer)
+            if (snapshots) snapshot(1L shl B_CLOSE, buffer)
         }
         /* Stop the main thread recording, then serialise what it recorded. */
         val latch = java.util.concurrent.CountDownLatch(1)
