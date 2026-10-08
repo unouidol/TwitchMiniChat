@@ -23,6 +23,7 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         var largest = 0
         var hiddenSteps = 0L
         var countChecks = 0L
+        val coverage = OracleCoverage("4850a83", seeds = SEEDS, operations = OPERATIONS_PER_SEED)
 
         repeat(SEEDS) { seed ->
             val random = Random(seed)
@@ -57,29 +58,22 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                         val users = USERS.filter { random.nextInt(3) == 0 }.map { user -> user.trim().lowercase() }.toSet()
                         assertEquals("$where setHiddenUsers", old.setHiddenUsers(users), sync.setHiddenUsers(users))
                     }
-                    in 61..66 -> {
-                        val view = pickView(random, oldLayout)
-                        val expected = old.removeAndTakePosition(view)
-                        assertEquals("$where removeAndTakePosition", expected, sync.removeAndTakePosition(view))
-                        if (expected != null) taken += expected
-                    }
-                    in 67..70 -> {
-                        val view = pickView(random, oldLayout)
-                        old.remove(view)
-                        sync.remove(view)
-                    }
-                    in 71..84 -> {
+                    in 61..74 -> {
                         val localId = "local-${random.nextInt(0, nextView + 2)}"
                         val event = PendingEchoEvent.values()[random.nextInt(PendingEchoEvent.values().size)]
                         assertEquals("$where applyEchoEvent", old.applyEchoEvent(localId, event), sync.applyEchoEvent(localId, event))
                     }
-                    in 85..96 -> {
-                        val localId = "local-${random.nextInt(0, nextView + 2)}"
+                    in 75..96 -> {
+                        /* The page's one removal. Echo ids are local-0 to local-6; 7 and 8 name no echo. */
+                        val localId = "local-${random.nextInt(0, 9)}"
+                        val echoView = newLayout.views.firstOrNull { view -> (newLayout.tags[view] as? PendingEchoRow)?.localId == localId }
+                        if (echoView != null) coverage.removed(echo = true, hidden = echoView in newLayout.hidden) else coverage.missed()
                         val expected = old.removeEcho(localId)
                         assertEquals("$where removeEcho", expected, sync.removeEcho(localId))
                         if (expected != null) taken += expected
                     }
                     else -> if (seed % 3 == 0) {
+                        coverage.cleared(oldLayout.views.size)
                         old.clear()
                         sync.clear()
                         taken.clear()
@@ -94,17 +88,13 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                 /* The count the sync keeps, against one made afresh from the transcription's rows. */
                 assertEquals("$where hiddenRowCount", old.rowCount - old.shownRows.size, sync.hiddenRowCount)
                 countChecks++
+                coverage.step(timelineRows = oldLayout.views.size, hiddenViews = oldLayout.hidden.size)
                 largest = maxOf(largest, oldLayout.views.size)
                 if (oldLayout.hidden.isNotEmpty()) hiddenSteps++
             }
         }
         println("seeds=$SEEDS operations=$OPERATIONS_PER_SEED largestTimeline=$largest stepsWithHiddenViews=$hiddenSteps hiddenRowCountChecks=$countChecks")
-    }
-
-    /* A view in the layout, or one that never was, so the unknown-view path is replayed too. */
-    private fun pickView(random: Random, layout: RecordingLayout): String {
-        if (layout.views.isEmpty() || random.nextInt(8) == 0) return "stranger"
-        return layout.views[random.nextInt(layout.views.size)]
+        println(coverage)
     }
 
     private fun row(kind: Int, user: String, position: ChatTimelinePosition): ChatTimelineRow = when (kind) {
@@ -120,8 +110,6 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         val hidden = mutableSetOf<String>()
         val tags = HashMap<String, ChatTimelineRow>()
         val calls = mutableListOf<String>()
-
-        override fun indexOf(view: String): Int = views.indexOf(view)
 
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             calls += "add $view at $index"
@@ -155,6 +143,12 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
     }
 
     /**
+     * Frozen at 4850a83: which rows are shown, and where each change puts its view. Not frozen:
+     * the order of the rows, which the live ChatTimeline it is given decides - since #75 by
+     * #75's binary search, not 4850a83's scan - nor an echo's next status, which is the live
+     * PendingEchoStatus.after. A change to either reaches both sides at once, so a pass here
+     * says nothing about them.
+     *
      * ChatTimelineViewSync at 4850a83: every change to the timeline first, then the views at
      * the same index. Which rows are shown is written out here.
      */
@@ -195,18 +189,6 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                 }
             }
             return changed
-        }
-
-        fun removeAndTakePosition(view: V): ChatTimelinePosition? {
-            val index = views.indexOf(view)
-            if (index < 0) return null
-            val row = timeline.removeAt(index)
-            views.removeAt(index)
-            return row.position
-        }
-
-        fun remove(view: V) {
-            removeAndTakePosition(view)
         }
 
         fun applyEchoEvent(localId: String, event: PendingEchoEvent): Boolean {

@@ -80,6 +80,41 @@ class ChatTimelineVisibilityTest {
         assertTrue(ChatTimelineVisibility.isShown(echo(), setOf("me", "bob", "")))
     }
 
+    /**
+     * The invariant [ChatTimelineViewSync.removeEcho] rests on, and the reason it has no path for
+     * an echo that is not shown: only a [ChatMessageRow] can ever be hidden, because of its type,
+     * not because of who sent it. A pending echo is shown whatever users are hidden - this
+     * account's own login among them, which nothing in the app stops a user from hiding.
+     *
+     * One row of every type, under hidden-user sets that name every string those rows carry. The
+     * `when` has a branch for each row type and no else, so a new row type does not compile here
+     * until someone decides whether it can be hidden - and, if it can and is ever removed alone,
+     * revisits removeEcho, whose check would then be guarding a case that can arise.
+     */
+    @Test
+    fun invariant_onlyAChatMessageIsEverHidden_soAPendingEchoIsShownWhateverUsersAreHidden() {
+        val rows: List<ChatTimelineRow> = listOf(message("me"), systemLine("me"), echo())
+        val hiddenUserSets = listOf(
+            emptySet(), setOf("me"), setOf("local"), setOf("text"), setOf(""), setOf("me", "local", "text", "")
+        )
+
+        for (row in rows) {
+            val canBeHidden = when (row) {
+                is ChatMessageRow -> true
+                is SystemLineRow -> false
+                is PendingEchoRow -> false
+            }
+            val hiddenBy = hiddenUserSets.filterNot { users -> ChatTimelineVisibility.isShown(row, users) }
+
+            if (canBeHidden) {
+                /* The sets are not vacuous: they do hide the one type that can be hidden. */
+                assertTrue("${row.javaClass.simpleName} is hidden by none of $hiddenUserSets", hiddenBy.isNotEmpty())
+            } else {
+                assertEquals("${row.javaClass.simpleName} is hidden by", emptyList<Set<String>>(), hiddenBy)
+            }
+        }
+    }
+
     @Test
     fun systemLinesAndTheEcho_stayInTheirPlaces_betweenHiddenMessages() {
         val rows = listOf(message("bob"), systemLine("switched"), message("bob"), echo(), message("bob"))

@@ -243,6 +243,7 @@ class ChatTimelineEchoTest {
     fun randomSendingAndAnswers_produceTheSameEchoes_asChatFragmentAt4f90dbd() {
         val texts = listOf("hi", "gg", "pog", "/me waves")
 
+        val coverage = OracleCoverage("4f90dbd", seeds = 200, operations = 300)
         for (seed in 1..200) {
             val random = Random(seed)
             var nowSec = 1_000.0
@@ -293,6 +294,7 @@ class ChatTimelineEchoTest {
                         val oldPosition = confirmed?.let { old.reconcile(it.localId) }
                         val newPosition = confirmed?.let { sync.removeEcho(it.localId) }
                         assertEquals(where, oldPosition, newPosition)
+                        if (newPosition != null) coverage.removed(echo = true, hidden = false) else if (confirmed != null) coverage.missed()
 
                         val view = "v${nextView++}"
                         old.appendChatLine(view, "me", timestampSec, oldPosition)
@@ -315,6 +317,7 @@ class ChatTimelineEchoTest {
                         armed.clear()
                         tracker.clear()
                         old.clearPendingOutgoingState()
+                        coverage.cleared(old.views.size)
                         old.clearTimeline()
                         sync.clear()
                     }
@@ -322,8 +325,10 @@ class ChatTimelineEchoTest {
 
                 assertEquals(where, old.views, views.views)
                 assertEquals(where, old.echoLooks(), views.echoLooks())
+                coverage.step(timelineRows = views.views.size, hiddenViews = views.hidden.size)
             }
         }
+        println(coverage)
     }
 
     // ---------------------------------------------------------------------------
@@ -367,8 +372,6 @@ class ChatTimelineEchoTest {
 
         fun echoLooks(): Map<String, Look> = views.filter { view -> view in looks }.associateWith { view -> looks.getValue(view) }
 
-        override fun indexOf(view: String): Int = views.indexOf(view)
-
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             views.add(index, view)
             adds++
@@ -411,25 +414,35 @@ class ChatTimelineEchoTest {
     }
 
     /**
+     * Frozen at 4f90dbd: the echo code and the timeline order below. Not frozen: which echo
+     * each answer or canonical message names, which the test decides through the live
+     * OutgoingChatMessageTracker for this oracle and the sync alike - a change there reaches
+     * both sides at once, so a pass here says nothing about the tracker.
+     *
      * ChatFragment's echo code at 4f90dbd, with the layout replaced by a list: the
      * pendingOutgoingViews map from local id to view, the status line and alpha set on
      * that view, and the echo removed by its view reference when the canonical arrives.
-     * Its timeline orders the views as ChatTimelineController did.
+     * The views are placed as the timeline placed them at 4f90dbd, written out: ChatTimeline's
+     * sequence counter, its fallback to the clock and its scan for the first newer position.
+     *
+     * Self-contained: nothing here calls ChatTimeline, ChatTimelineOrderer or the sync, so a
+     * later change to any of them cannot change this oracle with it.
      */
-    private class Fragment4f90dbd(clock: () -> Long) {
-        private val order = OrderViews()
-        private val timeline = ChatTimelineViewSync(order, ChatTimeline(clock))
+    private class Fragment4f90dbd(private val clock: () -> Long) {
+        private val order = ArrayList<String>()
+        private val positions = ArrayList<ChatTimelinePosition>()
+        private var nextSequence = 0L
         private val pendingOutgoingViews = LinkedHashMap<String, String>()
         private val looks = HashMap<String, Look>()
 
-        val views: List<String> get() = order.views
+        val views: List<String> get() = order
 
         fun echoLooks(): Map<String, Look> = views.filter { view -> view in looks }.associateWith { view -> looks.getValue(view) }
 
         fun appendPendingOutgoingMessage(view: String, pending: PendingOutgoingChatMessage) {
             looks[view] = Look(PendingEchoStatusLine.SENDING, true, 0.72f)
             pendingOutgoingViews[pending.localId] = view
-            timeline.insert(view, pending.sentAtSec, null) { position -> SystemLineRow(position, "echo") }
+            insert(view, pending.sentAtSec, null)
         }
 
         fun timeout(localId: String) {
@@ -452,12 +465,12 @@ class ChatTimelineEchoTest {
 
         fun reconcile(localId: String): ChatTimelinePosition? {
             return pendingOutgoingViews.remove(localId)?.let { view ->
-                timeline.removeAndTakePosition(view)?.also { looks -= view }
+                removeAndTakePosition(view)?.also { looks -= view }
             }
         }
 
         fun appendChatLine(view: String, user: String, timestampSec: Double, preserved: ChatTimelinePosition?) {
-            timeline.insert(view, timestampSec, preserved) { position -> messageRow(position, user) }
+            insert(view, timestampSec, preserved)
         }
 
         /* removeViews was false at every caller: the map is forgotten, the views stay. */
@@ -466,23 +479,32 @@ class ChatTimelineEchoTest {
         }
 
         fun clearTimeline() {
-            timeline.clear()
+            order.clear()
+            positions.clear()
+            nextSequence = 0L
             looks.clear()
         }
-    }
 
-    /** Only the order of the views, for the transcription. */
-    private class OrderViews : ChatTimelineViews<String> {
-        val views = mutableListOf<String>()
-
-        override fun indexOf(view: String): Int = views.indexOf(view)
-        override fun add(view: String, row: ChatTimelineRow, index: Int) = views.add(index, view)
-        override fun removeAt(index: Int) {
-            views.removeAt(index)
+        /* ChatTimeline.insert at 4f90dbd, with the view put at the index it gives. */
+        private fun insert(view: String, timestampSec: Double?, preserved: ChatTimelinePosition?) {
+            val millis = timestampSec?.takeIf { timestamp -> timestamp.isFinite() && timestamp > 0.0 }?.times(1000.0)?.toLong() ?: clock()
+            val position = ChatTimelinePosition(millis, preserved?.sequence ?: nextSequence++)
+            val found = positions.indexOfFirst { existing ->
+                position.timestampMillis < existing.timestampMillis ||
+                    (position.timestampMillis == existing.timestampMillis && position.sequence < existing.sequence)
+            }
+            val index = if (found >= 0) found else positions.size
+            positions.add(index, position)
+            order.add(index, view)
         }
-        override fun removeAll() = views.clear()
-        override fun setShown(index: Int, shown: Boolean) = error("the transcription hides nothing")
-        override fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange) = error("the transcription rebinds nothing")
+
+        /* ChatTimelineViewSync.removeAndTakePosition at 4f90dbd: the view's index, both removed there. */
+        private fun removeAndTakePosition(view: String): ChatTimelinePosition? {
+            val index = order.indexOf(view)
+            if (index < 0) return null
+            order.removeAt(index)
+            return positions.removeAt(index)
+        }
     }
 
     private companion object {

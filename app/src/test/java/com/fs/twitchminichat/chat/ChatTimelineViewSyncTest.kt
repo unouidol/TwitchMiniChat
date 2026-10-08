@@ -2,7 +2,6 @@ package com.fs.twitchminichat.chat
 
 import com.fs.twitchminichat.ChatTimelinePosition
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import kotlin.random.Random
 
@@ -40,39 +39,6 @@ class ChatTimelineViewSyncTest {
     }
 
     @Test
-    fun removeAndTakePosition_removesTheViewAndItsRow_andReturnsTheRowsPosition() {
-        insert("a", 1.0)
-        insert("b", 2.0)
-        insert("c", 3.0)
-
-        val position = sync.removeAndTakePosition("b")
-
-        assertEquals(ChatTimelinePosition(timestampMillis = 2_000L, sequence = 1L), position)
-        assertEquals(listOf("a", "c"), views.shown)
-        assertEquals(timeline.rows, views.rowsShown)
-    }
-
-    @Test
-    fun removeAndTakePosition_ofAViewNotInTheTimeline_returnsNull_andChangesNothing() {
-        insert("a", 1.0)
-
-        assertNull(sync.removeAndTakePosition("stranger"))
-        assertEquals(listOf("a"), views.shown)
-        assertEquals(1, timeline.rows.size)
-    }
-
-    @Test
-    fun remove_removesTheViewAndItsRow() {
-        insert("a", 1.0)
-        insert("b", 2.0)
-
-        sync.remove("a")
-
-        assertEquals(listOf("b"), views.shown)
-        assertEquals(timeline.rows, views.rowsShown)
-    }
-
-    @Test
     fun clear_removesEveryViewAndRow_andTheNextRowStartsTheSequenceAgain() {
         insert("a", 1.0)
         insert("b", 2.0)
@@ -101,12 +67,15 @@ class ChatTimelineViewSyncTest {
     fun randomOperations_produceTheSameTimeline_asTheControllerAtFc60273() {
         val timestamps = listOf(null, 0.0, -2.0, Double.NaN, 1.0, 1.0, 2.0, 2.5, 3.0, 3.0, 4.0)
 
+        val coverage = OracleCoverage("fc60273", seeds = 200, operations = 300)
         for (seed in 1..200) {
             val random = Random(seed)
             val old = Fc60273Controller(currentTimeMillis = { clockMillis })
             val views = ListViews()
             val sync = ChatTimelineViewSync(views, ChatTimeline(currentTimeMillis = { clockMillis }))
             val taken = mutableListOf<ChatTimelinePosition>()
+            val echoIds = mutableListOf<String>()
+            val pendingEchoIds = mutableListOf<String>()
             var nextName = 0
 
             repeat(300) { step ->
@@ -122,34 +91,50 @@ class ChatTimelineViewSyncTest {
                         } else {
                             null
                         }
-                        val expected = old.insert(name, timestampSec, preserved)
+                        /* A third of the rows are echoes: the only rows the page ever removes. */
+                        val localId = if (random.nextInt(3) == 0) "local-$name" else null
+                        val expected = old.insert(name, timestampSec, preserved, localId)
                         val actual = sync.insert(name, timestampSec, preserved) { position ->
-                            SystemLineRow(position, name)
+                            if (localId != null) echoRow(position, localId) else SystemLineRow(position, name)
+                        }
+                        if (localId != null) {
+                            echoIds += localId
+                            pendingEchoIds += localId
                         }
                         assertEquals(where, expected, actual.position)
                     }
-                    in 5..6 -> if (old.container.isNotEmpty()) {
-                        val name = old.container[random.nextInt(old.container.size)]
-                        val expected = old.removeAndTakePosition(name)
-                        assertEquals(where, expected, sync.removeAndTakePosition(name))
-                        if (expected != null) taken += expected
+                    in 5..8 -> {
+                        /* The page's one removal: an echo's, by its local id, as its canonical message arrives; or an id it no longer holds. */
+                        /* Mostly an echo still in the timeline; else one already gone, or an id never given. */
+                        val localId = when {
+                            pendingEchoIds.isNotEmpty() && random.nextInt(4) != 0 -> pendingEchoIds[random.nextInt(pendingEchoIds.size)]
+                            echoIds.isNotEmpty() && random.nextBoolean() -> echoIds[random.nextInt(echoIds.size)]
+                            else -> "local-none"
+                        }
+                        val expected = old.removeEcho(localId)
+                        assertEquals(where, expected, sync.removeEcho(localId))
+                        if (expected != null) {
+                            pendingEchoIds -= localId
+                            coverage.removed(echo = true, hidden = false)
+                            taken += expected
+                        } else {
+                            coverage.missed()
+                        }
                     }
-                    7 -> if (old.container.isNotEmpty()) {
-                        val name = old.container[random.nextInt(old.container.size)]
-                        old.remove(name)
-                        sync.remove(name)
-                    }
-                    8 -> assertEquals(where, old.removeAndTakePosition("stranger"), sync.removeAndTakePosition("stranger"))
                     else -> if (random.nextInt(10) == 0) {
+                        coverage.cleared(old.container.size)
                         old.clear()
                         sync.clear()
                         taken.clear()
+                        pendingEchoIds.clear()
                     }
                 }
 
                 assertEquals(where, old.container, views.shown)
+                coverage.step(timelineRows = old.container.size, hiddenViews = 0)
             }
         }
+        println(coverage)
     }
 
     // ---------------------------------------------------------------------------
@@ -160,12 +145,13 @@ class ChatTimelineViewSyncTest {
         return sync.insert(name, timestampSec, preserved) { position -> SystemLineRow(position, name) }
     }
 
+    private fun echoRow(position: ChatTimelinePosition, localId: String) =
+        PendingEchoRow(position, localId, "me", "echo", null, null, 1.0, PendingEchoStatus.SENDING)
+
     /** Stands in for the layout: the views, and the row each was handed, in order. */
     private class ListViews : ChatTimelineViews<String> {
         val shown = mutableListOf<String>()
         val rowsShown = mutableListOf<ChatTimelineRow>()
-
-        override fun indexOf(view: String): Int = shown.indexOf(view)
 
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             shown.add(index, view)
@@ -194,17 +180,30 @@ class ChatTimelineViewSyncTest {
     }
 
     /**
-     * ChatTimelineController at fc60273, with its ViewGroup replaced by a list.
+     * ChatTimelineController at fc60273, with its ViewGroup replaced by a list, and the one map
+     * of ChatFragment's that reached it by view: pendingOutgoingViews, each pending echo's view
+     * by its local id. At fc60273 a row was removed only there, when an echo's canonical
+     * message arrived; the other caller, clearPendingOutgoingState(removeViews = true), was
+     * never called with true.
      *
-     * The comparison is written out here instead of calling ChatTimelinePosition and
-     * ChatTimelineOrderer, so that a change to either cannot change this oracle with it.
+     * Self-contained: the comparison is written out here instead of calling
+     * ChatTimelinePosition and ChatTimelineOrderer, and removal by view is its own copy of
+     * fc60273's, so a later change to any of them cannot change this oracle with it.
      */
     private class Fc60273Controller(private val currentTimeMillis: () -> Long) {
         val container = mutableListOf<String>()
         private val positionsByView = HashMap<String, ChatTimelinePosition>()
         private var nextSequence = 0L
 
-        fun insert(view: String, messageTimestampSec: Double?, preservedPosition: ChatTimelinePosition?): ChatTimelinePosition {
+        /* ChatFragment.pendingOutgoingViews at fc60273. */
+        private val pendingOutgoingViews = HashMap<String, String>()
+
+        fun insert(
+            view: String,
+            messageTimestampSec: Double?,
+            preservedPosition: ChatTimelinePosition?,
+            echoLocalId: String? = null
+        ): ChatTimelinePosition {
             val position = ChatTimelinePosition(
                 timestampMillis = resolveTimestampMillis(messageTimestampSec),
                 sequence = preservedPosition?.sequence ?: nextSequence++
@@ -218,21 +217,25 @@ class ChatTimelineViewSyncTest {
             }
             positionsByView[view] = position
             container.add(if (found >= 0) found else container.size, view)
+            if (echoLocalId != null) pendingOutgoingViews[echoLocalId] = view
             return position
         }
 
-        fun removeAndTakePosition(view: String): ChatTimelinePosition? {
+        /* reconcilePendingOutgoingMessage at fc60273: the echo's view by its local id, then removal by that view. */
+        fun removeEcho(localId: String): ChatTimelinePosition? {
+            return pendingOutgoingViews.remove(localId)?.let { view -> removeAndTakePosition(view) }
+        }
+
+        /* ChatTimelineController.removeAndTakePosition at fc60273: the position from the map, the view removed by reference. */
+        private fun removeAndTakePosition(view: String): ChatTimelinePosition? {
             val position = positionsByView.remove(view)
             container.remove(view)
             return position
         }
 
-        fun remove(view: String) {
-            positionsByView.remove(view)
-            container.remove(view)
-        }
-
+        /* A channel change: clearPendingOutgoingState forgets the echoes, then the controller clears. */
         fun clear() {
+            pendingOutgoingViews.clear()
             positionsByView.clear()
             nextSequence = 0L
             container.clear()
