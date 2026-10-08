@@ -91,8 +91,6 @@ object StartupProbe {
 
     @JvmField var anchorNs = 0L
     @JvmField var mode = MODE_OFF
-    @JvmField var inject = ""
-    @JvmField var injectArg = 0L
     @JvmField var harness = false
     @Volatile private var closed = false
 
@@ -122,8 +120,6 @@ object StartupProbe {
     private val pageEverCurrent = BooleanArray(PAGES)
     private val pageViewportCalls = IntArray(PAGES)
     private val pageViewportNs = LongArray(PAGES)
-    private val pageFrameEvaluators = arrayOfNulls<() -> Unit>(PAGES)
-    private val pageScrollers = arrayOfNulls<() -> Unit>(PAGES)
 
     /* Rows: every appendChatLine call, and every other appendChatView call. */
     private lateinit var rowPage: IntArray
@@ -142,7 +138,6 @@ object StartupProbe {
     private lateinit var rowReqLater: IntArray
     private lateinit var rowSeenAt: LongArray
     private lateinit var rowInViewportAt: LongArray
-    private lateinit var rowSeenFrameAt: LongArray
     private lateinit var rowView: Array<View?>
     private val rowOfView = IdentityHashMap<View, Int>(ROW_CAP * 2)
     private var rowCount = 0
@@ -194,11 +189,6 @@ object StartupProbe {
     private val threadNames = HashMap<Int, String>()
     private var snapCostNs = 0L
 
-    /* Qualification only: when the injected delay ran. */
-    private var injectStartNs = -1L
-    private var injectEndNs = -1L
-    private var injectThreadTid = 0
-
     private var activityRef: WeakReference<Activity>? = null
 
     /** Offset of now from the anchor. */
@@ -219,8 +209,6 @@ object StartupProbe {
         if (mode == MODE_OFF) return
         for (word in words.drop(1)) {
             when {
-                word.startsWith("inject=") -> inject = word.removePrefix("inject=")
-                word.startsWith("arg=") -> injectArg = word.removePrefix("arg=").toLongOrNull() ?: 0L
                 word == "harness" -> harness = true
             }
         }
@@ -253,7 +241,6 @@ object StartupProbe {
         rowReqLater = IntArray(ROW_CAP)
         rowSeenAt = LongArray(ROW_CAP) { -1L }
         rowInViewportAt = LongArray(ROW_CAP) { -1L }
-        rowSeenFrameAt = LongArray(ROW_CAP) { -1L }
         rowView = arrayOfNulls(ROW_CAP)
         snapAt = LongArray(SNAP_CAP)
         snapDone = LongArray(SNAP_CAP)
@@ -276,18 +263,6 @@ object StartupProbe {
         val thread = Thread({ probeLoop() }, "tmc-probe")
         probeThread = thread
         thread.start()
-        if (inject == "stall") {
-            Handler(Looper.getMainLooper()).postAtTime(
-                { injected { Thread.sleep(50) } },
-                (anchorNs + injectArg * 1_000_000L) / 1_000_000L
-            )
-        }
-        if (inject == "scroll") {
-            Handler(Looper.getMainLooper()).postAtTime(
-                { injected { pageScrollers.forEachIndexed { slot, scroller -> if (pageEverCurrent[slot]) scroller?.invoke() } } },
-                (anchorNs + 8_000_000_000L) / 1_000_000L
-            )
-        }
     }
 
     fun activityCreated(activity: Activity) {
@@ -312,7 +287,6 @@ object StartupProbe {
                     probeThread?.let(LockSupport::unpark)
                 }
             }
-            if (inject == "everyframe") pageFrameEvaluators.forEach { evaluator -> evaluator?.invoke() }
             Choreographer.getInstance().postFrameCallback(this)
         }
     }
@@ -351,12 +325,6 @@ object StartupProbe {
         if (slot !in 0 until PAGES) return
         pageAccount[slot] = accountId
         pageChannel[slot] = channel
-    }
-
-    fun registerPage(slot: Int, frameEvaluator: () -> Unit, scroller: () -> Unit) {
-        if (slot !in 0 until PAGES) return
-        pageFrameEvaluators[slot] = frameEvaluator
-        pageScrollers[slot] = scroller
     }
 
     // ---------------------------------------------------------------------------------
@@ -516,19 +484,6 @@ object StartupProbe {
         pageViewportNs[slot] += rel() - now
     }
 
-    /** Qualification only: the same test at every frame, to see what the reconcile sampling misses. */
-    fun viewportAtFrame(
-        slot: Int, top: Int, bottom: Int, current: Boolean, started: Boolean,
-        container: ViewGroup, spanOf: (View) -> TimelineSpan?
-    ) {
-        if (mode != MODE_FULL || closed || slot !in 0 until PAGES || !current || !started) return
-        val now = rel()
-        if (now > WINDOW_NS) return
-        forEachIntersecting(container, top, bottom, spanOf) { row ->
-            if (rowSeenFrameAt[row] < 0L) rowSeenFrameAt[row] = now
-        }
-    }
-
     /*
      * The recorded rows whose span intersects [top, bottom), by the gate's own rule. The
      * container's children are laid out in order, so the walk starts from the nearer end
@@ -556,35 +511,6 @@ object StartupProbe {
                 break
             }
         }
-    }
-
-    // ---------------------------------------------------------------------------------
-    // Qualification injections (build Q only)
-    // ---------------------------------------------------------------------------------
-
-    /** Runs [delay] if [name] is the injection this run asked for, on [slot] 0 only. */
-    fun inject(name: String, slot: Int = 0, ordinal: Int = -1, delay: () -> Unit = { Thread.sleep(50) }) {
-        if (mode != MODE_FULL || inject != name || slot != 0) return
-        if (ordinal >= 0 && ordinal.toLong() != (if (injectArg > 0) injectArg else 100L)) return
-        injected(delay)
-    }
-
-    fun historyOrdinalOfCurrentRow(): Int = if (currentRow >= 0) rowOrdinal[currentRow] else -1
-
-    private inline fun injected(delay: () -> Unit) {
-        if (injectStartNs >= 0L) return
-        injectThreadTid = Process.myTid()
-        injectStartNs = rel()
-        delay()
-        injectEndNs = rel()
-    }
-
-    /** A busy loop of [ms] milliseconds of CPU, for the CPU instrument's qualification. */
-    fun spin(ms: Long) {
-        val end = System.nanoTime() + ms * 1_000_000L
-        var x = 0L
-        while (System.nanoTime() < end) x += 1
-        if (x == -1L) Log.d(TAG, "unreachable")
     }
 
     // ---------------------------------------------------------------------------------
@@ -772,9 +698,6 @@ object StartupProbe {
     private fun toJson(): String {
         val b = StringBuilder(1 shl 20)
         b.append("{\"mode\":").append(mode)
-        b.append(",\"inject\":\"").append(inject).append("\",\"injectArg\":").append(injectArg)
-        b.append(",\"injectStartNs\":").append(injectStartNs).append(",\"injectEndNs\":").append(injectEndNs)
-        b.append(",\"injectTid\":").append(injectThreadTid)
         b.append(",\"anchorNs\":").append(anchorNs)
         b.append(",\"processStartRelNs\":").append(processStartRelNs)
         b.append(",\"mainTid\":").append(mainTid)
@@ -830,7 +753,6 @@ object StartupProbe {
             b.append(",\"reqLater\":").ints(rowReqLater, rowCount)
             b.append(",\"seenAt\":").longs(rowSeenAt, rowCount)
             b.append(",\"inViewportAt\":").longs(rowInViewportAt, rowCount)
-            b.append(",\"seenFrameAt\":").longs(rowSeenFrameAt, rowCount)
             b.append('}')
             b.append(",\"snaps\":{\"n\":").append(snapCount).append(",\"costNs\":").append(snapCostNs)
             b.append(",\"at\":").longs(snapAt, snapCount)
