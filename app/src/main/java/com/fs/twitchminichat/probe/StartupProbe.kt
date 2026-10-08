@@ -156,16 +156,47 @@ object StartupProbe {
     private lateinit var msgEnd: LongArray
     private var msgCount = 0
     private var msgOpen = -1L
+    /* MEASUREMENT ONLY: the posts AutoCompleteTextView makes for each adapter notification. */
+    private var msgIsPopupUpdate = false
+    private var popupUpdateCount = 0
+    private var popupUpdateNs = 0L
+    private const val MENTION_CAP = 4096
+    private val mentionSeg = LongArray(MENTION_CAP * 6)
+    private val mentionSize = IntArray(MENTION_CAP)
+    private val mentionPage = IntArray(MENTION_CAP)
+    private val mentionAt = LongArray(MENTION_CAP)
+    private var mentionCount = 0
+
+    fun mentionCall(slot: Int, record: Long, names: Long, map: Long, clear: Long, add: Long, notify: Long, size: Int) {
+        if (mode != MODE_FULL || closed) return
+        val i = mentionCount
+        if (i >= MENTION_CAP) return
+        mentionSeg[i * 6] = record
+        mentionSeg[i * 6 + 1] = names
+        mentionSeg[i * 6 + 2] = map
+        mentionSeg[i * 6 + 3] = clear
+        mentionSeg[i * 6 + 4] = add
+        mentionSeg[i * 6 + 5] = notify
+        mentionSize[i] = size
+        mentionPage[i] = slot
+        mentionAt[i] = rel()
+        mentionCount = i + 1
+    }
     private val looperPrinter = android.util.Printer { line ->
         if (closed || line.isEmpty()) return@Printer
         if (line[0] == '>') {
             msgOpen = rel()
+            msgIsPopupUpdate = line.contains("PopupDataSetObserver")
         } else if (line[0] == '<' && msgOpen >= 0L) {
             val i = msgCount
             if (i < MSG_CAP) {
                 msgStart[i] = msgOpen
                 msgEnd[i] = rel()
                 msgCount = i + 1
+            }
+            if (msgIsPopupUpdate) {
+                popupUpdateCount++
+                popupUpdateNs += rel() - msgOpen
             }
             msgOpen = -1L
         }
@@ -736,6 +767,9 @@ object StartupProbe {
             }
             b.append(']')
             b.append(",\"reqUnattributed\":").append(reqUnattributed)
+            b.append(",\"popupUpdates\":").append(popupUpdateCount).append(",\"popupUpdateNs\":").append(popupUpdateNs)
+            b.append(",\"mention\":{\"seg\":").longs(mentionSeg, mentionCount * 6).append(",\"size\":").ints(mentionSize, mentionCount)
+                .append(",\"page\":").ints(mentionPage, mentionCount).append(",\"at\":").longs(mentionAt, mentionCount).append('}')
             b.append(",\"msgs\":{\"start\":").longs(msgStart, msgCount).append(",\"end\":").longs(msgEnd, msgCount).append('}')
             b.append(",\"rows\":{\"n\":").append(rowCount)
             b.append(",\"page\":").ints(rowPage, rowCount)

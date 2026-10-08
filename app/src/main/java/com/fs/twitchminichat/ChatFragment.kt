@@ -1057,13 +1057,27 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun addMentionUser(user: String) {
+        /* MEASUREMENT ONLY: refreshMentionSuggestions() inlined, each step timed. */
+        val t0 = System.nanoTime()
         val recorded = mentionUserTracker.record(
             username = user,
             authenticatedUsername = cfg?.username
         )
+        val t1 = System.nanoTime()
         if (!recorded) return
+        if (!this::mentionAdapter.isInitialized) return
 
-        refreshMentionSuggestions()
+        val names = mentionUserTracker.activeDisplayNames(authenticatedUsername = cfg?.username)
+        val t2 = System.nanoTime()
+        val items = names.map { "@$it" }
+        val t3 = System.nanoTime()
+        mentionAdapter.clear()
+        val t4 = System.nanoTime()
+        mentionAdapter.addAll(items)
+        val t5 = System.nanoTime()
+        mentionAdapter.notifyDataSetChanged()
+        val t6 = System.nanoTime()
+        com.fs.twitchminichat.probe.StartupProbe.mentionCall(probeSlot, t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5, items.size)
     }
 
     private fun resetMentionUsersForCurrentChannel() {
