@@ -112,6 +112,7 @@ object StartupProbe {
     private val pageHistoryCount = IntArray(PAGES) { -1 }
     private val pageHistorySec = LongArray(PAGES) { -1L }
     private val pageHistoryTid = IntArray(PAGES)
+    private val pageHistoryRequestAt = LongArray(PAGES) { -1L }
     private val pageHistoryRequests = AtomicIntegerArray(PAGES)
     private val pagePostsQueued = AtomicIntegerArray(PAGES)
     private val pagePostsRun = IntArray(PAGES)
@@ -338,7 +339,10 @@ object StartupProbe {
 
     fun historyRequestStarted(slot: Int) {
         if (slot !in 0 until PAGES) return
-        if (pageHistoryRequests.incrementAndGet(slot) == 1) pageHistoryTid[slot] = Process.myTid()
+        if (pageHistoryRequests.incrementAndGet(slot) == 1) {
+            pageHistoryTid[slot] = Process.myTid()
+            pageHistoryRequestAt[slot] = rel()
+        }
     }
 
     fun historyArrived(slot: Int, messageCount: Int, requestedSec: Long) {
@@ -763,6 +767,7 @@ object StartupProbe {
                 b.append(",\"historyCount\":").append(pageHistoryCount[slot])
                 b.append(",\"historySec\":").append(pageHistorySec[slot])
                 b.append(",\"historyTid\":").append(pageHistoryTid[slot])
+                b.append(",\"historyRequestAtNs\":").append(pageHistoryRequestAt[slot])
                 b.append(",\"historyRequests\":").append(pageHistoryRequests.get(slot))
                 b.append(",\"postsQueued\":").append(pagePostsQueued.get(slot))
                 b.append(",\"postsRun\":").append(pagePostsRun[slot])
