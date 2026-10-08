@@ -10,11 +10,12 @@ import android.util.Log
 import android.view.Choreographer
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.fs.twitchminichat.AccountRepository
 import com.fs.twitchminichat.chat.TimelineSpan
 import java.io.File
-import java.io.FileInputStream
+import java.io.RandomAccessFile
 import java.lang.ref.WeakReference
 import java.security.MessageDigest
 import java.util.IdentityHashMap
@@ -47,7 +48,9 @@ object StartupProbe {
 
     const val WINDOW_NS = 10_000_000_000L
     const val CLOSE_NS = 14_000_000_000L
-    private const val SNAP_PERIOD_NS = 100_000_000L
+    private const val SNAP_PERIOD_NS = 1_000_000_000L
+    private const val LONG_FRAME_NS = 32_000_000L
+    private const val REASON_LONG_FRAME_END = 1L shl 62
 
     /* Boundaries. Page boundaries are PAGE_BASE + slot * PAGE_STRIDE + K_*. */
     const val B_ANCHOR = 0
@@ -127,6 +130,8 @@ object StartupProbe {
     private lateinit var rowOrdinal: IntArray
     private lateinit var rowAbort: IntArray
     private lateinit var rowBegin: LongArray
+    private lateinit var rowMark1: LongArray
+    private lateinit var rowMark2: LongArray
     private lateinit var rowBuildIn: LongArray
     private lateinit var rowBuildOut: LongArray
     private lateinit var rowInsertIn: LongArray
@@ -212,6 +217,8 @@ object StartupProbe {
         rowOrdinal = IntArray(ROW_CAP)
         rowAbort = IntArray(ROW_CAP)
         rowBegin = LongArray(ROW_CAP)
+        rowMark1 = LongArray(ROW_CAP) { -1L }
+        rowMark2 = LongArray(ROW_CAP) { -1L }
         rowBuildIn = LongArray(ROW_CAP) { -1L }
         rowBuildOut = LongArray(ROW_CAP) { -1L }
         rowInsertIn = LongArray(ROW_CAP) { -1L }
@@ -269,6 +276,14 @@ object StartupProbe {
                 frameVsync[i] = frameTimeNanos - anchorNs
                 frameRan[i] = rel()
                 frameCount = i + 1
+                /*
+                 * The frame after a long one may begin the first stable window, which is
+                 * known only 2 s later: take the CPU snapshot now, in case it does.
+                 */
+                if (mode == MODE_FULL && i > 0 && frameVsync[i] - frameVsync[i - 1] > LONG_FRAME_NS) {
+                    pendingSnap.getAndUpdate { bits -> bits or REASON_LONG_FRAME_END }
+                    probeThread?.let(LockSupport::unpark)
+                }
             }
             if (inject == "everyframe") pageFrameEvaluators.forEach { evaluator -> evaluator?.invoke() }
             Choreographer.getInstance().postFrameCallback(this)
@@ -383,6 +398,12 @@ object StartupProbe {
         if (currentRow == row) currentRow = -1
     }
 
+    /** Inside appendChatLine before the build: 1 after the echo reconcile, 2 after the buddy capture. */
+    fun rowMark(row: Int, mark: Int) {
+        if (row < 0) return
+        if (mark == 1) rowMark1[row] = rel() else rowMark2[row] = rel()
+    }
+
     fun rowBuildIn(row: Int) {
         if (row < 0) return
         rowBuildIn[row] = rel()
@@ -444,35 +465,62 @@ object StartupProbe {
      * On the emote gate's own reconcile: which rows of [slot] intersect the viewport, by
      * the gate's own rule, and whether the page is started and current, as the gate requires.
      */
-    fun viewport(slot: Int, top: Int, bottom: Int, current: Boolean, started: Boolean, spanOf: (View) -> TimelineSpan?) {
+    fun viewport(
+        slot: Int, top: Int, bottom: Int, current: Boolean, started: Boolean,
+        container: ViewGroup, spanOf: (View) -> TimelineSpan?
+    ) {
         if (mode != MODE_FULL || closed || slot !in 0 until PAGES) return
         val now = rel()
         if (now > WINDOW_NS) return
-        if (current && started) pageEverCurrent[slot] = true
-        for (i in 0 until rowCount) {
-            if (rowPage[i] != slot) continue
-            if (rowSeenAt[i] >= 0L) continue
-            val view = rowView[i] ?: continue
-            val span = spanOf(view) ?: continue
-            if (span.bottom > top && span.top < bottom) {
-                if (rowInViewportAt[i] < 0L) rowInViewportAt[i] = now
-                if (current && started) rowSeenAt[i] = now
-            }
+        val seen = current && started
+        if (seen) pageEverCurrent[slot] = true
+        forEachIntersecting(container, top, bottom, spanOf) { row ->
+            if (rowInViewportAt[row] < 0L) rowInViewportAt[row] = now
+            if (seen && rowSeenAt[row] < 0L) rowSeenAt[row] = now
         }
         pageViewportCalls[slot]++
         pageViewportNs[slot] += rel() - now
     }
 
     /** Qualification only: the same test at every frame, to see what the reconcile sampling misses. */
-    fun viewportAtFrame(slot: Int, top: Int, bottom: Int, current: Boolean, started: Boolean, spanOf: (View) -> TimelineSpan?) {
+    fun viewportAtFrame(
+        slot: Int, top: Int, bottom: Int, current: Boolean, started: Boolean,
+        container: ViewGroup, spanOf: (View) -> TimelineSpan?
+    ) {
         if (mode != MODE_FULL || closed || slot !in 0 until PAGES || !current || !started) return
         val now = rel()
         if (now > WINDOW_NS) return
-        for (i in 0 until rowCount) {
-            if (rowPage[i] != slot || rowSeenFrameAt[i] >= 0L) continue
-            val view = rowView[i] ?: continue
-            val span = spanOf(view) ?: continue
-            if (span.bottom > top && span.top < bottom) rowSeenFrameAt[i] = now
+        forEachIntersecting(container, top, bottom, spanOf) { row ->
+            if (rowSeenFrameAt[row] < 0L) rowSeenFrameAt[row] = now
+        }
+    }
+
+    /*
+     * The recorded rows whose span intersects [top, bottom), by the gate's own rule. The
+     * container's children are laid out in order, so the walk starts from the nearer end
+     * and stops at the first shown child past the viewport. A child that is gone has no
+     * current bounds and is neither visible nor used to stop the walk.
+     */
+    private inline fun forEachIntersecting(
+        container: ViewGroup, top: Int, bottom: Int,
+        spanOf: (View) -> TimelineSpan?, mark: (Int) -> Unit
+    ) {
+        val count = container.childCount
+        if (count == 0) return
+        val lastSpan = spanOf(container.getChildAt(count - 1))
+        val fromEnd = lastSpan == null || top >= lastSpan.bottom / 2
+        var k = if (fromEnd) count - 1 else 0
+        while (k in 0 until count) {
+            val child = container.getChildAt(k)
+            k += if (fromEnd) -1 else 1
+            if (child.visibility == View.GONE) continue
+            val span = spanOf(child) ?: continue
+            if (span.bottom > top && span.top < bottom) {
+                val row = rowOfView[child]
+                if (row != null) mark(row)
+            } else if (if (fromEnd) span.bottom <= top else span.top >= bottom) {
+                break
+            }
         }
     }
 
@@ -564,7 +612,7 @@ object StartupProbe {
         snapAt[i] = started
         snapReason[i] = reason
         val pid = Process.myPid()
-        readStat("/proc/$pid/stat", buffer)
+        readStat(0, "/proc/$pid/stat", buffer)
         snapProcUt[i] = lastUt
         snapProcSt[i] = lastSt
         snapStart[i] = snapThreadsUsed
@@ -573,12 +621,11 @@ object StartupProbe {
         for (entry in tids) {
             if (n >= THREADS_PER_SNAP) break
             val tid = entry.toIntOrNull() ?: continue
-            if (!readStat("/proc/$pid/task/$tid/stat", buffer)) continue
+            if (!readStat(tid, "/proc/$pid/task/$tid/stat", buffer)) continue
             val at = snapThreadsUsed + n
             snapTid[at] = tid
             snapUt[at] = lastUt
             snapSt[at] = lastSt
-            if (!threadNames.containsKey(tid)) threadNames[tid] = lastComm
             n++
         }
         snapLen[i] = n
@@ -590,24 +637,41 @@ object StartupProbe {
 
     private var lastUt = 0L
     private var lastSt = 0L
-    private var lastComm = ""
+    /* One open file per thread, read again from its start: no open or close per snapshot. */
+    private val statFiles = HashMap<Int, RandomAccessFile>()
 
-    /* Fields 14 and 15 of /proc/.../stat, after the parenthesised name, which may hold spaces. */
-    private fun readStat(path: String, buffer: ByteArray): Boolean {
+    /*
+     * Fields 14 and 15 of /proc/.../stat, after the parenthesised name. The name is at most
+     * 15 bytes and may itself hold a ')', so the last ')' within 16 bytes of the '(' ends it.
+     * [key] is the thread id, or 0 for the process; its name is kept the first time only.
+     */
+    private fun readStat(key: Int, path: String, buffer: ByteArray): Boolean {
         val length = try {
-            FileInputStream(path).use { stream -> stream.read(buffer) }
+            val file = statFiles[key] ?: RandomAccessFile(path, "r").also { opened -> statFiles[key] = opened }
+            file.seek(0L)
+            file.read(buffer)
         } catch (e: Exception) {
+            statFiles.remove(key)?.let { stale -> try { stale.close() } catch (_: Exception) {} }
             return false
         }
         if (length <= 0) return false
         var open = -1
-        var close = -1
-        for (k in 0 until length) {
-            if (buffer[k] == '('.code.toByte() && open < 0) open = k
-            if (buffer[k] == ')'.code.toByte()) close = k
+        for (k in 0 until minOf(length, 12)) {
+            if (buffer[k] == '('.code.toByte()) {
+                open = k
+                break
+            }
         }
-        if (open < 0 || close < 0) return false
-        lastComm = String(buffer, open + 1, close - open - 1)
+        if (open < 0) return false
+        var close = -1
+        for (k in minOf(length - 1, open + 16) downTo open + 1) {
+            if (buffer[k] == ')'.code.toByte()) {
+                close = k
+                break
+            }
+        }
+        if (close < 0) return false
+        if (key != 0 && !threadNames.containsKey(key)) threadNames[key] = String(buffer, open + 1, close - open - 1)
         /* After ") ": field 3 is index 0, so utime (14) is index 11 and stime (15) index 12. */
         var field = 0
         var k = close + 2
@@ -718,6 +782,8 @@ object StartupProbe {
             b.append(",\"ordinal\":").ints(rowOrdinal, rowCount)
             b.append(",\"abort\":").ints(rowAbort, rowCount)
             b.append(",\"begin\":").longs(rowBegin, rowCount)
+            b.append(",\"mark1\":").longs(rowMark1, rowCount)
+            b.append(",\"mark2\":").longs(rowMark2, rowCount)
             b.append(",\"buildIn\":").longs(rowBuildIn, rowCount)
             b.append(",\"buildOut\":").longs(rowBuildOut, rowCount)
             b.append(",\"insertIn\":").longs(rowInsertIn, rowCount)

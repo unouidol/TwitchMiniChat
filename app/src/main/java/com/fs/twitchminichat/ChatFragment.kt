@@ -3703,8 +3703,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             message = message,
             messageTimestampSec = resolvedMessageTimestampSec
         )
+        com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, 1)
 
         maybeCaptureBuddyInfoFromChat(user, message)
+        com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, 2)
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip message from hidden user")
             com.fs.twitchminichat.probe.StartupProbe.rowAbort(probeRow, com.fs.twitchminichat.probe.StartupProbe.ABORT_HIDDEN)
@@ -3804,7 +3806,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         com.fs.twitchminichat.probe.StartupProbe.viewport(
             probeSlot, top, top + scrollChat.height,
             current = isCurrentChatPage(),
-            started = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            started = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED),
+            container = chatContainer
         ) { rowView -> timelineSpanOf(rowView) }
     }
 
@@ -3815,7 +3818,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         com.fs.twitchminichat.probe.StartupProbe.viewportAtFrame(
             probeSlot, top, top + scrollChat.height,
             current = isCurrentChatPage(),
-            started = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            started = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED),
+            container = chatContainer
         ) { rowView -> timelineSpanOf(rowView) }
     }
 
