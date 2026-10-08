@@ -19,7 +19,6 @@ class ProbeApplication : Application() {
     override fun onCreate() {
         StartupProbe.boundary(StartupProbe.B_APP_IN)
         super.onCreate()
-        StartupProbe.inject("app")
         StartupProbe.boundary(StartupProbe.B_APP_OUT)
         StartupProbe.start(this)
     }
