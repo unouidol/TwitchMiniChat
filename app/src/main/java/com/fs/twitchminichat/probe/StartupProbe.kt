@@ -131,6 +131,7 @@ object StartupProbe {
     private lateinit var rowOrdinal: IntArray
     private lateinit var rowAbort: IntArray
     private lateinit var rowBegin: LongArray
+    private lateinit var rowMark0: LongArray
     private lateinit var rowMark1: LongArray
     private lateinit var rowMark2: LongArray
     private lateinit var rowBuildIn: LongArray
@@ -150,6 +151,27 @@ object StartupProbe {
     private var reqUnattributed = 0
     private var pendingSource = SRC_LIVE
     private var pendingSourceSlot = -1
+
+    /* Main-thread messages, from the Looper's own dispatch log: start and end of each. */
+    private const val MSG_CAP = 32768
+    private lateinit var msgStart: LongArray
+    private lateinit var msgEnd: LongArray
+    private var msgCount = 0
+    private var msgOpen = -1L
+    private val looperPrinter = android.util.Printer { line ->
+        if (closed || line.isEmpty()) return@Printer
+        if (line[0] == '>') {
+            msgOpen = rel()
+        } else if (line[0] == '<' && msgOpen >= 0L) {
+            val i = msgCount
+            if (i < MSG_CAP) {
+                msgStart[i] = msgOpen
+                msgEnd[i] = rel()
+                msgCount = i + 1
+            }
+            msgOpen = -1L
+        }
+    }
 
     /* Frames: Choreographer vsync time, and when the callback actually ran. */
     private lateinit var frameVsync: LongArray
@@ -213,11 +235,14 @@ object StartupProbe {
         frameVsync = LongArray(FRAME_CAP)
         frameRan = LongArray(FRAME_CAP)
         if (mode != MODE_FULL) return
+        msgStart = LongArray(MSG_CAP)
+        msgEnd = LongArray(MSG_CAP)
         rowPage = IntArray(ROW_CAP)
         rowSource = IntArray(ROW_CAP)
         rowOrdinal = IntArray(ROW_CAP)
         rowAbort = IntArray(ROW_CAP)
         rowBegin = LongArray(ROW_CAP)
+        rowMark0 = LongArray(ROW_CAP) { -1L }
         rowMark1 = LongArray(ROW_CAP) { -1L }
         rowMark2 = LongArray(ROW_CAP) { -1L }
         rowBuildIn = LongArray(ROW_CAP) { -1L }
@@ -247,6 +272,7 @@ object StartupProbe {
         if (mode == MODE_OFF) return
         appContext = context.applicationContext
         Choreographer.getInstance().postFrameCallback(frameCallback)
+        if (mode == MODE_FULL) Looper.getMainLooper().setMessageLogging(looperPrinter)
         val thread = Thread({ probeLoop() }, "tmc-probe")
         probeThread = thread
         thread.start()
@@ -402,10 +428,14 @@ object StartupProbe {
         if (currentRow == row) currentRow = -1
     }
 
-    /** Inside appendChatLine before the build: 1 after the echo reconcile, 2 after the buddy capture. */
+    /** Inside appendChatLine before the build: 0 after addMentionUser, 1 after the echo reconcile, 2 after the buddy capture. */
     fun rowMark(row: Int, mark: Int) {
         if (row < 0) return
-        if (mark == 1) rowMark1[row] = rel() else rowMark2[row] = rel()
+        when (mark) {
+            0 -> rowMark0[row] = rel()
+            1 -> rowMark1[row] = rel()
+            else -> rowMark2[row] = rel()
+        }
     }
 
     fun rowBuildIn(row: Int) {
@@ -594,6 +624,7 @@ object StartupProbe {
         val latch = java.util.concurrent.CountDownLatch(1)
         Handler(Looper.getMainLooper()).post {
             closed = true
+            if (mode == MODE_FULL) Looper.getMainLooper().setMessageLogging(null)
             latch.countDown()
         }
         latch.await()
@@ -781,12 +812,14 @@ object StartupProbe {
             }
             b.append(']')
             b.append(",\"reqUnattributed\":").append(reqUnattributed)
+            b.append(",\"msgs\":{\"start\":").longs(msgStart, msgCount).append(",\"end\":").longs(msgEnd, msgCount).append('}')
             b.append(",\"rows\":{\"n\":").append(rowCount)
             b.append(",\"page\":").ints(rowPage, rowCount)
             b.append(",\"source\":").ints(rowSource, rowCount)
             b.append(",\"ordinal\":").ints(rowOrdinal, rowCount)
             b.append(",\"abort\":").ints(rowAbort, rowCount)
             b.append(",\"begin\":").longs(rowBegin, rowCount)
+            b.append(",\"mark0\":").longs(rowMark0, rowCount)
             b.append(",\"mark1\":").longs(rowMark1, rowCount)
             b.append(",\"mark2\":").longs(rowMark2, rowCount)
             b.append(",\"buildIn\":").longs(rowBuildIn, rowCount)

@@ -3694,6 +3694,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val stable = dedupKey.startsWith("id:")
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
         addMentionUser(user)
+        com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, 0)
 
         val resolvedMessageTimestampSec = messageTimestampSec
             ?: (System.currentTimeMillis().toDouble() / 1000.0)
