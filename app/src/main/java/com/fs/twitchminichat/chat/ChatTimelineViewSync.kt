@@ -64,7 +64,8 @@ enum class ChatTimelineChange {
  * views apply it where they keep each row's view: at the timeline index that
  * [ChatTimelineShownRows] translates the position back to. A row that is not shown is in no
  * such list and has no update; its view, which these views keep hidden in its place, is
- * placed and removed at its timeline index.
+ * placed at its timeline index. No such row is ever removed by itself, only with every other
+ * row by [clear]: the one row removed alone is an echo, and an echo is always shown.
  */
 class ChatTimelineViewSync<V>(
     private val views: ChatTimelineViews<V>,
@@ -187,12 +188,28 @@ class ChatTimelineViewSync<V>(
     /**
      * Removes the echo of [localId] and its view, and returns its position for the
      * canonical message that replaces it; null when no echo of [localId] is in the timeline.
+     *
+     * An echo is always shown: [ChatTimelineVisibility] hides only a [ChatMessageRow], by its
+     * type, whatever users are hidden - this account's own login among them. So removing it is
+     * always an update to the shown rows, and there is no path for a row that is not shown.
+     *
+     * @throws IllegalStateException if the echo is not shown, which only a change upstream to
+     * that rule or to the row types can cause.
      */
     fun removeEcho(localId: String): ChatTimelinePosition? {
         val index = indexOfEcho(localId)
         if (index < 0) return null
 
-        return removeRowAt(index).position
+        /* Decided before the row goes. */
+        val update = checkNotNull(ChatTimelineShownRows.removed(timeline.rows, hiddenUsers, hiddenRowCount, index)) {
+            "an echo in the timeline is not shown, yet ChatTimelineVisibility hides only ChatMessageRow, so a " +
+                "PendingEchoRow is shown whatever users are hidden: that invariant was broken upstream, in " +
+                "ChatTimelineVisibility or in the row types, not in removeEcho"
+        }
+        val viewIndex = timelineIndexOf(update.position)
+        val row = timeline.removeAt(index)
+        views.removeAt(viewIndex)
+        return row.position
     }
 
     /** Removes every view and row, and restarts the timeline's sequence. The hidden users stay hidden. */
@@ -203,16 +220,6 @@ class ChatTimelineViewSync<V>(
         val reset = ChatTimelineShownRows.cleared()
         check(reset.rows.isEmpty()) { "the views cannot be reset to rows they hold no view for" }
         views.removeAll()
-    }
-
-    /* Removes the row at [index] and its view. The update is decided before the row goes. */
-    private fun removeRowAt(index: Int): ChatTimelineRow {
-        val update = ChatTimelineShownRows.removed(timeline.rows, hiddenUsers, hiddenRowCount, index)
-        val viewIndex = if (update != null) timelineIndexOf(update.position) else index
-        val row = timeline.removeAt(index)
-        if (update == null) hiddenRowCount--
-        views.removeAt(viewIndex)
-        return row
     }
 
     /* Where the views keep the row at [position] among the shown rows: its timeline index. */

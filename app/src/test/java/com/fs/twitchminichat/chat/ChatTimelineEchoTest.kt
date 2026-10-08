@@ -294,7 +294,7 @@ class ChatTimelineEchoTest {
                         val oldPosition = confirmed?.let { old.reconcile(it.localId) }
                         val newPosition = confirmed?.let { sync.removeEcho(it.localId) }
                         assertEquals(where, oldPosition, newPosition)
-                    if (newPosition != null) coverage.removed(echo = true, hidden = false) else if (confirmed != null) coverage.missed()
+                        if (newPosition != null) coverage.removed(echo = true, hidden = false) else if (confirmed != null) coverage.missed()
 
                         val view = "v${nextView++}"
                         old.appendChatLine(view, "me", timestampSec, oldPosition)
@@ -414,6 +414,11 @@ class ChatTimelineEchoTest {
     }
 
     /**
+     * Frozen at 4f90dbd: the echo code and the timeline order below. Not frozen: which echo
+     * each answer or canonical message names, which the test decides through the live
+     * OutgoingChatMessageTracker for this oracle and the sync alike - a change there reaches
+     * both sides at once, so a pass here says nothing about the tracker.
+     *
      * ChatFragment's echo code at 4f90dbd, with the layout replaced by a list: the
      * pendingOutgoingViews map from local id to view, the status line and alpha set on
      * that view, and the echo removed by its view reference when the canonical arrives.
@@ -501,7 +506,6 @@ class ChatTimelineEchoTest {
             return positions.removeAt(index)
         }
     }
-
 
     private companion object {
         fun echoRow(position: ChatTimelinePosition, pending: PendingOutgoingChatMessage) = PendingEchoRow(

@@ -143,6 +143,12 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
     }
 
     /**
+     * Frozen at 4850a83: which rows are shown, and where each change puts its view. Not frozen:
+     * the order of the rows, which the live ChatTimeline it is given decides - since #75 by
+     * #75's binary search, not 4850a83's scan - nor an echo's next status, which is the live
+     * PendingEchoStatus.after. A change to either reaches both sides at once, so a pass here
+     * says nothing about them.
+     *
      * ChatTimelineViewSync at 4850a83: every change to the timeline first, then the views at
      * the same index. Which rows are shown is written out here.
      */
