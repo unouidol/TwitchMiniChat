@@ -109,6 +109,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var cfg: AccountConfig? = null
     private var accountId: String = ""
 
+    /* SCAFFOLD: this page's slot in StartupProbe; -1 when it records nothing. */
+    private var probeSlot = -1
+
     private var ircClient: TwitchChatClient? = null
 
     @Volatile
@@ -1427,7 +1430,37 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
 
+    override fun onCreateView(
+        inflater: android.view.LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        probeSlot = com.fs.twitchminichat.probe.StartupProbe.pageSlot(this)
+        com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_INFLATE_IN)
+        com.fs.twitchminichat.probe.StartupProbe.inject("inflate", probeSlot)
+        val inflated = super.onCreateView(inflater, container, savedInstanceState)
+        com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_INFLATE_OUT)
+        return inflated
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_VIEW_IN)
+        try {
+            onViewCreatedProbed(view, savedInstanceState)
+            com.fs.twitchminichat.probe.StartupProbe.inject("viewcreated", probeSlot)
+            com.fs.twitchminichat.probe.StartupProbe.inject("spin", probeSlot) { com.fs.twitchminichat.probe.StartupProbe.spin(50) }
+        } finally {
+            com.fs.twitchminichat.probe.StartupProbe.pageAccount(probeSlot, accountId, cfg?.channel)
+            com.fs.twitchminichat.probe.StartupProbe.registerPage(
+                probeSlot,
+                frameEvaluator = { probeViewportAtFrame() },
+                scroller = { if (this::scrollChat.isInitialized) scrollChat.scrollTo(0, 0) }
+            )
+            com.fs.twitchminichat.probe.StartupProbe.pageBoundary(probeSlot, com.fs.twitchminichat.probe.StartupProbe.K_VIEW_OUT)
+        }
+    }
+
+    private fun onViewCreatedProbed(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         accountId = requireArguments().getString(ARG_ACCOUNT_ID).orEmpty()
@@ -2874,7 +2907,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          */
         val journalGeneration = HistoryDiagnosticsLog.generation()
 
+        val probeSlotForHistory = probeSlot
         thread {
+            com.fs.twitchminichat.probe.StartupProbe.historyRequestStarted(probeSlotForHistory)
+            com.fs.twitchminichat.probe.StartupProbe.inject("history", probeSlotForHistory)
             val result = backendHistoryClient.load(
                 profileId = profileId,
                 channel = config.channel,
@@ -2922,6 +2958,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             when (result) {
                 is BackendHistoryResult.Success -> {
+                    com.fs.twitchminichat.probe.StartupProbe.historyArrived(probeSlotForHistory, result.messages.size, seconds.toLong())
+                    com.fs.twitchminichat.probe.StartupProbe.inject("spinbg", probeSlotForHistory) { com.fs.twitchminichat.probe.StartupProbe.spin(50) }
                     /*
                      * The account and the channel name the user to anyone who can
                      * read Logcat. The diagnostic journal already records both,
@@ -2948,6 +2986,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     )
 
                     result.messages.forEach { message ->
+                        val probeOrdinal = com.fs.twitchminichat.probe.StartupProbe.historyPostQueued(probeSlotForHistory)
+                        if (probeOrdinal == 200) {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                com.fs.twitchminichat.probe.StartupProbe.inject("gap", probeSlotForHistory)
+                            }
+                        }
                         /* History is also a spawn source even if its UI row is stale. */
                         val spawnIngestion = ingestHistorySpawn(applicationContext, message)
 
@@ -2959,6 +3003,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         }
 
                         runUiIfAlive {
+                            com.fs.twitchminichat.probe.StartupProbe.historyPostRunBegin(probeSlotForHistory)
                             appendChatLine(
                                 user = message.user,
                                 message = message.text,
@@ -2972,6 +3017,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                             if (spawnIngestion.snapshotChanged) {
                                 refreshOpenQuickCatchMenuIfNeeded()
                             }
+                            com.fs.twitchminichat.probe.StartupProbe.historyPostRunEnd(probeSlotForHistory)
                         }
                     }
                 }
@@ -3225,6 +3271,23 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         countAsUnread: Boolean = true,
         messageTimestampSec: Double? = null,
         preservedTimelinePosition: ChatTimelinePosition? = null,
+        row: (ChatTimelinePosition) -> ChatTimelineRow
+    ) {
+        val probeRow = com.fs.twitchminichat.probe.StartupProbe.insertIn(probeSlot, view)
+        if (com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow() >= 0) com.fs.twitchminichat.probe.StartupProbe.inject("row", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+        try {
+            appendChatViewProbed(view, forceScroll, countAsUnread, messageTimestampSec, preservedTimelinePosition, row)
+        } finally {
+            com.fs.twitchminichat.probe.StartupProbe.insertOut(probeRow)
+        }
+    }
+
+    private fun appendChatViewProbed(
+        view: View,
+        forceScroll: Boolean,
+        countAsUnread: Boolean,
+        messageTimestampSec: Double?,
+        preservedTimelinePosition: ChatTimelinePosition?,
         row: (ChatTimelinePosition) -> ChatTimelineRow
     ) {
         val hadComposerFocus = this::editMessage.isInitialized && editMessage.hasFocus()
@@ -3611,7 +3674,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         forceScroll: Boolean = false,
         messageTimestampSec: Double? = null
     ) {
-        if (chatMessageDeduplicator.shouldSuppress(dedupKey)) return
+        val probeRow = com.fs.twitchminichat.probe.StartupProbe.rowBegin(probeSlot)
+        if (chatMessageDeduplicator.shouldSuppress(dedupKey)) {
+            com.fs.twitchminichat.probe.StartupProbe.rowAbort(probeRow, com.fs.twitchminichat.probe.StartupProbe.ABORT_DEDUP)
+            return
+        }
 
         if (messageTimestampSec != null) {
             backfillState.onMessageRendered(messageTimestampSec)
@@ -3633,9 +3700,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         maybeCaptureBuddyInfoFromChat(user, message)
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip message from hidden user")
+            com.fs.twitchminichat.probe.StartupProbe.rowAbort(probeRow, com.fs.twitchminichat.probe.StartupProbe.ABORT_HIDDEN)
             return
         }
 
+        com.fs.twitchminichat.probe.StartupProbe.rowBuildIn(probeRow)
+        if (com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow() >= 0) com.fs.twitchminichat.probe.StartupProbe.inject("build", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         val tv = createMessageTextView(
             user = user,
             rawMessage = message,
@@ -3667,6 +3737,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             user = user,
             message = message
         )
+        com.fs.twitchminichat.probe.StartupProbe.rowBuildOut(probeRow, tv)
 
         appendChatView(
             view = tv,
@@ -3689,6 +3760,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun scrollToBottom() {
+        com.fs.twitchminichat.probe.StartupProbe.scrollPost(probeSlot)
         scrollChat.post {
             scrollChat.scrollTo(0, chatContainer.bottom)
             stickToBottom = true
@@ -3722,6 +3794,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         /* The timeline's coordinates are the container's; the scroll offset is the view's. */
         val top = scrollChat.scrollY - chatContainer.top
         gate.onViewport(top = top, bottom = top + scrollChat.height)
+        com.fs.twitchminichat.probe.StartupProbe.viewport(
+            probeSlot, top, top + scrollChat.height,
+            current = isCurrentChatPage(),
+            started = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        ) { rowView -> timelineSpanOf(rowView) }
+    }
+
+    /* SCAFFOLD, qualification only: the same viewport test at every frame. */
+    private fun probeViewportAtFrame() {
+        if (!this::scrollChat.isInitialized || !this::chatContainer.isInitialized) return
+        val top = scrollChat.scrollY - chatContainer.top
+        com.fs.twitchminichat.probe.StartupProbe.viewportAtFrame(
+            probeSlot, top, top + scrollChat.height,
+            current = isCurrentChatPage(),
+            started = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        ) { rowView -> timelineSpanOf(rowView) }
     }
 
     /** Where [row] is in the timeline's coordinates, or null when it is not in the timeline. */
