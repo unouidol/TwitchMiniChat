@@ -29,6 +29,12 @@ class ChatMessageInputView @JvmOverloads constructor(
      */
     var onComposerTouchDown: (() -> Unit)? = null
 
+    /**
+     * Called just before the platform filters the suggestion adapter for the token being
+     * typed, so that whoever fills the adapter lazily can bring it up to date first.
+     */
+    var onBeforeSuggestionsFiltered: (() -> Unit)? = null
+
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
     private var downX = 0f
@@ -41,6 +47,11 @@ class ChatMessageInputView @JvmOverloads constructor(
      * ACTION_DOWN is forwarded to ChatFragment early so it can prepare input focus
      * before the Input Method Editor animation settles.
      */
+    override fun performFiltering(text: CharSequence?, keyCode: Int) {
+        onBeforeSuggestionsFiltered?.invoke()
+        super.performFiltering(text, keyCode)
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {

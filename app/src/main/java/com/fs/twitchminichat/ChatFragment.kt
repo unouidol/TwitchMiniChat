@@ -62,6 +62,7 @@ import com.fs.twitchminichat.chat.HistoryBackfillResultOutcome
 import com.fs.twitchminichat.chat.HistoryBackfillSend
 import com.fs.twitchminichat.chat.HistoryBackfillState
 import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
+import com.fs.twitchminichat.chat.ChatMentionSuggestions
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -578,6 +579,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         monotonicTimeMillis = { SystemClock.elapsedRealtime() }
     )
 
+    /** Fills [mentionAdapter] from [mentionUserTracker] when it is about to be read, not per message. */
+    private val mentionSuggestions = ChatMentionSuggestions(
+        users = mentionUserTracker,
+        authenticatedUsername = { cfg?.username },
+        canFill = { this::mentionAdapter.isInitialized },
+        fill = { items ->
+            mentionAdapter.clear()
+            mentionAdapter.addAll(items)
+            mentionAdapter.notifyDataSetChanged()
+        }
+    )
+
     private val swipeReplyTriggerPx: Float
         get() = 72f * resources.displayMetrics.density
 
@@ -770,7 +783,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * Method Editor (IME) overlap jointly determine the visible chat area.
      */
     private fun updateMessageMentionDropdownGeometry(
-        visibleItemCount: Int = mentionAdapter.count
+        visibleItemCount: Int = mentionSuggestionCount()
     ) {
         if (!this::editMessage.isInitialized) return
         if (!this::mentionAdapter.isInitialized) return
@@ -1054,13 +1067,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun addMentionUser(user: String) {
-        val recorded = mentionUserTracker.record(
-            username = user,
-            authenticatedUsername = cfg?.username
-        )
-        if (!recorded) return
-
-        refreshMentionSuggestions()
+        mentionSuggestions.onMessage(user)
     }
 
     private fun resetMentionUsersForCurrentChannel() {
@@ -1069,15 +1076,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun refreshMentionSuggestions() {
-        if (!this::mentionAdapter.isInitialized) return
+        mentionSuggestions.fillNow()
+    }
 
-        val items = mentionUserTracker
-            .activeDisplayNames(authenticatedUsername = cfg?.username)
-            .map { "@$it" }
-
-        mentionAdapter.clear()
-        mentionAdapter.addAll(items)
-        mentionAdapter.notifyDataSetChanged()
+    /* How many suggestions the adapter holds, filled first if a sender arrived since: the dropdown is sized from it. */
+    private fun mentionSuggestionCount(): Int {
+        mentionSuggestions.fillIfStale()
+        return mentionAdapter.count
     }
 
     private fun currentMentionQuery(): String? {
@@ -1606,6 +1611,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         editMessage.setAdapter(mentionAdapter)
+        /* The composer filters the adapter itself as an "@" mention is typed: fill it first. */
+        editMessage.onBeforeSuggestionsFiltered = { mentionSuggestions.fillIfStale() }
         editMessage.setTokenizer(MentionTokenizer())
         editMessage.threshold = 1
         updateMessageMentionDropdownGeometry()
@@ -1858,7 +1865,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             if (this::editMessage.isInitialized && editMessage.hasFocus()) {
                 updateMessageMentionDropdownGeometry(
-                    visibleItemCount = mentionAdapter.count.coerceAtLeast(1)
+                    visibleItemCount = mentionSuggestionCount().coerceAtLeast(1)
                 )
             }
 
