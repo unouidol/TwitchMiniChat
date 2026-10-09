@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Dev flavour only. The 5a row view parity harness, started with
+    adb shell am start -n com.fs.twitchminichat.dev/com.fs.twitchminichat.harness.RowViewParityHarnessActivity
+    Exported so that adb can start it; it renders fixed rows, reads nothing private
+    and writes only under its own files/parity-harness directory.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity
+            android:name="com.fs.twitchminichat.harness.RowViewParityHarnessActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TwitchMiniChat" />
+    </application>
+
+</manifest>
