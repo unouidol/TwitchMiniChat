@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.fs.twitchminichat.ChatTimelinePosition
+import com.fs.twitchminichat.PendingEchoView
 import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.PendingEchoRow
 import com.fs.twitchminichat.chat.SystemLineRow
@@ -24,9 +25,11 @@ import com.fs.twitchminichat.chat.SystemLineRow
  * padding and background a mention sets, whether a swipe target is set, the tag.
  *
  * Production and frozen classes of the same role are named by their role, so that a difference
- * of class name alone is not a difference; everything else is compared exactly.
+ * of class name alone is not a difference; everything else is compared exactly. The two members
+ * read by name - a swipe view's onSwipeReply and a link span's url - come from [targets], resolved
+ * before the run; a view or span of any other class is described by its class, not guessed at.
  */
-internal object ViewStateSnapshot {
+internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
 
     /** The state of [view] and, for a view group, of its children, in order. */
     fun of(view: View): Map<String, Any?> {
@@ -103,15 +106,10 @@ internal object ViewStateSnapshot {
         "longClickable" to view.isLongClickable
     )
 
-    private fun kindOf(view: View): String {
-        val name = view.javaClass.name
-        return when {
-            name == "com.fs.twitchminichat.ChatFragment\$SwipeReplyTextView" ||
-                name.endsWith("\$FrozenSwipeReplyTextView") -> "SwipeReplyTextView"
-            name == "com.fs.twitchminichat.PendingEchoView" ||
-                name.endsWith("\$FrozenPendingEchoView") -> "PendingEchoView"
-            else -> name
-        }
+    private fun kindOf(view: View): String = when (view.javaClass) {
+        targets.swipeReplyTextView, targets.frozenSwipeReplyTextView -> "SwipeReplyTextView"
+        PendingEchoView::class.java, FrozenRowViews4804609.FrozenPendingEchoView::class.java -> "PendingEchoView"
+        else -> view.javaClass.name
     }
 
     private fun describe(drawable: Drawable?): String? = when (drawable) {
@@ -131,7 +129,7 @@ internal object ViewStateSnapshot {
                 is BackgroundColorSpan -> "BackgroundColorSpan(${span.backgroundColor})"
                 is StyleSpan -> "StyleSpan(${span.style})"
                 is ImageSpan -> "ImageSpan"
-                is ClickableSpan -> "WebLinkSpan(${fieldValue(span, "url")})"
+                is ClickableSpan -> linkOf(span)
                 else -> span.javaClass.name
             }
             "$what $range"
@@ -147,21 +145,21 @@ internal object ViewStateSnapshot {
         else -> tag.javaClass.name
     }
 
-    private fun swipeReplySet(view: View): Boolean? {
-        val field = generateSequence<Class<*>>(view.javaClass) { it.superclass }
-            .mapNotNull { type -> runCatching { type.getDeclaredField("onSwipeReply") }.getOrNull() }
-            .firstOrNull() ?: return null
-        field.isAccessible = true
-        return field.get(view) != null
+    /* Whether a swipe view's target is set; null for any view that is not a swipe view. */
+    private fun swipeReplySet(view: View): Boolean? = when (view.javaClass) {
+        targets.swipeReplyTextView -> targets.swipeReplyTextViewOnSwipeReply.get(view) != null
+        targets.frozenSwipeReplyTextView -> targets.frozenSwipeReplyTextViewOnSwipeReply.get(view) != null
+        else -> null
     }
 
-    private fun fieldValue(target: Any, name: String): Any? {
-        val field = generateSequence<Class<*>>(target.javaClass) { it.superclass }
-            .mapNotNull { type -> runCatching { type.getDeclaredField(name) }.getOrNull() }
-            .firstOrNull() ?: return "<no field $name>"
-        field.isAccessible = true
-        return field.get(target)
+    /* A web link span by its url; any other clickable span by its class. */
+    private fun linkOf(span: ClickableSpan): String = when (span.javaClass) {
+        targets.externalWebLinkSpan -> "WebLinkSpan(${targets.externalWebLinkSpanUrl.get(span)})"
+        targets.frozenWebLinkSpan -> "WebLinkSpan(${targets.frozenWebLinkSpanUrl.get(span)})"
+        else -> "ClickableSpan(${span.javaClass.name})"
     }
 
-    private val UNPLACED = ChatTimelinePosition(timestampMillis = 0L, sequence = 0L)
+    private companion object {
+        val UNPLACED = ChatTimelinePosition(timestampMillis = 0L, sequence = 0L)
+    }
 }

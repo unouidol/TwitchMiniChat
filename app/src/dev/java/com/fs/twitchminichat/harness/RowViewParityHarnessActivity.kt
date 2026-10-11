@@ -1,10 +1,14 @@
 package com.fs.twitchminichat.harness
 
+import android.Manifest
+import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -22,6 +26,7 @@ import com.fs.twitchminichat.R
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.lang.reflect.InvocationTargetException
 
 /**
  * Dev flavour only: renders every row of [ParityCatalogue] through ChatFragment's producers and
@@ -37,6 +42,17 @@ import java.io.File
  * Three controls run with every pass, because a comparison that cannot fail proves nothing: two
  * rows a character apart must differ in pixels; a row whose focusable flag is cleared must differ in
  * state and not in pixels; one production row built twice must match itself.
+ *
+ * Only the adb shell may start it. An activity started by `am start` cannot learn its caller: the
+ * referrer can be spoofed, the calling package exists only for startActivityForResult, and the
+ * launching uid exists only from API 34 and only when the caller chooses to share it. So the system
+ * checks the caller instead: the manifest entry requires [REQUIRED_PERMISSION], which the shell
+ * holds and an ordinary app cannot be granted. The activity refuses to run if that requirement is
+ * ever missing from its own manifest entry, and, where the platform reports a launching uid at all,
+ * if that uid is neither the shell's nor root's.
+ *
+ * Every member reached by reflection is resolved before anything is rendered; a missing one stops
+ * the run, and the results file names it.
  */
 class RowViewParityHarnessActivity : AppCompatActivity() {
 
@@ -51,13 +67,65 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         }
         super.onCreate(savedInstanceState)
 
+        refusal()?.let { reason ->
+            Log.w(TAG, "refused: $reason")
+            writeResult(JSONObject().put("refused", reason))
+            finish()
+            return
+        }
+
         val root = FrameLayout(this)
         setContentView(root)
         root.doOnLayout { run(width = root.width) }
     }
 
+    /* Why this start must not run, or null when it may. */
+    private fun refusal(): String? {
+        val component = ComponentName(this, javaClass)
+        val declared = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getActivityInfo(component, PackageManager.ComponentInfoFlags.of(0L)).permission
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getActivityInfo(component, 0).permission
+        }
+        if (declared != REQUIRED_PERMISSION) {
+            return "its manifest entry requires $declared instead of $REQUIRED_PERMISSION, so any app could start it"
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val uid = launchedFromUid
+            if (uid != Process.INVALID_UID && uid != Process.SHELL_UID && uid != Process.ROOT_UID) {
+                return "started by uid $uid, which is neither the adb shell nor root"
+            }
+        }
+        return null
+    }
+
     private fun run(width: Int) {
+        val targets = try {
+            ReflectiveTargets.resolve()
+        } catch (missing: MissingReflectiveTarget) {
+            Log.e(TAG, "aborted: ${missing.message}")
+            writeResult(
+                JSONObject()
+                    .put("aborted", missing.message)
+                    .put("reflectiveTargets", JSONArray(ReflectiveTargets.descriptions))
+            )
+            finish()
+            return
+        }
+        try {
+            runResolved(width, targets)
+        } catch (failure: Exception) {
+            val cause = (failure as? InvocationTargetException)?.targetException ?: failure
+            Log.e(TAG, "aborted: ${cause.javaClass.name}: ${cause.message}")
+            writeResult(JSONObject().put("aborted", "${cause.javaClass.name}: ${cause.message}"))
+        }
+        finish()
+    }
+
+    private fun runResolved(width: Int, targets: ReflectiveTargets) {
         val output = File(filesDir, "parity-harness").apply { mkdirs() }
+        val snapshot = ViewStateSnapshot(targets)
         val report = JSONObject()
         report.put("commit", BuildConfig.GIT_SHA)
         report.put("themeRequested", themeName)
@@ -66,14 +134,15 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         report.put("density", resources.displayMetrics.density.toDouble())
         report.put("fontScale", resources.configuration.fontScale.toDouble())
         report.put("sdk", Build.VERSION.SDK_INT)
+        report.put("reflectiveTargets", JSONArray(ReflectiveTargets.descriptions))
 
         val frozen = FrozenRowViews4804609(this, ParityCatalogue.SIGNED_IN)
-        val production = ProductionRowViews(this, ParityCatalogue.SIGNED_IN)
+        val production = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
 
         val rows = JSONArray()
         var identical = 0
         ParityCatalogue.rows.forEachIndexed { index, row ->
-            val result = compareRow(row.id, width, output) { side, container ->
+            val result = compareRow(row.id, width, output, snapshot) { side, container ->
                 if (side == PRODUCTION) {
                     ParityCatalogue.produce(row, index, production, container)
                 } else {
@@ -87,12 +156,16 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         report.put("rowsIdentical", identical)
         report.put("rowsTotal", ParityCatalogue.rows.size)
         report.put("emoteRowsExcludedFromRebindUntil5c", JSONArray(ParityCatalogue.emoteRows))
-        report.put("controls", controls(width, frozen, production))
-        report.put("themeDefaults", themeDefaults(production))
+        report.put("controls", controls(width, frozen, production, snapshot))
+        report.put("themeDefaults", themeDefaults(production, snapshot))
 
-        File(output, "$themeName.json").writeText(report.toString(2))
+        writeResult(report)
         Log.i(TAG, "done theme=$themeName rows=${ParityCatalogue.rows.size} identical=$identical width=$width")
-        finish()
+    }
+
+    private fun writeResult(result: JSONObject) {
+        val output = File(filesDir, "parity-harness").apply { mkdirs() }
+        File(output, "$themeName.json").writeText(result.toString(2))
     }
 
     /* One row through both paths: child count, pixels of every child, and their state. */
@@ -100,6 +173,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         id: String,
         width: Int,
         output: File,
+        snapshot: ViewStateSnapshot,
         build: (String, ViewGroup) -> Unit
     ): JSONObject {
         val result = JSONObject().put("id", id)
@@ -119,15 +193,16 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             }
 
             val productionState = (0 until productionContainer.childCount)
-                .map { ViewStateSnapshot.of(productionContainer.getChildAt(it)) }
+                .map { snapshot.of(productionContainer.getChildAt(it)) }
             val frozenState = (0 until frozenContainer.childCount)
-                .map { ViewStateSnapshot.of(frozenContainer.getChildAt(it)) }
-            val stateDiff = ViewStateSnapshot.diff(productionState, frozenState)
+                .map { snapshot.of(frozenContainer.getChildAt(it)) }
+            val stateDiff = snapshot.diff(productionState, frozenState)
             result.put("stateIdentical", stateDiff.isEmpty())
             result.put("stateDiff", JSONArray(stateDiff))
             result.put("productionState", JSONObject.wrap(productionState))
-        } catch (failure: Exception) {
-            val cause = (failure as? java.lang.reflect.InvocationTargetException)?.targetException ?: failure
+        } catch (thrown: InvocationTargetException) {
+            /* A producer itself threw for this row: recorded as a failed row, never as a match. */
+            val cause = thrown.targetException
             result.put("bitmapIdentical", false)
             result.put("stateIdentical", false)
             result.put("error", "${cause.javaClass.name}: ${cause.message}")
@@ -136,7 +211,12 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     }
 
     /* Two rows a character apart; a cleared focusable flag; one production row built twice. */
-    private fun controls(width: Int, frozen: FrozenRowViews4804609, production: ProductionRowViews): JSONObject {
+    private fun controls(
+        width: Int,
+        frozen: FrozenRowViews4804609,
+        production: ProductionRowViews,
+        snapshot: ViewStateSnapshot
+    ): JSONObject {
         val controls = JSONObject()
 
         val one = newContainer().apply { addView(frozen.chatMessage("parity_alice", "hello there", null, "c1", null, 1.0)) }
@@ -149,9 +229,9 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             addView(frozen.chatMessage("parity_alice", "hello there", null, "c2", null, 1.0).apply { isFocusable = false })
         }
         val flagPixels = PixelDiff.of(render(plain, width), render(unfocusable, width))
-        val flagState = ViewStateSnapshot.diff(
-            ViewStateSnapshot.of(plain.getChildAt(0)),
-            ViewStateSnapshot.of(unfocusable.getChildAt(0))
+        val flagState = snapshot.diff(
+            snapshot.of(plain.getChildAt(0)),
+            snapshot.of(unfocusable.getChildAt(0))
         )
         controls.put("focusableCleared_stateDiffers", flagState.isNotEmpty())
         controls.put("focusableCleared_pixelsIdentical", flagPixels.identical)
@@ -160,9 +240,9 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         val first = newContainer().also { ParityCatalogue.produce(row, 0, production, it) }
         val second = newContainer().also { ParityCatalogue.produce(row, 0, production, it) }
         val repeatPixels = PixelDiff.of(render(first, width), render(second, width))
-        val repeatState = ViewStateSnapshot.diff(
-            ViewStateSnapshot.of(first.getChildAt(0)),
-            ViewStateSnapshot.of(second.getChildAt(0))
+        val repeatState = snapshot.diff(
+            snapshot.of(first.getChildAt(0)),
+            snapshot.of(second.getChildAt(0))
         )
         controls.put("productionTwice_pixelsIdentical", repeatPixels.identical)
         controls.put("productionTwice_stateIdentical", repeatState.isEmpty())
@@ -171,12 +251,12 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     }
 
     /* Each view kind as its constructor leaves it, before anything sets it up. */
-    private fun themeDefaults(production: ProductionRowViews): JSONObject = JSONObject()
-        .put("messageView (ChatFragment.SwipeReplyTextView)", JSONObject.wrap(ViewStateSnapshot.defaultsOf(production.freshMessageView())))
-        .put("systemLine (TextView)", JSONObject.wrap(ViewStateSnapshot.defaultsOf(TextView(this))))
-        .put("AppCompatTextView", JSONObject.wrap(ViewStateSnapshot.defaultsOf(AppCompatTextView(this))))
-        .put("pendingEcho (PendingEchoView, after its init)", JSONObject.wrap(ViewStateSnapshot.defaultsOf(PendingEchoView(this))))
-        .put("LinearLayout", JSONObject.wrap(ViewStateSnapshot.defaultsOf(LinearLayout(this))))
+    private fun themeDefaults(production: ProductionRowViews, snapshot: ViewStateSnapshot): JSONObject = JSONObject()
+        .put("messageView (ChatFragment.SwipeReplyTextView)", JSONObject.wrap(snapshot.defaultsOf(production.freshMessageView())))
+        .put("systemLine (TextView)", JSONObject.wrap(snapshot.defaultsOf(TextView(this))))
+        .put("AppCompatTextView", JSONObject.wrap(snapshot.defaultsOf(AppCompatTextView(this))))
+        .put("pendingEcho (PendingEchoView, after its init)", JSONObject.wrap(snapshot.defaultsOf(PendingEchoView(this))))
+        .put("LinearLayout", JSONObject.wrap(snapshot.defaultsOf(LinearLayout(this))))
 
     private fun newContainer(): LinearLayout =
         layoutInflater.inflate(R.layout.parity_harness_container, FrameLayout(this), false) as LinearLayout
@@ -205,6 +285,9 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         const val EXTRA_THEME = "theme"
         const val PRODUCTION = "production"
         const val FROZEN = "frozen"
+
+        /* Held by the adb shell; an ordinary app cannot be granted it. The manifest entry requires it. */
+        const val REQUIRED_PERMISSION = Manifest.permission.DUMP
     }
 }
 

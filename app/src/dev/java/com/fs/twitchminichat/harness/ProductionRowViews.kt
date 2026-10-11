@@ -21,8 +21,9 @@ import com.fs.twitchminichat.chat.PendingEchoEvent
  *
  * The fragment is attached without a view and held at CREATED, so onCreateView, onViewCreated,
  * onStart and onResume never run: no IRC connection, no history request, no account read. The
- * producers reach private members, so they are called by reflection; nothing in src/main was made
- * visible for this. The only fields set are the three the producers need and nothing else
+ * producers reach private members, so they are called by reflection, through [ReflectiveTargets]
+ * resolved before anything runs; nothing in src/main was made visible for this. The only fields set
+ * are the three the producers need and nothing else
  * provides: the account they write as, the timeline controller, and the scroll view that
  * scrollToBottom posts to. That scroll view is never attached, so what it posts never runs.
  *
@@ -31,7 +32,8 @@ import com.fs.twitchminichat.chat.PendingEchoEvent
  */
 internal class ProductionRowViews(
     activity: FragmentActivity,
-    signedInUsername: String
+    signedInUsername: String,
+    private val targets: ReflectiveTargets
 ) {
 
     private val fragment = ChatFragment.newInstance("")
@@ -42,8 +44,8 @@ internal class ProductionRowViews(
             .setMaxLifecycle(fragment, Lifecycle.State.CREATED)
             .commitNow()
 
-        setField(
-            "cfg",
+        targets.cfg.set(
+            fragment,
             AccountConfig(
                 id = "parity-harness",
                 username = signedInUsername,
@@ -52,13 +54,13 @@ internal class ProductionRowViews(
                 profileId = ""
             )
         )
-        setField("scrollChat", ScrollView(activity))
+        targets.scrollChat.set(fragment, ScrollView(activity))
     }
 
     /** A fresh timeline over [container]; every row produced after this goes into it. */
     fun newTimeline(container: ViewGroup): ChatTimelineController {
         val controller = ChatTimelineController(container)
-        setField("chatTimelineController", controller)
+        targets.chatTimelineController.set(fragment, controller)
         return controller
     }
 
@@ -71,24 +73,19 @@ internal class ProductionRowViews(
         replyParentUserLogin: String?,
         messageTimestampSec: Double
     ) {
-        method(
-            "appendChatLine",
-            String::class.java, String::class.java, String::class.java, String::class.java,
-            String::class.java, java.lang.Boolean.TYPE, java.lang.Double::class.java
-        ).invoke(fragment, user, message, emotesRaw, dedupKey, replyParentUserLogin, false, messageTimestampSec)
+        targets.appendChatLine.invoke(
+            fragment, user, message, emotesRaw, dedupKey, replyParentUserLogin, false, messageTimestampSec
+        )
     }
 
     /** appendSystemLine. */
     fun systemLine(text: String) {
-        method("appendSystemLine", String::class.java).invoke(fragment, text)
+        targets.appendSystemLine.invoke(fragment, text)
     }
 
     /** appendPendingOutgoingMessage, as the send path calls it. */
     fun pendingEcho(pending: PendingOutgoingChatMessage, replyParentUserLogin: String?) {
-        method(
-            "appendPendingOutgoingMessage",
-            PendingOutgoingChatMessage::class.java, String::class.java
-        ).invoke(fragment, pending, replyParentUserLogin)
+        targets.appendPendingOutgoingMessage.invoke(fragment, pending, replyParentUserLogin)
     }
 
     /** An echo event through the real timeline, as the page applies it. */
@@ -97,19 +94,8 @@ internal class ProductionRowViews(
     }
 
     /** A message view as ChatFragment constructs it, before anything sets it up: its theme defaults. */
-    fun freshMessageView(): View {
-        val type = Class.forName("com.fs.twitchminichat.ChatFragment\$SwipeReplyTextView")
-        val constructor = type.getDeclaredConstructor(ChatFragment::class.java, android.content.Context::class.java)
-        constructor.isAccessible = true
-        return constructor.newInstance(fragment, fragment.requireContext()) as View
-    }
-
-    private fun setField(name: String, value: Any) {
-        ChatFragment::class.java.getDeclaredField(name).apply { isAccessible = true }.set(fragment, value)
-    }
-
-    private fun method(name: String, vararg types: Class<*>) =
-        ChatFragment::class.java.getDeclaredMethod(name, *types).apply { isAccessible = true }
+    fun freshMessageView(): View =
+        targets.swipeReplyTextViewConstructor.newInstance(fragment, fragment.requireContext()) as View
 
     private companion object {
         const val FRAGMENT_TAG = "row-view-parity-harness"
