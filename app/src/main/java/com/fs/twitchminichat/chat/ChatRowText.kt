@@ -9,9 +9,9 @@ import com.fs.twitchminichat.TwitchEmoteMessageFormatter
  *
  * Built by [ChatRowText] from the row and the one piece of page state it depends on, the
  * signed-in username, with no Android type, so every decision in it is testable on the JVM.
- * [ChatRowTextApplier] puts it on a view: it resolves each colour against the theme, creates the
- * Android spans, finds the web links (Linkify is called there, never reimplemented here) and
- * sets the text.
+ * [com.fs.twitchminichat.ChatRowTextApplier] puts it on a view: it resolves each colour against
+ * the theme, creates the Android spans, finds the web links (Linkify is called there, never
+ * reimplemented here) and sets the text.
  *
  * Every field always has a value, so what a view shows after one is applied never depends on
  * what it showed before.

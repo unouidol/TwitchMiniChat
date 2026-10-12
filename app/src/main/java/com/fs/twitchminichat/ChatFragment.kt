@@ -48,6 +48,8 @@ import com.fs.twitchminichat.chat.ChannelBoundPage
 import com.fs.twitchminichat.chat.ChatChannelBinding
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMessageRow
+import com.fs.twitchminichat.chat.ChatRowText
+import com.fs.twitchminichat.chat.RowTextColor
 import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.SystemLineRow
 import com.fs.twitchminichat.chat.PendingEchoEvent
@@ -685,6 +687,25 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     )
 
     private val userColorCache = HashMap<String, Int>()
+
+    /** Puts each row's text on its view, with this page's theme colours and density. */
+    private val rowTextApplier = ChatRowTextApplier(
+        theme = object : ChatRowTextApplier.Theme {
+            override fun textColor(role: RowTextColor): Int = when (role) {
+                RowTextColor.PRIMARY -> colorOnSurface()
+                RowTextColor.SECONDARY -> colorOnSurfaceVariant()
+            }
+
+            override fun signedInUsernameColor(): Int = colorPrimarySafe()
+
+            override fun mentionTextHighlightColor(): Int = colorMentionHighlight()
+
+            override fun mentionRowHighlightColor(): Int = colorMentionRowHighlight()
+
+            override fun pxOf(dp: Int): Int = this@ChatFragment.dp(dp)
+        },
+        onLinkClick = { url -> externalBrowserLinkController?.openLink(url) }
+    )
 
     private lateinit var editChannel: ChannelAutoCompleteTextView
     private lateinit var channelsAdapter: ArrayAdapter<String>
@@ -3269,9 +3290,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private fun appendSystemLine(text: String) {
         val tv = TextView(requireContext())
-        tv.text = getString(R.string.system_bullet, text)
-        tv.setTextColor(colorOnSurfaceVariant())
-        tv.textSize = 12f
+        rowTextApplier.apply(tv, ChatRowText.systemLine(getString(R.string.system_bullet, text)))
 
         appendChatView(tv, forceScroll = false, countAsUnread = false) { position ->
             SystemLineRow(position = position, text = text)
