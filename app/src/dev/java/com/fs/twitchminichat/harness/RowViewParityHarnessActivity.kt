@@ -156,7 +156,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         report.put("rowsIdentical", identical)
         report.put("rowsTotal", ParityCatalogue.rows.size)
         report.put("emoteRowsExcludedFromRebindUntil5c", JSONArray(ParityCatalogue.emoteRows))
-        report.put("controls", controls(width, frozen, production, snapshot))
+        report.put("controls", controls(width, frozen, targets, snapshot))
         report.put("themeDefaults", themeDefaults(production, snapshot))
 
         writeResult(report)
@@ -214,7 +214,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     private fun controls(
         width: Int,
         frozen: FrozenRowViews4804609,
-        production: ProductionRowViews,
+        targets: ReflectiveTargets,
         snapshot: ViewStateSnapshot
     ): JSONObject {
         val controls = JSONObject()
@@ -236,9 +236,20 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         controls.put("focusableCleared_stateDiffers", flagState.isNotEmpty())
         controls.put("focusableCleared_pixelsIdentical", flagPixels.identical)
 
+        /*
+         * Each build on a fragment of its own: one fragment's deduplicator keeps every stable id it
+         * has accepted, so the same row built twice on it would be suppressed the second time.
+         */
         val row = ParityCatalogue.rows.first { it.id == "msg.mention" }
-        val first = newContainer().also { ParityCatalogue.produce(row, 0, production, it) }
-        val second = newContainer().also { ParityCatalogue.produce(row, 0, production, it) }
+        val first = newContainer().also {
+            ParityCatalogue.produce(row, 0, ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets), it)
+        }
+        val second = newContainer().also {
+            ParityCatalogue.produce(row, 0, ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets), it)
+        }
+        check(first.childCount == 1 && second.childCount == 1) {
+            "control productionTwice: the builds produced ${first.childCount} and ${second.childCount} rows, not 1 each"
+        }
         val repeatPixels = PixelDiff.of(render(first, width), render(second, width))
         val repeatState = snapshot.diff(
             snapshot.of(first.getChildAt(0)),

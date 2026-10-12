@@ -40,7 +40,7 @@ internal class ProductionRowViews(
 
     init {
         activity.supportFragmentManager.beginTransaction()
-            .add(fragment, FRAGMENT_TAG)
+            .add(fragment, "$FRAGMENT_TAG-${instances++}")
             .setMaxLifecycle(fragment, Lifecycle.State.CREATED)
             .commitNow()
 
@@ -99,5 +99,8 @@ internal class ProductionRowViews(
 
     private companion object {
         const val FRAGMENT_TAG = "row-view-parity-harness"
+
+        /* Each instance is its own fragment, with its own deduplicator and its own state. */
+        var instances = 0
     }
 }
