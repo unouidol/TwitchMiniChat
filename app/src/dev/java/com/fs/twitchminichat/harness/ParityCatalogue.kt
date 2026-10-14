@@ -65,6 +65,19 @@ internal object ParityCatalogue {
         ParityRow.Message("msg.link", "parity_alice", "see https://example.com/page now"),
         ParityRow.Message("msg.link.www", "parity_alice", "go to www.example.org please"),
         ParityRow.Message("msg.link.mention", "parity_alice", "@me look https://example.com/x"),
+        /*
+         * A link at the very start of the message, behind a symbol the URL pattern accepts in a
+         * host name but which is not a word character. Searched in the message alone, the link
+         * starts on the symbol; searched with the "[user] " prefix before it, it would start one
+         * character later. The only row whose links depend on where the search starts.
+         *
+         * FROZEN DEFECT. The linkifier currently includes the leading emoji in the URL
+         * (http://👉example.com, the emoji underlined as part of the link). This row freezes that
+         * behaviour deliberately, because the oracle preserves today's behaviour, defects included.
+         * When the defect is fixed, THIS ROW'S EXPECTED RESULT CHANGES, and that is correct, not
+         * a regression.
+         */
+        ParityRow.Message("msg.link.after-symbol-at-start.frozen-defect", "parity_alice", "👉example.com"),
         ParityRow.Message("msg.emotes", "parity_alice", "Kappa hello Kappa", emotesRaw = "25:0-4,12-16"),
         ParityRow.Message(
             "msg.emotes.reply.mention", "parity_alice", "Kappa @me Kappa",
