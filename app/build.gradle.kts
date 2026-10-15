@@ -45,6 +45,11 @@ fun gitOutput(vararg args: String): String? = runCatching {
  * Version numbers cannot tell builds apart - several builds exist per release -
  * while the commit can. Both commands have to succeed: if the tree's state
  * cannot be read, the build does not claim to be clean.
+ *
+ * Known limitation: the "+" does not cover the JDK. It comes from the
+ * git-ignored gradle/gradle-daemon-jvm.properties, or from the environment
+ * where that file is absent, so builds of one commit made with different JDKs
+ * carry the same label and nothing records which JDK made them.
  */
 val gitShaForBuild: String = run {
     val sha = gitOutput("rev-parse", "--short=7", "HEAD")
