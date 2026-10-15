@@ -7,10 +7,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.text.Editable
-import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
-import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.HapticFeedbackConstants
@@ -48,6 +46,8 @@ import com.fs.twitchminichat.chat.ChannelBoundPage
 import com.fs.twitchminichat.chat.ChatChannelBinding
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMessageRow
+import com.fs.twitchminichat.chat.ChatRowText
+import com.fs.twitchminichat.chat.RowTextColor
 import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.SystemLineRow
 import com.fs.twitchminichat.chat.PendingEchoEvent
@@ -78,10 +78,6 @@ import android.text.InputType
 import android.widget.EditText
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import android.graphics.Typeface
-import android.text.style.BackgroundColorSpan
-import android.text.style.StyleSpan
-import android.graphics.drawable.GradientDrawable
 import com.fs.twitchminichat.ui.input.ChatMessageInputView
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
 import java.net.URLEncoder
@@ -679,12 +675,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private var diagnosticsApplicationContext: Context? = null
 
 
-    private val botcolors = mapOf(
-        "elbierro" to 0xFFFFD700.toInt(),
-        "pokemoncommunitygame" to 0xFFFF5555.toInt()
-    )
+    /** Puts each row's text on its view, with this page's theme colours and density. */
+    private val rowTextApplier = ChatRowTextApplier(
+        theme = object : ChatRowTextApplier.Theme {
+            override fun textColor(role: RowTextColor): Int = when (role) {
+                RowTextColor.PRIMARY -> colorOnSurface()
+                RowTextColor.SECONDARY -> colorOnSurfaceVariant()
+            }
 
-    private val userColorCache = HashMap<String, Int>()
+            override fun signedInUsernameColor(): Int = colorPrimarySafe()
+
+            override fun mentionTextHighlightColor(): Int = colorMentionHighlight()
+
+            override fun mentionRowHighlightColor(): Int = colorMentionRowHighlight()
+
+            override fun pxOf(dp: Int): Int = this@ChatFragment.dp(dp)
+        },
+        onLinkClick = { url -> externalBrowserLinkController?.openLink(url) }
+    )
 
     private lateinit var editChannel: ChannelAutoCompleteTextView
     private lateinit var channelsAdapter: ArrayAdapter<String>
@@ -997,16 +1005,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
 
-    private fun colorForUsername(user: String): Int {
-        val key = user.lowercase()
-        botcolors[key]?.let { return it }
-
-        return userColorCache.getOrPut(key) {
-            val h = (key.hashCode() and 0x7fffffff) % 360
-            Color.HSVToColor(floatArrayOf(h.toFloat(), 0.75f, 0.95f))
-        }
-    }
-
     private fun normalizeChatUser(user: String?): String {
         return user?.trim()?.lowercase().orEmpty()
     }
@@ -1141,38 +1139,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
     }
 
-    private fun applyMentionHighlightSpans(text: SpannableStringBuilder): Boolean {
-        val username = cfg?.username?.trim().orEmpty()
-        if (username.isBlank()) return false
-
-        val regex = Regex(
-            pattern = "(?i)(?<![A-Za-z0-9_])@${Regex.escape(username)}(?![A-Za-z0-9_])"
-        )
-
-        val highlightColor = colorMentionHighlight()
-        var found = false
-
-        regex.findAll(text.toString()).forEach { match ->
-            found = true
-
-            text.setSpan(
-                BackgroundColorSpan(highlightColor),
-                match.range.first,
-                match.range.last + 1,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
-            text.setSpan(
-                StyleSpan(Typeface.BOLD),
-                match.range.first,
-                match.range.last + 1,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-
-        return found
-    }
-
     private fun colorMentionRowHighlight(): Int {
         val base = resolveThemeColor(
             android.R.attr.textColorHighlight,
@@ -1189,24 +1155,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
-    }
-
-    private fun applyMentionRowHighlight(tv: TextView, hasMention: Boolean) {
-        if (!hasMention) return
-
-        val bg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(10).toFloat()
-            setColor(colorMentionRowHighlight())
-        }
-
-        tv.background = bg
-        tv.setPaddingRelative(
-            dp(8),
-            dp(6),
-            dp(8),
-            dp(6)
-        )
     }
 
     private class MentionTokenizer : MultiAutoCompleteTextView.Tokenizer {
@@ -3269,9 +3217,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private fun appendSystemLine(text: String) {
         val tv = TextView(requireContext())
-        tv.text = getString(R.string.system_bullet, text)
-        tv.setTextColor(colorOnSurfaceVariant())
-        tv.textSize = 12f
+        rowTextApplier.apply(tv, ChatRowText.systemLine(getString(R.string.system_bullet, text)))
 
         appendChatView(tv, forceScroll = false, countAsUnread = false) { position ->
             SystemLineRow(position = position, text = text)
@@ -4095,106 +4041,28 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         emotesRaw: String?,
         replyParentUserLogin: String?
     ): SwipeReplyTextView {
-        val tv = SwipeReplyTextView(requireContext()).apply {
-            setTextColor(colorOnSurface())
-            textSize = 14f
-            linksClickable = true
-            movementMethod =
-                android.text.method.LinkMovementMethod.getInstance()
-        }
-
-        val emoteLayout = TwitchEmoteMessageFormatter.format(
+        val tv = SwipeReplyTextView(requireContext())
+        val row = ChatRowText.message(
+            user = user,
             rawMessage = rawMessage,
-            emotesRaw = emotesRaw
+            emotesRaw = emotesRaw,
+            replyParentUserLogin = replyParentUserLogin,
+            signedInUsername = cfg?.username
         )
-        val message = emoteLayout.text
+        val text = rowTextApplier.apply(tv, row)
 
-        val lowerUser = user.lowercase()
-        val lowerSelf = cfg?.username?.lowercase()
-        val nameColor = if (lowerUser == lowerSelf) colorPrimarySafe() else colorForUsername(user)
+        if (row.emoteMarkers.isEmpty()) return tv
 
-        val replyHeader = replyParentUserLogin
-            ?.takeIf { it.isNotBlank() }
-            ?.let { "↪ replying to @$it\n" }
-            .orEmpty()
-
-        val prefix = "[$user] "
-        val fullPrefix = replyHeader + prefix
-
-        if (emoteLayout.markers.isEmpty()) {
-            val plain = SpannableStringBuilder(fullPrefix + message)
-
-            if (replyHeader.isNotEmpty()) {
-                plain.setSpan(
-                    ForegroundColorSpan(colorOnSurfaceVariant()),
-                    0,
-                    replyHeader.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-
-            val open = plain.indexOf("[", replyHeader.length)
-            val close = plain.indexOf("]", replyHeader.length)
-            if (open != -1 && close > open) {
-                plain.setSpan(
-                    ForegroundColorSpan(nameColor),
-                    open + 1,
-                    close,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-
-            val hasMention = applyMentionHighlightSpans(plain)
-            applyMentionRowHighlight(tv, hasMention)
-            ChatMessageLinkifier.addWebLinks(
-                text = plain,
-                messageStartIndex = fullPrefix.length
-            ) { url ->
-                externalBrowserLinkController?.openLink(url)
-            }
-
-            tv.text = plain
-            return tv
-        }
-
-        val builder = SpannableStringBuilder(fullPrefix + message)
-
-        if (replyHeader.isNotEmpty()) {
-            builder.setSpan(
-                ForegroundColorSpan(colorOnSurfaceVariant()),
-                0,
-                replyHeader.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-
-        val open = builder.indexOf("[", replyHeader.length)
-        val close = builder.indexOf("]", replyHeader.length)
-        if (open != -1 && close > open) {
-            builder.setSpan(
-                ForegroundColorSpan(nameColor),
-                open + 1,
-                close,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-
-        val hasMention = applyMentionHighlightSpans(builder)
-        applyMentionRowHighlight(tv, hasMention)
-        ChatMessageLinkifier.addWebLinks(
-            text = builder,
-            messageStartIndex = fullPrefix.length
-        ) { url ->
-            externalBrowserLinkController?.openLink(url)
-        }
-
-        tv.text = builder
-
+        /*
+         * After the applier, never before it. The render size is read from the text size the
+         * applier set. The loader installs its own live copy of the text and draws the emotes
+         * into it, so a setText after this one would hide them; the applier's comes last.
+         */
         emoteImageLoader?.loadInto(
             textView = tv,
-            text = builder,
-            markers = emoteLayout.markers,
-            markerOffset = fullPrefix.length,
+            text = text,
+            markers = row.emoteMarkers,
+            markerOffset = row.emoteMarkerOffset,
             renderSizePx = targetEmoteRenderSizePx(tv.textSize),
             darkTheme = isDarkTheme()
         )
