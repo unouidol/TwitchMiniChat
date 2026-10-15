@@ -416,12 +416,21 @@ adds to `AGENTS.md`.
 ## Deferred — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade
 
 Not on any branch, by decision. The upgrade from Android Gradle Plugin (AGP) 9.2.1 and Gradle
-9.4.1 waits until step 5d of the chat conversion (the numbering in which #79 and #80 are 5a) is
-done, because the start-up measurements of that work were all taken on AGP 9.2.1 builds - the
-version `main-v5` has carried since `453d1de` - and a toolchain change in the middle would
-confound them. It is not optional forever: AGP 10.0, planned for late 2026, deletes the old
-Variant application programming interface (API), so the upgrade is only badly timed now.
-Android Studio's Upgrade Assistant recommends it; decline it until then.
+9.4.1 waits until the chat's rows are shown by a recycling list: the conversion whose first
+steps are #79 (`a382c94`) and #80 (`549e2f6`). The start-up measurements of that work were all
+taken on AGP 9.2.1 builds - the version `main-v5` has carried since `453d1de` - and a toolchain
+change in the middle would confound them. Whether the condition holds is read from the clone:
+it does not while `chatContainer` in `app/src/main/res/layout/fragment_chat.xml` is a
+`LinearLayout` inside a `ScrollView`, holding a view for each row, as it is at `549e2f6`.
+
+It is not optional forever. The release notes of AGP 9.4.0 (September 2026) state that the new
+Variant application programming interface (API) is mandatory for all projects from AGP 10, and
+introduce `android.newDsl.optOut` to migrate module by module before then:
+https://developer.android.com/build/releases/agp-9-4-0-release-notes. The pressure on this
+repository is smaller than that sounds. No build script here uses either Variant API, so AGP
+10 would reach it through the plugins it applies (Google services and Crashlytics), if at all.
+Android Studio's Upgrade Assistant recommends the upgrade; decline it until the condition above
+holds.
 
 ## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
@@ -795,10 +804,11 @@ prints no timestamps - the authoritative time of a registry change is `updated_a
 ## Test device
 
 **Stale, marked 2026-10-15.** What follows describes the device as measured on 2026-09-14. It
-no longer says what the device runs: builds have been installed on it since, and none was
-recorded here. Refreshing it needs the device itself - the build identity on the login screen,
-or the `# app` line of a journal export, recorded with the date it was read. Until then,
-nothing in this section is current.
+no longer says what the device runs. Builds have been installed on it since, and none was
+recorded here: #80's description records four manual checks run on the device (API 31) on
+2026-10-14, on a dev debug build of that pull request. Refreshing this section needs the
+device itself - the build identity on the login screen, or the `# app` line of a journal
+export, recorded with the date it was read. Until then, nothing in this section is current.
 
 Measured from the journal export of 2026-09-14, not from memory: it contains `listener.*`
 lines and `fcm.notification.audio` lines with `elevatedSpanMs`, and no
