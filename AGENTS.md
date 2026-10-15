@@ -90,10 +90,23 @@ A warning count is comparable only between runs of the same lint configuration. 
 `RELEASE-STATE.md` is the source of truth for where every change currently is: what is
 published, what is merged but unreleased, what is still waiting on a branch and behind which
 condition, and what the test device is running. Read it before assuming a change has reached
-users, and update it in the same pull request that moves something from one of those states
-to another — not only in the ones that bump the version. A change whose position nobody
-recorded is one that will be re-derived from scratch later, and answered wrongly at least
-once.
+users. A change whose position nobody recorded is one that will be re-derived from scratch
+later, and answered wrongly at least once.
+
+What is merged but unreleased is the one position the file does not list. It is read from the
+log, with `git log --first-parent v<latest tag>..main-v5`, and a merge owes the file no edit.
+This is a decision, not an omission, and its reason is mechanical: a squash merge's commit
+identifier does not exist until the merge has happened, and a squash merge cannot edit its
+own tree, so a row recording a merge can never land with that merge — it always costs a
+second commit after the fact. The file recorded merges in a State column until #61
+(`ddf9da4`) removed it on 2026-09-29. Its rows went stale one after another, and one needed a
+pull request of its own to record itself: bookkeeping that produced work which then also
+needed recording. The log cannot disagree with itself; a copy of it can. Do not put the list
+back.
+
+Edit the file only when a position that git cannot answer changes: a release is published,
+work starts or stops waiting on a branch behind a condition, or the test device runs a
+different build. Record the test device from the device, not from intent.
 
 Published releases are consumed by the public website at `https://tmc.ircminichat.party/`,
 which links straight to GitHub release assets and reads the version from the GitHub
