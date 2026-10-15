@@ -11,6 +11,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -22,9 +23,10 @@ import kotlin.random.Random
  * The list behaves as PendingEchoView does: an echo starts as sending, and a rebind sets
  * its status line, hidden when there is none, and its opacity, nothing else.
  *
- * The last test replays random sending, answers and canonical messages, through the real
- * OutgoingChatMessageTracker, against a transcription of ChatFragment's echo code at
- * 4f90dbd.
+ * The last test replays random sending, answers and canonical messages against a
+ * transcription of ChatFragment's echo code at 4f90dbd. Today's side decides which echo each
+ * answer names through the real OutgoingChatMessageTracker; the transcription, through its own
+ * copy of the tracker as it was at 4f90dbd.
  */
 class ChatTimelineEchoTest {
 
@@ -247,13 +249,15 @@ class ChatTimelineEchoTest {
         for (seed in 1..200) {
             val random = Random(seed)
             var nowSec = 1_000.0
-            val tracker = OutgoingChatMessageTracker()
             val clock = { (nowSec * 1000.0).toLong() }
             val old = Fragment4f90dbd(clock)
+            /* Today's page: the live tracker deciding which echo each answer names, and the sync. */
+            val tracker = OutgoingChatMessageTracker()
             val views = EchoViews()
             val sync = ChatTimelineViewSync(views, ChatTimeline(clock))
-            /* The 10 s timeouts still armed: page state, the same on both sides. */
+            /* Today's page's 10 s timeouts still armed, by local id, and each echo's view. */
             val armed = mutableListOf<String>()
+            val echoViewOf = HashMap<String, String>()
             var nextView = 0
 
             repeat(300) { step ->
@@ -262,69 +266,76 @@ class ChatTimelineEchoTest {
 
                 when (random.nextInt(11)) {
                     in 0..1 -> {
-                        val pending = tracker.register("#chan", "me", texts[random.nextInt(texts.size)], nowSec)
+                        val text = texts[random.nextInt(texts.size)]
                         val view = "v${nextView++}"
-                        old.appendPendingOutgoingMessage(view, pending)
+                        old.send(view, text, nowSec)
+                        val pending = tracker.register("#chan", "me", text, nowSec)
                         sync.insert(view, pending.sentAtSec, null) { position -> echoRow(position, pending) }
                         armed += pending.localId
+                        echoViewOf[pending.localId] = view
                     }
                     2 -> if (armed.isNotEmpty()) {
                         val localId = armed.removeAt(random.nextInt(armed.size))
-                        /* The runnable returns at once when the tracker no longer holds the write. */
-                        if (tracker.contains(localId)) {
-                            old.timeout(localId)
-                            sync.applyEchoEvent(localId, TIMEOUT)
+                        /* The same echo's timeout runs on both pages; each returns at once when its tracker no longer holds the write. */
+                        old.runTimeout(echoViewOf.getValue(localId))
+                        if (tracker.contains(localId)) sync.applyEchoEvent(localId, TIMEOUT)
+                    }
+                    3 -> {
+                        old.onUserState(nowSec)
+                        tracker.confirmOldestFromUserState("#chan", nowSec)?.let { confirmed ->
+                            armed -= confirmed.localId
+                            sync.applyEchoEvent(confirmed.localId, USERSTATE)
                         }
                     }
-                    3 -> tracker.confirmOldestFromUserState("#chan", nowSec)?.let { confirmed ->
-                        armed -= confirmed.localId
-                        old.confirmFromUserState(confirmed.localId)
-                        sync.applyEchoEvent(confirmed.localId, USERSTATE)
-                    }
-                    4 -> tracker.removeNewestAwaiting("#chan")?.let { rejected ->
-                        armed -= rejected.localId
-                        old.reject(rejected.localId)
-                        sync.applyEchoEvent(rejected.localId, NOTICE)
+                    4 -> {
+                        old.onNotice()
+                        tracker.removeNewestAwaiting("#chan")?.let { rejected ->
+                            armed -= rejected.localId
+                            sync.applyEchoEvent(rejected.localId, NOTICE)
+                        }
                     }
                     in 5..6 -> {
                         val text = texts[random.nextInt(texts.size)]
                         val timestampSec = nowSec - random.nextDouble(0.0, 6.0)
+                        val view = "v${nextView++}"
+                        val oldPosition = old.appendChatLine(view, "me", text, timestampSec)
                         val confirmed = tracker.confirmCanonical("#chan", "me", text, timestampSec)
                         if (confirmed != null) armed -= confirmed.localId
-                        val oldPosition = confirmed?.let { old.reconcile(it.localId) }
                         val newPosition = confirmed?.let { sync.removeEcho(it.localId) }
                         assertEquals(where, oldPosition, newPosition)
                         if (newPosition != null) coverage.removed(echo = true, hidden = false) else if (confirmed != null) coverage.missed()
-
-                        val view = "v${nextView++}"
-                        old.appendChatLine(view, "me", timestampSec, oldPosition)
                         sync.insert(view, timestampSec, newPosition) { position -> messageRow(position, "me") }
                     }
                     in 7..8 -> {
                         val view = "v${nextView++}"
                         val timestampSec = nowSec - random.nextDouble(0.0, 3.0)
-                        old.appendChatLine(view, "bot", timestampSec, null)
-                        sync.insert(view, timestampSec, null) { position -> messageRow(position, "bot") }
+                        /* Every chat line is offered to the tracker first, a bot's too, on both pages. */
+                        val oldPosition = old.appendChatLine(view, "bot", BOT_TEXT, timestampSec)
+                        val newPosition = tracker.confirmCanonical("#chan", "bot", BOT_TEXT, timestampSec)?.let { sync.removeEcho(it.localId) }
+                        assertEquals(where, oldPosition, newPosition)
+                        sync.insert(view, timestampSec, newPosition) { position -> messageRow(position, "bot") }
                     }
                     9 -> {
                         /* clearPendingOutgoingState, as forgetPendingSends and onDestroyView call it. */
+                        old.forgetPendingSends()
                         armed.clear()
                         tracker.clear()
-                        old.clearPendingOutgoingState()
                     }
                     else -> if (random.nextInt(4) == 0) {
                         /* A channel change: forgetPendingSends, then clearTimeline. */
+                        coverage.cleared(old.views.size)
+                        old.forgetPendingSends()
+                        old.clearTimeline()
                         armed.clear()
                         tracker.clear()
-                        old.clearPendingOutgoingState()
-                        coverage.cleared(old.views.size)
-                        old.clearTimeline()
                         sync.clear()
                     }
                 }
 
                 assertEquals(where, old.views, views.views)
                 assertEquals(where, old.echoLooks(), views.echoLooks())
+                /* Which timeout runs next is drawn from today's page, so both pages must hold the same ones. */
+                assertEquals(where, old.armedTimeoutViews, armed.map { localId -> echoViewOf.getValue(localId) }.toSet())
                 coverage.step(timelineRows = views.views.size, hiddenViews = views.hidden.size)
             }
         }
@@ -414,67 +425,119 @@ class ChatTimelineEchoTest {
     }
 
     /**
-     * Frozen at 4f90dbd: the echo code and the timeline order below. Not frozen: which echo
-     * each answer or canonical message names, which the test decides through the live
-     * OutgoingChatMessageTracker for this oracle and the sync alike - a change there reaches
-     * both sides at once, so a pass here says nothing about the tracker.
+     * Frozen at 4f90dbd: the echo code, the timeline order below, and the tracker that decides
+     * which echo each answer or canonical message names. Read from 4f90dbd: ChatFragment's echo
+     * code and OutgoingChatMessageTracker as they were there.
      *
      * ChatFragment's echo code at 4f90dbd, with the layout replaced by a list: the
      * pendingOutgoingViews map from local id to view, the status line and alpha set on
-     * that view, and the echo removed by its view reference when the canonical arrives.
+     * that view, the echo removed by its view reference when the canonical arrives, and the
+     * 10 s timeouts it armed and cancelled. Each entry point is what the page did when that event
+     * reached it: a write that succeeded, a timeout that ran, a USERSTATE, a NOTICE, a chat line,
+     * forgetPendingSends and clearTimeline.
      * The views are placed as the timeline placed them at 4f90dbd, written out: ChatTimeline's
      * sequence counter, its fallback to the clock and its scan for the first newer position.
      *
-     * Self-contained: nothing here calls ChatTimeline, ChatTimelineOrderer or the sync, so a
-     * later change to any of them cannot change this oracle with it.
+     * Self-contained: nothing here calls ChatTimeline, ChatTimelineOrderer, the sync or
+     * OutgoingChatMessageTracker, so a later change to any of them cannot change this oracle
+     * with it.
      */
     private class Fragment4f90dbd(private val clock: () -> Long) {
+        private val tracker = Tracker4f90dbd()
         private val order = ArrayList<String>()
         private val positions = ArrayList<ChatTimelinePosition>()
         private var nextSequence = 0L
         private val pendingOutgoingViews = LinkedHashMap<String, String>()
         private val looks = HashMap<String, Look>()
 
+        /*
+         * ChatFragment.pendingOutgoingTimeouts at 4f90dbd, from local id to the echo's view. A
+         * timeout that has run is dropped here; at 4f90dbd it stayed in the map until cancelled,
+         * when removing a callback that could not run again changed nothing.
+         */
+        private val pendingOutgoingTimeouts = LinkedHashMap<String, String>()
+
+        /* Every echo view this page made, so a timeout for a view it never made fails instead of doing nothing. */
+        private val echoViews = HashSet<String>()
+
         val views: List<String> get() = order
+
+        /* The echo views whose timeout is posted and has neither run nor been cancelled. */
+        val armedTimeoutViews: Set<String> get() = pendingOutgoingTimeouts.values.toSet()
 
         fun echoLooks(): Map<String, Look> = views.filter { view -> view in looks }.associateWith { view -> looks.getValue(view) }
 
-        fun appendPendingOutgoingMessage(view: String, pending: PendingOutgoingChatMessage) {
+        /* The Written branch of sendMessage at 4f90dbd: the tracker registers the write, then appendPendingOutgoingMessage. */
+        fun send(view: String, message: String, sentAtSec: Double) {
+            val pending = tracker.register(CHANNEL, USERNAME, message, sentAtSec)
+            appendPendingOutgoingMessage(view, pending)
+        }
+
+        /* appendPendingOutgoingMessage at 4f90dbd: the echo, its view in pendingOutgoingViews, and its timeout posted. */
+        private fun appendPendingOutgoingMessage(view: String, pending: Tracker4f90dbd.Pending) {
             looks[view] = Look(PendingEchoStatusLine.SENDING, true, 0.72f)
             pendingOutgoingViews[pending.localId] = view
             insert(view, pending.sentAtSec, null)
+            pendingOutgoingTimeouts[pending.localId] = view
+            echoViews += view
         }
 
-        fun timeout(localId: String) {
-            pendingOutgoingViews[localId]?.let { view ->
-                looks[view] = looks.getValue(view).copy(line = PendingEchoStatusLine.UNCONFIRMED, alpha = 0.62f)
+        /*
+         * The timeout runnable of the echo shown in [view], when the handler runs it: nothing if it
+         * was cancelled, nothing if the tracker no longer holds the write, else unconfirmed.
+         */
+        fun runTimeout(view: String) {
+            check(view in echoViews) { "No echo view named $view was ever made by the 4f90dbd page." }
+            val localId = pendingOutgoingTimeouts.entries.firstOrNull { (_, armedView) -> armedView == view }?.key ?: return
+            pendingOutgoingTimeouts.remove(localId)
+            if (!tracker.contains(localId)) return
+            pendingOutgoingViews[localId]?.let { pendingView ->
+                looks[pendingView] = looks.getValue(pendingView).copy(line = PendingEchoStatusLine.UNCONFIRMED, alpha = 0.62f)
             }
         }
 
-        fun confirmFromUserState(localId: String) {
-            pendingOutgoingViews[localId]?.let { view ->
+        /* confirmOldestPendingOutgoingFromUserState at 4f90dbd. */
+        fun onUserState(confirmedAtSec: Double) {
+            val confirmed = tracker.confirmOldestFromUserState(CHANNEL, confirmedAtSec) ?: return
+            cancelPendingOutgoingTimeout(confirmed.localId)
+            pendingOutgoingViews[confirmed.localId]?.let { view ->
                 looks[view] = looks.getValue(view).copy(lineShown = false, alpha = 1f)
             }
         }
 
-        fun reject(localId: String) {
-            pendingOutgoingViews[localId]?.let { view ->
+        /* rejectNewestPendingOutgoing at 4f90dbd. The composer it refills is not modelled. */
+        fun onNotice() {
+            val rejected = tracker.removeNewestAwaiting(CHANNEL) ?: return
+            cancelPendingOutgoingTimeout(rejected.localId)
+            pendingOutgoingViews[rejected.localId]?.let { view ->
                 looks[view] = looks.getValue(view).copy(line = PendingEchoStatusLine.REJECTED, alpha = 0.5f)
             }
         }
 
-        fun reconcile(localId: String): ChatTimelinePosition? {
-            return pendingOutgoingViews.remove(localId)?.let { view ->
+        /*
+         * appendChatLine at 4f90dbd, for a line that is not suppressed and whose user is not hidden:
+         * reconcilePendingOutgoingMessage first, then the line at the position it preserved.
+         * Returns that position.
+         */
+        fun appendChatLine(view: String, user: String, message: String, timestampSec: Double): ChatTimelinePosition? {
+            val preserved = reconcilePendingOutgoingMessage(user, message, timestampSec)
+            insert(view, timestampSec, preserved)
+            return preserved
+        }
+
+        /* reconcilePendingOutgoingMessage at 4f90dbd: the echo's view by its local id, then removal by that view. */
+        private fun reconcilePendingOutgoingMessage(user: String, message: String, timestampSec: Double): ChatTimelinePosition? {
+            val confirmed = tracker.confirmCanonical(CHANNEL, user, message, timestampSec) ?: return null
+            cancelPendingOutgoingTimeout(confirmed.localId)
+            return pendingOutgoingViews.remove(confirmed.localId)?.let { view ->
                 removeAndTakePosition(view)?.also { looks -= view }
             }
         }
 
-        fun appendChatLine(view: String, user: String, timestampSec: Double, preserved: ChatTimelinePosition?) {
-            insert(view, timestampSec, preserved)
-        }
-
-        /* removeViews was false at every caller: the map is forgotten, the views stay. */
-        fun clearPendingOutgoingState() {
+        /* clearPendingOutgoingState(removeViews = false) at 4f90dbd, as forgetPendingSends called it: the views stay. */
+        fun forgetPendingSends() {
+            pendingOutgoingTimeouts.clear()
+            tracker.clear()
             pendingOutgoingViews.clear()
         }
 
@@ -483,6 +546,11 @@ class ChatTimelineEchoTest {
             positions.clear()
             nextSequence = 0L
             looks.clear()
+        }
+
+        /* cancelPendingOutgoingTimeout at 4f90dbd. */
+        private fun cancelPendingOutgoingTimeout(localId: String) {
+            pendingOutgoingTimeouts.remove(localId)
         }
 
         /* ChatTimeline.insert at 4f90dbd, with the view put at the index it gives. */
@@ -505,9 +573,122 @@ class ChatTimelineEchoTest {
             order.removeAt(index)
             return positions.removeAt(index)
         }
+
+        private companion object {
+            /* What the page passed: currentChannelNormalized() and the account's login. */
+            const val CHANNEL = "#chan"
+            const val USERNAME = "me"
+        }
+    }
+
+    /**
+     * OutgoingChatMessageTracker at 4f90dbd, written out with the defaults ChatFragment
+     * constructed it with. Its record is its own, so nothing here reads or builds
+     * PendingOutgoingChatMessage.
+     */
+    private class Tracker4f90dbd {
+        data class Pending(
+            val localId: String,
+            val channel: String,
+            val username: String,
+            val message: String,
+            val sentAtSec: Double,
+            val transportConfirmed: Boolean = false
+        )
+
+        private val canonicalMatchWindowSec = 45.0
+        private val userStateConfirmWindowSec = 10.0
+        private val maximumPendingMessages = 50
+        private val pendingById = LinkedHashMap<String, Pending>()
+        private var nextSequence = 0L
+
+        fun register(channel: String, username: String, message: String, sentAtSec: Double): Pending {
+            nextSequence += 1L
+            val item = Pending(
+                localId = "pending:${(sentAtSec * 1000.0).toLong()}:$nextSequence",
+                channel = normalizeChannel(channel),
+                username = normalizeUsername(username),
+                message = normalizeMessage(message),
+                sentAtSec = sentAtSec
+            )
+            pendingById[item.localId] = item
+            trimToCapacity()
+            return item
+        }
+
+        fun confirmOldestFromUserState(channel: String, confirmedAtSec: Double): Pending? {
+            val normalizedChannel = normalizeChannel(channel)
+            val entry = pendingById.entries.firstOrNull { (_, item) ->
+                !item.transportConfirmed &&
+                    item.channel == normalizedChannel &&
+                    confirmedAtSec >= item.sentAtSec &&
+                    confirmedAtSec - item.sentAtSec <= userStateConfirmWindowSec
+            } ?: return null
+            val confirmed = entry.value.copy(transportConfirmed = true)
+            pendingById[entry.key] = confirmed
+            return confirmed
+        }
+
+        fun confirmCanonical(channel: String, username: String, message: String, messageTimestampSec: Double): Pending? {
+            val normalizedChannel = normalizeChannel(channel)
+            val normalizedUsername = normalizeUsername(username)
+            val normalizedMessage = normalizeMessage(message)
+            val entry = pendingById.entries
+                .asSequence()
+                .filter { (_, item) ->
+                    item.channel == normalizedChannel &&
+                        item.username == normalizedUsername &&
+                        item.message == normalizedMessage &&
+                        abs(item.sentAtSec - messageTimestampSec) <= canonicalMatchWindowSec
+                }
+                .minByOrNull { (_, item) -> abs(item.sentAtSec - messageTimestampSec) } ?: return null
+            pendingById.remove(entry.key)
+            return entry.value
+        }
+
+        fun removeNewestAwaiting(channel: String): Pending? {
+            val normalizedChannel = normalizeChannel(channel)
+            val entry = pendingById.entries
+                .toList()
+                .asReversed()
+                .firstOrNull { (_, item) -> item.channel == normalizedChannel && !item.transportConfirmed } ?: return null
+            pendingById.remove(entry.key)
+            return entry.value
+        }
+
+        fun contains(localId: String): Boolean = pendingById.containsKey(localId)
+
+        fun clear() {
+            pendingById.clear()
+        }
+
+        private fun trimToCapacity() {
+            while (pendingById.size > maximumPendingMessages) {
+                val oldestId = pendingById.keys.firstOrNull() ?: return
+                pendingById.remove(oldestId)
+            }
+        }
+
+        private fun normalizeChannel(value: String): String = value.trim().removePrefix("#").lowercase()
+
+        private fun normalizeUsername(value: String): String = value.trim().lowercase()
+
+        private fun normalizeMessage(value: String): String {
+            val trimmed = value.trim()
+            if (trimmed.startsWith("\u0001ACTION ") && trimmed.endsWith("\u0001") && trimmed.length > 8) {
+                return trimmed.substring(8, trimmed.length - 1).trim()
+            }
+            if (trimmed.startsWith("/me ", ignoreCase = true)) {
+                return trimmed.substring(4).trim()
+            }
+            return trimmed
+        }
     }
 
     private companion object {
+        /* What a bot's line says. It never names an echo: the bot is not the sender. */
+        const val BOT_TEXT = "text"
+
         fun echoRow(position: ChatTimelinePosition, pending: PendingOutgoingChatMessage) = PendingEchoRow(
             position = position,
             localId = pending.localId,

@@ -13,8 +13,9 @@ import kotlin.random.Random
  * same calls on the layout in the same order.
  *
  * The transcription writes out which rows are shown instead of calling
- * ChatTimelineVisibility, so a change to the derivation cannot move the oracle with it. Both
- * sides order their rows with a [ChatTimeline] of their own: the order is not what changed.
+ * ChatTimelineVisibility, the timeline as it was at 4850a83 instead of calling [ChatTimeline],
+ * and an echo's next status instead of calling PendingEchoStatus.after, so a change to any of
+ * them cannot move the oracle with it.
  */
 class ChatTimelineViewSyncShownRowsDifferentialTest {
 
@@ -30,7 +31,7 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
             var clockMillis = 1_000_000L
             val oldLayout = RecordingLayout()
             val newLayout = RecordingLayout()
-            val old = Sync4850a83(oldLayout, ChatTimeline { clockMillis })
+            val old = Sync4850a83(oldLayout) { clockMillis }
             val sync = ChatTimelineViewSync(newLayout, ChatTimeline { clockMillis })
             val taken = ArrayList<ChatTimelinePosition>()
             var nextView = 0
@@ -143,24 +144,33 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
     }
 
     /**
-     * Frozen at 4850a83: which rows are shown, and where each change puts its view. Not frozen:
-     * the order of the rows, which the live ChatTimeline it is given decides - since #75 by
-     * #75's binary search, not 4850a83's scan - nor an echo's next status, which is the live
-     * PendingEchoStatus.after. A change to either reaches both sides at once, so a pass here
-     * says nothing about them.
+     * Frozen at 4850a83: which rows are shown, where each change puts its view, the order of
+     * the rows and an echo's next status. Read from 4850a83, not from today's code: the order is
+     * ChatTimeline's scan for the first newer position, not #75's binary search, and the status
+     * is PendingEchoStatus.after as it was there.
      *
      * ChatTimelineViewSync at 4850a83: every change to the timeline first, then the views at
-     * the same index. Which rows are shown is written out here.
+     * the same index. Which rows are shown, the timeline it changed and the echo's status
+     * transitions are written out here.
+     *
+     * Self-contained: nothing here calls ChatTimeline, ChatTimelineOrderer, ChatTimelinePosition's
+     * comparison, ChatTimelineVisibility, PendingEchoStatus.after or the sync, so a later change to
+     * any of them cannot change this oracle with it. The rows are the test's own, built by the
+     * create function it is given; the layout is the test's RecordingLayout.
      */
-    private class Sync4850a83<V>(private val views: ChatTimelineViews<V>, private val timeline: ChatTimeline) {
+    private class Sync4850a83<V>(private val views: ChatTimelineViews<V>, private val currentTimeMillis: () -> Long) {
         private var hiddenUsers: Set<String> = emptySet()
 
+        /* ChatTimeline at 4850a83: its rows, oldest first, and the sequence the next row gets. */
+        private val rows = ArrayList<ChatTimelineRow>()
+        private var nextSequence = 0L
+
         val shownRows: List<ChatTimelineRow>
-            get() = timeline.rows.filter { row -> isShown(row, hiddenUsers) }
+            get() = rows.filter { row -> isShown(row, hiddenUsers) }
 
         /* Read only by the hidden-row count invariant; the transcription itself never needs it. */
         val rowCount: Int
-            get() = timeline.rows.size
+            get() = rows.size
 
         fun insert(
             view: V,
@@ -168,8 +178,8 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
             preservedPosition: ChatTimelinePosition?,
             create: (ChatTimelinePosition) -> ChatTimelineRow
         ): ChatTimelineRow {
-            val index = timeline.insert(messageTimestampSec, preservedPosition, create)
-            val row = timeline.rows[index]
+            val index = timelineInsert(messageTimestampSec, preservedPosition, create)
+            val row = rows[index]
             views.add(view, row, index)
             if (!isShown(row, hiddenUsers)) views.setShown(index, false)
             return row
@@ -181,7 +191,7 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
             val previous = hiddenUsers
             hiddenUsers = users.toSet()
             var changed = false
-            timeline.rows.forEachIndexed { index, row ->
+            rows.forEachIndexed { index, row ->
                 val shown = isShown(row, hiddenUsers)
                 if (shown != isShown(row, previous)) {
                     views.setShown(index, shown)
@@ -194,11 +204,11 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         fun applyEchoEvent(localId: String, event: PendingEchoEvent): Boolean {
             val index = indexOfEcho(localId)
             if (index < 0) return false
-            val echo = timeline.rows[index] as PendingEchoRow
-            val status = echo.status.after(event)
+            val echo = rows[index] as PendingEchoRow
+            val status = statusAfter(echo.status, event)
             if (status == echo.status) return false
             val updated = echo.copy(status = status)
-            timeline.replaceAt(index, updated)
+            timelineReplaceAt(index, updated)
             views.rebind(index, updated, ChatTimelineChange.ECHO_STATUS)
             return true
         }
@@ -206,22 +216,69 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         fun removeEcho(localId: String): ChatTimelinePosition? {
             val index = indexOfEcho(localId)
             if (index < 0) return null
-            val row = timeline.removeAt(index)
+            val row = rows.removeAt(index)
             views.removeAt(index)
             return row.position
         }
 
         fun clear() {
-            timeline.clear()
+            rows.clear()
+            nextSequence = 0L
             views.removeAll()
         }
 
         private fun indexOfEcho(localId: String): Int =
-            timeline.indexOfFirst { row -> row is PendingEchoRow && row.localId == localId }
+            rows.indexOfFirst { row -> row is PendingEchoRow && row.localId == localId }
 
         /* ChatTimelineVisibility at 4850a83, written out. */
         private fun isShown(row: ChatTimelineRow, hidden: Set<String>): Boolean =
             row !is ChatMessageRow || row.usernameLower !in hidden
+
+        /*
+         * ChatTimeline.insert at 4850a83: the timestamp, or the clock when it cannot be used; a
+         * new sequence, or the preserved one; then the scan from the first row for the first
+         * newer position, compared field by field, timestamp first, then sequence.
+         */
+        private fun timelineInsert(
+            messageTimestampSec: Double?,
+            preservedPosition: ChatTimelinePosition?,
+            create: (ChatTimelinePosition) -> ChatTimelineRow
+        ): Int {
+            val millis = messageTimestampSec
+                ?.takeIf { timestamp -> timestamp.isFinite() && timestamp > 0.0 }
+                ?.times(1000.0)
+                ?.toLong()
+                ?: currentTimeMillis()
+            val position = ChatTimelinePosition(millis, preservedPosition?.sequence ?: nextSequence++)
+            val row = create(position)
+            require(samePosition(row.position, position)) { "A timeline row must take the position it is given." }
+            val found = rows.indexOfFirst { existing ->
+                position.timestampMillis < existing.position.timestampMillis ||
+                    (position.timestampMillis == existing.position.timestampMillis && position.sequence < existing.position.sequence)
+            }
+            val index = if (found >= 0) found else rows.size
+            rows.add(index, row)
+            return index
+        }
+
+        /* ChatTimeline.replaceAt at 4850a83. */
+        private fun timelineReplaceAt(index: Int, row: ChatTimelineRow) {
+            require(samePosition(row.position, rows[index].position)) { "A replacing row must keep the position of the row it replaces." }
+            rows[index] = row
+        }
+
+        private fun samePosition(a: ChatTimelinePosition, b: ChatTimelinePosition): Boolean =
+            a.timestampMillis == b.timestampMillis && a.sequence == b.sequence
+
+        /* PendingEchoStatus.after at 4850a83, written out. */
+        private fun statusAfter(status: PendingEchoStatus, event: PendingEchoEvent): PendingEchoStatus {
+            val awaiting = status == PendingEchoStatus.SENDING || status == PendingEchoStatus.UNCONFIRMED
+            return when (event) {
+                PendingEchoEvent.TIMEOUT -> if (status == PendingEchoStatus.SENDING) PendingEchoStatus.UNCONFIRMED else status
+                PendingEchoEvent.USERSTATE -> if (awaiting) PendingEchoStatus.CONFIRMED else status
+                PendingEchoEvent.NOTICE -> if (awaiting) PendingEchoStatus.REJECTED else status
+            }
+        }
     }
 
     private companion object {
