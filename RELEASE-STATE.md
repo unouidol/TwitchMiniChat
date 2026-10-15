@@ -7,11 +7,26 @@ It exists because that question kept being re-derived from scratch, and answered
 once from a stale note, costing more time than keeping it written down.
 
 **Every release updates this file in the same pull request that bumps the version.**
-A change to the code that reaches `main-v5` without appearing under "Waiting for release"
-is a change nobody can account for later. Documentation commits are read from the log
-instead, for the reason given in that section.
+Between releases it changes only when a position git cannot answer changes: a release is
+published, work starts or stops waiting on a branch behind a condition, or the test device
+runs a different build. What has merged since the last tag, code or documentation, is not
+listed here: it is read from the log, as "Waiting for release" says. A row recording a merge
+cannot land with the merge it records - a squash merge's commit does not exist until the
+merge has happened, and the merge cannot edit its own tree - so every such row cost a second
+commit, and the rows went stale anyway. #61 (`ddf9da4`) removed them for that reason. Do not
+put them back.
+
+An earlier version of this paragraph said that a code change had to appear under "Waiting for
+release". It predated #61 and was not updated with it, and neither was the matching rule in
+`AGENTS.md`, so both contradicted the section they pointed to. On 2026-10-15 the `AGENTS.md`
+rule produced a report of a missing update that was not missing.
 
 Last verified: 2026-10-01, against `origin/main-v5` at `4b8abe1`, with `v5.5.1` published.
+**Stale, marked 2026-10-15:** not re-verified since. `main-v5` is now at `549e2f6`, 18 merges
+later, and nothing below has been checked against it. Refreshing this needs the pass #64 made:
+the latest release and the commit its tag points at, both assets downloaded through
+`releases/latest/download/` and hashed against the recorded values and `SHA256SUMS.txt`, the
+signer's certificate digest, and the package, version and commit the APK reports.
 
 ## Published — what users have
 
@@ -398,6 +413,16 @@ The page stays as it is and describes today's behaviour truthfully. When the beh
 changes, the page changes with it, and both copies change together: the rule `000318a` (#38)
 adds to `AGENTS.md`.
 
+## Deferred — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade
+
+Not on any branch, by decision. The upgrade from Android Gradle Plugin (AGP) 9.2.1 and Gradle
+9.4.1 waits until step 5d of the chat conversion (the numbering in which #79 and #80 are 5a) is
+done, because the start-up measurements of that work were all taken on AGP 9.2.1 builds - the
+version `main-v5` has carried since `453d1de` - and a toolchain change in the middle would
+confound them. It is not optional forever: AGP 10.0, planned for late 2026, deletes the old
+Variant application programming interface (API), so the upgrade is only badly timed now.
+Android Studio's Upgrade Assistant recommends it; decline it until then.
+
 ## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
 **5.5.2 will never be tagged or published.** It is formally closed and fully tested, and it
@@ -768,6 +793,12 @@ prints no timestamps - the authoritative time of a registry change is `updated_a
 `registered_devices.json`.
 
 ## Test device
+
+**Stale, marked 2026-10-15.** What follows describes the device as measured on 2026-09-14. It
+no longer says what the device runs: builds have been installed on it since, and none was
+recorded here. Refreshing it needs the device itself - the build identity on the login screen,
+or the `# app` line of a journal export, recorded with the date it was read. Until then,
+nothing in this section is current.
 
 Measured from the journal export of 2026-09-14, not from memory: it contains `listener.*`
 lines and `fcm.notification.audio` lines with `elevatedSpanMs`, and no
