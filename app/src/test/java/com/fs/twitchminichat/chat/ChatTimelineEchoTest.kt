@@ -302,7 +302,7 @@ class ChatTimelineEchoTest {
                         val confirmed = tracker.confirmCanonical("#chan", "me", text, timestampSec)
                         if (confirmed != null) armed -= confirmed.localId
                         val newPosition = confirmed?.let { sync.removeEcho(it.localId) }
-                        assertEquals(where, oldPosition, newPosition)
+                        assertEquals("$where canonical position", oldPosition, newPosition)
                         if (newPosition != null) coverage.removed(echo = true, hidden = false) else if (confirmed != null) coverage.missed()
                         sync.insert(view, timestampSec, newPosition) { position -> messageRow(position, "me") }
                     }
@@ -312,7 +312,7 @@ class ChatTimelineEchoTest {
                         /* Every chat line is offered to the tracker first, a bot's too, on both pages. */
                         val oldPosition = old.appendChatLine(view, "bot", BOT_TEXT, timestampSec)
                         val newPosition = tracker.confirmCanonical("#chan", "bot", BOT_TEXT, timestampSec)?.let { sync.removeEcho(it.localId) }
-                        assertEquals(where, oldPosition, newPosition)
+                        assertEquals("$where bot line position", oldPosition, newPosition)
                         sync.insert(view, timestampSec, newPosition) { position -> messageRow(position, "bot") }
                     }
                     9 -> {
@@ -332,10 +332,10 @@ class ChatTimelineEchoTest {
                     }
                 }
 
-                assertEquals(where, old.views, views.views)
-                assertEquals(where, old.echoLooks(), views.echoLooks())
+                assertEquals("$where views", old.views, views.views)
+                assertEquals("$where looks", old.echoLooks(), views.echoLooks())
                 /* Which timeout runs next is drawn from today's page, so both pages must hold the same ones. */
-                assertEquals(where, old.armedTimeoutViews, armed.map { localId -> echoViewOf.getValue(localId) }.toSet())
+                assertEquals("$where armed timeouts", old.armedTimeoutViews, armed.map { localId -> echoViewOf.getValue(localId) }.toSet())
                 coverage.step(timelineRows = views.views.size, hiddenViews = views.hidden.size)
             }
         }
