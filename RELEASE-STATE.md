@@ -416,12 +416,21 @@ adds to `AGENTS.md`.
 ## Deferred — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade
 
 Not on any branch, by decision. The upgrade from Android Gradle Plugin (AGP) 9.2.1 and Gradle
-9.4.1 waits until the chat's rows are shown by a recycling list: the conversion whose first
-steps are #79 (`a382c94`) and #80 (`549e2f6`). The start-up measurements of that work were all
-taken on AGP 9.2.1 builds - the version `main-v5` has carried since `453d1de` - and a toolchain
-change in the middle would confound them. Whether the condition holds is read from the clone:
-it does not while `chatContainer` in `app/src/main/res/layout/fragment_chat.xml` is a
-`LinearLayout` inside a `ScrollView`, holding a view for each row, as it is at `549e2f6`.
+9.4.1 waits until the conversion that shows the chat's rows in a recycling list is complete -
+the work whose first steps are #79 (`a382c94`) and #80 (`549e2f6`) - and its closing start-up
+measurement has been taken and recorded in this file. The start-up measurements of that work
+were all taken on AGP 9.2.1 builds - the version `main-v5` has carried since `453d1de` - and an
+upgrade before the closing measurement would put its before and after on two toolchains, which
+is what this entry exists to prevent. Both halves are read from the clone. The first does not
+hold while `chatContainer` in `app/src/main/res/layout/fragment_chat.xml` is a `LinearLayout`
+inside a `ScrollView`, holding a view for each row, as it is at `549e2f6`. The second does not
+hold while "Closing start-up measurement of the conversion", below, holds only its placeholder.
+
+The Java Development Kit (JDK) is part of the same deferral. Pinning it is itself a toolchain
+change and would confound the same measurements, so it waits for the same moment as the AGP
+upgrade. Until then each machine builds with the JDK it selects, and a build's label does not
+say which: the known limitation that #83 (`0d1288d`) documents beside `gitShaForBuild` in
+`app/build.gradle.kts`.
 
 It is not optional forever. The release notes of AGP 9.4.0 (September 2026) state that the new
 Variant application programming interface (API) is mandatory for all projects from AGP 10, and
@@ -431,6 +440,12 @@ repository is smaller than that sounds. No build script here uses either Variant
 10 would reach it through the plugins it applies (Google services and Crashlytics), if at all.
 Android Studio's Upgrade Assistant recommends the upgrade; decline it until the condition above
 holds.
+
+### Closing start-up measurement of the conversion
+
+Empty until it is taken. It will hold the start-up figures before and after the conversion,
+the build each came from, the device they were measured on, and the JDK each build was made
+with.
 
 ## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
