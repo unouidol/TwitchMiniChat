@@ -433,7 +433,14 @@ class ChatTimelineEchoTest {
      * removeAndTakePosition did for a view no longer in the timeline, which at 4f90dbd was to
      * return null. No step of this driver reaches that case, because every echo view the page
      * still maps is in its timeline - the driver asserts it after every step - so this copy fails
-     * there instead of carrying a branch that has never run.
+     * there instead of carrying a branch that has never run. Not exercised: where a row goes
+     * against one whose position equals its own, the one case where an upper bound and a lower
+     * bound differ, so a pass here says nothing about it. No row this page inserts holds the
+     * sequence of a row still present, whatever the timestamps. An echo always takes a new
+     * sequence from the counter, which gives each once until clearTimeline empties the timeline
+     * with it. The only position a chat line preserves is the one removeAndTakePosition has just
+     * taken out of the timeline together with the echo that held it, so the row that held that
+     * sequence is gone before the line takes it, and the line keeps its own timestamp.
      *
      * ChatFragment's echo code at 4f90dbd, with the layout replaced by a list: the
      * pendingOutgoingViews map from local id to view, the status line and alpha set on
