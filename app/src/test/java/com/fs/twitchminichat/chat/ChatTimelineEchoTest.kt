@@ -336,6 +336,8 @@ class ChatTimelineEchoTest {
                 assertEquals("$where looks", old.echoLooks(), views.echoLooks())
                 /* Which timeout runs next is drawn from today's page, so both pages must hold the same ones. */
                 assertEquals("$where armed timeouts", old.armedTimeoutViews, armed.map { localId -> echoViewOf.getValue(localId) }.toSet())
+                /* Why the 4f90dbd page's removeAndTakePosition never misses: every echo view it still maps is in its timeline. */
+                assertEquals("$where mapped echo views outside the timeline", emptySet<String>(), old.mappedEchoViews - old.views.toSet())
                 coverage.step(timelineRows = views.views.size, hiddenViews = views.hidden.size)
             }
         }
@@ -427,7 +429,11 @@ class ChatTimelineEchoTest {
     /**
      * Frozen at 4f90dbd: the echo code, the timeline order below, and the tracker that decides
      * which echo each answer or canonical message names. Read from 4f90dbd: ChatFragment's echo
-     * code and OutgoingChatMessageTracker as they were there.
+     * code and OutgoingChatMessageTracker as they were there. Not frozen: what
+     * removeAndTakePosition did for a view no longer in the timeline, which at 4f90dbd was to
+     * return null. No step of this driver reaches that case, because every echo view the page
+     * still maps is in its timeline - the driver asserts it after every step - so this copy fails
+     * there instead of carrying a branch that has never run.
      *
      * ChatFragment's echo code at 4f90dbd, with the layout replaced by a list: the
      * pendingOutgoingViews map from local id to view, the status line and alpha set on
@@ -464,6 +470,9 @@ class ChatTimelineEchoTest {
 
         /* The echo views whose timeout is posted and has neither run nor been cancelled. */
         val armedTimeoutViews: Set<String> get() = pendingOutgoingTimeouts.values.toSet()
+
+        /* The echo views still mapped by local id: the ones a canonical message can remove. */
+        val mappedEchoViews: Set<String> get() = pendingOutgoingViews.values.toSet()
 
         fun echoLooks(): Map<String, Look> = views.filter { view -> view in looks }.associateWith { view -> looks.getValue(view) }
 
@@ -530,7 +539,7 @@ class ChatTimelineEchoTest {
             val confirmed = tracker.confirmCanonical(CHANNEL, user, message, timestampSec) ?: return null
             cancelPendingOutgoingTimeout(confirmed.localId)
             return pendingOutgoingViews.remove(confirmed.localId)?.let { view ->
-                removeAndTakePosition(view)?.also { looks -= view }
+                removeAndTakePosition(view).also { looks -= view }
             }
         }
 
@@ -566,10 +575,18 @@ class ChatTimelineEchoTest {
             order.add(index, view)
         }
 
-        /* ChatTimelineViewSync.removeAndTakePosition at 4f90dbd: the view's index, both removed there. */
-        private fun removeAndTakePosition(view: String): ChatTimelinePosition? {
+        /*
+         * ChatTimelineViewSync.removeAndTakePosition at 4f90dbd: the view's index, both removed there.
+         * At 4f90dbd a view missing from the timeline gave null; here it cannot be missing, so it fails.
+         */
+        private fun removeAndTakePosition(view: String): ChatTimelinePosition {
             val index = order.indexOf(view)
-            if (index < 0) return null
+            check(index >= 0) {
+                "Echo view $view is still mapped by local id but is not in the timeline. Invariant: every " +
+                    "mapped echo view is in the timeline, because only a canonical message and clearTimeline " +
+                    "remove one, and this driver runs forgetPendingSends, which forgets the map, before every " +
+                    "clearTimeline."
+            }
             order.removeAt(index)
             return positions.removeAt(index)
         }
