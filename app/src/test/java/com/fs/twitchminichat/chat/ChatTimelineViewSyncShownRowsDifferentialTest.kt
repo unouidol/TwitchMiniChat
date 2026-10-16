@@ -147,7 +147,15 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
      * Frozen at 4850a83: which rows are shown, where each change puts its view, the order of
      * the rows and an echo's next status. Read from 4850a83, not from today's code: the order is
      * ChatTimeline's scan for the first newer position, not #75's binary search, and the status
-     * is PendingEchoStatus.after as it was there.
+     * is PendingEchoStatus.after as it was there. Not exercised: where a row goes against one whose
+     * position equals its own, the one case where an upper bound and a lower bound differ, so a
+     * pass here says nothing about it. No candidate here can equal the position of a row still
+     * present: the counter gives each sequence once until clear, which also empties the test's
+     * taken positions, a preserved position lends the new row its sequence and never its
+     * timestamp, and the test spends each preserved position once, after the echo that held it
+     * was removed. Equal timestamps do occur; their sequences always differ.
+     * ChatTimelineInsertDifferentialTest makes equal positions on purpose, by copying the
+     * positions of rows still present.
      *
      * ChatTimelineViewSync at 4850a83: every change to the timeline first, then the views at
      * the same index. Which rows are shown, the timeline it changed and the echo's status
