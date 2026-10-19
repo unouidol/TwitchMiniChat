@@ -8,6 +8,14 @@ import com.fs.twitchminichat.ChatTimelinePosition
  */
 interface ChatTimelineViews<V> {
 
+    /**
+     * Builds the view that shows [row], for [add] to put in place.
+     *
+     * Called once for each row the timeline takes, after the timeline has placed it and with
+     * the row the timeline holds, so a view is always built from the data it shows.
+     */
+    fun create(row: ChatTimelineRow): V
+
     /** Puts [view], which shows [row], at [index]. */
     fun add(view: V, row: ChatTimelineRow, index: Int)
 
@@ -88,15 +96,18 @@ class ChatTimelineViewSync<V>(
     val shownRows: List<ChatTimelineRow>
         get() = ChatTimelineVisibility.shownRows(timeline.rows, hiddenUsers)
 
-    /** Inserts [view] with the row [create] builds, where the timeline places it, and returns the row. */
+    /**
+     * Inserts the row [create] builds where the timeline places it, with the view [views]
+     * creates for that row, and returns the row.
+     */
     fun insert(
-        view: V,
         messageTimestampSec: Double?,
         preservedPosition: ChatTimelinePosition?,
         create: (ChatTimelinePosition) -> ChatTimelineRow
     ): ChatTimelineRow {
         val index = timeline.insert(messageTimestampSec, preservedPosition, create)
         val row = timeline.rows[index]
+        val view = views.create(row)
 
         val update = ChatTimelineShownRows.inserted(timeline.rows, hiddenUsers, hiddenRowCount, index)
         if (update != null) {

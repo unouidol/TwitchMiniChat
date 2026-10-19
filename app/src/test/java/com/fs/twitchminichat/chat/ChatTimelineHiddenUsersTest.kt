@@ -251,18 +251,21 @@ class ChatTimelineHiddenUsersTest {
                             val name = "v${nextName++}"
                             val timestampSec = random.nextInt(1, 20).toDouble()
                             old.insert(name, timestampSec) { position -> messageRow(position, user) }
-                            sync.insert(name, timestampSec, null) { position -> messageRow(position, user) }
+                            views.nextView = name
+                            sync.insert(timestampSec, null) { position -> messageRow(position, user) }
                         }
                     }
                     5 -> {
                         val name = "v${nextName++}"
                         old.insert(name, 7.0) { position -> SystemLineRow(position, user) }
-                        sync.insert(name, 7.0, null) { position -> SystemLineRow(position, user) }
+                        views.nextView = name
+                        sync.insert(7.0, null) { position -> SystemLineRow(position, user) }
                     }
                     6 -> {
                         val name = "v${nextName++}"
                         old.insert(name, 8.0) { position -> echoRow(position) }
-                        val echo = sync.insert(name, 8.0, null) { position -> echoRow(position) } as PendingEchoRow
+                        views.nextView = name
+                        val echo = sync.insert(8.0, null) { position -> echoRow(position) } as PendingEchoRow
                         echoIds += echo.localId
                         pendingEchoIds += echo.localId
                         echoViewOf[echo.localId] = name
@@ -338,15 +341,18 @@ class ChatTimelineHiddenUsersTest {
     // ---------------------------------------------------------------------------
 
     private fun message(view: String, user: String, timestampSec: Double) {
-        sync.insert(view, timestampSec, null) { position -> messageRow(position, user) }
+        views.nextView = view
+        sync.insert(timestampSec, null) { position -> messageRow(position, user) }
     }
 
     private fun systemLine(view: String, text: String, timestampSec: Double) {
-        sync.insert(view, timestampSec, null) { position -> SystemLineRow(position, text) }
+        views.nextView = view
+        sync.insert(timestampSec, null) { position -> SystemLineRow(position, text) }
     }
 
     private fun echo(view: String, timestampSec: Double) {
-        sync.insert(view, timestampSec, null) { position -> echoRow(position) }
+        views.nextView = view
+        sync.insert(timestampSec, null) { position -> echoRow(position) }
     }
 
     private fun echoRow(position: ChatTimelinePosition) = PendingEchoRow(
@@ -382,6 +388,15 @@ class ChatTimelineHiddenUsersTest {
         var removes = 0
 
         fun visible(): List<String> = views.filter { view -> view !in hidden }
+
+        /* The name the next view takes, set by the test before each insert and taken by create. */
+        var nextView: String? = null
+
+        override fun create(row: ChatTimelineRow): String {
+            val view = checkNotNull(nextView) { "a view was created that the test did not name: one create per insert" }
+            nextView = null
+            return view
+        }
 
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             views.add(index, view)

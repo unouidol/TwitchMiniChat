@@ -24,6 +24,7 @@ internal class ReflectiveTargets private constructor(
     val cfg: Field,
     val scrollChat: Field,
     val chatTimelineController: Field,
+    val rowViewBinder: Field,
     val appendChatLine: Method,
     val appendSystemLine: Method,
     val appendPendingOutgoingMessage: Method,
@@ -52,6 +53,7 @@ internal class ReflectiveTargets private constructor(
             "$CHAT_FRAGMENT: field cfg: AccountConfig?",
             "$CHAT_FRAGMENT: field scrollChat: ScrollView (lateinit)",
             "$CHAT_FRAGMENT: field chatTimelineController: ChatTimelineController (lateinit)",
+            "$CHAT_FRAGMENT: field rowViewBinder: ChatRowViewBinder",
             "$CHAT_FRAGMENT: method appendChatLine(String, String, String?, String, String?, boolean, Double?)",
             "$CHAT_FRAGMENT: method appendSystemLine(String)",
             "$CHAT_FRAGMENT: method appendPendingOutgoingMessage(PendingOutgoingChatMessage, String?)",
@@ -77,6 +79,7 @@ internal class ReflectiveTargets private constructor(
                 cfg = field(fragment, "cfg"),
                 scrollChat = field(fragment, "scrollChat"),
                 chatTimelineController = field(fragment, "chatTimelineController"),
+                rowViewBinder = field(fragment, "rowViewBinder"),
                 appendChatLine = method(
                     fragment, "appendChatLine",
                     String::class.java, String::class.java, String::class.java, String::class.java,

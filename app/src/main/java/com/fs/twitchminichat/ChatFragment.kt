@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.text.Editable
+import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
 import android.util.Log
@@ -46,7 +47,7 @@ import com.fs.twitchminichat.chat.ChannelBoundPage
 import com.fs.twitchminichat.chat.ChatChannelBinding
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMessageRow
-import com.fs.twitchminichat.chat.ChatRowText
+import com.fs.twitchminichat.chat.RowText
 import com.fs.twitchminichat.chat.RowTextColor
 import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.SystemLineRow
@@ -89,14 +90,6 @@ import kotlin.coroutines.resume
 
 /** Logcat tag for non-sensitive backend history diagnostics. */
 private const val HISTORY_LOG_TAG = "TMC_HISTORY"
-
-/**
- * The row a chat message view carries as its tag, under the name its last reader uses.
- *
- * The long-press handler still reads it back from the view; the hidden-user paths now ask
- * the timeline. This name goes when the long-press handler moves too.
- */
-private typealias ChatViewMeta = ChatMessageRow
 
 
 
@@ -693,6 +686,72 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         },
         onLinkClick = { url -> externalBrowserLinkController?.openLink(url) }
     )
+
+    /**
+     * Builds every chat row's view from its row and binds it, with this page's message views, its
+     * actions, the signed-in user and the emote loader.
+     */
+    private val rowViewBinder = ChatRowViewBinder(
+        applier = rowTextApplier,
+        page = object : ChatRowViewBinder.Page {
+            override fun context(): Context = requireContext()
+
+            override fun newMessageView(): TextView = SwipeReplyTextView(requireContext())
+
+            override fun attachMessageActions(view: TextView) {
+                view.setOnLongClickListener(messageLongClickListener)
+                view.setOnClickListener(messageClickListener)
+            }
+
+            override fun setSwipeReply(view: TextView, enabled: Boolean) {
+                swipeReplyViewOf(view).onSwipeReply = if (enabled) {
+                    { replyToMessageOf(view) }
+                } else {
+                    null
+                }
+            }
+
+            override fun signedInUsername(): String? = cfg?.username
+
+            override fun systemLineText(text: String): String = getString(R.string.system_bullet, text)
+
+            override fun echoStatusTextColor(): Int = colorOnSurfaceVariant()
+
+            override fun loadEmotes(view: TextView, text: SpannableStringBuilder, row: RowText) {
+                /*
+                 * After the applier, never before it. The render size is read from the text size the
+                 * applier set. The loader installs its own live copy of the text and draws the emotes
+                 * into it, so a setText after this one would hide them; the applier's comes last.
+                 */
+                emoteImageLoader?.loadInto(
+                    textView = view,
+                    text = text,
+                    markers = row.emoteMarkers,
+                    markerOffset = row.emoteMarkerOffset,
+                    renderSizePx = targetEmoteRenderSizePx(view.textSize),
+                    darkTheme = isDarkTheme()
+                )
+            }
+        }
+    )
+
+    /** The long-press action of every chat message view: it reads the message from the view's tag as it fires. */
+    private val messageLongClickListener = View.OnLongClickListener { view ->
+        val row = messageRowOf(view)
+        onChatMessageLongPressed(
+            messageId = row.messageId,
+            user = row.user,
+            message = row.messageText,
+            messageTimestampSec = row.messageTimestampSec
+        )
+        true
+    }
+
+    /** The tap action of every chat message view, which needs nothing of the message. */
+    private val messageClickListener = View.OnClickListener {
+        clearChannelFieldUi(hideKeyboard = false)
+        closeComposerKeyboard()
+    }
 
     private lateinit var editChannel: ChannelAutoCompleteTextView
     private lateinit var channelsAdapter: ArrayAdapter<String>
@@ -1405,7 +1464,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         textStatus = view.findViewById(R.id.textStatus)
         scrollChat = view.findViewById(R.id.scrollChat)
         chatContainer = view.findViewById(R.id.chatContainer)
-        chatTimelineController = ChatTimelineController(chatContainer)
+        chatTimelineController = ChatTimelineController(chatContainer, rowViewBinder)
         val animationGate = EmoteAnimationGate<AnimatedEmoteRow>(
             spanOf = { row -> timelineSpanOf(row.view) },
             setAnimating = { row, animating -> row.setAnimationsWanted(animating) }
@@ -2410,8 +2469,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Adds one immediate local echo after the socket write succeeds.
      *
-     * The echo is a row of the timeline, found again by its local id. Its message view is
-     * built here, once; every later change of status rebinds the echo's view in place.
+     * The echo is a row of the timeline, found again by its local id. Its view is built from
+     * the row, once, as sending; every later change of status rebinds that view in place.
      */
     private fun appendPendingOutgoingMessage(
         pending: PendingOutgoingChatMessage,
@@ -2420,19 +2479,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val user = cfg?.username.orEmpty()
         val emotesRaw = emoteCatalogController?.buildOutgoingIrcTag(pending.message)
 
-        val messageView = createMessageTextView(
-            user = user,
-            rawMessage = pending.message,
-            emotesRaw = emotesRaw,
-            replyParentUserLogin = replyParentUserLogin
-        )
-
-        val echoView = PendingEchoView(requireContext(), messageView).apply {
-            bindStatus(PendingEchoStatus.SENDING, statusTextColor = colorOnSurfaceVariant())
-        }
-
         appendChatView(
-            view = echoView,
             forceScroll = true,
             countAsUnread = false,
             messageTimestampSec = pending.sentAtSec
@@ -3172,10 +3219,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * Inserts one chat row chronologically without disturbing composer focus.
      *
      * [row] builds the row's data from the position the timeline gives it; the timeline
-     * keeps that row, and the view carries it as its tag.
+     * keeps that row, its view is built from it, and the view carries it as its tag.
      */
     private fun appendChatView(
-        view: View,
         forceScroll: Boolean = false,
         countAsUnread: Boolean = true,
         messageTimestampSec: Double? = null,
@@ -3191,7 +3237,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val shouldAutoScroll = forceScroll || stickToBottom || isNearBottom()
 
         chatTimelineController.insert(
-            view = view,
             messageTimestampSec = messageTimestampSec,
             preservedPosition = preservedTimelinePosition,
             row = row
@@ -3216,10 +3261,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun appendSystemLine(text: String) {
-        val tv = TextView(requireContext())
-        rowTextApplier.apply(tv, ChatRowText.systemLine(getString(R.string.system_bullet, text)))
-
-        appendChatView(tv, forceScroll = false, countAsUnread = false) { position ->
+        appendChatView(forceScroll = false, countAsUnread = false) { position ->
             SystemLineRow(position = position, text = text)
         }
     }
@@ -3488,17 +3530,27 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    private fun attachSwipeReplyAction(
-        tv: SwipeReplyTextView,
-        messageId: String?,
-        user: String,
-        message: String
-    ) {
-        tv.onSwipeReply = messageId
-            ?.takeIf { it.isNotBlank() }
-            ?.let { replyId ->
-                { beginReply(replyId, user, message) }
-            }
+    /* The message a chat message view shows, read from its tag as one of its actions fires. */
+    private fun messageRowOf(view: View): ChatMessageRow = checkNotNull(view.tag as? ChatMessageRow) {
+        "A chat message view's tag is not its ChatMessageRow. Invariant: ChatRowViewBinder writes the row " +
+            "as the tag in the same call that binds the view, before the view is added, and nothing else " +
+            "writes it."
+    }
+
+    /* A completed swipe on [view]: a reply to the message its tag holds now. */
+    private fun replyToMessageOf(view: View) {
+        val row = messageRowOf(view)
+        val messageId = checkNotNull(row.messageId?.takeIf { id -> id.isNotBlank() }) {
+            "Swipe-to-reply fired on a message without an id. Invariant: a bind turns swipe-to-reply on only " +
+                "for a row with a message id, and that same bind wrote the view's tag."
+        }
+        beginReply(messageId, row.user, row.messageText)
+    }
+
+    /* [view] as the swipe view it is: the binder sets swipe-to-reply only on views from newMessageView. */
+    private fun swipeReplyViewOf(view: TextView): SwipeReplyTextView = checkNotNull(view as? SwipeReplyTextView) {
+        "Swipe-to-reply was set on a ${view.javaClass.simpleName}. Invariant: the binder sets it only on " +
+            "views from newMessageView, which are SwipeReplyTextViews."
     }
 
     private fun maybeCaptureBuddyInfoFromChat(user: String, message: String) {
@@ -3589,40 +3641,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val tv = createMessageTextView(
-            user = user,
-            rawMessage = message,
-            emotesRaw = emotesRaw,
-            replyParentUserLogin = replyParentUserLogin
-        )
-
-        tv.setOnLongClickListener {
-            val meta = tv.tag as? ChatViewMeta
-
-            onChatMessageLongPressed(
-                messageId = meta?.messageId ?: msgId,
-                user = user,
-                message = meta?.messageText ?: message,
-                messageTimestampSec = meta?.messageTimestampSec
-                    ?: (System.currentTimeMillis().toDouble() / 1000.0)
-            )
-            true
-        }
-
-        tv.setOnClickListener {
-            clearChannelFieldUi(hideKeyboard = false)
-            closeComposerKeyboard()
-        }
-
-        attachSwipeReplyAction(
-            tv = tv,
-            messageId = msgId,
-            user = user,
-            message = message
-        )
-
         appendChatView(
-            view = tv,
             forceScroll = forceScroll,
             countAsUnread = true,
             messageTimestampSec = resolvedMessageTimestampSec,
@@ -4033,41 +4052,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!profileId.isNullOrBlank()) {
             noteCatchPresetUsedOptimistically(profileId, preset)
         }
-    }
-
-    private fun createMessageTextView(
-        user: String,
-        rawMessage: String,
-        emotesRaw: String?,
-        replyParentUserLogin: String?
-    ): SwipeReplyTextView {
-        val tv = SwipeReplyTextView(requireContext())
-        val row = ChatRowText.message(
-            user = user,
-            rawMessage = rawMessage,
-            emotesRaw = emotesRaw,
-            replyParentUserLogin = replyParentUserLogin,
-            signedInUsername = cfg?.username
-        )
-        val text = rowTextApplier.apply(tv, row)
-
-        if (row.emoteMarkers.isEmpty()) return tv
-
-        /*
-         * After the applier, never before it. The render size is read from the text size the
-         * applier set. The loader installs its own live copy of the text and draws the emotes
-         * into it, so a setText after this one would hide them; the applier's comes last.
-         */
-        emoteImageLoader?.loadInto(
-            textView = tv,
-            text = text,
-            markers = row.emoteMarkers,
-            markerOffset = row.emoteMarkerOffset,
-            renderSizePx = targetEmoteRenderSizePx(tv.textSize),
-            darkTheme = isDarkTheme()
-        )
-
-        return tv
     }
 
     companion object {

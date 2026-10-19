@@ -8,7 +8,6 @@ import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.ChatTimelineViewSync
 import com.fs.twitchminichat.chat.ChatTimelineViews
 import com.fs.twitchminichat.chat.PendingEchoEvent
-import com.fs.twitchminichat.chat.RebindableTimelineView
 
 /** Identifies the stable chronological position of one rendered chat row. */
 data class ChatTimelinePosition(
@@ -64,26 +63,30 @@ object ChatTimelineOrderer {
  * Keeps rendered chat rows ordered across asynchronous history and live delivery.
  *
  * The order is decided by a [ChatTimeline], the list of rows, and the container's
- * children follow it: the child at an index is the view of the row at that index, and
- * carries that row as its tag. This controller must be the only writer of the container.
+ * children follow it: the child at an index is the view of the row at that index, built
+ * from that row by [rowViews], and carries that row as its tag. This controller must be
+ * the only writer of the container.
  */
-class ChatTimelineController(
+class ChatTimelineController internal constructor(
     container: ViewGroup,
+    rowViews: ChatRowViewBinder,
     currentTimeMillis: () -> Long = System::currentTimeMillis
 ) {
     private val sync = ChatTimelineViewSync(
-        views = ContainerTimelineViews(container),
+        views = ContainerTimelineViews(container, rowViews),
         timeline = ChatTimeline(currentTimeMillis)
     )
 
-    /** Inserts one row according to its Twitch timestamp, with the data [row] builds for it. */
+    /**
+     * Inserts one row according to its Twitch timestamp, with the data [row] builds for it,
+     * and the view built from that data.
+     */
     fun insert(
-        view: View,
         messageTimestampSec: Double?,
         preservedPosition: ChatTimelinePosition? = null,
         row: (ChatTimelinePosition) -> ChatTimelineRow
     ): ChatTimelinePosition {
-        return sync.insert(view, messageTimestampSec, preservedPosition, row).position
+        return sync.insert(messageTimestampSec, preservedPosition, row).position
     }
 
     /** Clears the rendered timeline and its ordering metadata. */
@@ -112,14 +115,19 @@ class ChatTimelineController(
     }
 }
 
-/** The timeline's views as the children of [container], each with its row as its tag. */
+/**
+ * The timeline's views as the children of [container], each built and bound by [rowViews],
+ * which also writes each view's row as its tag.
+ */
 private class ContainerTimelineViews(
-    private val container: ViewGroup
+    private val container: ViewGroup,
+    private val rowViews: ChatRowViewBinder
 ) : ChatTimelineViews<View> {
 
+    /* The tag is written here, by the bind, before the view is added, as it always was. */
+    override fun create(row: ChatTimelineRow): View = rowViews.create(row)
+
     override fun add(view: View, row: ChatTimelineRow, index: Int) {
-        /* Set before the view is added, as the message rows' tag always was. */
-        view.tag = row
         container.addView(view, index)
     }
 
@@ -135,10 +143,8 @@ private class ContainerTimelineViews(
         container.getChildAt(index).visibility = if (shown) View.VISIBLE else View.GONE
     }
 
+    /* The tag follows the row, as the bind set it; the view itself applies the change. */
     override fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange) {
-        val view = container.getChildAt(index)
-        /* The tag follows the row, as add set it; the view itself applies the change. */
-        view.tag = row
-        (view as? RebindableTimelineView)?.rebind(row, change)
+        rowViews.rebind(container.getChildAt(index), row, change)
     }
 }

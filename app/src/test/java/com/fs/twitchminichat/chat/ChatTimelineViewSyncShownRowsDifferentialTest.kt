@@ -48,8 +48,14 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
                         val kind = random.nextInt(10)
                         val user = USERS[random.nextInt(USERS.size)]
                         val create = { position: ChatTimelinePosition -> row(kind, user, position) }
+                        /*
+                         * The view's name is the driver's own counter, given to both sides: straight to
+                         * the frozen copy, and to today's sync through the layout it creates views with.
+                         * Neither side's view comes from the other.
+                         */
                         val expected = old.insert(view, timestampSec, preserved, create)
-                        assertEquals("$where insert", expected, sync.insert(view, timestampSec, preserved, create))
+                        newLayout.nextView = view
+                        assertEquals("$where insert", expected, sync.insert(timestampSec, preserved, create))
                     }
                     in 45..52 -> {
                         val user = USERS[random.nextInt(USERS.size)].trim().lowercase()
@@ -111,6 +117,18 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         val hidden = mutableSetOf<String>()
         val tags = HashMap<String, ChatTimelineRow>()
         val calls = mutableListOf<String>()
+
+        /*
+         * The name the next view takes, set by the driver before each insert into today's sync and
+         * taken by create. The 4850a83 copy never creates a view: it is given one, so it never reads this.
+         */
+        var nextView: String? = null
+
+        override fun create(row: ChatTimelineRow): String {
+            val view = checkNotNull(nextView) { "a view was created that the driver did not name: one create per insert" }
+            nextView = null
+            return view
+        }
 
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             calls += "add $view at $index"

@@ -2,6 +2,7 @@ package com.fs.twitchminichat.chat
 
 import com.fs.twitchminichat.ChatTimelinePosition
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
 import kotlin.random.Random
 
@@ -39,6 +40,15 @@ class ChatTimelineViewSyncTest {
     }
 
     @Test
+    fun insert_createsTheViewOnce_fromTheRowTheTimelineHolds_beforeAddingIt() {
+        val row = insert("only", 7.0)
+
+        assertEquals(listOf("create only", "add only at 0"), views.calls)
+        assertSame(timeline.rows.single(), views.createdFrom.single())
+        assertSame(row, views.createdFrom.single())
+    }
+
+    @Test
     fun clear_removesEveryViewAndRow_andTheNextRowStartsTheSequenceAgain() {
         insert("a", 1.0)
         insert("b", 2.0)
@@ -52,7 +62,8 @@ class ChatTimelineViewSyncTest {
 
     @Test
     fun anEchoReplacedByItsCanonicalMessage_keepsItsPlaceBeforeABotReplyOfTheSameSecond() {
-        sync.insert("echo", 10.0, null) { position ->
+        views.nextView = "echo"
+        sync.insert(10.0, null) { position ->
             PendingEchoRow(position, "local-echo", "me", "echo", null, null, 10.0, PendingEchoStatus.SENDING)
         }
         insert("botReply", 10.0)
@@ -94,7 +105,8 @@ class ChatTimelineViewSyncTest {
                         /* A third of the rows are echoes: the only rows the page ever removes. */
                         val localId = if (random.nextInt(3) == 0) "local-$name" else null
                         val expected = old.insert(name, timestampSec, preserved, localId)
-                        val actual = sync.insert(name, timestampSec, preserved) { position ->
+                        views.nextView = name
+                        val actual = sync.insert(timestampSec, preserved) { position ->
                             if (localId != null) echoRow(position, localId) else SystemLineRow(position, name)
                         }
                         if (localId != null) {
@@ -142,7 +154,8 @@ class ChatTimelineViewSyncTest {
     // ---------------------------------------------------------------------------
 
     private fun insert(name: String, timestampSec: Double?, preserved: ChatTimelinePosition? = null): ChatTimelineRow {
-        return sync.insert(name, timestampSec, preserved) { position -> SystemLineRow(position, name) }
+        views.nextView = name
+        return sync.insert(timestampSec, preserved) { position -> SystemLineRow(position, name) }
     }
 
     private fun echoRow(position: ChatTimelinePosition, localId: String) =
@@ -152,8 +165,22 @@ class ChatTimelineViewSyncTest {
     private class ListViews : ChatTimelineViews<String> {
         val shown = mutableListOf<String>()
         val rowsShown = mutableListOf<ChatTimelineRow>()
+        val createdFrom = mutableListOf<ChatTimelineRow>()
+        val calls = mutableListOf<String>()
+
+        /* The name the next view takes, set by the test before each insert and taken by create. */
+        var nextView: String? = null
+
+        override fun create(row: ChatTimelineRow): String {
+            val view = checkNotNull(nextView) { "a view was created that the test did not name: one create per insert" }
+            nextView = null
+            createdFrom += row
+            calls += "create $view"
+            return view
+        }
 
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
+            calls += "add $view at $index"
             shown.add(index, view)
             rowsShown.add(index, row)
         }
