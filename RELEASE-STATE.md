@@ -826,7 +826,7 @@ manager reports.
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.5.1 (8) | `007ee55` | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` | 2026-09-18 14:08 |
-| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `c1380af` | `c4cc57f8f63e9b41f765ab8f43240db3d78bc6754b0377a33207573f6bb4231d` | 2026-10-19 09:31 |
+| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `c1380af (#86)` | `c4cc57f8f63e9b41f765ab8f43240db3d78bc6754b0377a33207573f6bb4231d` | 2026-10-19 09:31 |
 
 - **The stable app is the published 5.5.1.** Its APK's sha256 is the arm64 checksum recorded
   under *Published* above, as listed in the release's `SHA256SUMS.txt`, and its code carries
@@ -854,8 +854,19 @@ From the commit that adds `BuildIdentity`, every build carries its commit. The l
 reads `Version 5.5.1 (build 8, abc1234)`, and the journal export header has a line
 `# app 5.5.1 (8) abc1234`. A `+` after the commit means the tree the build came from had
 uncommitted or untracked changes, and `unknown` means the build could not read git at all.
-Record the installed candidate here with the date and that commit. An `alert_audio` line in
-the journal and the absence of `listener.*` lines still confirm, from the other side, that it
-is a 5.5.1 build.
+Record the installed candidate here with the date and that commit. A build taken from a pull
+request's branch carries a commit that the squash merge does not keep on `main-v5`, so record
+the pull request's number beside the commit, as in `c1380af (#86)`. Not the squash commit: its
+identifier does not exist until the merge has happened, and a squash merge cannot edit its own
+tree, so writing it here would always cost a second commit after the fact - the bookkeeping #61
+removed. The pull request's number exists before the merge, never goes stale, and points at
+GitHub's own record of the commits rather than at a copy of the log. The commit is retrieved
+with `git fetch origin pull/<n>/head`, as that ref or one of its ancestors: `c1380af` is the
+parent of #86's last head. That rests on GitHub keeping those refs after a merge, which is
+known rather than measured; what was measured, on 2026-10-19, is that `refs/pull/86/head` was
+there. Should it ever be gone, a lightweight tag on the tested commit makes the commit
+reachable from the repository itself, at the cost of a tag per device test. An `alert_audio`
+line in the journal and the absence of `listener.*` lines still confirm, from the other side,
+that a candidate is a 5.5.1 build.
 
 Update this section from the device, not from intent.
