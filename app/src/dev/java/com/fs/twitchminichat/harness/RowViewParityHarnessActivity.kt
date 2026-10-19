@@ -43,6 +43,9 @@ import java.lang.reflect.InvocationTargetException
  * rows a character apart must differ in pixels; a row whose focusable flag is cleared must differ in
  * state and not in pixels; one production row built twice must match itself.
  *
+ * Each pass then runs [RebindProof]: every pair of catalogue rows of the same kind, bound one after
+ * the other to one view, against the second built fresh, with its own controls.
+ *
  * Only the adb shell may start it. An activity started by `am start` cannot learn its caller: the
  * referrer can be spoofed, the calling package exists only for startActivityForResult, and the
  * launching uid exists only from API 34 and only when the caller chooses to share it. So the system
@@ -159,8 +162,23 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         report.put("controls", controls(width, frozen, targets, snapshot))
         report.put("themeDefaults", themeDefaults(production, snapshot))
 
+        /* On a fragment of its own, so that its producers accept every catalogue row once more. */
+        val rebind = RebindProof(
+            production = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets),
+            snapshot = snapshot,
+            newContainer = ::newContainer,
+            render = { container -> render(container, width) }
+        ).run()
+        report.put("rebindProof", rebind)
+        val rebindPairs = rebind.getJSONObject("pairs")
+
         writeResult(report)
-        Log.i(TAG, "done theme=$themeName rows=${ParityCatalogue.rows.size} identical=$identical width=$width")
+        Log.i(
+            TAG,
+            "done theme=$themeName rows=${ParityCatalogue.rows.size} identical=$identical width=$width " +
+                "rebindPairs=${rebindPairs.getJSONObject("vacuity").getInt("pairs")} " +
+                "rebindIdentical=${rebindPairs.getInt("identical")} rebindPassed=${rebind.getBoolean("passed")}"
+        )
     }
 
     private fun writeResult(result: JSONObject) {
@@ -266,7 +284,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         .put("messageView (ChatFragment.SwipeReplyTextView)", JSONObject.wrap(snapshot.defaultsOf(production.freshMessageView())))
         .put("systemLine (TextView)", JSONObject.wrap(snapshot.defaultsOf(TextView(this))))
         .put("AppCompatTextView", JSONObject.wrap(snapshot.defaultsOf(AppCompatTextView(this))))
-        .put("pendingEcho (PendingEchoView, after its init)", JSONObject.wrap(snapshot.defaultsOf(PendingEchoView(this))))
+        .put("pendingEcho (PendingEchoView, after its init)", JSONObject.wrap(snapshot.defaultsOf(PendingEchoView(this, TextView(this)))))
         .put("LinearLayout", JSONObject.wrap(snapshot.defaultsOf(LinearLayout(this))))
 
     private fun newContainer(): LinearLayout =

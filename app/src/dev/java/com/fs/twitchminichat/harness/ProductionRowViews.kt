@@ -7,6 +7,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import com.fs.twitchminichat.AccountConfig
 import com.fs.twitchminichat.ChatFragment
+import com.fs.twitchminichat.ChatRowViewBinder
 import com.fs.twitchminichat.ChatTimelineController
 import com.fs.twitchminichat.PendingOutgoingChatMessage
 import com.fs.twitchminichat.chat.PendingEchoEvent
@@ -25,7 +26,9 @@ import com.fs.twitchminichat.chat.PendingEchoEvent
  * resolved before anything runs; nothing in src/main was made visible for this. The only fields set
  * are the three the producers need and nothing else
  * provides: the account they write as, the timeline controller, and the scroll view that
- * scrollToBottom posts to. That scroll view is never attached, so what it posts never runs.
+ * scrollToBottom posts to. That scroll view is never attached, so what it posts never runs. The one
+ * field read is the fragment's own row view binder, which every timeline here builds its views with,
+ * as the page's own timeline does.
  *
  * Read on the way, unchanged: HiddenUsersStore, by appendChatLine's hidden-user check. A catalogue
  * user hidden on the device would produce no row, which the harness reports.
@@ -57,9 +60,13 @@ internal class ProductionRowViews(
         targets.scrollChat.set(fragment, ScrollView(activity))
     }
 
-    /** A fresh timeline over [container]; every row produced after this goes into it. */
+    /** The fragment's binder: what builds and binds every row's view on this page. */
+    val binder: ChatRowViewBinder
+        get() = targets.rowViewBinder.get(fragment) as ChatRowViewBinder
+
+    /** A fresh timeline over [container], with the fragment's binder; every row produced after this goes into it. */
     fun newTimeline(container: ViewGroup): ChatTimelineController {
-        val controller = ChatTimelineController(container)
+        val controller = ChatTimelineController(container, binder)
         targets.chatTimelineController.set(fragment, controller)
         return controller
     }

@@ -238,6 +238,60 @@ class ChatTimelineEchoTest {
     }
 
     // ---------------------------------------------------------------------------
+    // What is rebound in place
+    // ---------------------------------------------------------------------------
+
+    /**
+     * The invariant behind both preconditions on a rebind in place - ChatRowViewBinder.rebind's,
+     * that the view can be rebound, and PendingEchoView.rebind's, that the row is an echo: the sync
+     * rebinds in place only a view it created for an echo, and only with that same echo's row, over
+     * every operation it has, users hidden among them.
+     */
+    @Test
+    fun onlyAViewCreatedForAnEcho_isEverReboundInPlace_andOnlyWithThatEchosRow() {
+        val users = listOf("me", "alice", "bob")
+        val events = PendingEchoEvent.values()
+        var rebinds = 0
+        for (seed in 1..100) {
+            val random = Random(seed)
+            val layout = KindLayout()
+            val sync = ChatTimelineViewSync(layout, ChatTimeline(currentTimeMillis = { 1_000_000L }))
+            var nextView = 0
+
+            repeat(300) {
+                when (random.nextInt(12)) {
+                    in 0..2 -> {
+                        layout.nextView = "v${nextView++}"
+                        sync.insert(random.nextInt(1, 30).toDouble(), null) { position ->
+                            messageRow(position, users[random.nextInt(users.size)])
+                        }
+                    }
+                    3 -> {
+                        layout.nextView = "v${nextView++}"
+                        sync.insert(random.nextInt(1, 30).toDouble(), null) { position -> SystemLineRow(position, "line") }
+                    }
+                    in 4..5 -> {
+                        val localId = "local-${random.nextInt(0, 6)}"
+                        layout.nextView = "v${nextView++}"
+                        sync.insert(random.nextInt(1, 30).toDouble(), null) { position ->
+                            PendingEchoRow(position, localId, "me", "hello", null, null, 1.0, PendingEchoStatus.SENDING)
+                        }
+                    }
+                    in 6..7 -> sync.applyEchoEvent("local-${random.nextInt(0, 7)}", events[random.nextInt(events.size)])
+                    8 -> sync.removeEcho("local-${random.nextInt(0, 7)}")
+                    9 -> sync.hideUser(users[random.nextInt(users.size)])
+                    10 -> sync.setHiddenUsers(users.filter { random.nextBoolean() }.toSet())
+                    else -> if (random.nextInt(8) == 0) sync.clear()
+                }
+            }
+            rebinds += layout.rebinds
+        }
+        /* Not vacuous: the invariant was checked on every one of these rebinds. */
+        assertTrue("only $rebinds rebinds happened, too few to check anything", rebinds > 1_000)
+        println("rebinds in place checked: $rebinds")
+    }
+
+    // ---------------------------------------------------------------------------
     // Against ChatFragment at 4f90dbd
     // ---------------------------------------------------------------------------
 
@@ -270,7 +324,8 @@ class ChatTimelineEchoTest {
                         val view = "v${nextView++}"
                         old.send(view, text, nowSec)
                         val pending = tracker.register("#chan", "me", text, nowSec)
-                        sync.insert(view, pending.sentAtSec, null) { position -> echoRow(position, pending) }
+                        views.nextView = view
+                        sync.insert(pending.sentAtSec, null) { position -> echoRow(position, pending) }
                         armed += pending.localId
                         echoViewOf[pending.localId] = view
                     }
@@ -304,7 +359,8 @@ class ChatTimelineEchoTest {
                         val newPosition = confirmed?.let { sync.removeEcho(it.localId) }
                         assertEquals("$where canonical position", oldPosition, newPosition)
                         if (newPosition != null) coverage.removed(echo = true, hidden = false) else if (confirmed != null) coverage.missed()
-                        sync.insert(view, timestampSec, newPosition) { position -> messageRow(position, "me") }
+                        views.nextView = view
+                        sync.insert(timestampSec, newPosition) { position -> messageRow(position, "me") }
                     }
                     in 7..8 -> {
                         val view = "v${nextView++}"
@@ -313,7 +369,8 @@ class ChatTimelineEchoTest {
                         val oldPosition = old.appendChatLine(view, "bot", BOT_TEXT, timestampSec)
                         val newPosition = tracker.confirmCanonical("#chan", "bot", BOT_TEXT, timestampSec)?.let { sync.removeEcho(it.localId) }
                         assertEquals("$where bot line position", oldPosition, newPosition)
-                        sync.insert(view, timestampSec, newPosition) { position -> messageRow(position, "bot") }
+                        views.nextView = view
+                        sync.insert(timestampSec, newPosition) { position -> messageRow(position, "bot") }
                     }
                     9 -> {
                         /* clearPendingOutgoingState, as forgetPendingSends and onDestroyView call it. */
@@ -349,7 +406,8 @@ class ChatTimelineEchoTest {
     // ---------------------------------------------------------------------------
 
     private fun echo(view: String, localId: String, sentAtSec: Double) {
-        sync.insert(view, sentAtSec, null) { position ->
+        views.nextView = view
+        sync.insert(sentAtSec, null) { position ->
             PendingEchoRow(
                 position = position,
                 localId = localId,
@@ -364,13 +422,57 @@ class ChatTimelineEchoTest {
     }
 
     private fun message(view: String, user: String, timestampSec: Double, preserved: ChatTimelinePosition? = null) {
-        sync.insert(view, timestampSec, preserved) { position -> messageRow(position, user) }
+        views.nextView = view
+        sync.insert(timestampSec, preserved) { position -> messageRow(position, user) }
     }
 
     /** What an echo view shows: its status line, kept while hidden, whether it is shown, and its opacity. */
     private data class Look(val line: PendingEchoStatusLine?, val lineShown: Boolean, val alpha: Float)
 
     private data class Rebind(val view: String, val change: ChatTimelineChange, val status: PendingEchoStatus)
+
+    /** Stands in for the layout, and checks on every rebind in place which row the view was created for. */
+    private class KindLayout : ChatTimelineViews<String> {
+        private val views = mutableListOf<String>()
+        private val rowOf = HashMap<String, ChatTimelineRow>()
+        var rebinds = 0
+
+        /* The name the next view takes, set by the test before each insert and taken by create. */
+        var nextView: String? = null
+
+        override fun create(row: ChatTimelineRow): String {
+            val view = checkNotNull(nextView) { "a view was created that the test did not name: one create per insert" }
+            nextView = null
+            rowOf[view] = row
+            return view
+        }
+
+        override fun add(view: String, row: ChatTimelineRow, index: Int) {
+            views.add(index, view)
+        }
+
+        override fun removeAt(index: Int) {
+            rowOf -= views.removeAt(index)
+        }
+
+        override fun removeAll() {
+            views.clear()
+            rowOf.clear()
+        }
+
+        override fun setShown(index: Int, shown: Boolean) = Unit
+
+        override fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange) {
+            val view = views[index]
+            val shown = rowOf.getValue(view)
+            assertTrue("$view was rebound in place, but was created for a ${shown.javaClass.simpleName}", shown is PendingEchoRow)
+            assertTrue("$view, an echo's view, was rebound with a ${row.javaClass.simpleName}", row is PendingEchoRow)
+            assertEquals("$view was rebound with another echo", (shown as PendingEchoRow).localId, (row as PendingEchoRow).localId)
+            assertEquals("$view was rebound with another echo's position", shown.position, row.position)
+            rowOf[view] = row
+            rebinds++
+        }
+    }
 
     /** Stands in for the layout, with echo views that behave as PendingEchoView. */
     private class EchoViews : ChatTimelineViews<String> {
@@ -384,6 +486,15 @@ class ChatTimelineEchoTest {
         fun visible(): List<String> = views.filter { view -> view !in hidden }
 
         fun echoLooks(): Map<String, Look> = views.filter { view -> view in looks }.associateWith { view -> looks.getValue(view) }
+
+        /* The name the next view takes, set by the test before each insert and taken by create. */
+        var nextView: String? = null
+
+        override fun create(row: ChatTimelineRow): String {
+            val view = checkNotNull(nextView) { "a view was created that the test did not name: one create per insert" }
+            nextView = null
+            return view
+        }
 
         override fun add(view: String, row: ChatTimelineRow, index: Int) {
             views.add(index, view)
