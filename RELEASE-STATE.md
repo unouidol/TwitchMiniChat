@@ -818,18 +818,32 @@ prints no timestamps - the authoritative time of a registry change is `updated_a
 
 ## Test device
 
-**Stale, marked 2026-10-15.** What follows describes the device as measured on 2026-09-14. It
-no longer says what the device runs. Builds have been installed on it since, and none was
-recorded here: #80's description records four manual checks run on the device (API 31) on
-2026-10-14, on a dev debug build of that pull request. Refreshing this section needs the
-device itself - the build identity on the login screen, or the `# app` line of a journal
-export, recorded with the date it was read. Until then, nothing in this section is current.
+**Read from the device on 2026-10-19,** over adb, from a OnePlus AC2003 on Android 12 (API 31).
+Each commit below was read from the APK installed on the phone, pulled back off it, with the
+build identity read from its code; the version and build number are what the phone's package
+manager reports.
 
-Measured from the journal export of 2026-09-14, not from memory: it contains `listener.*`
-lines and `fcm.notification.audio` lines with `elevatedSpanMs`, and no
-`fcm.notification.alert_audio` line. So the device was then running a build of the
-diagnostics branch **with the notification listener and without the fallback** — reporting
-`versionCode 7` and `versionName 5.5.0`, like the published build.
+| App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
+|---|---|---|---|---|---|
+| Stable | `com.fs.twitchminichat` | 5.5.1 (8) | `007ee55` | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` | 2026-09-18 14:08 |
+| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `c1380af` | `c4cc57f8f63e9b41f765ab8f43240db3d78bc6754b0377a33207573f6bb4231d` | 2026-10-19 09:31 |
+
+- **The stable app is the published 5.5.1.** Its APK's sha256 is the arm64 checksum recorded
+  under *Published* above, as listed in the release's `SHA256SUMS.txt`, and its code carries
+  `007ee55`, the commit `v5.5.1` points at.
+- **The dev app is #86 as it was tested on the device, at `c1380af`:** the build its harness ran on
+  and its manual checks are for. The app also reported `c1380af` itself, at run time, in that
+  day's harness results. Before #86 it was a build of `86eab10`, installed 2026-10-14, read from
+  its APK on 2026-10-19 before it was replaced.
+- **Not read: the login screen's line and a journal export's `# app` line,** the two places this
+  section otherwise reads a build from. Both need the app operated by hand. #86's first manual
+  check reads the dev app's login screen.
+
+This section had been marked stale on 2026-10-15: builds had been installed since its previous
+reading and none was recorded. That reading, from the journal export of 2026-09-14, found
+`listener.*` lines and `fcm.notification.audio` lines with `elevatedSpanMs`, and no
+`fcm.notification.alert_audio` line: a build of the diagnostics branch **with the notification
+listener and without the fallback**, reporting `versionCode 7` and `versionName 5.5.0`.
 
 An earlier version of this section said that from 5.5.1 on builds are told apart by their
 number. That was wrong. Three sets of 5.5.1 artifacts were built from three commits, all
