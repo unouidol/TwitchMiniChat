@@ -266,7 +266,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         .put("messageView (ChatFragment.SwipeReplyTextView)", JSONObject.wrap(snapshot.defaultsOf(production.freshMessageView())))
         .put("systemLine (TextView)", JSONObject.wrap(snapshot.defaultsOf(TextView(this))))
         .put("AppCompatTextView", JSONObject.wrap(snapshot.defaultsOf(AppCompatTextView(this))))
-        .put("pendingEcho (PendingEchoView, after its init)", JSONObject.wrap(snapshot.defaultsOf(PendingEchoView(this))))
+        .put("pendingEcho (PendingEchoView, after its init)", JSONObject.wrap(snapshot.defaultsOf(PendingEchoView(this, TextView(this)))))
         .put("LinearLayout", JSONObject.wrap(snapshot.defaultsOf(LinearLayout(this))))
 
     private fun newContainer(): LinearLayout =

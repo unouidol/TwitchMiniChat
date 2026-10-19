@@ -2427,8 +2427,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             replyParentUserLogin = replyParentUserLogin
         )
 
-        val echoView = PendingEchoView(requireContext()).apply {
-            setMessage(messageView, statusTextColor = colorOnSurfaceVariant())
+        val echoView = PendingEchoView(requireContext(), messageView).apply {
+            bindStatus(PendingEchoStatus.SENDING, statusTextColor = colorOnSurfaceVariant())
         }
 
         appendChatView(
