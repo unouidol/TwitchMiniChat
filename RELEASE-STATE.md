@@ -869,13 +869,18 @@ The two are not redundant: the tag is how the commit is retrieved, the number is
 build came from, which a tag name carries badly. The commit is in the tag's name because a
 version and a build number are shared by every build of a release: `86eab10`, the dev build
 before #86, has 5.5.1 and build 8 in its `app/build.gradle.kts` too, so a name without the
-commit would already have collided once. Not the squash commit: its identifier does not exist
-until the merge has happened, and a squash merge cannot edit its own tree, so writing it here
-would always cost a second commit after the fact - the bookkeeping #61 removed.
+commit would already have collided once. A record written inside a pull request cannot carry
+that pull request's own squash commit: its identifier does not exist until the merge has
+happened and a squash merge cannot edit its own tree, so writing it in would always cost a
+second commit after the fact - the bookkeeping #61 removed.
 
 Why the tag: a pull request's number points at a record GitHub keeps, `refs/pull/<n>/head`, and
 nothing in this repository can check that GitHub still keeps it, while a tag is in the log
-itself. The cost is one tag per device test, a few per release.
+itself. And a tag can be made only while something still reaches the commit, so it is made at
+the device test: a tag kept back as the fallback for a lost pull ref could be applied only
+after that loss, when nothing might reach the commit to put it on, and a fallback that can
+only be applied after the loss is not a fallback. The cost is one tag per device test, a few
+per release.
 
 Pull request #87 first proposed the number alone, with a tag only as the fallback should the
 pull ref ever be gone, and was changed before it merged. The number alone left the only way to the commit
