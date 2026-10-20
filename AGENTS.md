@@ -59,6 +59,32 @@ TMC is a manual assistive client. These constraints are mandatory:
 - Before adding diagnostic instrumentation, state which recorded value would separate the healthy case from the faulty one. If no field being recorded can tell them apart, the instrument is not ready: it will produce evidence that cannot settle the question it was built to answer, and the gap only becomes visible after the next occurrence has already been missed.
 - Do not edit generated files or commit local build outputs, APKs, Android App Bundles, credentials, or patch backup directories.
 
+## Git failures already diagnosed
+
+Each entry is a failure seen before: its symptom, how to recognise it, and what worked. None records the state of a machine. Whether a machine has the problem is read on that machine when it happens, never taken from here: a recorded machine state goes stale by itself, and a reader on another machine would apply it to theirs. Where and when an entry was seen is an observation, not a property that still holds.
+
+**A `git push` that hangs looks like a network problem, and is not.**
+
+- **Symptom:** the push prints nothing, not even its object count, and does not return.
+- **How to recognise it:** the GitHub command-line interface (`gh`) works, and `git fetch` and `git ls-remote` against the same remote complete. That proves nothing about credentials: while the repository is public they need none, and a push is the first command that asks for any. Replacing git's credential helper for one command removed the hang, so the wait is in the helper. Do not debug the network, the proxy or GitHub.
+- **What worked:** stop the hung push, check with `git ls-remote` whether it reached the remote anyway, then push once with `gh`'s credential in place of the helper, for that command only, in Git Bash:
+
+  ```bash
+  GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never timeout 90 git -c credential.helper= \
+    -c 'credential.https://github.com.helper=!gh auth git-credential' push origin <ref>
+  ```
+
+  The two variables and `timeout` turn a wait into a failure that returns. The command borrows `gh`'s login, so check `gh auth status` first. It changes no configuration.
+- **Observed** on nbpromec1 on 2026-09-30, where Git Credential Manager was found holding an invalid token and waiting on an interactive sign-in, and again on 2026-10-20, on a tag push.
+
+**A worktree that git refuses to read, because its `.git` belongs to another account.**
+
+- **Symptom:** every git command run inside the worktree fails with `fatal: detected dubious ownership in repository at '<path>'`, naming the owner and the current user, and suggests `git config --global --add safe.directory <path>`.
+- **How to recognise it:** that message. `git worktree list`, run from the main clone, still lists the worktree and its commit: the worktree is registered and intact, and only git's ownership check is refusing it.
+- **What worked:** the exception for one command, not the global one git suggests: `git -c safe.directory=<path> -C <path> status --porcelain`.
+- **Why one command:** the check exists because a repository's configuration can make git run programs, so an exception declares that directory's owner trusted. Git's suggestion writes it into the global configuration, where it holds for every later command on that machine, outside this repository, where an edit cannot be reviewed in a diff or undone with `git checkout`: the reason given above for untracked local configuration. Reading a worktree's state needs that trust for one command, and the override ends with the command.
+- **Observed** on nbpromec1 on 2026-10-20, with git 2.45.1, on a worktree whose `.git` was owned by `BUILTIN/Administrators`.
+
 ## Required verification
 
 Run the checks relevant to the change. The repository-wide baseline is:
