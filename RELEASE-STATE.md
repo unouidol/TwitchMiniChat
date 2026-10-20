@@ -826,7 +826,7 @@ manager reports.
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.5.1 (8) | `007ee55` | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` | 2026-09-18 14:08 |
-| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `c1380af (#86)` | `c4cc57f8f63e9b41f765ab8f43240db3d78bc6754b0377a33207573f6bb4231d` | 2026-10-19 09:31 |
+| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `c1380af`, tag `device-test/5.5.1-dev-8-c1380af`, #86 | `c4cc57f8f63e9b41f765ab8f43240db3d78bc6754b0377a33207573f6bb4231d` | 2026-10-19 09:31 |
 
 - **The stable app is the published 5.5.1.** Its APK's sha256 is the arm64 checksum recorded
   under *Published* above, as listed in the release's `SHA256SUMS.txt`, and its code carries
@@ -854,19 +854,40 @@ From the commit that adds `BuildIdentity`, every build carries its commit. The l
 reads `Version 5.5.1 (build 8, abc1234)`, and the journal export header has a line
 `# app 5.5.1 (8) abc1234`. A `+` after the commit means the tree the build came from had
 uncommitted or untracked changes, and `unknown` means the build could not read git at all.
-Record the installed candidate here with the date and that commit. A build taken from a pull
-request's branch carries a commit that the squash merge does not keep on `main-v5`, so record
-the pull request's number beside the commit, as in `c1380af (#86)`. Not the squash commit: its
-identifier does not exist until the merge has happened, and a squash merge cannot edit its own
-tree, so writing it here would always cost a second commit after the fact - the bookkeeping #61
-removed. The pull request's number exists before the merge, never goes stale, and points at
-GitHub's own record of the commits rather than at a copy of the log. The commit is retrieved
-with `git fetch origin pull/<n>/head`, as that ref or one of its ancestors: `c1380af` is the
-parent of #86's last head. That rests on GitHub keeping those refs after a merge, which is
-known rather than measured; what was measured, on 2026-10-19, is that `refs/pull/86/head` was
-there. Should it ever be gone, a lightweight tag on the tested commit makes the commit
-reachable from the repository itself, at the cost of a tag per device test. An `alert_audio`
-line in the journal and the absence of `listener.*` lines still confirm, from the other side,
-that a candidate is a 5.5.1 build.
+Record the installed candidate here with the date and that commit. An `alert_audio` line in
+the journal and the absence of `listener.*` lines still confirm, from the other side, that a
+candidate is a 5.5.1 build.
+
+**A build taken from a pull request's branch is recorded with a tag and the pull request's
+number, beside its commit.** The squash merge does not keep that commit on `main-v5`, so
+`git log main-v5` never reaches it. Put a lightweight tag on the tested commit, named
+`device-test/<versionName>-<versionCode>-<commit>` as in `device-test/5.5.1-dev-8-c1380af`,
+push it, and confirm it with `git ls-remote --tags origin` before writing the record: a tag
+only in the clone that made it is not a record. Push it before the pull request merges, while
+its branch still reaches the commit. Write the number beside it, as the dev entry above does.
+The two are not redundant: the tag is how the commit is retrieved, the number is where the
+build came from, which a tag name carries badly. The commit is in the tag's name because a
+version and a build number are shared by every build of a release: `86eab10`, the dev build
+before #86, has 5.5.1 and build 8 in its `app/build.gradle.kts` too, so a name without the
+commit would already have collided once. Not the squash commit: its identifier does not exist
+until the merge has happened, and a squash merge cannot edit its own tree, so writing it here
+would always cost a second commit after the fact - the bookkeeping #61 removed.
+
+Why the tag: a pull request's number points at a record GitHub keeps, `refs/pull/<n>/head`, and
+nothing in this repository can check that GitHub still keeps it, while a tag is in the log
+itself. The cost is one tag per device test, a few per release.
+
+Pull request #87 first proposed the number alone, with a tag only as the fallback should the
+pull ref ever be gone, and was changed before it merged. The number alone left the only way to the commit
+outside this repository, in a copy of the log that GitHub keeps, which is the case `AGENTS.md`
+means by "The log cannot disagree with itself; a copy of it can." And the fallback could only
+be applied after the loss it was meant to cover, when nothing might reach the commit any more
+to put a tag on it. Without this reason the tag reads as bookkeeping that repeats the number,
+and the next pass removes it.
+
+The pull ref stays as a second path, no longer the only one: `git fetch origin pull/<n>/head`,
+the commit being that ref or one of its ancestors (`c1380af` is the parent of #86's last head,
+`d0a984c`). That GitHub keeps such refs after a merge is known rather than measured; what was
+measured is that `refs/pull/86/head` existed on 2026-10-19.
 
 Update this section from the device, not from intent.
