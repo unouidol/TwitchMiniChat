@@ -61,12 +61,12 @@ TMC is a manual assistive client. These constraints are mandatory:
 
 ## Git failures already diagnosed
 
-Each entry is a failure seen before: its symptom, how to recognise it, and what worked. None records the state of a machine. Whether a machine has the problem is read on that machine when it happens, never taken from here: a recorded machine state goes stale by itself, and a reader on another machine would apply it to theirs. Where and when an entry was seen is an observation, not a property that still holds.
+Each entry is a failure seen before: its symptom, how to recognise it, and what worked. None records the state of a machine. Whether a machine has the problem is read on that machine when it happens, never taken from here: a recorded machine state goes stale by itself, and a reader on another machine would apply it to theirs. Where and when an entry was seen is an observation, not a property that still holds. Unless a sentence says otherwise, what an entry states was seen first-hand by whoever wrote it, on the occasion its **Observed** line gives; what comes from documentation, from inference or from someone else's note says so where it stands, because whether the writer saw it happen decides how far it can be trusted.
 
 **A `git push` that hangs looks like a network problem, and is not.**
 
 - **Symptom:** the push prints nothing, not even its object count, and does not return.
-- **How to recognise it:** the GitHub command-line interface (`gh`) works, and `git fetch` and `git ls-remote` against the same remote complete. That proves nothing about credentials: while the repository is public they need none, and a push is the first command that asks for any. Replacing git's credential helper for one command removed the hang, so the wait is in the helper. Do not debug the network, the proxy or GitHub.
+- **How to recognise it:** the GitHub command-line interface (`gh`) works, and `git fetch` and `git ls-remote` against the same remote complete. That proves nothing about credentials: while the repository is public they need none, and a push is the first command that asks for any (how GitHub serves a public repository, known rather than observed). Replacing git's credential helper for one command removed the hang; that the wait is in the helper is inferred from it, not seen. Do not debug the network, the proxy or GitHub.
 - **What worked:** stop the hung push, check with `git ls-remote` whether it reached the remote anyway, then push once with `gh`'s credential in place of the helper, for that command only, in Git Bash:
 
   ```bash
@@ -74,16 +74,17 @@ Each entry is a failure seen before: its symptom, how to recognise it, and what 
     -c 'credential.https://github.com.helper=!gh auth git-credential' push origin <ref>
   ```
 
-  The two variables and `timeout` turn a wait into a failure that returns. The command borrows `gh`'s login, so check `gh auth status` first. It changes no configuration.
-- **Observed** on nbpromec1 on 2026-09-30, where Git Credential Manager was found holding an invalid token and waiting on an interactive sign-in, and again on 2026-10-20, on a tag push.
+  The rest of this paragraph is documented behaviour, not seen: the one push the command was used on succeeded at once, so no wait was ever turned into a failure. The two variables and `timeout` turn a wait into a failure that returns. The command borrows `gh`'s login, so check `gh auth status` first. It changes no configuration.
+- **Observed first-hand** on nbpromec1 on 2026-10-20, on a tag push that printed nothing for more than 120 seconds, until it was stopped, after `git fetch` and `git ls-remote` against the same remote had completed earlier in the same session. Its cause was not examined.
+- **Not observed first-hand:** a note that an earlier session left on the same machine records a push hanging the same way on 2026-09-30, while `gh` worked, with Git Credential Manager holding an invalid token and waiting on an interactive sign-in.
 
 **A worktree that git refuses to read, because its `.git` belongs to another account.**
 
-- **Symptom:** every git command run inside the worktree fails with `fatal: detected dubious ownership in repository at '<path>'`, naming the owner and the current user, and suggests `git config --global --add safe.directory <path>`.
-- **How to recognise it:** that message. `git worktree list`, run from the main clone, still lists the worktree and its commit: the worktree is registered and intact, and only git's ownership check is refusing it.
+- **Symptom:** a git command run inside the worktree fails with `fatal: detected dubious ownership in repository at '<path>'`, naming the owner and the current user, and suggests `git config --global --add safe.directory <path>`. One command was seen to; that the check applies to every command that opens the repository is documented, not seen.
+- **How to recognise it:** that message. `git worktree list`, run from the main clone, still lists the worktree and its commit, and with the override below its status read clean: the worktree is registered and intact. That only git's ownership check is refusing it is inferred from those two, not seen.
 - **What worked:** the exception for one command, not the global one git suggests: `git -c safe.directory=<path> -C <path> status --porcelain`.
-- **Why one command:** the check exists because a repository's configuration can make git run programs, so an exception declares that directory's owner trusted. Git's suggestion writes it into the global configuration, where it holds for every later command on that machine, outside this repository, where an edit cannot be reviewed in a diff or undone with `git checkout`: the reason given above for untracked local configuration. Reading a worktree's state needs that trust for one command, and the override ends with the command.
-- **Observed** on nbpromec1 on 2026-10-20, with git 2.45.1, on a worktree whose `.git` was owned by `BUILTIN/Administrators`.
+- **Why one command:** the check exists because a repository's configuration can make git run programs, so an exception declares that directory's owner trusted, and git's suggestion writes it into the global configuration, where it holds for every later command on that machine. That much is git's documentation, not observed. The global configuration is outside this repository, where an edit cannot be reviewed in a diff or undone with `git checkout`: the reason given above for untracked local configuration. Reading a worktree's state needs that trust for one command, and a `-c` override is documented to end with the command.
+- **Observed first-hand** on nbpromec1 on 2026-10-20, with git 2.45.1, on a worktree whose `.git` was owned by `BUILTIN/Administrators`: the refusal and its message, `git worktree list` still listing the worktree, and the one-command override reading it.
 
 ## Required verification
 
