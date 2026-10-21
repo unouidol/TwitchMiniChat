@@ -178,6 +178,11 @@ controls behaved; the rebind proof `passed` true with 658 pairs identical, 658 `
 658 `imagesHeld`; C-R 34 / 34; preconditions `made` 4, `fired` 4; `emoteLifecycle.allPassed` true,
 15 of 15. Both frozen blobs as in H2.
 
+**When H1 classified A18 by its second rule,** run the emote passes at the font scale H1 chose too
+(`--es passes emote --ef fontScale <f>`), both themes: the baseline A18's count is measured against.
+It must report that font scale and the render sizes H1 measured there, the emote layer 2 / 2 at the
+bound size, with a 404 2 / 2, its controls behaved, and the lifecycle proof 15 of 15.
+
 **Failing looks like.** Any other count. A step of the lifecycle proof that fails names its
 precondition or check in the results file; read that before anything else.
 
@@ -335,24 +340,62 @@ never numerically, and its result is not presented as reproducing them.
 
 ## Recorded results
 
-Nothing here yet: on 2026-10-21, when this plan was written, no device was attached (`adb devices
--l` printed only its header). Fill in each row when its case runs; add a run rather than
-overwriting one.
+Fill in each row when its case runs; add a run rather than overwriting one.
 
-**The configuration A18 was established at** (from H1):
+**The device, read on 2026-10-21 at the start of the round:** `adb devices -l` gave serial
+`57ebfa06`, model `AC2003`; `getprop` gave OnePlus, Android 12, API 31, build `AC2003_11_F.24`;
+`wm density` 382 (physical 450), `wm size` 1080 × 2400, system font scale 1.15. Its dev app before
+the round was `c1380af`, sha256 `c4cc57f8…`, the build #86 left on it.
 
-| Device, API | Theme | Font scale | density / dpi | fresh text size, unit | 14 sp in px | Render size fresh / bound | URL scale fresh / bound | Equal |
-|---|---|---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — | — | — |
+**The configuration A18 was established at** (H1, 2026-10-21 14:01, `ffb3082`; day and night gave
+the same values; density 2.3875, 382 dpi, in every row):
 
-**Harness stages:**
+| Font scale | Fresh text size, unit | 14 sp in px | Render size fresh / bound | URL scale fresh / bound | Equal |
+|---|---|---|---|---|---|
+| 1.15, the phone's own | 38.0, sp | 38.4388 | 57 / 57 | 3.0 / 3.0 | yes |
+| 0.85 | 28.0, sp | 28.4113 | 42 / 42 | 2.0 / 2.0 | yes |
+| 1.0 | 33.0, sp | 33.4250 | 49 / 50 | 2.0 / 2.0 | **no** |
+| 1.15 | 38.0, sp | 38.4388 | 57 / 57 | 3.0 / 3.0 | yes |
+| 1.3 | 43.0, sp | 43.4525 | 64 / 65 | 3.0 / 3.0 | **no** |
+| 1.5 | 50.0, sp | 50.1375 | 75 / 75 | 3.0 / 3.0 | yes |
+| 1.8 | 60.0, sp | 60.1650 | 90 / 90 | 3.0 / 3.0 | yes |
+| 2.0 | 67.0, sp | 66.8500 | 100 / 100 | 3.0 / 3.0 | yes |
 
-| Stage | Commit | Dev APK sha256 | Day | Night | Input events | Date |
-|---|---|---|---|---|---|---|
-| H1 | | | | | | |
-| H2 | | | | | | |
-| H3 | | | | | | |
-| H5 | | | | | | |
+**A18's classification:** the second rule. Equal at the phone's own settings, unequal at 1.0 and
+1.3, so a real defect for users at those font scales at this density. Registered at 1.0, the first
+unequal override in H1's order, with the emote passes only.
+
+**Harness stages,** every pass with 0 input events unless the row says otherwise:
+
+| Stage | Commit | Dev APK sha256 | Day and night, each | Time |
+|---|---|---|---|---|
+| H1 | `ffb3082` | `2b25e263…` | the table above | 14:01. A first run was discarded: its night pass recorded 11 input events, two touches |
+| H2 | `ffb3082` | `2b25e263…` | parity 34 / 34; emote layer 2 / 2, with a 404 2 / 2, **the frozen layer's calibration**; pairs 658 identical, `sessionsHeld` 610 (the 48 pairs whose A is an emote row), `imagesHeld` 658; C-R 34 / 34; preconditions 3 of 3, unbind not run; lifecycle passed L1 × 2 and L9, failed L2, L3, L6 × 2 and L7, L8, not run L4, L5 × 2. Every count as predicted | 14:02 |
+| H3 | `9b1b86a` | `32e40e16…` | every count as predicted; superseded, because the next row's fix moved the code | 14:04 |
+| H3 at font scale 1.0, first attempt | `9b1b86a` | `32e40e16…` | no result: the activity never restarted at the font scale, stayed resumed with an empty content frame for 240 s, and logged nothing. Its night pass recorded 374 input events. Fixed by `ef95c63` | 14:04–14:18 |
+| H3 at font scale 1.0 | `ef95c63` | `37e2b38d…` | font scale 1; render sizes 49 / 50; emote layer 2 / 2 at 50 px, with a 404 2 / 2; controls behaved; lifecycle 15 / 15. As predicted | 14:21 |
+| H3 | `ef95c63` | `37e2b38d…` | parity 34 / 34; emote layer 2 / 2, with a 404 2 / 2; pairs 658 / 658, `sessionsHeld` 658, `imagesHeld` 658; C-R 34 / 34; preconditions 4 / 4; lifecycle 15 / 15. As predicted | 14:22 |
+| H5 | `ef95c63` | `37e2b38d…` | the same as H3 | 14:36 |
+
+Both frozen blobs were read at `ffb3082`, `9b1b86a` and `ef95c63`: `FrozenRowViews4804609.kt`
+`2ee0bdc98ec16aac0f3ee7cf6bcb4e54be6bcd91` and `FrozenEmoteLayer4804609.kt`
+`213215ed8fdb19961d80679f416e2a3e8e1bd6ce` at all three.
+
+**H4:** `predictions.json`, sha256 `611fb79ea332d64ff6b4ee49f93a36c7ca513731512a59c0eb01f09b7371f54e`,
+written 2026-10-21 14:25:49 +02:00, before the first mutant was built, and unchanged after the last.
+Each mutant was applied alone to `ef95c63`, built, run in both themes, and restored from git with the
+tree checked clean. Every count of every mutant equalled its prediction:
+
+| Mutant | Dev APK sha256 | Day and night, each |
+|---|---|---|
+| A17 | `384e4ff0…` | emote layer 0 / 2, with a 404 0 / 2; `imagesHeld` 610, the 48 pairs whose B is an emote row; lifecycle failed L1, L3, L5 × 2; parity, pixel and state pairs, sessions and C-R untouched |
+| A18, at font scale 1.0, emote passes only | `d9a4c762…` | emote layer 0 / 2, with a 404 0 / 2, each row seen in pixels (one pixel shorter), in state (bounds 49 against 50) and in the request's size, not in its URL; lifecycle failed L1, L3 × 2 |
+| O1 | `abe29c81…` | `sessionsHeld` 610, the 48 pairs whose A is an emote row; lifecycle failed L6 × 2; nothing else |
+| O2 | `d3129d55…` | lifecycle failed L2, L3, L4 × 2; nothing else |
+| O3 | `c3d91847…` | lifecycle failed L7, L8; nothing else |
+| O4 | `cfe3bc96…` | lifecycle failed L2 × 2; nothing else |
+
+**M1 to M6:** not run yet.
 
 **B1:**
 
