@@ -290,6 +290,18 @@ internal class TwitchEmoteImageLoader(
             }
         }
 
+        /**
+         * Whether the session has ended. Every sink reads it before touching the session, and an
+         * image or a failure that arrives after the release is dropped.
+         *
+         * A silent guard on purpose, not a precondition. As far as Glide 4.16.0 can be read, such
+         * a delivery cannot happen: a release clears every load, a cleared request delivers
+         * nothing (SingleRequest.clear cancels its load), and EngineJob delivers only to a
+         * callback still registered (EngineJob.java:401, :425). But that is a library's internal
+         * contract, which this code can read and cannot control, and a precondition here would
+         * turn a future change in it into a crash in the user's app. The test in installDrawable
+         * is the same guard, one call further down: only the sinks call it.
+         */
         var isReleased: Boolean = false
             private set
 
