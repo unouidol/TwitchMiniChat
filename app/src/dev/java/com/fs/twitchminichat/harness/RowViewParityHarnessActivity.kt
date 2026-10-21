@@ -227,7 +227,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         /* On a fragment of its own, so that its producers accept every catalogue row once more. */
         val rebindPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
         val rebindImages = FixedEmoteImageSource(staticOnly = emptySet())
-        rebindPage.installEmoteLoader(rebindImages, window.decorView, EmoteRowRecorder())
+        rebindPage.installEmoteLoader(rebindImages, EmoteRowRecorder())
         val rebind = RebindProof(
             production = rebindPage,
             images = rebindImages,
@@ -241,7 +241,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     /* The emote layer with and without a 404, its controls, then the lifecycle proof, which runs across loop turns. */
     private fun emotePasses(width: Int, root: FrameLayout, targets: ReflectiveTargets, snapshot: ViewStateSnapshot, report: JSONObject) {
         val render = { container: ViewGroup -> render(container, width) }
-        val layer = EmoteLayerPass(this, targets, snapshot, root, isNightModeActive(), ::newContainer, render)
+        val layer = EmoteLayerPass(this, targets, snapshot, isNightModeActive(), ::newContainer, render)
         report.put("emoteLayer", layer.run(staticOnly = emptySet()))
         report.put("emoteLayerWith404", layer.run(staticOnly = setOf(KAPPA)))
         report.put("emoteLayerControls", layer.controls())
@@ -266,7 +266,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         val lifecyclePage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
         val lifecycleImages = FixedEmoteImageSource(staticOnly = emptySet()).apply { holdDeliveries = true }
         val recorder = EmoteRowRecorder()
-        lifecyclePage.installEmoteLoader(lifecycleImages, root, recorder)
+        lifecyclePage.installEmoteLoader(lifecycleImages, recorder)
         EmoteLifecycleProof(
             root = root,
             page = lifecyclePage,

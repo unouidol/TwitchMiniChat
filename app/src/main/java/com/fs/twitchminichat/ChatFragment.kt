@@ -717,20 +717,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
             override fun echoStatusTextColor(): Int = colorOnSurfaceVariant()
 
-            override fun loadEmotes(view: TextView, text: SpannableStringBuilder, row: RowText) {
+            override fun bindEmotes(view: TextView, text: SpannableStringBuilder, row: RowText, textSizePx: Float) {
                 /*
-                 * After the applier, never before it. The render size is read from the text size the
+                 * After the applier, never before it. The render size comes from the text size the
                  * applier set. The loader installs its own live copy of the text and draws the emotes
                  * into it, so a setText after this one would hide them; the applier's comes last.
                  */
-                emoteImageLoader?.loadInto(
+                emoteImageLoader?.bind(
                     textView = view,
                     text = text,
                     markers = row.emoteMarkers,
                     markerOffset = row.emoteMarkerOffset,
-                    renderSizePx = targetEmoteRenderSizePx(view.textSize),
+                    renderSizePx = targetEmoteRenderSizePx(textSizePx),
                     darkTheme = isDarkTheme()
                 )
+            }
+
+            override fun unbindEmotes(view: TextView) {
+                emoteImageLoader?.release(view)
             }
         }
     )
@@ -1306,13 +1310,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Releases all channel-bound emote rendering before the timeline is replaced.
      *
-     * Clearing Glide targets stops animated drawables from the previous channel.
-     * Closing the picker also prevents its previous adapter requests from remaining
-     * visible while the next channel catalog is selected.
+     * Clearing the timeline unbinds every row, which ends each row's emote session and stops
+     * the animated drawables of the previous channel. Closing the picker also prevents its
+     * previous adapter requests from remaining visible while the next channel catalog is
+     * selected.
      */
     private fun resetChannelBoundChatUi() {
         emotePickerController?.closeIfOpen()
-        emoteImageLoader?.clearAll()
 
         if (this::chatTimelineController.isInitialized) {
             chatTimelineController.clear()
@@ -1472,7 +1476,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         emoteAnimationGate = animationGate
         emoteImageLoader = TwitchEmoteImageLoader(
             images = GlideEmoteImageSource(Glide.with(this)),
-            chatPageView = view,
             animatedRows = object : AnimatedEmoteRowListener {
                 override fun onAnimatedRowAdded(row: AnimatedEmoteRow) {
                     animationGate.add(row)
@@ -1962,7 +1965,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         externalBrowserLinkController?.release()
         externalBrowserLinkController = null
 
-        emoteImageLoader?.clearAll()
+        /* No removal reaches the views that go with the page, so their sessions end here. */
+        emoteImageLoader?.releaseAll()
         emoteImageLoader = null
         if (this::scrollChat.isInitialized) {
             scrollChat.removeCallbacks(emoteAnimationReconcile)

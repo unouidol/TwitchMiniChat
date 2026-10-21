@@ -50,11 +50,10 @@ internal class EmoteLifecycleProof(
     private val render: (ViewGroup) -> Bitmap
 ) {
 
-    /* One step's record: what it asserted before acting, what it checked after, and why it did not run. */
+    /* One step's record: what it asserted before acting, what it checked after, and what threw. */
     private class StepRecord(val name: String, val row: String?) {
         val preconditions = JSONObject()
         val checks = JSONObject()
-        var notRun: String? = null
         var error: String? = null
 
         fun pre(name: String, holds: Boolean) {
@@ -67,7 +66,7 @@ internal class EmoteLifecycleProof(
 
         fun preconditionsHold(): Boolean = preconditions.keys().asSequence().all { key -> preconditions.getBoolean(key) }
 
-        fun passed(): Boolean = notRun == null && error == null && checks.length() > 0 && preconditionsHold() &&
+        fun passed(): Boolean = error == null && checks.length() > 0 && preconditionsHold() &&
             checks.keys().asSequence().all { key -> checks.getBoolean(key) }
 
         fun toJson(): JSONObject = JSONObject()
@@ -75,7 +74,6 @@ internal class EmoteLifecycleProof(
             .put("row", row ?: JSONObject.NULL)
             .put("preconditions", preconditions)
             .put("checks", checks)
-            .put("notRun", notRun ?: JSONObject.NULL)
             .put("error", error ?: JSONObject.NULL)
             .put("passed", passed())
     }
@@ -105,17 +103,13 @@ internal class EmoteLifecycleProof(
         }
         val step = steps[stepIndex]
         if (phaseIndex == 0) records += step.record
-        if (phaseIndex == step.phases.size || step.record.notRun != null || step.record.error != null ||
-            !step.record.preconditionsHold()
-        ) {
+        if (phaseIndex == step.phases.size || step.record.error != null || !step.record.preconditionsHold()) {
             handler.post { runNext(stepIndex + 1, 0, done) }
             return
         }
         handler.post {
             try {
                 step.phases[phaseIndex]()
-            } catch (notRunnable: StepNotRunnable) {
-                step.record.notRun = notRunnable.message
             } catch (failure: RuntimeException) {
                 step.record.error = "${failure.javaClass.name}: ${failure.message}"
             }
@@ -129,8 +123,7 @@ internal class EmoteLifecycleProof(
         out.put("expectedSteps", EXPECTED_STEPS)
         out.put("stepsRun", records.size)
         out.put("passed", records.count { record -> record.passed() })
-        out.put("failed", JSONArray(records.filter { r -> !r.passed() && r.notRun == null }.map { r -> "${r.name} ${r.row ?: ""}".trim() }))
-        out.put("notRun", JSONArray(records.filter { r -> r.notRun != null }.map { r -> "${r.name} ${r.row ?: ""}: ${r.notRun}".trim() }))
+        out.put("failed", JSONArray(records.filter { r -> !r.passed() }.map { r -> "${r.name} ${r.row ?: ""}".trim() }))
         out.put("unclearedLoadsAtTheEnd", images.loads.count { load -> !load.cleared })
         out.put("allPassed", records.size == EXPECTED_STEPS && records.all { record -> record.passed() })
         return out
@@ -200,7 +193,6 @@ internal class EmoteLifecycleProof(
         val l5 = StepRecord("L5 bind the row again after the unbind, deliver", id)
         steps += Step(l5, listOf(
             {
-                if (l4.notRun != null) throw StepNotRunnable("it follows L4, which did not run")
                 l5.pre("noLoadLeft", images.loads.none { load -> load.label.endsWith(" $id") && !load.cleared })
                 images.label = "L5 $id"
                 binder.bindMessage(view, data)

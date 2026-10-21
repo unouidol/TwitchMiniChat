@@ -9,6 +9,7 @@ import android.text.Spanned
 import android.text.style.ImageSpan
 import android.view.View
 import android.widget.TextView
+import com.fs.twitchminichat.chat.EmoteSessions
 import java.util.Collections
 
 /**
@@ -44,24 +45,34 @@ interface AnimatedEmoteRowListener {
  * Loads inline Twitch emotes and owns the lifecycle of their images for rendered chat rows. The
  * images come from [images], which production backs with Glide.
  *
+ * Each row's view holds at most one session: the loads and images of the row it shows. The binding
+ * decides when a session ends, never the window. [bind] ends the session of the row the view showed
+ * before, [release] ends the session of a view whose row leaves the timeline, and [releaseAll] ends
+ * every session when the page's view goes. A view detached from the window keeps its session: its
+ * animated emotes stop on the frame they show, and run again from it when the view is attached again.
+ *
  * Animated media is attempted once per emote ID. When Twitch exposes only the static
  * Portable Network Graphics (PNG) version, a Hypertext Transfer Protocol (HTTP) 404
- * response is remembered for the current process and later rows load the static
- * resource directly.
+ * response is remembered by this loader, which the chat page builds in onViewCreated and
+ * drops in onDestroyView, so for as long as the page's view lasts, and later rows load the
+ * static resource directly.
  *
  * Whether an animated emote runs is not decided here: each row that holds one is
  * reported to [animatedRows], which tells it.
  */
 internal class TwitchEmoteImageLoader(
     private val images: EmoteImageSource,
-    private val chatPageView: View,
     private val animatedRows: AnimatedEmoteRowListener
 ) {
-    private val sessions = mutableSetOf<LoadSession>()
+    private val sessions = EmoteSessions<TextView, LoadSession>(release = { session -> session.release() })
     private val staticOnlyEmoteIds = Collections.synchronizedSet(mutableSetOf<String>())
 
-    /** Loads all markers belonging to one chat row. */
-    fun loadInto(
+    /**
+     * Gives [textView] the emotes of the row it has just been bound to: ends the session of the
+     * row it showed before, then, when [markers] is not empty, installs [text] and loads each marker's
+     * image into it.
+     */
+    fun bind(
         textView: TextView,
         text: SpannableStringBuilder,
         markers: List<TwitchEmoteMarker>,
@@ -69,6 +80,7 @@ internal class TwitchEmoteImageLoader(
         renderSizePx: Int,
         darkTheme: Boolean
     ) {
+        sessions.release(textView)
         if (markers.isEmpty() || renderSizePx <= 0) return
 
         /*
@@ -81,13 +93,10 @@ internal class TwitchEmoteImageLoader(
 
         val session = LoadSession(
             textView = textView,
-            text = liveText,
-            onReleased = { releasedSession ->
-                sessions.remove(releasedSession)
-            }
+            text = liveText
         )
 
-        sessions += session
+        sessions.put(textView, session)
         textView.addOnAttachStateChangeListener(session)
 
         val theme = if (darkTheme) TwitchEmoteTheme.DARK else TwitchEmoteTheme.LIGHT
@@ -120,10 +129,14 @@ internal class TwitchEmoteImageLoader(
         }
     }
 
-    /** Stops animations and clears every request owned by the current chat view. */
-    fun clearAll() {
-        sessions.toList().forEach { session -> session.release() }
-        sessions.clear()
+    /** Ends the session of [textView], whose row leaves the timeline or whose holder is recycled. */
+    fun release(textView: TextView) {
+        sessions.release(textView)
+    }
+
+    /** Ends every session, stopping every animation and clearing every load: the page's view is going. */
+    fun releaseAll() {
+        sessions.releaseAll()
     }
 
     /** Attempts the animated Graphics Interchange Format (GIF) before static PNG. */
@@ -237,8 +250,7 @@ internal class TwitchEmoteImageLoader(
     /** Owns all loads and drawable callbacks attached to one chat TextView. */
     private inner class LoadSession(
         private val textView: TextView,
-        private val text: Spannable,
-        private val onReleased: (LoadSession) -> Unit
+        private val text: Spannable
     ) : View.OnAttachStateChangeListener, AnimatedEmoteRow {
         private val loads = mutableSetOf<EmoteImageLoad>()
         private val animatedDrawables = mutableSetOf<Animatable>()
@@ -283,9 +295,9 @@ internal class TwitchEmoteImageLoader(
 
         /** Keeps one load until the session is released. */
         fun track(load: EmoteImageLoad) {
-            if (isReleased) {
-                load.clear()
-                return
+            check(!isReleased) {
+                "A load was started for a released emote session. Invariant: a load starts only inside its " +
+                    "session's bind, or from a failed load's callback, which checks isReleased first."
             }
             loads += load
         }
@@ -380,7 +392,8 @@ internal class TwitchEmoteImageLoader(
         }
 
         override fun setAnimationsWanted(wanted: Boolean) {
-            if (isReleased || animationsWanted == wanted) return
+            /* A released row is no longer tracked, and its drawables are gone: this is never asked of one. */
+            if (animationsWanted == wanted) return
 
             animationsWanted = wanted
             applyAnimationState()
@@ -398,43 +411,34 @@ internal class TwitchEmoteImageLoader(
             }
         }
 
-        /** Resumes the row's animations, if they are wanted, when ViewPager2 reattaches the account page. */
-        override fun onViewAttachedToWindow(view: View) {
-            if (isReleased) return
+        /*
+         * Neither attach callback is ever called on a released session: release removes this
+         * listener first.
+         */
 
+        /** Resumes the row's animations, if they are wanted, when it is attached again: ViewPager2's page, or a list's row. */
+        override fun onViewAttachedToWindow(view: View) {
             isAttachedToWindow = true
             applyAnimationState()
         }
 
         /**
-         * Pauses animations while a chat row is detached.
-         *
-         * The release decision is deferred until the current detach traversal
-         * completes. This prevents a child row from being released immediately
-         * before its ViewPager2 account page is detached and later reattached.
+         * Pauses the row's animations while it is detached, and nothing else: its spans, its
+         * drawables and its loads stay, so a row attached again without being bound again - a page
+         * ViewPager2 brings back, a holder a RecyclerView hands back from its cache - shows its
+         * emotes as it left them. The session ends only when the binding ends it.
          */
         override fun onViewDetachedFromWindow(view: View) {
-            if (isReleased) return
-
             isAttachedToWindow = false
             applyAnimationState()
-
-            textView.post {
-                if (isReleased || textView.isAttachedToWindow) return@post
-
-                /*
-                 * Release a permanently removed row only while its account page
-                 * remains attached. ChatFragment owns final page cleanup.
-                 */
-                if (chatPageView.isAttachedToWindow) {
-                    release()
-                }
-            }
         }
 
-        /** Clears its loads, which stops and removes their GIFs, and releases the row. */
+        /** Clears its loads, which stops and removes their GIFs, and releases the row. Only [sessions] calls it. */
         fun release() {
-            if (isReleased) return
+            check(!isReleased) {
+                "An emote session was released twice. Invariant: only EmoteSessions releases a session, and it " +
+                    "removes the session in the same call."
+            }
             isReleased = true
 
             textView.removeOnAttachStateChangeListener(this)
@@ -445,7 +449,6 @@ internal class TwitchEmoteImageLoader(
             if (reportedAsAnimated) {
                 animatedRows.onAnimatedRowReleased(this)
             }
-            onReleased(this)
         }
     }
 }

@@ -346,18 +346,13 @@ internal class RebindProof(
         val messageView = binder.create(message.data)
 
         val out = JSONObject()
-        val notRun = JSONArray()
-        var runnable = 0
+        var made = 0
         var fired = 0
         fun record(name: String, invariant: String, action: () -> Unit) {
-            when (val outcome = fires(invariant, action)) {
-                null -> notRun.put(name)
-                else -> {
-                    runnable++
-                    if (outcome) fired++
-                    out.put(name, outcome)
-                }
-            }
+            val outcome = fires(invariant, action)
+            made++
+            if (outcome) fired++
+            out.put(name, outcome)
         }
         record("echoBoundAsNotSending", "an echo is bound as it enters the timeline") {
             binder.bindEcho(binder.create(echoRow) as PendingEchoView, echoRow.copy(status = PendingEchoStatus.CONFIRMED))
@@ -371,22 +366,16 @@ internal class RebindProof(
         record("unbindOfAViewCreateNeverBuilds", "create builds three kinds of view") {
             EmoteOwnership.unbind(binder, LinearLayout(messageView.context))
         }
-        out.put("runnable", runnable)
+        out.put("made", made)
         out.put("fired", fired)
-        out.put("notRun", notRun)
-        out.put("passed", runnable > 0 && fired == runnable && notRun.length() == 0)
+        out.put("passed", made == EXPECTED_PRECONDITIONS && fired == made)
         return out
     }
 
-    /*
-     * Whether [action] fails with an IllegalStateException whose message names [invariant]; null when
-     * this tree cannot take the action at all.
-     */
-    private fun fires(invariant: String, action: () -> Unit): Boolean? = try {
+    /* Whether [action] fails with an IllegalStateException whose message names [invariant]. */
+    private fun fires(invariant: String, action: () -> Unit): Boolean = try {
         action()
         false
-    } catch (notRunnable: StepNotRunnable) {
-        null
     } catch (failure: IllegalStateException) {
         failure.message.orEmpty().contains(invariant)
     }
@@ -423,5 +412,8 @@ internal class RebindProof(
         )
 
         const val EXPECTED_DECLARED_EXCEPTIONS = 1
+
+        /** The binder's and the echo view's preconditions the proof makes fire: three from 5a-2, and unbind's from 5c. */
+        const val EXPECTED_PRECONDITIONS = 4
     }
 }

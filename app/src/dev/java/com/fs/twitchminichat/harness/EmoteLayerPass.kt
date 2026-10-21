@@ -44,8 +44,9 @@ internal class EmoteRowRecorder : AnimatedEmoteRowListener {
  * state - every image span with its drawable's bounds - and the requests each side made, in order.
  *
  * Its first run, on the commit that adds it and before 5c changes who owns a session, is the frozen
- * layer's calibration: production, given the same images, built the same views as the layer. That is
- * what licenses the layer as a faithful transcription of 4804609, and why it never changes after.
+ * layer's calibration: there production, given the same images, must build the same views as the
+ * layer. That result is what licenses the layer as a faithful transcription of 4804609, and why the
+ * layer never changes after it.
  *
  * Three controls run with it, because a comparison that cannot fail proves nothing: the reference with
  * its images must differ in pixels from the same frozen view without them; two emote ids must differ
@@ -57,7 +58,6 @@ internal class EmoteLayerPass(
     private val activity: FragmentActivity,
     private val targets: ReflectiveTargets,
     private val snapshot: ViewStateSnapshot,
-    private val pageView: View,
     private val darkTheme: Boolean,
     private val newContainer: () -> LinearLayout,
     private val render: (ViewGroup) -> Bitmap
@@ -73,7 +73,7 @@ internal class EmoteLayerPass(
     fun run(staticOnly: Set<String>): JSONObject {
         val productionImages = FixedEmoteImageSource(staticOnly)
         val production = ProductionRowViews(activity, ParityCatalogue.SIGNED_IN, targets)
-        production.installEmoteLoader(productionImages, pageView, EmoteRowRecorder())
+        production.installEmoteLoader(productionImages, EmoteRowRecorder())
         val frozen = FrozenRowViews4804609(activity, ParityCatalogue.SIGNED_IN)
         val frozenImages = FixedEmoteImageSource(staticOnly)
         val layer = FrozenEmoteLayer4804609(activity, frozenImages)
@@ -187,7 +187,7 @@ internal class EmoteLayerPass(
     /* [row] through its producer on a page of its own, whose loader draws from a source of its own. */
     private fun builtOnItsOwnPage(row: ParityRow.Message, index: Int): LinearLayout {
         val page = ProductionRowViews(activity, ParityCatalogue.SIGNED_IN, targets)
-        page.installEmoteLoader(FixedEmoteImageSource(emptySet()), pageView, EmoteRowRecorder())
+        page.installEmoteLoader(FixedEmoteImageSource(emptySet()), EmoteRowRecorder())
         return newContainer().also { ParityCatalogue.produce(row, index, page, it) }
     }
 

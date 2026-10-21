@@ -79,11 +79,11 @@ internal class ProductionRowViews(
 
     /**
      * Gives the fragment an emote loader drawing from [images], where onViewCreated would give it one
-     * drawing from Glide, reporting its animated rows to [rows]; [pageView] stands for the page's view.
+     * drawing from Glide, reporting its animated rows to [rows].
      */
-    fun installEmoteLoader(images: EmoteImageSource, pageView: View, rows: AnimatedEmoteRowListener): TwitchEmoteImageLoader {
+    fun installEmoteLoader(images: EmoteImageSource, rows: AnimatedEmoteRowListener): TwitchEmoteImageLoader {
         check(emoteLoader == null) { "this fragment already has an emote loader" }
-        val loader = EmoteOwnership.newLoader(images, pageView, rows)
+        val loader = EmoteOwnership.newLoader(images, rows)
         targets.emoteImageLoader.set(fragment, loader)
         return loader
     }
