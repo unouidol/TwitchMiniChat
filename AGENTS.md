@@ -59,14 +59,14 @@ TMC is a manual assistive client. These constraints are mandatory:
 - Before adding diagnostic instrumentation, state which recorded value would separate the healthy case from the faulty one. If no field being recorded can tell them apart, the instrument is not ready: it will produce evidence that cannot settle the question it was built to answer, and the gap only becomes visible after the next occurrence has already been missed.
 - Do not edit generated files or commit local build outputs, APKs, Android App Bundles, credentials, or patch backup directories.
 
-## Git failures already diagnosed
+## Git and GitHub behavior already diagnosed
 
-Each entry is a failure seen before: its symptom, how to recognise it, and what worked. None records the state of a machine. Whether a machine has the problem is read on that machine when it happens, never taken from here: a recorded machine state goes stale by itself, and a reader on another machine would apply it to theirs. Where and when an entry was seen is an observation, not a property that still holds. Unless a sentence says otherwise, what an entry states was seen first-hand by whoever wrote it, on the occasion its **Observed** line gives; what comes from documentation, from inference or from someone else's note says so where it stands, because whether the writer saw it happen decides how far it can be trusted.
+Each entry is something git, the GitHub command-line interface (`gh`) or GitHub itself did that a reader would not expect, seen before: a failure, or a command that reaches further than its name says. Each gives its symptom, how to recognise it, and what worked. None records the state of a machine. Whether a machine has the problem is read on that machine when it happens, never taken from here: a recorded machine state goes stale by itself, and a reader on another machine would apply it to theirs. Where and when an entry was seen is an observation, not a property that still holds. Unless a sentence says otherwise, what an entry states was seen first-hand by whoever wrote it, on the occasion its **Observed** line gives; what comes from documentation, from inference or from someone else's note says so where it stands, because whether the writer saw it happen decides how far it can be trusted.
 
 **A `git push` that hangs looks like a network problem, and is not.**
 
 - **Symptom:** the push prints nothing, not even its object count, and does not return.
-- **How to recognise it:** the GitHub command-line interface (`gh`) works, and `git fetch` and `git ls-remote` against the same remote complete. That proves nothing about credentials: while the repository is public they need none, and a push is the first command that asks for any (how GitHub serves a public repository, known rather than observed). Replacing git's credential helper for one command removed the hang; that the wait is in the helper is inferred from it, not seen. Do not debug the network, the proxy or GitHub.
+- **How to recognise it:** `gh` works, and `git fetch` and `git ls-remote` against the same remote complete. That proves nothing about credentials: while the repository is public they need none, and a push is the first command that asks for any (how GitHub serves a public repository, known rather than observed). Replacing git's credential helper for one command removed the hang; that the wait is in the helper is inferred from it, not seen. Do not debug the network, the proxy or GitHub.
 - **What worked:** stop the hung push, check with `git ls-remote` whether it reached the remote anyway, then push once with `gh`'s credential in place of the helper, for that command only, in Git Bash:
 
   ```bash
@@ -74,7 +74,7 @@ Each entry is a failure seen before: its symptom, how to recognise it, and what 
     -c 'credential.https://github.com.helper=!gh auth git-credential' push origin <ref>
   ```
 
-  The rest of this paragraph is documented behaviour, not seen: the one push the command was used on succeeded at once, so no wait was ever turned into a failure. The two variables and `timeout` turn a wait into a failure that returns. The command borrows `gh`'s login, so check `gh auth status` first. It changes no configuration.
+  The rest of this paragraph is documented behavior, not seen: the one push the command was used on succeeded at once, so no wait was ever turned into a failure. The two variables and `timeout` turn a wait into a failure that returns. The command borrows `gh`'s login, so check `gh auth status` first. It changes no configuration.
 - **Observed first-hand** on nbpromec1 on 2026-10-20, on a tag push that printed nothing for more than 120 seconds, until it was stopped, after `git fetch` and `git ls-remote` against the same remote had completed earlier in the same session. Its cause was not examined.
 - **Not observed first-hand:** a note that an earlier session left on the same machine records a push hanging the same way on 2026-09-30, while `gh` worked, with Git Credential Manager holding an invalid token and waiting on an interactive sign-in.
 
@@ -85,6 +85,20 @@ Each entry is a failure seen before: its symptom, how to recognise it, and what 
 - **What worked:** the exception for one command, not the global one git suggests: `git -c safe.directory=<path> -C <path> status --porcelain`.
 - **Why one command:** the check exists because a repository's configuration can make git run programs, so an exception declares that directory's owner trusted, and git's suggestion writes it into the global configuration, where it holds for every later command on that machine. That much is git's documentation, not observed. The global configuration is outside this repository, where an edit cannot be reviewed in a diff or undone with `git checkout`: the reason given above for untracked local configuration. Reading a worktree's state needs that trust for one command, and a `-c` override is documented to end with the command.
 - **Observed first-hand** on nbpromec1 on 2026-10-20, with git 2.45.1, on a worktree whose `.git` was owned by `BUILTIN/Administrators`: the refusal and its message, `git worktree list` still listing the worktree, and the one-command override reading it.
+
+**`gh pr merge --delete-branch` deletes the local branch too, not only the remote one.**
+
+- **Symptom:** when the merge returns, the pull request's branch is gone from the clone as well as from GitHub. Nothing fails, so nothing stops you: the option reaches further than its name says, and in the non-interactive shell it was run from, gh printed nothing at all.
+- **How to recognise it:** `gh pr merge --help` says the option will "Delete the local and remote branch after merge". Earlier merges here left their local branches behind, although the reflog shows the clone moved to `main-v5` seconds before each of the last two (#85, #86), so being checked out was not what spared them. What did is not known, so assume neither outcome.
+- **What worked:** everything that depends on the local branch was done before the merge: the check that it is not the only ref reaching a commit `RELEASE-STATE.md` records, which is also the check to make before relying on it as the only local copy of a commit. Tree equality against the squash commit came after, because it needs only the tip's hash, and the deleted branch's tip was still in the object store.
+- **Observed first-hand** on nbpromec1 on 2026-10-21, with gh 2.98.0: `gh pr merge 87 --squash --match-head-commit <head> --delete-branch`, run with the clone on `main-v5`, deleted #87's local branch, and the help text quoted above is that version's. The earlier branches were seen surviving on 2026-10-20, and the reflog entries read on 2026-10-21.
+
+**After one pull request merges, the next one is refused by a rule, although its own check passed.**
+
+- **Symptom:** `gh pr merge` fails with "Repository rule violations found" and "Required status check "Test, lint, and build" is expected", on a pull request whose run on its head succeeded and whose head nobody else has pushed to.
+- **How to recognise it:** the refusal is about the base moving, not the head. This is not someone else pushing to the branch: the head is still the commit you pushed. The pull request shows `mergeStateStatus` `BEHIND`, its green run ran before the other merge moved the base, and the ruleset (read it with `gh api repos/<owner>/<repo>/rules/branches/main-v5`) has `strict_required_status_checks_policy` on, which requires a branch to be up to date with its base before it merges (documented, and the refusal fits it). While that is on, the second of any two pull requests is refused after the first merges, whatever files they touch: different files prevent conflicts, not this. That follows from the rule; it was seen for one pair.
+- **What worked:** `gh pr update-branch <n>` merged the base into the branch, which made a new head. Then wait for continuous integration on that exact head, and merge pinned to it with `--match-head-commit`. That the pinned merge then succeeds cannot be recorded here: the pull request that adds this entry is the one merged that way, and a squash merge cannot edit its own tree.
+- **Observed first-hand** on nbpromec1 on 2026-10-21: #88 was refused after #87 merged, while its head was unchanged and its run on that head had succeeded, and `gh pr update-branch` then made the new head.
 
 ## Required verification
 
