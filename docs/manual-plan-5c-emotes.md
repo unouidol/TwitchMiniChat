@@ -1,5 +1,10 @@
 # Device round — 5c, emote sessions owned by the binding
 
+**Which plan to run.** This plan covers 5c, the chat timeline's emote sessions, and nothing else.
+It does not cover deletion, alerts or anything else `manual-plan-5.5.2.md` tests: that is a separate
+round for separate changes, and neither replaces the other. Both fold into the 5.6.0 plan when that
+is anchored, which runs every case of both against the final 5.6.0 build.
+
 The device round for 5c: the binding owns each chat row's emote session, a bind ends the session of
 the row the view showed before, an unbind ends it when the row leaves, and a detach only pauses it.
 It holds every device step 5c needs, in the order they must run: the harness stages that prove the
@@ -18,9 +23,11 @@ the end, with the date and the device; until a row there is filled in, its case 
 | Step | Commit | Why that one |
 |---|---|---|
 | H1, H2 | `ffb3082` — *load emote images through a source the harness can drive (5c, stage 2)* | the image source and the instruments, with the ownership before 5c |
-| H3 to H5, M1 to M6, B1 | `b7300e4` — *the binding owns each row's emote session (5c)*, or the branch head if only documents follow it | the ownership change |
+| H3 to H5, M1 to M6, B1 | the last commit on the branch that touches `app/`: `git log -1 --format=%h -- app/` | the ownership change, `b7300e4`, and anything in the code after it |
 
-If either commit is rewritten, this table is updated in the same change. A build is matched to a
+A build for H3 to H5 is that commit's when `git diff <that commit> HEAD -- app/ gradle/
+build.gradle.kts settings.gradle.kts gradle.properties` prints nothing. If `ffb3082` is rewritten,
+this table is updated in the same change. A build is matched to a
 step by the label the app reports: the harness writes `commit` into every results file, and a
 build from a tree with uncommitted changes reports the commit with a `+`. **A `+` disqualifies the
 run.**
@@ -164,7 +171,7 @@ again.
 
 ### H3 — Stage 3: the ownership change
 
-**Do.** Build `b7300e4`, install and check it, run both themes.
+**Do.** Build the commit the table names for H3, install and check it, run both themes.
 
 **Proves it.** In each theme: text parity 34 / 34; the emote layer 2 / 2 and with a 404 2 / 2; its
 controls behaved; the rebind proof `passed` true with 658 pairs identical, 658 `sessionsHeld` and
@@ -180,7 +187,7 @@ precondition or check in the results file; read that before anything else.
 every instrument in each theme — the emote layer, the emote layer with a 404, the pairs' pixels,
 state, session and image checks, C-R, text parity, and each lifecycle step — the exact pairs and
 steps, and the reasoning. Record its sha256 and the time before building the first mutant. Then,
-for each mutant alone: apply its edit to `b7300e4`, build, install, run both themes (A18 as H1
+for each mutant alone: apply its edit to that commit, build, install, run both themes (A18 as H1
 decided), restore the files from git, and check `git status --porcelain` prints nothing.
 
 | Mutant | Edit |
