@@ -73,8 +73,14 @@ harness_pass() {  # harness_pass <out-dir> <theme: day|night> [extra am argument
   kill $ge 2>/dev/null; wait $ge 2>/dev/null
   echo "$theme: ${line:-<no PARITY_HARNESS line in 180 s>} | input events: $(grep -c 'EV_' "$out/getevent-$theme.txt")"
   "$ADB" exec-out run-as $PKG cat "files/parity-harness/$theme.json" > "$out/$theme.json"
+  case "$line" in *"done theme=$theme "*) ;; *) echo "$theme: NO RESULT, the pass failed"; return 1 ;; esac
+  grep -q '"commit"' "$out/$theme.json" || { echo "$theme: NO RESULTS FILE, the pass failed"; return 1; }
 }
 ```
+
+**A pass that reports no result has failed, whatever an exit status says:** no done line, a
+`refused` or `aborted` line, or no results file is a failure, never a pass that found nothing, and
+`harness_pass` returns 1 for each. A stage with such a pass is run again or stopped, never counted.
 
 Before the passes of a stage: `"$ADB" shell am force-stop $PKG`, `"$ADB" install -r <apk>`, then
 read the installed APK's hash back with `"$ADB" shell sha256sum "$("$ADB" shell pm path $PKG |
