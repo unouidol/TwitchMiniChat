@@ -106,7 +106,12 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         val requestedScale = intent.getFloatExtra(EXTRA_FONT_SCALE, 0f).takeIf { it > 0f }
         if (requestedScale != null && fontScaleToApply != requestedScale) {
             fontScaleToApply = requestedScale
-            recreate()
+            /*
+             * Posted, so that it runs once this start has resumed. Called from onCreate itself it
+             * did nothing on the test phone (Android 12): the activity stayed resumed with no
+             * content and nothing in the log said why.
+             */
+            window.decorView.post { recreate() }
             return
         }
         if (requestedScale != null && resources.configuration.fontScale != requestedScale) {
