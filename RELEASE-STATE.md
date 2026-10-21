@@ -883,12 +883,12 @@ only be applied after the loss is not a fallback. The cost is one tag per device
 per release.
 
 Pull request #87 first proposed the number alone, with a tag only as the fallback should the
-pull ref ever be gone, and was changed before it merged. The number alone left the only way to the commit
-outside this repository, in a copy of the log that GitHub keeps, which is the case `AGENTS.md`
-means by "The log cannot disagree with itself; a copy of it can." And the fallback could only
-be applied after the loss it was meant to cover, when nothing might reach the commit any more
-to put a tag on it. Without this reason the tag reads as bookkeeping that repeats the number,
-and the next pass removes it.
+pull ref ever be gone, and was changed before it merged. The number alone left the only way
+to the commit outside this repository, in a copy of the log that GitHub keeps, which is the
+case `AGENTS.md` means by "The log cannot disagree with itself; a copy of it can." And the
+fallback could only be applied after the loss it was meant to cover, when nothing might reach
+the commit any more to put a tag on it. Without this reason the tag reads as bookkeeping that
+repeats the number, and the next pass removes it.
 
 The pull ref stays as a second path, no longer the only one: `git fetch origin pull/<n>/head`,
 the commit being that ref or one of its ancestors (`c1380af` is the parent of #86's last head,
