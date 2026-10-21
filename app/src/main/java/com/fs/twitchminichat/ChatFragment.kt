@@ -1471,7 +1471,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
         emoteAnimationGate = animationGate
         emoteImageLoader = TwitchEmoteImageLoader(
-            requestManager = Glide.with(this),
+            images = GlideEmoteImageSource(Glide.with(this)),
             chatPageView = view,
             animatedRows = object : AnimatedEmoteRowListener {
                 override fun onAnimatedRowAdded(row: AnimatedEmoteRow) {

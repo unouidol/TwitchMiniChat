@@ -9,15 +9,6 @@ import android.text.Spanned
 import android.text.style.ImageSpan
 import android.view.View
 import android.widget.TextView
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.HttpException
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.RequestManager
-import com.bumptech.glide.load.resource.gif.GifDrawable
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.target.Target
-import com.bumptech.glide.request.transition.Transition
 import java.util.Collections
 
 /**
@@ -50,7 +41,8 @@ interface AnimatedEmoteRowListener {
 }
 
 /**
- * Loads inline Twitch emotes and owns their Glide lifecycle for rendered chat rows.
+ * Loads inline Twitch emotes and owns the lifecycle of their images for rendered chat rows. The
+ * images come from [images], which production backs with Glide.
  *
  * Animated media is attempted once per emote ID. When Twitch exposes only the static
  * Portable Network Graphics (PNG) version, a Hypertext Transfer Protocol (HTTP) 404
@@ -60,8 +52,8 @@ interface AnimatedEmoteRowListener {
  * Whether an animated emote runs is not decided here: each row that holds one is
  * reported to [animatedRows], which tells it.
  */
-class TwitchEmoteImageLoader(
-    private val requestManager: RequestManager,
+internal class TwitchEmoteImageLoader(
+    private val images: EmoteImageSource,
     private val chatPageView: View,
     private val animatedRows: AnimatedEmoteRowListener
 ) {
@@ -150,25 +142,25 @@ class TwitchEmoteImageLoader(
             scale = scale
         ) ?: return
 
-        val target = object : CustomTarget<GifDrawable>(renderSizePx, renderSizePx) {
-            private var resource: GifDrawable? = null
+        val request = EmoteImageRequest(url = url, format = TwitchEmoteFormat.ANIMATED, renderSizePx = renderSizePx)
+        session.track(images.load(request, object : EmoteImageSink {
+            private var resource: Drawable? = null
 
-            override fun onResourceReady(
-                resource: GifDrawable,
-                transition: Transition<in GifDrawable>?
-            ) {
+            override fun onReady(drawable: Drawable) {
                 if (session.isReleased) return
 
-                this.resource = resource
-                resource.setLoopCount(GifDrawable.LOOP_FOREVER)
+                resource = drawable
                 session.installDrawable(
-                    drawable = resource,
+                    drawable = drawable,
                     markerIndex = markerIndex,
                     renderSizePx = renderSizePx
                 )
             }
 
-            override fun onLoadFailed(errorDrawable: Drawable?) {
+            override fun onFailed(missingAnimatedVariant: Boolean) {
+                if (missingAnimatedVariant) {
+                    staticOnlyEmoteIds += emoteId
+                }
                 if (session.isReleased) return
 
                 loadStatic(
@@ -181,9 +173,9 @@ class TwitchEmoteImageLoader(
                 )
             }
 
-            override fun onLoadCleared(placeholder: Drawable?) {
+            override fun onCleared() {
                 /*
-                 * Glide may recycle this GIF after clearing the target. Remove the
+                 * The source may recycle this GIF after clearing the load. Remove the
                  * matching ImageSpan first so the TextView never retains recycled frames.
                  */
                 session.clearInstalledDrawable(
@@ -192,41 +184,7 @@ class TwitchEmoteImageLoader(
                 )
                 resource = null
             }
-        }
-
-        session.track(target)
-        requestManager
-            .asGif()
-            .load(url)
-            .listener(object : RequestListener<GifDrawable> {
-                override fun onLoadFailed(
-                    error: GlideException?,
-                    model: Any?,
-                    target: Target<GifDrawable>,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    val isMissingAnimatedVariant = error
-                        ?.rootCauses
-                        ?.filterIsInstance<HttpException>()
-                        ?.any { cause -> cause.statusCode == 404 }
-                        ?: false
-
-                    if (isMissingAnimatedVariant) {
-                        staticOnlyEmoteIds += emoteId
-                    }
-                    return false
-                }
-
-                override fun onResourceReady(
-                    resource: GifDrawable,
-                    model: Any,
-                    target: Target<GifDrawable>,
-                    dataSource: DataSource,
-                    isFirstResource: Boolean
-                ): Boolean = false
-            })
-            .override(renderSizePx, renderSizePx)
-            .into(target)
+        }))
     }
 
     /** Loads the static PNG used when the emote has no animated representation. */
@@ -245,26 +203,27 @@ class TwitchEmoteImageLoader(
             scale = scale
         ) ?: return
 
-        val target = object : CustomTarget<Drawable>(renderSizePx, renderSizePx) {
+        val request = EmoteImageRequest(url = url, format = TwitchEmoteFormat.STATIC, renderSizePx = renderSizePx)
+        session.track(images.load(request, object : EmoteImageSink {
             private var resource: Drawable? = null
 
-            override fun onResourceReady(
-                resource: Drawable,
-                transition: Transition<in Drawable>?
-            ) {
+            override fun onReady(drawable: Drawable) {
                 if (session.isReleased) return
 
-                this.resource = resource
+                resource = drawable
                 session.installDrawable(
-                    drawable = resource,
+                    drawable = drawable,
                     markerIndex = markerIndex,
                     renderSizePx = renderSizePx
                 )
             }
 
-            override fun onLoadCleared(placeholder: Drawable?) {
+            /* A static image that cannot be loaded leaves its marker invisible, as it always did. */
+            override fun onFailed(missingAnimatedVariant: Boolean) = Unit
+
+            override fun onCleared() {
                 /*
-                 * Static resources follow the same Glide ownership contract as GIFs.
+                 * Static resources follow the same ownership contract as GIFs.
                  */
                 session.clearInstalledDrawable(
                     drawable = resource,
@@ -272,23 +231,16 @@ class TwitchEmoteImageLoader(
                 )
                 resource = null
             }
-        }
-
-        session.track(target)
-        requestManager
-            .asDrawable()
-            .load(url)
-            .override(renderSizePx, renderSizePx)
-            .into(target)
+        }))
     }
 
-    /** Owns all requests and drawable callbacks attached to one chat TextView. */
+    /** Owns all loads and drawable callbacks attached to one chat TextView. */
     private inner class LoadSession(
         private val textView: TextView,
         private val text: Spannable,
         private val onReleased: (LoadSession) -> Unit
     ) : View.OnAttachStateChangeListener, AnimatedEmoteRow {
-        private val targets = mutableSetOf<Target<*>>()
+        private val loads = mutableSetOf<EmoteImageLoad>()
         private val animatedDrawables = mutableSetOf<Animatable>()
         private var isAttachedToWindow = textView.isAttachedToWindow
 
@@ -329,17 +281,17 @@ class TwitchEmoteImageLoader(
         var isReleased: Boolean = false
             private set
 
-        /** Keeps one Glide target available until the chat view is destroyed. */
-        fun track(target: Target<*>) {
+        /** Keeps one load until the session is released. */
+        fun track(load: EmoteImageLoad) {
             if (isReleased) {
-                requestManager.clear(target)
+                load.clear()
                 return
             }
-            targets += target
+            loads += load
         }
 
         /**
-         * Removes one Glide-owned drawable before its resource can be recycled.
+         * Removes one source-owned drawable before its resource can be recycled.
          *
          * The identity check prevents a late clear callback from removing a newer
          * drawable that has already been installed at the same marker.
@@ -480,7 +432,7 @@ class TwitchEmoteImageLoader(
             }
         }
 
-        /** Clears requests, stops GIFs through their targets, and releases the row. */
+        /** Clears its loads, which stops and removes their GIFs, and releases the row. */
         fun release() {
             if (isReleased) return
             isReleased = true
@@ -488,8 +440,8 @@ class TwitchEmoteImageLoader(
             textView.removeOnAttachStateChangeListener(this)
             animatedDrawables.forEach { drawable -> drawable.stop() }
             animatedDrawables.clear()
-            targets.toList().forEach { target -> requestManager.clear(target) }
-            targets.clear()
+            loads.toList().forEach { load -> load.clear() }
+            loads.clear()
             if (reportedAsAnimated) {
                 animatedRows.onAnimatedRowReleased(this)
             }

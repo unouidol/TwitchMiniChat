@@ -1,6 +1,8 @@
 package com.fs.twitchminichat.harness
 
 import android.graphics.Bitmap
+import android.text.Spanned
+import android.text.style.ImageSpan
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -18,27 +20,34 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The 5a-2 rebind proof: a view bound to row A and then bound to row B equals a view built fresh
- * for B, in pixels and in state, for every ordered pair of catalogue rows of the same kind, A = B
- * included. Every pair, not a set chosen from what is expected to leak: a chosen set could only
- * confirm the list ChatRowViewBinder's KDoc gives, while every pair is what tests that the list is
- * complete.
+ * The rebind proof: a view bound to row A and then bound to row B equals a view built fresh for B,
+ * in pixels and in state, for every ordered pair of catalogue rows of the same kind, A = B included.
+ * Every pair, not a set chosen from what is expected to leak: a chosen set could only confirm the
+ * list ChatRowViewBinder's KDoc gives, while every pair is what tests that the list is complete.
  *
  * Production against production: both views come from the page's own ChatRowViewBinder, and each
  * row's data is the tag the row's producer gave its view. An echo is rebuilt the way production
  * builds one - bound as sending, then its events as rebinds - because an echo's hidden status text
  * depends on the statuses it passed through (item 5 of the binder's list).
  *
+ * The emote rows take part. The page's loader draws from [images], which delivers every image inside
+ * the load, and every load is recorded with the bind that asked for it. So each pair also asks what
+ * pixels cannot: once B is bound, are A's loads all cleared and B's all live - one session per view,
+ * the one of the row it shows - and does the view's own text hold B's images? A session left over
+ * from A draws into a buffer the view no longer shows, so no pixel and no field of the view can see
+ * it; only the record of the loads can.
+ *
  * C-R, create against the producer, is the control that keeps the proof from being
  * self-referential: comparing the binder with itself would pass for a binder that built every row
  * wrongly the same way. C-R requires each fresh build to equal what the row's producer built, which
  * the parity pass compares with the frozen copy, so the chain reaches the frozen code.
  *
- * Production does not bind a view to a second row in 5a-2. This proof is what shows that doing so
+ * Production does not bind a view to a second row before 5d. This proof is what shows that doing so
  * is correct; 5d, which turns it on, must run it again rather than inherit its result.
  */
 internal class RebindProof(
     private val production: ProductionRowViews,
+    private val images: FixedEmoteImageSource,
     private val snapshot: ViewStateSnapshot,
     private val newContainer: () -> LinearLayout,
     private val render: (ViewGroup) -> Bitmap
@@ -50,21 +59,28 @@ internal class RebindProof(
     private val binder: ChatRowViewBinder = production.binder
 
     /* A catalogue row taking part, with the data its producer gave its view and that view's container. */
-    private class Subject(val row: ParityRow, val data: ChatTimelineRow, val produced: ViewGroup)
+    private class Subject(val row: ParityRow, val data: ChatTimelineRow, val produced: ViewGroup) {
+        /** How many emote images the row's text holds, from the emote tag its producer gave it. */
+        val emotes: Int = ParityCatalogue.emoteCount(
+            when (data) {
+                is ChatMessageRow -> data.emotesRaw
+                is PendingEchoRow -> data.emotesRaw
+                is SystemLineRow -> null
+            }
+        )
+    }
 
     /** Runs the proof, C-R and the precondition controls, and reports all of them. */
     fun run(): JSONObject {
         val result = JSONObject()
-        val excluded = JSONArray()
-        ParityCatalogue.emoteRows.forEach { id -> excluded.put(JSONObject().put("id", id).put("reason", EMOTE_ROW_REASON)) }
-        result.put("excluded", excluded)
+        check(production.emoteLoader != null) { "the rebind proof's page has no emote loader" }
+        check(!images.holdDeliveries) { "the rebind proof's images must deliver inside the load" }
 
-        val subjects = ParityCatalogue.rows
-            .filter { row -> row.id !in ParityCatalogue.emoteRows }
-            .map { row -> subjectOf(row) }
+        val subjects = ParityCatalogue.rows.map { row -> subjectOf(row) }
         result.put("rowsTakingPart", subjects.size)
+        result.put("emoteRows", JSONArray(subjects.filter { it.emotes > 0 }.map { it.row.id }))
 
-        val freshBuilds = subjects.associate { subject -> subject.row.id to fresh(subject) }
+        val freshBuilds = subjects.associate { subject -> subject.row.id to fresh(subject, "fresh ${subject.row.id}") }
         val freshStates = freshBuilds.mapValues { (_, container) -> snapshot.of(container.getChildAt(0)) }
 
         val createVersusProducer = createVersusProducer(subjects)
@@ -85,6 +101,7 @@ internal class RebindProof(
     /* The row through its producer, into a container of its own: the data the binder is given. */
     private fun subjectOf(row: ParityRow): Subject {
         val container = newContainer()
+        images.label = "produced ${row.id}"
         ParityCatalogue.produce(row, ParityCatalogue.rows.indexOf(row), production, container)
         check(container.childCount == 1) {
             "the producer of ${row.id} gave ${container.childCount} views, not 1: a catalogue user hidden on the device?"
@@ -95,9 +112,10 @@ internal class RebindProof(
         return Subject(row, data, container)
     }
 
-    /* [subject] built fresh by the binder: created from its first data, then its events. */
-    private fun fresh(subject: Subject): LinearLayout {
+    /* [subject] built fresh by the binder: created from its first data, then its events. Its loads carry [label]. */
+    private fun fresh(subject: Subject, label: String): LinearLayout {
         val container = newContainer()
+        images.label = label
         val view = binder.create(firstData(subject))
         container.addView(view)
         replayEvents(view, subject)
@@ -148,7 +166,7 @@ internal class RebindProof(
         var identical = 0
         val failures = JSONArray()
         for (subject in subjects) {
-            val fresh = fresh(subject)
+            val fresh = fresh(subject, "create-versus-producer ${subject.row.id}")
             for (exception in DECLARED_EXCEPTIONS.filter { e -> e.rowId == subject.row.id }) {
                 check(exception.field == "visibility") { "a declared exception names a field C-R cannot set: ${exception.field}" }
                 fresh.getChildAt(0).visibility = exception.value
@@ -172,7 +190,11 @@ internal class RebindProof(
         return out
     }
 
-    /* Every ordered pair of the same kind: A bound, then B bound to the same view, against B fresh. */
+    /*
+     * Every ordered pair of the same kind: A bound, then B bound to the same view, against B fresh, in
+     * pixels and state; then what the loads say of the view's sessions, and whether its text holds B's
+     * images.
+     */
     private fun pairs(
         subjects: List<Subject>,
         freshBuilds: Map<String, LinearLayout>,
@@ -188,19 +210,31 @@ internal class RebindProof(
         var bitmapIdentical = 0
         var stateIdentical = 0
         var identical = 0
+        var emoteA = 0
+        var emoteB = 0
+        var aLoadsRequested = 0
+        var bLoadsRequested = 0
+        var sessionsHeld = 0
+        var imagesHeld = 0
         val failures = JSONArray()
+        val sessionFailures = JSONArray()
+        val imageFailures = JSONArray()
         val vacuous = JSONArray()
 
         for (group in subjects.groupBy { subject -> subject.data.javaClass }.values) {
             for (a in group) {
                 for (b in group) {
                     pairs++
+                    val aLabel = "pair $pairs A ${a.row.id}"
+                    val bLabel = "pair $pairs B ${b.row.id}"
                     val container = newContainer()
+                    images.label = aLabel
                     val view = binder.create(firstData(a))
                     container.addView(view)
                     replayEvents(view, a)
                     val before = snapshot.of(view)
 
+                    images.label = bLabel
                     bindAgain(view, b)
 
                     val fresh = freshBuilds.getValue(b.row.id)
@@ -231,6 +265,33 @@ internal class RebindProof(
                             .put("bitmapIdentical", pixels.identical).put("bitmap", pixels.describe())
                             .put("stateIdentical", state.isEmpty()).put("stateDiff", JSONArray(state.take(8))))
                     }
+
+                    /* One session per view, B's: A's loads all cleared, B's all live, one per emote. */
+                    val aLoads = images.loadsOf(aLabel)
+                    val bLoads = images.loadsOf(bLabel)
+                    if (a.emotes > 0) emoteA++
+                    if (b.emotes > 0) emoteB++
+                    if (aLoads.size == a.emotes) aLoadsRequested++
+                    if (bLoads.size == b.emotes) bLoadsRequested++
+                    val aUncleared = aLoads.count { load -> !load.cleared }
+                    val bLive = bLoads.count { load -> load.live }
+                    if (aUncleared == 0 && bLive == b.emotes && bLoads.size == b.emotes) {
+                        sessionsHeld++
+                    } else {
+                        sessionFailures.put(JSONObject().put("a", a.row.id).put("b", b.row.id)
+                            .put("aLoads", aLoads.size).put("aUncleared", aUncleared)
+                            .put("bLoads", bLoads.size).put("bLive", bLive).put("bEmotes", b.emotes))
+                    }
+
+                    /* B's images are in the text the view shows, not in a buffer it no longer shows. */
+                    val shown = imageDrawablesOf(view)
+                    val delivered = bLoads.mapNotNull { load -> load.delivered }
+                    if (shown.size == b.emotes && shown.all { drawable -> delivered.any { it === drawable } }) {
+                        imagesHeld++
+                    } else {
+                        imageFailures.put(JSONObject().put("a", a.row.id).put("b", b.row.id)
+                            .put("imagesShown", shown.size).put("bEmotes", b.emotes))
+                    }
                 }
             }
         }
@@ -244,16 +305,33 @@ internal class RebindProof(
             .put("startedEqualToBFresh", startedEqualToB)
             .put("endedEqualToAFresh", endedEqualToA)
             .put("vacuousPairs", vacuous)
+            .put("expectedPairsWithAnEmoteA", EXPECTED_EMOTE_PAIRS)
+            .put("pairsWithAnEmoteA", emoteA)
+            .put("expectedPairsWithAnEmoteB", EXPECTED_EMOTE_PAIRS)
+            .put("pairsWithAnEmoteB", emoteB)
+            .put("aRequestedOneLoadPerEmote", aLoadsRequested)
+            .put("bRequestedOneLoadPerEmote", bLoadsRequested)
         out.put("vacuity", vacuity)
         out.put("identical", identical)
         out.put("bitmapIdentical", bitmapIdentical)
         out.put("stateIdentical", stateIdentical)
         out.put("failures", failures)
+        out.put("sessionsHeld", sessionsHeld)
+        out.put("sessionFailures", sessionFailures)
+        out.put("imagesHeld", imagesHeld)
+        out.put("imageFailures", imageFailures)
         val notVacuous = pairs == EXPECTED_PAIRS && oneChildEach == pairs && sameView == pairs &&
-            startedEqualToB == 0 && endedEqualToA == 0
+            startedEqualToB == 0 && endedEqualToA == 0 && emoteA == EXPECTED_EMOTE_PAIRS &&
+            emoteB == EXPECTED_EMOTE_PAIRS && aLoadsRequested == pairs && bLoadsRequested == pairs
         out.put("notVacuous", notVacuous)
-        out.put("passed", notVacuous && identical == pairs)
+        out.put("passed", notVacuous && identical == pairs && sessionsHeld == pairs && imagesHeld == pairs)
         return out
+    }
+
+    /* The drawables of the image spans in the text [view] shows. */
+    private fun imageDrawablesOf(view: View): List<Any> {
+        val text = (view as? TextView)?.text as? Spanned ?: return emptyList()
+        return text.getSpans(0, text.length, ImageSpan::class.java).map { span -> span.drawable }
     }
 
     /*
@@ -264,27 +342,51 @@ internal class RebindProof(
         val echo = subjects.first { subject -> subject.data is PendingEchoRow }
         val message = subjects.first { subject -> subject.data is ChatMessageRow }
         val echoRow = firstData(echo) as PendingEchoRow
+        images.label = "preconditions"
         val messageView = binder.create(message.data)
 
         val out = JSONObject()
-        out.put("echoBoundAsNotSending", fires("an echo is bound as it enters the timeline") {
+        val notRun = JSONArray()
+        var runnable = 0
+        var fired = 0
+        fun record(name: String, invariant: String, action: () -> Unit) {
+            when (val outcome = fires(invariant, action)) {
+                null -> notRun.put(name)
+                else -> {
+                    runnable++
+                    if (outcome) fired++
+                    out.put(name, outcome)
+                }
+            }
+        }
+        record("echoBoundAsNotSending", "an echo is bound as it enters the timeline") {
             binder.bindEcho(binder.create(echoRow) as PendingEchoView, echoRow.copy(status = PendingEchoStatus.CONFIRMED))
-        })
-        out.put("rebindOfAViewThatCannotBe", fires("only an echo is rebound in place") {
+        }
+        record("rebindOfAViewThatCannotBe", "only an echo is rebound in place") {
             binder.rebind(messageView, echoRow, ChatTimelineChange.ECHO_STATUS)
-        })
-        out.put("echoRebindWithAnotherRow", fires("ChatTimelineViewSync.applyEchoEvent is the only source of ECHO_STATUS") {
+        }
+        record("echoRebindWithAnotherRow", "ChatTimelineViewSync.applyEchoEvent is the only source of ECHO_STATUS") {
             (binder.create(echoRow) as PendingEchoView).rebind(message.data, ChatTimelineChange.ECHO_STATUS)
-        })
-        out.put("passed", out.getBoolean("echoBoundAsNotSending") && out.getBoolean("rebindOfAViewThatCannotBe") &&
-            out.getBoolean("echoRebindWithAnotherRow"))
+        }
+        record("unbindOfAViewCreateNeverBuilds", "create builds three kinds of view") {
+            EmoteOwnership.unbind(binder, LinearLayout(messageView.context))
+        }
+        out.put("runnable", runnable)
+        out.put("fired", fired)
+        out.put("notRun", notRun)
+        out.put("passed", runnable > 0 && fired == runnable && notRun.length() == 0)
         return out
     }
 
-    /* Whether [action] fails with an IllegalStateException whose message names [invariant]. */
-    private fun fires(invariant: String, action: () -> Unit): Boolean = try {
+    /*
+     * Whether [action] fails with an IllegalStateException whose message names [invariant]; null when
+     * this tree cannot take the action at all.
+     */
+    private fun fires(invariant: String, action: () -> Unit): Boolean? = try {
         action()
         false
+    } catch (notRunnable: StepNotRunnable) {
+        null
     } catch (failure: IllegalStateException) {
         failure.message.orEmpty().contains(invariant)
     }
@@ -300,15 +402,14 @@ internal class RebindProof(
 
     companion object {
         /**
-         * Every ordered pair of the same kind among the rows taking part, A = B included: 22 messages,
-         * 9 echoes and 1 system line, so 22 * 22 + 9 * 9 + 1 * 1. A change to the catalogue changes it,
+         * Every ordered pair of the same kind among the rows taking part, A = B included: 24 messages,
+         * 9 echoes and 1 system line, so 24 * 24 + 9 * 9 + 1 * 1. A change to the catalogue changes it,
          * on purpose: the run fails until this is updated to what was meant.
          */
-        const val EXPECTED_PAIRS = 566
+        const val EXPECTED_PAIRS = 658
 
-        /** Why the emote rows take no part until 5c. */
-        const val EMOTE_ROW_REASON = "until 5c: whether a second bind releases the row's emote session cannot be " +
-            "shown without an image source the harness can drive"
+        /** The pairs whose A, or whose B, is one of the 2 emote rows: 2 * 24 each. */
+        const val EXPECTED_EMOTE_PAIRS = 48
 
         /** C-R's declared exceptions. There is one; the run fails if there are ever more or fewer. */
         val DECLARED_EXCEPTIONS = listOf(
