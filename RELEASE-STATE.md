@@ -415,10 +415,12 @@ adds to `AGENTS.md`.
 
 ## Deferred — a pass over the rules an agent needs, and whether each is in this repository
 
-Not started, by decision. Four times a premise reached an agent as if it were in the repository when
-it was not: the leaks inventory #80 cited, the battery figures #89's B1 started from, the project
-instructions field, and a rule about interrupted mutation runs. Each was caught by checking the clone
-rather than trusting the premise, which depends on someone checking every time. The fix is a
+Not started, by decision. Some of the method rules that govern work in this repository live outside
+it, where an agent working from the clone cannot read them. That was found four times, each when such
+a rule, or a fact a rule rested on, was given as if it were written here and the clone was checked
+instead: the leaks inventory #80 cited, the battery figures #89's B1 started from, the project
+instructions field, and a rule about interrupted mutation runs. Checking caught each, but checking
+depends on someone doing it every time. The fix is a
 deliberate pass over which rules an agent actually needs, and whether each is written here - not
 anyone remembering to include them. The rules are not listed in this entry: finding them is the pass's
 work, and a list guessed from one conversation would be the same error again. It waits until the
