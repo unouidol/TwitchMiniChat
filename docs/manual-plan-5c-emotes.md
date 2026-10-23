@@ -496,13 +496,18 @@ has fired once on a build that has the defect, which is evidence it can fire at 
 
 | Date | Device | Build | Channel | Positive control (frame loads, 20 s before Home) | Loads 1–30 s after Home | CPU 1–30 s after Home | Verdict |
 |---|---|---|---|---|---|---|---|
-| 2026-10-23 08:35 | AC2003, pid 18481 throughout, 0 input events, screen awake at the end | `ef95c63` | the one both accounts' pages showed: its name is to be given by Federico, not read from the screen | 642 | **0**; 18 lines in the first 0.6 s after Home, none after | 0.01 s over 48 threads | **healthy** |
+| 2026-10-23 08:35 | AC2003, pid 18481 throughout, 0 input events, screen awake at the end | `ef95c63` | `deemonrider`, as Federico wrote it, on both accounts' pages. Reported, not read: no log line held a channel name | 642 | **0**; 18 lines in the first 0.6 s after Home, none after | 0.01 s over 48 threads | **healthy** |
 
 Before it, the instrument was qualified: 407 frame loads from pid 18481 in 12 s, with animated emotes
 on its screen.
 
-**M6,** 2026-10-23, `ef95c63`, on the live path the corrected M6 above describes:
+**M6,** 2026-10-23, `ef95c63`, on the live path the corrected M6 above describes. **Its mechanism is
+covered, by the log and an eye together:** the log shows the echo confirmed in place, and Federico
+watched the send and saw the emote he had picked appear in that row, drawn through Glide.
 
+- *What the eye settles.* Federico watched this send - he identified it as the most recent event in
+  the log, and the confirmation below is the only and the last one the recovered log holds, up to its
+  end at 7944.029 s - and the emote that appeared was the one he picked.
 - *What the log settles.* `TWITCH_IRC: outgoing message confirmed` at 7899.585 s since boot, from the
   dev app's pid: an echo existed and Twitch's USERSTATE moved it to CONFIRMED in place. No
   `reconciled` line follows in the 44 s the log still holds: nothing replaced it.
@@ -516,5 +521,14 @@ on its screen.
 - *What was lost.* The touch record, which held the moment of the tap on send, was deleted on the
   phone by the same command whose transfer of it had failed. The log above comes from the phone's own
   buffer, read afterwards.
+- *Not covered, on purpose.* Whether an emote is drawn in the brief sending state before the
+  confirmation: the event lasts as long as the echo is sending, and every outcome of observing it
+  leads to the same action, so no instrument was built for it.
+- *L10 is a different question.* It covers the ownership half - that the status rebind leaves the
+  session, its images and its animations alone - with the fixed source, not Glide.
+- *The first attempt, on 2026-10-21, was the same evidence under the wrong premise.* Federico reported
+  then that the message appeared straight away with its emotes and no echo was seen. On the live path
+  that row was the echo, confirmed in place; it was read as a miss because the plan said a confirmed
+  message would replace it.
 - *Corrected along the way.* It was said during the round that the echo is removed when Twitch's copy
   arrives. That is false for a live send: the echo is confirmed in place and stays the row.
