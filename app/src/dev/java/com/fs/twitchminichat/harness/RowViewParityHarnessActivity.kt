@@ -268,6 +268,27 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             build
         }
 
+        /*
+         * L10's reference: the echo confirmed, with its emotes, from frozen parts only. The frozen echo
+         * builder fixes its emote tag to null, so the message view comes from the frozen message
+         * builder with the echo's text and tag, the frozen layer adds the images, and the frozen echo
+         * view shows the status. The status line is hidden once confirmed, so its colour is not drawn.
+         */
+        val echoReference: () -> LinearLayout = {
+            newContainer().also { container ->
+                val messageView = frozen.chatMessage(
+                    ParityCatalogue.SIGNED_IN, EmoteLifecycleProof.ECHO_TEXT, EmoteLifecycleProof.ECHO_EMOTES,
+                    null, null, EmoteLifecycleProof.CONFIRM_STEP_SEC
+                ) as TextView
+                FrozenEmoteLayer4804609(this, FixedEmoteImageSource(emptySet()))
+                    .apply(messageView, EmoteLifecycleProof.ECHO_EMOTES, isNightModeActive())
+                container.addView(FrozenRowViews4804609.FrozenPendingEchoView(this).apply {
+                    setMessage(messageView, statusTextColor = 0)
+                    showStatus(FrozenRowViews4804609.FrozenEchoStatus.CONFIRMED)
+                })
+            }
+        }
+
         val lifecyclePage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
         val lifecycleImages = FixedEmoteImageSource(staticOnly = emptySet()).apply { holdDeliveries = true }
         val recorder = EmoteRowRecorder()
@@ -279,6 +300,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             recorder = recorder,
             rowData = dataRows,
             references = references,
+            echoReference = echoReference,
             snapshot = snapshot,
             newContainer = ::newContainer,
             render = render

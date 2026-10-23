@@ -12,6 +12,7 @@ import android.widget.TextView
 import com.fs.twitchminichat.ChatTimelineController
 import com.fs.twitchminichat.PendingEchoView
 import com.fs.twitchminichat.chat.ChatMessageRow
+import com.fs.twitchminichat.chat.PendingEchoEvent
 import com.fs.twitchminichat.chat.PendingEchoRow
 import com.fs.twitchminichat.chat.PendingEchoStatus
 import org.json.JSONArray
@@ -28,7 +29,14 @@ import org.json.JSONObject
  * row, let the loop turn, attach it again without a bind. Whatever the loader does on that round trip
  * shows here.
  *
- * Steps L1 to L6 run once for each emote row of the catalogue, on one view each; L7 to L9 run once.
+ * Steps L1 to L6 run once for each emote row of the catalogue, on one view each; L7, L10, L8 and L9
+ * run once, in that order.
+ *
+ * L10 is the path every message the user sends with an emote takes: the echo is confirmed in place
+ * by Twitch's USERSTATE, an ECHO_STATUS rebind that must leave its emote session alone
+ * (PendingEchoView). No catalogue echo carries emotes - the frozen echo fixes its emote tag to null
+ * and the producer reads it from a catalogue a harness page does not have - so L10 builds its own,
+ * as L7 does, and is compared with a reference assembled only from frozen parts.
  * Each step first asserts the state it is about to change, so that a check cannot pass because the
  * state was never there. Images come from a [FixedEmoteImageSource] that holds every load until the
  * proof delivers it, and the loader's rows are reported to an [EmoteRowRecorder] that wants every
@@ -45,6 +53,7 @@ internal class EmoteLifecycleProof(
     private val recorder: EmoteRowRecorder,
     private val rowData: Map<String, ChatMessageRow>,
     private val references: Map<String, () -> LinearLayout>,
+    private val echoReference: () -> LinearLayout,
     private val snapshot: ViewStateSnapshot,
     private val newContainer: () -> LinearLayout,
     private val render: (ViewGroup) -> Bitmap
@@ -91,6 +100,7 @@ internal class EmoteLifecycleProof(
         check(images.holdDeliveries) { "the lifecycle proof's images must wait to be delivered" }
         ParityCatalogue.emoteRows.forEach { id -> addRowSteps(id) }
         addRemoveEchoStep()
+        addConfirmEchoStep()
         addClearStep()
         addReleaseAllStep()
         runNext(0, 0, done)
@@ -254,6 +264,58 @@ internal class EmoteLifecycleProof(
         ))
     }
 
+    /*
+     * L10: an echo with emotes, inserted through a real timeline, confirmed in place as Twitch's
+     * USERSTATE confirms a live send. Its session must survive the status rebind.
+     */
+    private fun addConfirmEchoStep() {
+        val record = StepRecord("L10 confirm an echo in place", CONFIRM_LOCAL_ID)
+        val emotes = ParityCatalogue.emoteCount(ECHO_EMOTES)
+        lateinit var container: LinearLayout
+        lateinit var echo: PendingEchoView
+        fun checkKept(suffix: String) {
+            val loads = images.loadsOf("L10")
+            record.check("noLoadCleared$suffix", loads.count { it.live } == emotes && loads.none { it.cleared })
+            record.check("imagesStillInstalled$suffix", imagesShownBy(echo.messageView).let { shown ->
+                shown.size == emotes && shown.all { drawable -> loads.any { it.delivered === drawable } }
+            })
+            record.check("running$suffix", animatedOf("L10").let { animated -> animated.size == emotes && animated.all { it.isRunning } })
+            record.check("releaseNotReported$suffix", recorder.releasesOf(echo.messageView) == 0)
+        }
+        steps += Step(record, listOf(
+            {
+                container = newContainer()
+                root.addView(container)
+                val timeline = ChatTimelineController(container, binder)
+                images.label = "L10"
+                timeline.insert(messageTimestampSec = CONFIRM_STEP_SEC) { position ->
+                    PendingEchoRow(
+                        position = position,
+                        localId = CONFIRM_LOCAL_ID,
+                        user = ParityCatalogue.SIGNED_IN,
+                        messageText = ECHO_TEXT,
+                        emotesRaw = ECHO_EMOTES,
+                        replyParentUserLogin = null,
+                        sentAtSec = CONFIRM_STEP_SEC,
+                        status = PendingEchoStatus.SENDING
+                    )
+                }
+                images.deliverPending()
+                echo = container.getChildAt(0) as PendingEchoView
+                record.pre("loadsLive", images.loadsOf("L10").count { it.live } == emotes)
+                record.pre("imagesShown", imagesShownBy(echo.messageView).size == emotes)
+                record.pre("sending", echo.alpha < 1f)
+                record.check("statusChanged", timeline.applyEchoEvent(CONFIRM_LOCAL_ID, PendingEchoEvent.USERSTATE))
+                record.check("confirmedLook", echo.alpha == 1f)
+                checkKept("AtTheCall")
+            },
+            {
+                checkKept("AfterALoopTurn")
+                record.check("pixelsEqualTheReference", pixelsEqual(container, echoReference()))
+            }
+        ))
+    }
+
     /* L8: a timeline holding both emote rows, cleared as a channel change clears it. */
     private fun addClearStep() {
         val record = StepRecord("L8 clear", null)
@@ -331,16 +393,22 @@ internal class EmoteLifecycleProof(
     }
 
     companion object {
-        /** L1 to L6 for each of the 2 emote rows, then L7, L8 and L9. */
-        const val EXPECTED_STEPS = 15
+        /** L1 to L6 for each of the 2 emote rows, then L7, L10, L8 and L9. */
+        const val EXPECTED_STEPS = 16
 
         /** The catalogue row L6 binds over an emote row. */
         const val PLAIN_ROW = "msg.plain"
 
         private const val ECHO_LOCAL_ID = "parity-lifecycle-echo"
-        private const val ECHO_TEXT = "Kappa sent Kappa"
-        private const val ECHO_EMOTES = "25:0-4,11-15"
+        private const val CONFIRM_LOCAL_ID = "parity-lifecycle-confirmed-echo"
+
+        /** The text and emote tag of the echoes L7 and L10 build, which the activity's reference for L10 restates. */
+        const val ECHO_TEXT = "Kappa sent Kappa"
+        const val ECHO_EMOTES = "25:0-4,11-15"
         private const val ECHO_SENT_AT_SEC = 1_791_000_100.0
+
+        /** When L10's echo was sent. */
+        const val CONFIRM_STEP_SEC = 1_791_000_150.0
         private const val CLEAR_STEP_SEC = 1_791_000_200.0
     }
 }
