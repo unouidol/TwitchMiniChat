@@ -423,11 +423,12 @@ unequal override in H1's order, with the emote passes only.
 | H3 | `ef95c63` | `37e2b38d…` | parity 34 / 34; emote layer 2 / 2, with a 404 2 / 2; pairs 658 / 658, `sessionsHeld` 658, `imagesHeld` 658; C-R 34 / 34; preconditions 4 / 4; lifecycle 15 / 15. As predicted | 14:22 |
 | H5 | `ef95c63` | `37e2b38d…` | the same as H3 | 14:36 |
 | H3 with L10, 2026-10-23 | `49e2525` | `339ae2c2…` | every count as in H3, and the lifecycle proof 16 / 16. As pre-registered | 08:58 |
-| H5, 2026-10-23 | `49e2525` | `339ae2c2…` | the same as the row above. The build left on the phone | 09:01 |
+| H5, 2026-10-23 | `49e2525` | `339ae2c2…` | the same as the row above | 09:01 |
+| H5 on the final code, 2026-10-23 | `d56812b` | `8519b894…` | the same. `d56812b` differs from `49e2525` only in two harness checks, `childCount == 0` read as `isEmpty()` for lint's `UseKtx`; no production file changed. The build left on the phone | 09:23 |
 
-Both frozen blobs were read at `ffb3082`, `9b1b86a` and `ef95c63`: `FrozenRowViews4804609.kt`
+Both frozen blobs were read at `ffb3082`, `9b1b86a`, `ef95c63`, `49e2525` and `d56812b`: `FrozenRowViews4804609.kt`
 `2ee0bdc98ec16aac0f3ee7cf6bcb4e54be6bcd91` and `FrozenEmoteLayer4804609.kt`
-`213215ed8fdb19961d80679f416e2a3e8e1bd6ce` at all three.
+`213215ed8fdb19961d80679f416e2a3e8e1bd6ce` at all five.
 
 **H4:** `predictions.json`, sha256 `611fb79ea332d64ff6b4ee49f93a36c7ca513731512a59c0eb01f09b7371f54e`,
 written 2026-10-21 14:25:49 +02:00, before the first mutant was built, and unchanged after the last.
