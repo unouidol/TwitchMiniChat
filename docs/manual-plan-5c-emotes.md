@@ -182,7 +182,11 @@ again.
 **Proves it.** In each theme: text parity 34 / 34; the emote layer 2 / 2 and with a 404 2 / 2; its
 controls behaved; the rebind proof `passed` true with 658 pairs identical, 658 `sessionsHeld` and
 658 `imagesHeld`; C-R 34 / 34; preconditions `made` 4, `fired` 4; `emoteLifecycle.allPassed` true,
-15 of 15. Both frozen blobs as in H2.
+16 of 16. Both frozen blobs as in H2.
+
+The proof had 15 steps until L10 was added after the first round of mutants: an echo with emotes
+confirmed in place, the path every message sent with an emote takes, which nothing covered before.
+See H4 for its separate pre-registration.
 
 **When H1 classified A18 by its second rule,** run the emote passes at the font scale H1 chose too
 (`--es passes emote --ef fontScale <f>`), both themes: the baseline A18's count is measured against.
@@ -209,6 +213,12 @@ decided), restore the files from git, and check `git status --porcelain` prints 
 | O2 | the detach callback posts the pre-5c release again |
 | O3 | `rowViews.unbind(...)` removed from `removeAt` and `removeAll` in `ContainerTimelineViews` |
 | O4 | `applyAnimationState()` removed from the detach callback |
+| O5 | `unbind(view)` added to `ChatRowViewBinder.rebind`, after the tag moves: a status rebind ends the echo's emote session |
+
+**O5 and L10 have a pre-registration of their own,** written after the first six had run and before
+L10 was written or O5 built. `predictions.json` stays the record of what was predicted for the first
+six, on a lifecycle proof of 15 steps; the second file adds L10 and O5 and does not amend the first.
+Read them as two files.
 
 **Proves it.** Every count equals its prediction.
 
@@ -278,10 +288,23 @@ for a released emote session` in the log: an ownership invariant broke.
 
 ### M6 — An echo with emotes, confirmed
 
-**Do.** Send a message with an emote and let Twitch confirm it.
+On a live send the echo is never replaced. It is shown sending, with a status line and at reduced
+opacity; Twitch's USERSTATE confirms it, and the app moves it to CONFIRMED in place
+(`ChatFragment.kt:2515-2529`): no status line, full opacity (`PendingEchoStatus.kt:44`). The row
+that shows the message from then on is the echo itself. It is replaced only when canonical live or
+history data for it arrives (`ChatFragment.kt:2532-2535`), a separate path that logs
+`TWITCH_IRC: outgoing message reconciled`. That Twitch does not send the sender's own message back
+on the same connection, which is why a live send takes the first path, is documented behaviour; it
+was not measured here.
 
-**Proves it.** The echo shows its emote while sending, and the confirmed message replaces it with
-its own.
+**Do.** Send one message with an emote picked from the dev app's emote picker, and watch it.
+
+**Proves it.** The row that appears shows the emote, and the log shows
+`TWITCH_IRC: outgoing message confirmed` for the send: the echo confirmed in place, with its emote
+drawn through Glide.
+
+**Failing looks like.** A marker without its image in the confirmed row, or the image dropping out
+when the status changes. L10 checks the second with the fixed source.
 
 ---
 
@@ -307,29 +330,46 @@ next one can repeat it:
 | Parameter | This measurement |
 |---|---|
 | Channel | named in *Recorded results* when run |
-| Animated emotes on screen at Home | counted by eye at the moment of Home, and recorded |
-| How Home is pressed | `adb shell 'log -t TMC_ROUND home; input keyevent KEYCODE_HOME'`: the `TMC_ROUND` line marks the time of Home in the same log, on the same clock |
-| What counts as a load | every `Engine` line `Started new load`, whatever its model: emote images and GIF frames both |
-| How CPU is read | `adb shell 'cat /proc/<pid>/task/*/stat'`, the pid from `adb shell pidof com.fs.twitchminichat.dev`, one second after Home and 30 seconds after it; for each thread, fields 14 and 15, counting the thread's name in parentheses as field 2 (user and system time in clock ticks; `adb shell getconf CLK_TCK` per second). If the shell may not read them, the same through `run-as com.fs.twitchminichat.dev` |
-| Log timestamps | `adb logcat -d -v epoch` |
+| Whose lines count | only the dev app's: its pid, read with `adb shell pidof com.fs.twitchminichat.dev` at the start. `log.tag.Engine` is a property of the whole phone, so every app that uses Glide logs once it is set, and the first run counted another app's lines |
+| Animated emotes on screen at Home | the positive control: GIF frame loads from that pid in the 20 seconds before Home, at least 100 |
+| How Home is pressed | by adb, never by hand: `adb shell 'log -t TMC_ROUND home; input keyevent KEYCODE_HOME'`. The `TMC_ROUND` line puts the moment of Home in the same log as the measurement, on the same clock, and no person adds stray input |
+| What counts as a load | every `Engine` line `Started new load` from that pid, whatever its model: emote images and GIF frames both |
+| How CPU is read | `adb shell 'cat /proc/<pid>/task/*/stat'`, one second after Home and 30 seconds after it; for each thread, fields 14 and 15, counting the thread's name in parentheses as field 2 (user and system time in clock ticks; `adb shell getconf CLK_TCK` per second). If the shell may not read them, the same through `run-as com.fs.twitchminichat.dev` |
+| Log timestamps | `adb logcat -v epoch -s Engine:V TMC_ROUND:V AndroidRuntime:E`, streamed to a file for the whole run. The phone's 256 KiB log buffer holds only about a minute and a half of GIF frame lines, so a `logcat -d` at the end can lose Home |
+| `log.tag.Engine` | not persistent: set at 14:47 on 2026-10-21 and found empty on 2026-10-23. Set it, and read it back, at the start of every round, before the app process starts |
+| Screen on | read, not changed: `settings get global stay_on_while_plugged_in` (7 on the test phone, all power sources) with `dumpsys battery` showing USB power keeps the screen on for the 60 s, although the phone's own timeout is 15 s |
 
-**Do.** Set the property and restart the app as under *M*. Open both accounts on the channel, leave
-the app in the foreground for 20 seconds, press Home by the command above, keep the screen on for 60
-seconds, then save `adb logcat -d -v epoch` and the two CPU readings. Afterwards, `adb shell
-setprop log.tag.Engine ""` puts the property back.
+**Do.** Set the property, read it back, and restart the app as under *M*. Open both accounts on the
+channel, leave the app in the foreground for 20 seconds, press Home by the command above, keep the
+screen on for 60 seconds, with the log streamed and the two CPU readings taken. Afterwards,
+`adb shell setprop log.tag.Engine ""` puts the property back.
 
-**The rule, decided before the measurement:** count the `Started new load` lines timestamped more
-than 1.0 seconds after Home and less than 30 seconds after it.
+**The rule, decided before the measurement and corrected once, as below.** The run is **void** - not
+healthy - when the positive control has fewer than 100 frame loads, when the dev app's pid changes
+during the run, when the Home marker is missing, or when any physical input event is recorded.
+Otherwise, count the dev app's `Started new load` lines timestamped more than 1.0 seconds after Home
+and less than 30 seconds after it:
 
 - **10 or fewer: healthy.** Nothing decodes in the background.
 - **100 or more: the defect is back.** Before #69 the same window held thousands.
 - **Between 11 and 99: inconclusive.** Stop and report the count; the measurement is not repeated
   until the reason is understood.
 
+**Why the positive control is 100:** ten times the healthy ceiling of 10, so that a count of 10 or
+fewer after Home is a real drop - at least tenfold in count, over a longer window, 29 s against
+20 s - and never a small number beside a small number.
+
+**The correction, kept written.** The rule as first written counted `Started new load` lines without
+saying whose. Pre-registered on an ambiguous quantity, it was not really pre-registered, and neither
+its writer nor its reviewer saw that until a second Glide app on the phone made it visible: the first
+run counted 585 lines, all another app's, while the dev app logged none at all. That run is void, not
+read by the rule; see *Recorded results*.
+
 **Context, not a target.** The same record gives 4,073 loads and 29.9 s of CPU in 63 s before
 #69, and with #69, 21 loads, all within 0.9 s of Home, and 1.5 s of CPU. Its channel, the rows on screen,
-how Home was pressed, which line counted as a load and how per-thread CPU was read are not
-recorded. So this measurement is compared with those figures only for their order of magnitude,
+how Home was pressed, which line counted as a load, how per-thread CPU was read, and whose process
+the counted lines came from are not recorded - so whether another Glide app was running then is not
+known either. So this measurement is compared with those figures only for their order of magnitude,
 never numerically, and its result is not presented as reproducing them.
 
 ---
@@ -382,6 +422,8 @@ unequal override in H1's order, with the emote passes only.
 | H3 at font scale 1.0 | `ef95c63` | `37e2b38d…` | font scale 1; render sizes 49 / 50; emote layer 2 / 2 at 50 px, with a 404 2 / 2; controls behaved; lifecycle 15 / 15. As predicted | 14:21 |
 | H3 | `ef95c63` | `37e2b38d…` | parity 34 / 34; emote layer 2 / 2, with a 404 2 / 2; pairs 658 / 658, `sessionsHeld` 658, `imagesHeld` 658; C-R 34 / 34; preconditions 4 / 4; lifecycle 15 / 15. As predicted | 14:22 |
 | H5 | `ef95c63` | `37e2b38d…` | the same as H3 | 14:36 |
+| H3 with L10, 2026-10-23 | `49e2525` | `339ae2c2…` | every count as in H3, and the lifecycle proof 16 / 16. As pre-registered | 08:58 |
+| H5, 2026-10-23 | `49e2525` | `339ae2c2…` | the same as the row above. The build left on the phone | 09:01 |
 
 Both frozen blobs were read at `ffb3082`, `9b1b86a` and `ef95c63`: `FrozenRowViews4804609.kt`
 `2ee0bdc98ec16aac0f3ee7cf6bcb4e54be6bcd91` and `FrozenEmoteLayer4804609.kt`
@@ -401,10 +443,78 @@ tree checked clean. Every count of every mutant equalled its prediction:
 | O3 | `c3d91847…` | lifecycle failed L7, L8; nothing else |
 | O4 | `cfe3bc96…` | lifecycle failed L2 × 2; nothing else |
 
-**M1 to M6:** not run yet.
+**L10 and O5:** their pre-registration, sha256
+`da8391ad780e03349519596c4e16fdc63571f4bddf34b6fe95e1aef2f7dae816`, written 2026-10-23 08:55:02
++02:00, before L10 was written and O5 built. L10 passed on `49e2525` in both themes. O5, applied
+alone to `49e2525` (dev APK `cf6d4928…`), failed L10 and nothing else, in both themes, on the
+predicted checks: its loads cleared, its images gone, its animations stopped and its release
+reported, at the call and after the loop turn, and its pixels. The status change itself
+(`statusChanged`, `confirmedLook`) still passed. As predicted.
 
-**B1:**
+No production or build file differs between `ef95c63`, the build B1, M2 and M6 ran on, and
+`49e2525`: `git diff ef95c63 49e2525 -- app/src/main gradle build.gradle.kts settings.gradle.kts
+gradle.properties app/build.gradle.kts` prints nothing.
 
-| Date | Device | Build | Channel | Animated emotes on screen | Loads 1–30 s after Home | CPU 1–30 s after Home | Verdict |
+**M1 to M5,** on `ef95c63`, by Federico, on 2026-10-21: passed. The app's Glide lines in that
+afternoon's recording span 15:23 to 15:48, which dates the session; its pid changed once, at 15:37.
+The recording, Glide's `Engine` lines and crashes only, held no crash line. M2's swipe-back time was
+not noted, so M2 was run again by adb, below.
+
+**M2 by adb,** 2026-10-23 08:16, `ef95c63`, 0 physical input events. A leftward swipe across the
+status row (`adb shell input swipe 900 455 180 455 300`, above the message rows, where it cannot
+start a swipe-to-reply), five seconds on the other account's page, a rightward swipe back. Read
+from the app's own view tree by identity, ids and positions only:
+
+- before: the first account's page current, `rootChat 9a931af`, `scrollChat d01ce3e`,
+  `chatContainer 88fe49f`;
+- away: the second account's page current; the first page one place to the left, the same three
+  identities;
+- back: the first page current again, **the same three identities**. Its view, and its rows with
+  their images, were kept. The expectation - the pager keeps one page each side
+  (`MainActivity.kt:88`), so nothing reloads - held.
+
+The log half of that run is void: every `Engine` line in it came from another app (see B1). And one
+idea is retracted with its reason: comparing GIF decoder identities before and after could not have
+answered whether the page kept its images, because Glide hands every view showing the same GIF at
+the same size a new drawable on the same decoder.
+
+**B1, first run, void:** 2026-10-23 08:16, `ef95c63`, Home by adb, 0 physical input events. The rule
+then in force read 585 `Started new load` lines 1.0-30 s after Home. All 2,074 `Engine` lines of the
+run came from pid 15614, `com.fs.twitchminichat`, the published stable app, running in the background
+since 08:09; the dev app, pid 18481, wrote none, its 20 s in the foreground included. The run did not
+measure its subject, so it is void, not read by the rule.
+
+**B1's negative control,** from that same run: the stable app, `com.fs.twitchminichat` 5.5.1 (8),
+pid 15614, decoded GIF frames throughout: 585 `Started new load` lines 1.0-30 s after the dev app's
+Home, 2,074 in the 98 s window, from the same 3 GIF decoders, in the background. That build does not
+contain #69, read rather than recalled: its APK on the phone hashes to `bf6c22c2…`, and its code
+carries `007ee55`, both read on 2026-10-23; `git merge-base --is-ancestor 692a7dc v5.5.1` exits 1;
+`EmoteAnimationGate.kt`, which #69 added, is absent from `v5.5.1`'s tree. So the rule's upper band
+has fired once on a build that has the defect, which is evidence it can fire at all.
+
+**B1, run again under the corrected rule:** written first, sha256 `a053a535…`, 08:34:17.
+
+| Date | Device | Build | Channel | Positive control (frame loads, 20 s before Home) | Loads 1–30 s after Home | CPU 1–30 s after Home | Verdict |
 |---|---|---|---|---|---|---|---|
-| | | | | | | | |
+| 2026-10-23 08:35 | AC2003, pid 18481 throughout, 0 input events, screen awake at the end | `ef95c63` | the one both accounts' pages showed: its name is to be given by Federico, not read from the screen | 642 | **0**; 18 lines in the first 0.6 s after Home, none after | 0.01 s over 48 threads | **healthy** |
+
+Before it, the instrument was qualified: 407 frame loads from pid 18481 in 12 s, with animated emotes
+on its screen.
+
+**M6,** 2026-10-23, `ef95c63`, on the live path the corrected M6 above describes:
+
+- *What the log settles.* `TWITCH_IRC: outgoing message confirmed` at 7899.585 s since boot, from the
+  dev app's pid: an echo existed and Twitch's USERSTATE moved it to CONFIRMED in place. No
+  `reconciled` line follows in the 44 s the log still holds: nothing replaced it.
+- *What the log could not attribute.* In the 3.2 s before the confirmation the dev app looked up one
+  emote image twice, `emotesv2_20aeab0c…/static/dark/3.0`, at -262 ms and -8 ms, both memory hits
+  (`Loaded resource from active resources`). Both accounts' pages show the same channel, so every
+  incoming message is bound on both and its lookups come in pairs, usually 2-10 ms apart, at 2 to 18
+  lookups every 5 s that minute. The pair could be the echo on the sending page and the message
+  reaching the other page, or another user's message on both. It is recorded as a reading that could
+  not attribute.
+- *What was lost.* The touch record, which held the moment of the tap on send, was deleted on the
+  phone by the same command whose transfer of it had failed. The log above comes from the phone's own
+  buffer, read afterwards.
+- *Corrected along the way.* It was said during the round that the echo is removed when Twitch's copy
+  arrives. That is false for a live send: the echo is confirmed in place and stays the row.
