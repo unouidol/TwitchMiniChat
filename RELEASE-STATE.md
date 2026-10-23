@@ -413,6 +413,19 @@ The page stays as it is and describes today's behaviour truthfully. When the beh
 changes, the page changes with it, and both copies change together: the rule `000318a` (#38)
 adds to `AGENTS.md`.
 
+## Deferred — a pass over the rules an agent needs, and whether each is in this repository
+
+Not started, by decision. Four times a premise reached an agent as if it were in the repository when
+it was not: the leaks inventory #80 cited, the battery figures #89's B1 started from, the project
+instructions field, and a rule about interrupted mutation runs. Each was caught by checking the clone
+rather than trusting the premise, which depends on someone checking every time. The fix is a
+deliberate pass over which rules an agent actually needs, and whether each is written here - not
+anyone remembering to include them. The rules are not listed in this entry: finding them is the pass's
+work, and a list guessed from one conversation would be the same error again. It waits until the
+conversion to a recycling list is complete, 5d included: read from the clone, that has not happened
+while `chatContainer` in `app/src/main/res/layout/fragment_chat.xml` is a `LinearLayout` inside a
+`ScrollView`, holding a view for each row.
+
 ## Deferred — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade
 
 Not on any branch, by decision. The upgrade from Android Gradle Plugin (AGP) 9.2.1 and Gradle
@@ -896,5 +909,12 @@ The pull ref stays as a second path, no longer the only one: `git fetch origin p
 the commit being that ref or one of its ancestors (`c1380af` is the parent of #86's last head,
 `d0a984c`). That GitHub keeps such refs after a merge is known rather than measured; what was
 measured is that `refs/pull/86/head` existed on 2026-10-19.
+
+**The example itself is in the weaker state.** On 2026-10-23, after #89 merged, no ref in the clone
+reached `d0a984c`: it lived only in GitHub's `refs/pull/86/head`, read that day - the dependency the
+tag moved this rule away from. It is not a defect: it was never a recorded build, and `c1380af`, the
+device build of that round, has its own tag and resolves. The example still explains the mechanism if
+its command one day returns nothing, so it stays; whoever next changes this section should know it
+rather than find it again.
 
 Update this section from the device, not from intent.
