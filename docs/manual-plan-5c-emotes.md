@@ -329,7 +329,7 @@ next one can repeat it:
 
 | Parameter | This measurement |
 |---|---|
-| Channel | named in *Recorded results* when run |
+| Channel | named in *Recorded results* when run, as whoever ran it reports it, and marked as reported. Backlog, not fixed here: the app's own log names no channel - its `TWITCH_IRC` lines carry none - so a measurement cannot record from the app itself which channel it was taken on, the same gap the old figures have |
 | Whose lines count | only the dev app's: its pid, read with `adb shell pidof com.fs.twitchminichat.dev` at the start. `log.tag.Engine` is a property of the whole phone, so every app that uses Glide logs once it is set, and the first run counted another app's lines |
 | Animated emotes on screen at Home | the positive control: GIF frame loads from that pid in the 20 seconds before Home, at least 100 |
 | How Home is pressed | by adb, never by hand: `adb shell 'log -t TMC_ROUND home; input keyevent KEYCODE_HOME'`. The `TMC_ROUND` line puts the moment of Home in the same log as the measurement, on the same clock, and no person adds stray input |
