@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.isEmpty
 import com.fs.twitchminichat.ChatTimelineController
 import com.fs.twitchminichat.PendingEchoView
 import com.fs.twitchminichat.chat.ChatMessageRow
@@ -257,7 +258,7 @@ internal class EmoteLifecycleProof(
                 record.pre("loadsLive", images.loadsOf("L7").count { it.live } == ParityCatalogue.emoteCount(ECHO_EMOTES))
                 record.pre("attached", messageView.isAttachedToWindow)
                 timeline.removeEcho(ECHO_LOCAL_ID)
-                record.check("removed", container.childCount == 0)
+                record.check("removed", container.isEmpty())
                 record.check("everyLoadClearedAtTheCall", images.loadsOf("L7").all { it.cleared })
                 record.check("releaseReportedOnce", recorder.releasesOf(messageView) == 1)
             }
@@ -335,7 +336,7 @@ internal class EmoteLifecycleProof(
                 record.pre("loadsLive", images.loadsOf("L8").count { it.live } == emotes)
                 record.pre("rows", container.childCount == ParityCatalogue.emoteRows.size)
                 timeline.clear()
-                record.check("removed", container.childCount == 0)
+                record.check("removed", container.isEmpty())
                 record.check("everyLoadClearedAtTheCall", images.loadsOf("L8").all { it.cleared })
             }
         ))
