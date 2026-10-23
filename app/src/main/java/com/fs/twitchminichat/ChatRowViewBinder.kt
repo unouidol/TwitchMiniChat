@@ -27,7 +27,7 @@ import com.fs.twitchminichat.chat.SystemLineRow
  * carried inside the text resets by construction: a message view has a movement method, and with
  * one TextView.setText copies the text it is given into a new Spannable, so the spans of the row
  * before - mention highlights, link spans, the name's colour - go with its text. Only what lives on
- * the view outside its text can leak, which is why this list has five entries and not fifty:
+ * the view outside its text can leak, which is why this list has six entries and not fifty:
  *
  * 1. The mention row's background. The applier applies a look to every row, the plain look as no
  *    background. Watched by the parity harness's rebind proof, which mutant A01 (the plain look
@@ -44,25 +44,50 @@ import com.fs.twitchminichat.chat.SystemLineRow
  *    echo's view holds depends on the statuses it passed through, not only on the one it shows. An
  *    echo is therefore only ever bound as sending - [bindEcho] requires it - and every later status
  *    reaches its view as a rebind, as in production; the proof rebuilds an echo the same way.
+ * 6. The emote session. The loader keeps a message's emote loads and images in a session held by
+ *    the view, outside the text the applier replaces, and an image delivered to the session of the
+ *    row before would land in a buffer the view no longer shows. So every bind of a message ends the
+ *    view's session before anything loads, whether or not the new row has emotes, and [unbind] ends
+ *    it when the row leaves. Watched by the proof's session check, which only the record of the loads
+ *    can make because no pixel shows it, and mutant O1.
  *
  * The tag, which the long-press and swipe actions read when they fire, is written by every bind and
  * every rebind, in the same call that writes what the view shows. Watched by the proof and mutant T1.
  *
- * Constraint for 5d, which will rebind views as they scroll: keep one view type per row kind. The
- * flags a movement method forces on a message view - focusable, clickable, long-clickable - are set
- * by its first bind only, because TextView.setMovementMethod does nothing when given the movement
- * method the view already has (TextView.java:2808, API 36). After that they are a property of the
- * view's history, not of the bind, and a view type shared across row kinds would carry them from a
- * message into a system line without anything failing.
- *
- * In 5a-2 production binds each view once, when its row is inserted; nothing binds a view to a
+ * Production still binds each view once, when its row is inserted; nothing binds a view to a
  * second row yet. That doing so is correct is what the rebind proof shows, and 5d, which turns it
  * on, must run that proof again rather than inherit this result.
  *
- * Emote sessions stay outside the list until 5c. TwitchEmoteImageLoader keeps each message's
- * emotes in a session that lasts until the view is detached, so a second bind of a view with emotes
- * would leave the first session running. Nothing binds such a view twice before 5c gives the loader
- * an image source the proof can drive.
+ * Constraints for 5d, which will put the timeline in a RecyclerView and rebind views as they
+ * scroll. Each is true of this code now and becomes false, or starts to matter, once rows recycle:
+ *
+ * 1. Keep one view type per row kind. The flags a movement method forces on a message view -
+ *    focusable, clickable, long-clickable - are set by its first bind only, because
+ *    TextView.setMovementMethod does nothing when given the movement method the view already has
+ *    (TextView.java:2808, API 36), so a view type shared across kinds carries them from a message
+ *    into a system line without anything failing.
+ * 2. Call [unbind] from onViewRecycled. A holder reaches onViewRecycled only on its way to the
+ *    recycled pool; one kept in the cache does not, and can be handed back for its position without
+ *    a bind, which is why a detach keeps the session and only the binding may end it.
+ * 3. An echo's change of status must stay a partial bind, a payload applied by [rebind]. A full bind
+ *    of the echo would end its emote session and load its emotes again on every status change.
+ * 4. A change animation can show two holders for one row at once, the old and the new, so one row
+ *    would hold two sessions while it runs. Bind changes with payloads, or turn change animations
+ *    off, rather than let a change rebuild the row.
+ * 5. The animation gate assumes a row that scrolled away stays attached (EmoteAnimationGate). That is
+ *    true while the timeline is a ScrollView and false in a RecyclerView, where a detach already
+ *    stops a row's emotes; 5d decides whether the detach or the viewport rules.
+ * 6. The gate's viewport is reported from the ScrollView's offset (reportEmoteAnimationViewport),
+ *    sampled at most every 100 ms after a scroll or a layout (scheduleEmoteAnimationReconcile), and
+ *    a row's place in it is found by walking the row's parents up to chatContainer
+ *    (timelineSpanOf). None of the three exists in a RecyclerView, which reports positions itself.
+ * 7. A hidden row is GONE but stays attached, so a detach never pauses it. Whether the gate counts a
+ *    GONE row as visible depends on the position and height a GONE child keeps in its LinearLayout,
+ *    which has NOT been read. In a list fed only the shown rows, a hidden row is no view at all.
+ * 8. onDestroyView releases every session (TwitchEmoteImageLoader.releaseAll) because no removal
+ *    reaches the views that go with the page. Whether every holder of a RecyclerView reaches
+ *    onViewRecycled when the page's view is destroyed has NOT been read, so keep the call until it
+ *    has.
  */
 internal class ChatRowViewBinder(
     private val applier: ChatRowTextApplier,
@@ -100,11 +125,15 @@ internal class ChatRowViewBinder(
         fun echoStatusTextColor(): Int
 
         /**
-         * Loads the emotes of [row] into [view], whose text the applier has just set from [text].
-         * Only after the applier: the loader installs its own copy of the text, which a later
-         * setText would replace, and reads the render size from the text size the applier set.
+         * Gives [view] the emotes of [row], whose text the applier has just set from [text], at
+         * [textSizePx], the text size the applier set: ends the session of the row the view showed
+         * before, then loads [row]'s emotes, if it has any. Only after the applier: the loader
+         * installs its own copy of the text, which a later setText would replace.
          */
-        fun loadEmotes(view: TextView, text: SpannableStringBuilder, row: RowText)
+        fun bindEmotes(view: TextView, text: SpannableStringBuilder, row: RowText, textSizePx: Float)
+
+        /** Ends the emote session of [view], whose row is leaving: what it loaded is cleared. */
+        fun unbindEmotes(view: TextView)
     }
 
     /** Builds the view of [row], of the type its kind takes, bound to it. */
@@ -145,6 +174,22 @@ internal class ChatRowViewBinder(
         view.bindStatus(row.status, page.echoStatusTextColor())
     }
 
+    /**
+     * Ends what [view], a view [create] built, shows that outlives its text: its message's emote
+     * session. Called when the view's row leaves the timeline, and in 5d when its holder is recycled.
+     */
+    fun unbind(view: View) {
+        when (view) {
+            is PendingEchoView -> page.unbindEmotes(view.messageView)
+            is TextView -> page.unbindEmotes(view)
+            else -> error(
+                "A ${view.javaClass.simpleName} was unbound. Invariant: create builds three kinds of view - a " +
+                    "message view and a system line's, both TextViews, and a PendingEchoView - and " +
+                    "ChatTimelineController is the only writer of the container."
+            )
+        }
+    }
+
     /** Applies what [change] names of [row] to [view] in place, and moves the tag to [row]. */
     fun rebind(view: View, row: ChatTimelineRow, change: ChatTimelineChange) {
         val rebindable = checkNotNull(view as? RebindableTimelineView) {
@@ -156,7 +201,11 @@ internal class ChatRowViewBinder(
         rebindable.rebind(row, change)
     }
 
-    /* A message's text as ChatRowText decides it, put on [view] by the applier, then its emotes. */
+    /*
+     * A message's text as ChatRowText decides it, put on [view] by the applier, then its emotes, read
+     * at the text size the applier has just set. Every bind gives the view its emotes, none included,
+     * so that the session of the row it showed before ends here.
+     */
     private fun bindMessageText(
         view: TextView,
         user: String,
@@ -172,6 +221,7 @@ internal class ChatRowViewBinder(
             signedInUsername = page.signedInUsername()
         )
         val text = applier.apply(view, row)
-        if (row.emoteMarkers.isNotEmpty()) page.loadEmotes(view, text, row)
+        val textSizePx = view.textSize
+        page.bindEmotes(view, text, row, textSizePx)
     }
 }

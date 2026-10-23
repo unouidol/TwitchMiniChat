@@ -2,6 +2,7 @@ package com.fs.twitchminichat.harness
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -23,6 +24,7 @@ import androidx.core.view.doOnLayout
 import com.fs.twitchminichat.BuildConfig
 import com.fs.twitchminichat.PendingEchoView
 import com.fs.twitchminichat.R
+import com.fs.twitchminichat.chat.ChatMessageRow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -46,6 +48,18 @@ import java.lang.reflect.InvocationTargetException
  * Each pass then runs [RebindProof]: every pair of catalogue rows of the same kind, bound one after
  * the other to one view, against the second built fresh, with its own controls.
  *
+ * The emote passes follow, on pages whose loader draws from a [FixedEmoteImageSource] instead of
+ * Glide: [EmoteLayerPass], each emote row against the frozen view plus [FrozenEmoteLayer4804609],
+ * once with every image available and once with the animated version answering 404; then
+ * [EmoteLifecycleProof], on rows attached to this window. Before any of them, [RenderSizeMeasurement]
+ * records what decides mutant A18. The parity pass itself runs with no loader, as before, and the run
+ * checks that its page has none.
+ *
+ * Two optional extras: `--es passes emote` runs only the measurement and the emote passes, and
+ * `--es passes measure` only the measurement; `--ef fontScale 1.3` runs at that font scale instead
+ * of the phone's. The activity applies the font scale to itself by restarting once with it, and stops
+ * if the scale it then runs at is not the one asked for.
+ *
  * Only the adb shell may start it. An activity started by `am start` cannot learn its caller: the
  * referrer can be spoofed, the calling package exists only for startActivityForResult, and the
  * launching uid exists only from API 34 and only when the caller chooses to share it. So the system
@@ -60,6 +74,18 @@ import java.lang.reflect.InvocationTargetException
 class RowViewParityHarnessActivity : AppCompatActivity() {
 
     private lateinit var themeName: String
+
+    /* Applied before anything reads this activity's resources; set by the first start, read by the restart. */
+    override fun attachBaseContext(newBase: Context) {
+        val scale = fontScaleToApply
+        super.attachBaseContext(
+            if (scale == null) {
+                newBase
+            } else {
+                newBase.createConfigurationContext(Configuration(newBase.resources.configuration).apply { fontScale = scale })
+            }
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         themeName = if (intent.getStringExtra(EXTRA_THEME) == "night") "night" else "day"
@@ -77,9 +103,28 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             return
         }
 
+        val requestedScale = intent.getFloatExtra(EXTRA_FONT_SCALE, 0f).takeIf { it > 0f }
+        if (requestedScale != null && fontScaleToApply != requestedScale) {
+            fontScaleToApply = requestedScale
+            /*
+             * Posted, so that it runs once this start has resumed. Called from onCreate itself it
+             * did nothing on the test phone (Android 12): the activity stayed resumed with no
+             * content and nothing in the log said why.
+             */
+            window.decorView.post { recreate() }
+            return
+        }
+        if (requestedScale != null && resources.configuration.fontScale != requestedScale) {
+            val reason = "asked for font scale $requestedScale, running at ${resources.configuration.fontScale}"
+            Log.e(TAG, "aborted: $reason")
+            writeResult(JSONObject().put("aborted", reason))
+            finish()
+            return
+        }
+
         val root = FrameLayout(this)
         setContentView(root)
-        root.doOnLayout { run(width = root.width) }
+        root.doOnLayout { run(width = root.width, root = root) }
     }
 
     /* Why this start must not run, or null when it may. */
@@ -103,7 +148,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         return null
     }
 
-    private fun run(width: Int) {
+    private fun run(width: Int, root: FrameLayout) {
         val targets = try {
             ReflectiveTargets.resolve()
         } catch (missing: MissingReflectiveTarget) {
@@ -117,28 +162,49 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             return
         }
         try {
-            runResolved(width, targets)
+            runResolved(width, root, targets)
         } catch (failure: Exception) {
-            val cause = (failure as? InvocationTargetException)?.targetException ?: failure
-            Log.e(TAG, "aborted: ${cause.javaClass.name}: ${cause.message}")
-            writeResult(JSONObject().put("aborted", "${cause.javaClass.name}: ${cause.message}"))
+            abort(failure)
         }
+    }
+
+    private fun abort(failure: Exception) {
+        val cause = (failure as? InvocationTargetException)?.targetException ?: failure
+        Log.e(TAG, "aborted: ${cause.javaClass.name}: ${cause.message}")
+        writeResult(JSONObject().put("aborted", "${cause.javaClass.name}: ${cause.message}"))
         finish()
     }
 
-    private fun runResolved(width: Int, targets: ReflectiveTargets) {
-        val output = File(filesDir, "parity-harness").apply { mkdirs() }
+    private fun runResolved(width: Int, root: FrameLayout, targets: ReflectiveTargets) {
         val snapshot = ViewStateSnapshot(targets)
+        val passes = intent.getStringExtra(EXTRA_PASSES) ?: PASSES_ALL
+        check(passes in setOf(PASSES_ALL, PASSES_EMOTE, PASSES_MEASURE)) { "unknown passes extra: $passes" }
         val report = JSONObject()
         report.put("commit", BuildConfig.GIT_SHA)
         report.put("themeRequested", themeName)
         report.put("nightModeActive", isNightModeActive())
+        report.put("passes", passes)
         report.put("widthPx", width)
         report.put("density", resources.displayMetrics.density.toDouble())
         report.put("fontScale", resources.configuration.fontScale.toDouble())
+        report.put("fontScaleRequested", intent.getFloatExtra(EXTRA_FONT_SCALE, 0f).takeIf { it > 0f }?.toDouble() ?: JSONObject.NULL)
         report.put("sdk", Build.VERSION.SDK_INT)
         report.put("reflectiveTargets", JSONArray(ReflectiveTargets.descriptions))
 
+        report.put("renderSize", RenderSizeMeasurement(ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)).measure(this))
+        if (passes == PASSES_MEASURE) {
+            finishWith(report, "renderSize measured")
+            return
+        }
+        if (passes == PASSES_ALL) {
+            textPasses(width, targets, snapshot, report)
+        }
+        emotePasses(width, root, targets, snapshot, report)
+    }
+
+    /* The parity pass, its controls, the theme defaults and the rebind proof. */
+    private fun textPasses(width: Int, targets: ReflectiveTargets, snapshot: ViewStateSnapshot, report: JSONObject) {
+        val output = File(filesDir, "parity-harness").apply { mkdirs() }
         val frozen = FrozenRowViews4804609(this, ParityCatalogue.SIGNED_IN)
         val production = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
 
@@ -158,27 +224,120 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         report.put("rows", rows)
         report.put("rowsIdentical", identical)
         report.put("rowsTotal", ParityCatalogue.rows.size)
-        report.put("emoteRowsExcludedFromRebindUntil5c", JSONArray(ParityCatalogue.emoteRows))
+        /* The parity pass compares text alone: neither of its paths may have a loader. */
+        report.put("parityPageHasNoEmoteLoader", production.emoteLoader == null)
         report.put("controls", controls(width, frozen, targets, snapshot))
         report.put("themeDefaults", themeDefaults(production, snapshot))
 
         /* On a fragment of its own, so that its producers accept every catalogue row once more. */
+        val rebindPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
+        val rebindImages = FixedEmoteImageSource(staticOnly = emptySet())
+        rebindPage.installEmoteLoader(rebindImages, EmoteRowRecorder())
         val rebind = RebindProof(
-            production = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets),
+            production = rebindPage,
+            images = rebindImages,
             snapshot = snapshot,
             newContainer = ::newContainer,
             render = { container -> render(container, width) }
         ).run()
         report.put("rebindProof", rebind)
-        val rebindPairs = rebind.getJSONObject("pairs")
+    }
 
+    /* The emote layer with and without a 404, its controls, then the lifecycle proof, which runs across loop turns. */
+    private fun emotePasses(width: Int, root: FrameLayout, targets: ReflectiveTargets, snapshot: ViewStateSnapshot, report: JSONObject) {
+        val render = { container: ViewGroup -> render(container, width) }
+        val layer = EmoteLayerPass(this, targets, snapshot, isNightModeActive(), ::newContainer, render)
+        report.put("emoteLayer", layer.run(staticOnly = emptySet()))
+        report.put("emoteLayerWith404", layer.run(staticOnly = setOf(KAPPA)))
+        report.put("emoteLayerControls", layer.controls())
+
+        /* The rows' data as their producer tags them, from a page with no loader, so that nothing loads on the way. */
+        val dataPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
+        val dataRows = (ParityCatalogue.emoteRows + EmoteLifecycleProof.PLAIN_ROW).associateWith { id ->
+            val row = ParityCatalogue.rows.first { it.id == id }
+            val container = newContainer().also { ParityCatalogue.produce(row, ParityCatalogue.rows.indexOf(row), dataPage, it) }
+            checkNotNull(container.getChildAt(0)?.tag as? ChatMessageRow) { "the producer of $id left no message row" }
+        }
+        val frozen = FrozenRowViews4804609(this, ParityCatalogue.SIGNED_IN)
+        val references = ParityCatalogue.emoteRows.associateWith { id ->
+            val row = ParityCatalogue.rows.first { it.id == id } as ParityRow.Message
+            val index = ParityCatalogue.rows.indexOf(row)
+            val build: () -> LinearLayout = {
+                layer.reference(row, index, frozen, FrozenEmoteLayer4804609(this, FixedEmoteImageSource(emptySet())))
+            }
+            build
+        }
+
+        /*
+         * L10's reference: the echo confirmed, with its emotes, from frozen parts only. The frozen echo
+         * builder fixes its emote tag to null, so the message view comes from the frozen message
+         * builder with the echo's text and tag, the frozen layer adds the images, and the frozen echo
+         * view shows the status. The status line is hidden once confirmed, so its colour is not drawn.
+         */
+        val echoReference: () -> LinearLayout = {
+            newContainer().also { container ->
+                val messageView = frozen.chatMessage(
+                    ParityCatalogue.SIGNED_IN, EmoteLifecycleProof.ECHO_TEXT, EmoteLifecycleProof.ECHO_EMOTES,
+                    null, null, EmoteLifecycleProof.CONFIRM_STEP_SEC
+                ) as TextView
+                FrozenEmoteLayer4804609(this, FixedEmoteImageSource(emptySet()))
+                    .apply(messageView, EmoteLifecycleProof.ECHO_EMOTES, isNightModeActive())
+                container.addView(FrozenRowViews4804609.FrozenPendingEchoView(this).apply {
+                    setMessage(messageView, statusTextColor = 0)
+                    showStatus(FrozenRowViews4804609.FrozenEchoStatus.CONFIRMED)
+                })
+            }
+        }
+
+        val lifecyclePage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
+        val lifecycleImages = FixedEmoteImageSource(staticOnly = emptySet()).apply { holdDeliveries = true }
+        val recorder = EmoteRowRecorder()
+        lifecyclePage.installEmoteLoader(lifecycleImages, recorder)
+        EmoteLifecycleProof(
+            root = root,
+            page = lifecyclePage,
+            images = lifecycleImages,
+            recorder = recorder,
+            rowData = dataRows,
+            references = references,
+            echoReference = echoReference,
+            snapshot = snapshot,
+            newContainer = ::newContainer,
+            render = render
+        ).start { lifecycle ->
+            try {
+                report.put("emoteLifecycle", lifecycle)
+                finishWith(report, summaryOf(report))
+            } catch (failure: Exception) {
+                abort(failure)
+            }
+        }
+    }
+
+    /* Writes [report], logs the one line the stage script waits for, and finishes. */
+    private fun finishWith(report: JSONObject, summary: String) {
         writeResult(report)
-        Log.i(
-            TAG,
-            "done theme=$themeName rows=${ParityCatalogue.rows.size} identical=$identical width=$width " +
-                "rebindPairs=${rebindPairs.getJSONObject("vacuity").getInt("pairs")} " +
-                "rebindIdentical=${rebindPairs.getInt("identical")} rebindPassed=${rebind.getBoolean("passed")}"
-        )
+        Log.i(TAG, "done theme=$themeName $summary")
+        finish()
+    }
+
+    private fun summaryOf(report: JSONObject): String {
+        val parts = mutableListOf<String>()
+        if (report.has("rowsTotal")) {
+            parts += "rows=${report.getInt("rowsTotal")} identical=${report.getInt("rowsIdentical")}"
+            val rebind = report.getJSONObject("rebindProof")
+            val pairs = rebind.getJSONObject("pairs")
+            parts += "rebindPairs=${pairs.getJSONObject("vacuity").getInt("pairs")} rebindIdentical=${pairs.getInt("identical")} " +
+                "sessionsHeld=${pairs.getInt("sessionsHeld")} imagesHeld=${pairs.getInt("imagesHeld")} " +
+                "rebindPassed=${rebind.getBoolean("passed")}"
+        }
+        val layer = report.getJSONObject("emoteLayer")
+        val layer404 = report.getJSONObject("emoteLayerWith404")
+        parts += "emoteLayer=${layer.getInt("rowsIdentical")}/${layer.getInt("rowsTotal")}"
+        parts += "emoteLayerWith404=${layer404.getInt("rowsIdentical")}/${layer404.getInt("rowsTotal")}"
+        val lifecycle = report.getJSONObject("emoteLifecycle")
+        parts += "lifecycle=${lifecycle.getInt("passed")}/${lifecycle.getInt("expectedSteps")}"
+        return parts.joinToString(" ")
     }
 
     private fun writeResult(result: JSONObject) {
@@ -312,8 +471,19 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     private companion object {
         const val TAG = "PARITY_HARNESS"
         const val EXTRA_THEME = "theme"
+        const val EXTRA_PASSES = "passes"
+        const val EXTRA_FONT_SCALE = "fontScale"
+        const val PASSES_ALL = "all"
+        const val PASSES_EMOTE = "emote"
+        const val PASSES_MEASURE = "measure"
         const val PRODUCTION = "production"
         const val FROZEN = "frozen"
+
+        /* The emote id of the catalogue's emote rows, declared static-only for the pass with a 404. */
+        const val KAPPA = "25"
+
+        /* The font scale the restart applies; null until a start asks for one. */
+        var fontScaleToApply: Float? = null
 
         /* Held by the adb shell; an ordinary app cannot be granted it. The manifest entry requires it. */
         const val REQUIRED_PERMISSION = Manifest.permission.DUMP

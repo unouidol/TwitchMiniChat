@@ -19,7 +19,9 @@ data class TimelineSpan(val top: Int, val bottom: Int)
  *   and never paused, so neither callback can tell it to stop. This signal does not
  *   depend on them: it is reported by whoever owns the pager.
  * - **The row intersects the viewport.** The timeline is a ScrollView, not a recycling
- *   list, so a row that scrolled away stays attached for the life of the page.
+ *   list, so a row that scrolled away stays attached for the life of the page. That stops
+ *   being true when the timeline becomes a RecyclerView (5d): see ChatRowViewBinder's
+ *   constraints for 5d.
  *
  * Nothing runs until all three are known to hold. A page that is started but never
  * current therefore runs nothing from its first row on, without waiting for a callback

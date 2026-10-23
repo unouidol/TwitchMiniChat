@@ -8,6 +8,10 @@ anchored to, so no pull request needs to be open beside it.
 carries everything 5.5.2 set out to do plus the chat work. "5.5.2" in this file names that work
 as it was planned; it reaches users as 5.6.0.
 
+This round does not cover the chat work. Its device rounds have files of their own in `docs/`,
+starting with `manual-plan-5c-emotes.md`, and all of them fold into the 5.6.0 plan when it is
+anchored.
+
 ## Which build this round applies to
 
 **The anchor is retired.** The round applied to `main-v5` at `50c3069` only while 5.5.2 was

@@ -128,7 +128,7 @@ internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
                 is ForegroundColorSpan -> "ForegroundColorSpan(${span.foregroundColor})"
                 is BackgroundColorSpan -> "BackgroundColorSpan(${span.backgroundColor})"
                 is StyleSpan -> "StyleSpan(${span.style})"
-                is ImageSpan -> "ImageSpan"
+                is ImageSpan -> imageOf(span)
                 is ClickableSpan -> linkOf(span)
                 else -> span.javaClass.name
             }
@@ -150,6 +150,21 @@ internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
         targets.swipeReplyTextView -> targets.swipeReplyTextViewOnSwipeReply.get(view) != null
         targets.frozenSwipeReplyTextView -> targets.frozenSwipeReplyTextViewOnSwipeReply.get(view) != null
         else -> null
+    }
+
+    /*
+     * An image span by its alignment, its drawable's bounds and the image it shows: a harness image
+     * by what its URL named, any other drawable by its class. The bounds are the render size, so a
+     * wrong one is a state difference as well as a pixel one.
+     */
+    private fun imageOf(span: ImageSpan): String {
+        val drawable = span.drawable
+        val bounds = drawable.bounds
+        val image = (drawable as? FixedEmoteDrawable)?.emote
+            ?.let { emote -> "${emote.id}/${emote.format}/${emote.theme}/${emote.scale}" }
+            ?: drawable.javaClass.name
+        return "ImageSpan($image, bounds=${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}, " +
+            "align=${span.verticalAlignment})"
     }
 
     /* A web link span by its url; any other clickable span by its class. */

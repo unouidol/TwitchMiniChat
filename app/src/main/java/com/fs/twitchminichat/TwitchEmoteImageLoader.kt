@@ -9,15 +9,7 @@ import android.text.Spanned
 import android.text.style.ImageSpan
 import android.view.View
 import android.widget.TextView
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.HttpException
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.RequestManager
-import com.bumptech.glide.load.resource.gif.GifDrawable
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.target.Target
-import com.bumptech.glide.request.transition.Transition
+import com.fs.twitchminichat.chat.EmoteSessions
 import java.util.Collections
 
 /**
@@ -50,26 +42,37 @@ interface AnimatedEmoteRowListener {
 }
 
 /**
- * Loads inline Twitch emotes and owns their Glide lifecycle for rendered chat rows.
+ * Loads inline Twitch emotes and owns the lifecycle of their images for rendered chat rows. The
+ * images come from [images], which production backs with Glide.
+ *
+ * Each row's view holds at most one session: the loads and images of the row it shows. The binding
+ * decides when a session ends, never the window. [bind] ends the session of the row the view showed
+ * before, [release] ends the session of a view whose row leaves the timeline, and [releaseAll] ends
+ * every session when the page's view goes. A view detached from the window keeps its session: its
+ * animated emotes stop on the frame they show, and run again from it when the view is attached again.
  *
  * Animated media is attempted once per emote ID. When Twitch exposes only the static
  * Portable Network Graphics (PNG) version, a Hypertext Transfer Protocol (HTTP) 404
- * response is remembered for the current process and later rows load the static
- * resource directly.
+ * response is remembered by this loader, which the chat page builds in onViewCreated and
+ * drops in onDestroyView, so for as long as the page's view lasts, and later rows load the
+ * static resource directly.
  *
  * Whether an animated emote runs is not decided here: each row that holds one is
  * reported to [animatedRows], which tells it.
  */
-class TwitchEmoteImageLoader(
-    private val requestManager: RequestManager,
-    private val chatPageView: View,
+internal class TwitchEmoteImageLoader(
+    private val images: EmoteImageSource,
     private val animatedRows: AnimatedEmoteRowListener
 ) {
-    private val sessions = mutableSetOf<LoadSession>()
+    private val sessions = EmoteSessions<TextView, LoadSession>(release = { session -> session.release() })
     private val staticOnlyEmoteIds = Collections.synchronizedSet(mutableSetOf<String>())
 
-    /** Loads all markers belonging to one chat row. */
-    fun loadInto(
+    /**
+     * Gives [textView] the emotes of the row it has just been bound to: ends the session of the
+     * row it showed before, then, when [markers] is not empty, installs [text] and loads each marker's
+     * image into it.
+     */
+    fun bind(
         textView: TextView,
         text: SpannableStringBuilder,
         markers: List<TwitchEmoteMarker>,
@@ -77,6 +80,7 @@ class TwitchEmoteImageLoader(
         renderSizePx: Int,
         darkTheme: Boolean
     ) {
+        sessions.release(textView)
         if (markers.isEmpty() || renderSizePx <= 0) return
 
         /*
@@ -89,13 +93,10 @@ class TwitchEmoteImageLoader(
 
         val session = LoadSession(
             textView = textView,
-            text = liveText,
-            onReleased = { releasedSession ->
-                sessions.remove(releasedSession)
-            }
+            text = liveText
         )
 
-        sessions += session
+        sessions.put(textView, session)
         textView.addOnAttachStateChangeListener(session)
 
         val theme = if (darkTheme) TwitchEmoteTheme.DARK else TwitchEmoteTheme.LIGHT
@@ -128,10 +129,14 @@ class TwitchEmoteImageLoader(
         }
     }
 
-    /** Stops animations and clears every request owned by the current chat view. */
-    fun clearAll() {
-        sessions.toList().forEach { session -> session.release() }
-        sessions.clear()
+    /** Ends the session of [textView], whose row leaves the timeline or whose holder is recycled. */
+    fun release(textView: TextView) {
+        sessions.release(textView)
+    }
+
+    /** Ends every session, stopping every animation and clearing every load: the page's view is going. */
+    fun releaseAll() {
+        sessions.releaseAll()
     }
 
     /** Attempts the animated Graphics Interchange Format (GIF) before static PNG. */
@@ -150,25 +155,25 @@ class TwitchEmoteImageLoader(
             scale = scale
         ) ?: return
 
-        val target = object : CustomTarget<GifDrawable>(renderSizePx, renderSizePx) {
-            private var resource: GifDrawable? = null
+        val request = EmoteImageRequest(url = url, format = TwitchEmoteFormat.ANIMATED, renderSizePx = renderSizePx)
+        session.track(images.load(request, object : EmoteImageSink {
+            private var resource: Drawable? = null
 
-            override fun onResourceReady(
-                resource: GifDrawable,
-                transition: Transition<in GifDrawable>?
-            ) {
+            override fun onReady(drawable: Drawable) {
                 if (session.isReleased) return
 
-                this.resource = resource
-                resource.setLoopCount(GifDrawable.LOOP_FOREVER)
+                resource = drawable
                 session.installDrawable(
-                    drawable = resource,
+                    drawable = drawable,
                     markerIndex = markerIndex,
                     renderSizePx = renderSizePx
                 )
             }
 
-            override fun onLoadFailed(errorDrawable: Drawable?) {
+            override fun onFailed(missingAnimatedVariant: Boolean) {
+                if (missingAnimatedVariant) {
+                    staticOnlyEmoteIds += emoteId
+                }
                 if (session.isReleased) return
 
                 loadStatic(
@@ -181,9 +186,9 @@ class TwitchEmoteImageLoader(
                 )
             }
 
-            override fun onLoadCleared(placeholder: Drawable?) {
+            override fun onCleared() {
                 /*
-                 * Glide may recycle this GIF after clearing the target. Remove the
+                 * The source may recycle this GIF after clearing the load. Remove the
                  * matching ImageSpan first so the TextView never retains recycled frames.
                  */
                 session.clearInstalledDrawable(
@@ -192,41 +197,7 @@ class TwitchEmoteImageLoader(
                 )
                 resource = null
             }
-        }
-
-        session.track(target)
-        requestManager
-            .asGif()
-            .load(url)
-            .listener(object : RequestListener<GifDrawable> {
-                override fun onLoadFailed(
-                    error: GlideException?,
-                    model: Any?,
-                    target: Target<GifDrawable>,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    val isMissingAnimatedVariant = error
-                        ?.rootCauses
-                        ?.filterIsInstance<HttpException>()
-                        ?.any { cause -> cause.statusCode == 404 }
-                        ?: false
-
-                    if (isMissingAnimatedVariant) {
-                        staticOnlyEmoteIds += emoteId
-                    }
-                    return false
-                }
-
-                override fun onResourceReady(
-                    resource: GifDrawable,
-                    model: Any,
-                    target: Target<GifDrawable>,
-                    dataSource: DataSource,
-                    isFirstResource: Boolean
-                ): Boolean = false
-            })
-            .override(renderSizePx, renderSizePx)
-            .into(target)
+        }))
     }
 
     /** Loads the static PNG used when the emote has no animated representation. */
@@ -245,26 +216,27 @@ class TwitchEmoteImageLoader(
             scale = scale
         ) ?: return
 
-        val target = object : CustomTarget<Drawable>(renderSizePx, renderSizePx) {
+        val request = EmoteImageRequest(url = url, format = TwitchEmoteFormat.STATIC, renderSizePx = renderSizePx)
+        session.track(images.load(request, object : EmoteImageSink {
             private var resource: Drawable? = null
 
-            override fun onResourceReady(
-                resource: Drawable,
-                transition: Transition<in Drawable>?
-            ) {
+            override fun onReady(drawable: Drawable) {
                 if (session.isReleased) return
 
-                this.resource = resource
+                resource = drawable
                 session.installDrawable(
-                    drawable = resource,
+                    drawable = drawable,
                     markerIndex = markerIndex,
                     renderSizePx = renderSizePx
                 )
             }
 
-            override fun onLoadCleared(placeholder: Drawable?) {
+            /* A static image that cannot be loaded leaves its marker invisible, as it always did. */
+            override fun onFailed(missingAnimatedVariant: Boolean) = Unit
+
+            override fun onCleared() {
                 /*
-                 * Static resources follow the same Glide ownership contract as GIFs.
+                 * Static resources follow the same ownership contract as GIFs.
                  */
                 session.clearInstalledDrawable(
                     drawable = resource,
@@ -272,23 +244,15 @@ class TwitchEmoteImageLoader(
                 )
                 resource = null
             }
-        }
-
-        session.track(target)
-        requestManager
-            .asDrawable()
-            .load(url)
-            .override(renderSizePx, renderSizePx)
-            .into(target)
+        }))
     }
 
-    /** Owns all requests and drawable callbacks attached to one chat TextView. */
+    /** Owns all loads and drawable callbacks attached to one chat TextView. */
     private inner class LoadSession(
         private val textView: TextView,
-        private val text: Spannable,
-        private val onReleased: (LoadSession) -> Unit
+        private val text: Spannable
     ) : View.OnAttachStateChangeListener, AnimatedEmoteRow {
-        private val targets = mutableSetOf<Target<*>>()
+        private val loads = mutableSetOf<EmoteImageLoad>()
         private val animatedDrawables = mutableSetOf<Animatable>()
         private var isAttachedToWindow = textView.isAttachedToWindow
 
@@ -326,20 +290,32 @@ class TwitchEmoteImageLoader(
             }
         }
 
+        /**
+         * Whether the session has ended. Every sink reads it before touching the session, and an
+         * image or a failure that arrives after the release is dropped.
+         *
+         * A silent guard on purpose, not a precondition. As far as Glide 4.16.0 can be read, such
+         * a delivery cannot happen: a release clears every load, a cleared request delivers
+         * nothing (SingleRequest.clear cancels its load), and EngineJob delivers only to a
+         * callback still registered (EngineJob.java:401, :425). But that is a library's internal
+         * contract, which this code can read and cannot control, and a precondition here would
+         * turn a future change in it into a crash in the user's app. The test in installDrawable
+         * is the same guard, one call further down: only the sinks call it.
+         */
         var isReleased: Boolean = false
             private set
 
-        /** Keeps one Glide target available until the chat view is destroyed. */
-        fun track(target: Target<*>) {
-            if (isReleased) {
-                requestManager.clear(target)
-                return
+        /** Keeps one load until the session is released. */
+        fun track(load: EmoteImageLoad) {
+            check(!isReleased) {
+                "A load was started for a released emote session. Invariant: a load starts only inside its " +
+                    "session's bind, or from a failed load's callback, which checks isReleased first."
             }
-            targets += target
+            loads += load
         }
 
         /**
-         * Removes one Glide-owned drawable before its resource can be recycled.
+         * Removes one source-owned drawable before its resource can be recycled.
          *
          * The identity check prevents a late clear callback from removing a newer
          * drawable that has already been installed at the same marker.
@@ -428,7 +404,8 @@ class TwitchEmoteImageLoader(
         }
 
         override fun setAnimationsWanted(wanted: Boolean) {
-            if (isReleased || animationsWanted == wanted) return
+            /* A released row is no longer tracked, and its drawables are gone: this is never asked of one. */
+            if (animationsWanted == wanted) return
 
             animationsWanted = wanted
             applyAnimationState()
@@ -446,54 +423,44 @@ class TwitchEmoteImageLoader(
             }
         }
 
-        /** Resumes the row's animations, if they are wanted, when ViewPager2 reattaches the account page. */
-        override fun onViewAttachedToWindow(view: View) {
-            if (isReleased) return
+        /*
+         * Neither attach callback is ever called on a released session: release removes this
+         * listener first.
+         */
 
+        /** Resumes the row's animations, if they are wanted, when it is attached again: ViewPager2's page, or a list's row. */
+        override fun onViewAttachedToWindow(view: View) {
             isAttachedToWindow = true
             applyAnimationState()
         }
 
         /**
-         * Pauses animations while a chat row is detached.
-         *
-         * The release decision is deferred until the current detach traversal
-         * completes. This prevents a child row from being released immediately
-         * before its ViewPager2 account page is detached and later reattached.
+         * Pauses the row's animations while it is detached, and nothing else: its spans, its
+         * drawables and its loads stay, so a row attached again without being bound again - a page
+         * ViewPager2 brings back, a holder a RecyclerView hands back from its cache - shows its
+         * emotes as it left them. The session ends only when the binding ends it.
          */
         override fun onViewDetachedFromWindow(view: View) {
-            if (isReleased) return
-
             isAttachedToWindow = false
             applyAnimationState()
-
-            textView.post {
-                if (isReleased || textView.isAttachedToWindow) return@post
-
-                /*
-                 * Release a permanently removed row only while its account page
-                 * remains attached. ChatFragment owns final page cleanup.
-                 */
-                if (chatPageView.isAttachedToWindow) {
-                    release()
-                }
-            }
         }
 
-        /** Clears requests, stops GIFs through their targets, and releases the row. */
+        /** Clears its loads, which stops and removes their GIFs, and releases the row. Only [sessions] calls it. */
         fun release() {
-            if (isReleased) return
+            check(!isReleased) {
+                "An emote session was released twice. Invariant: only EmoteSessions releases a session, and it " +
+                    "removes the session in the same call."
+            }
             isReleased = true
 
             textView.removeOnAttachStateChangeListener(this)
             animatedDrawables.forEach { drawable -> drawable.stop() }
             animatedDrawables.clear()
-            targets.toList().forEach { target -> requestManager.clear(target) }
-            targets.clear()
+            loads.toList().forEach { load -> load.clear() }
+            loads.clear()
             if (reportedAsAnimated) {
                 animatedRows.onAnimatedRowReleased(this)
             }
-            onReleased(this)
         }
     }
 }

@@ -99,11 +99,20 @@ internal object ParityCatalogue {
         ParityRow.Echo("echo.reply", "answering", reply = "parity_alice")
     )
 
-    /** The rows the 5a-2 rebind proof cannot cover until 5c: their text holds emote markers. */
+    /**
+     * The rows whose text holds emote markers. The parity pass shows them without images, as both of
+     * its paths have no loader; the emote passes compare their images.
+     */
     val emoteRows: List<String> = rows
         .filterIsInstance<ParityRow.Message>()
         .filter { row -> !row.emotesRaw.isNullOrBlank() }
         .map { row -> row.id }
+
+    /** How many emotes the tag [emotesRaw] places: one per range, counted from the tag alone. */
+    fun emoteCount(emotesRaw: String?): Int {
+        if (emotesRaw.isNullOrBlank()) return 0
+        return emotesRaw.split('/').sumOf { specification -> specification.substringAfter(':').split(',').size }
+    }
 
     /** Builds [row] with ChatFragment's producers into [container]. */
     fun produce(row: ParityRow, index: Int, production: ProductionRowViews, container: ViewGroup) {

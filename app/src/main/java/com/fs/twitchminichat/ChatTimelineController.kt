@@ -117,7 +117,8 @@ class ChatTimelineController internal constructor(
 
 /**
  * The timeline's views as the children of [container], each built and bound by [rowViews],
- * which also writes each view's row as its tag.
+ * which also writes each view's row as its tag. A view leaves the container unbound, so what it
+ * loaded for its row - a message's emotes - ends with the removal, not when the view is detached.
  */
 private class ContainerTimelineViews(
     private val container: ViewGroup,
@@ -132,10 +133,14 @@ private class ContainerTimelineViews(
     }
 
     override fun removeAt(index: Int) {
+        rowViews.unbind(container.getChildAt(index))
         container.removeViewAt(index)
     }
 
     override fun removeAll() {
+        for (index in 0 until container.childCount) {
+            rowViews.unbind(container.getChildAt(index))
+        }
         container.removeAllViews()
     }
 

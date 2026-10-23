@@ -1,15 +1,20 @@
 package com.fs.twitchminichat.harness
 
+import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ScrollView
+import android.widget.TextView
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import com.fs.twitchminichat.AccountConfig
+import com.fs.twitchminichat.AnimatedEmoteRowListener
 import com.fs.twitchminichat.ChatFragment
 import com.fs.twitchminichat.ChatRowViewBinder
 import com.fs.twitchminichat.ChatTimelineController
+import com.fs.twitchminichat.EmoteImageSource
 import com.fs.twitchminichat.PendingOutgoingChatMessage
+import com.fs.twitchminichat.TwitchEmoteImageLoader
 import com.fs.twitchminichat.chat.PendingEchoEvent
 
 /**
@@ -29,6 +34,10 @@ import com.fs.twitchminichat.chat.PendingEchoEvent
  * scrollToBottom posts to. That scroll view is never attached, so what it posts never runs. The one
  * field read is the fragment's own row view binder, which every timeline here builds its views with,
  * as the page's own timeline does.
+ *
+ * The emote loader is the fourth field, and only the emote passes set it. onViewCreated never runs
+ * here, so a fragment has no loader until [installEmoteLoader] gives it one that draws from the
+ * harness's own image source, which is the one difference between this page and the real one.
  *
  * Read on the way, unchanged: HiddenUsersStore, by appendChatLine's hidden-user check. A catalogue
  * user hidden on the device would produce no row, which the harness reports.
@@ -63,6 +72,21 @@ internal class ProductionRowViews(
     /** The fragment's binder: what builds and binds every row's view on this page. */
     val binder: ChatRowViewBinder
         get() = targets.rowViewBinder.get(fragment) as ChatRowViewBinder
+
+    /** The fragment's emote loader: null unless [installEmoteLoader] gave it one. */
+    val emoteLoader: TwitchEmoteImageLoader?
+        get() = targets.emoteImageLoader.get(fragment) as TwitchEmoteImageLoader?
+
+    /**
+     * Gives the fragment an emote loader drawing from [images], where onViewCreated would give it one
+     * drawing from Glide, reporting its animated rows to [rows].
+     */
+    fun installEmoteLoader(images: EmoteImageSource, rows: AnimatedEmoteRowListener): TwitchEmoteImageLoader {
+        check(emoteLoader == null) { "this fragment already has an emote loader" }
+        val loader = EmoteOwnership.newLoader(images, rows)
+        targets.emoteImageLoader.set(fragment, loader)
+        return loader
+    }
 
     /** A fresh timeline over [container], with the fragment's binder; every row produced after this goes into it. */
     fun newTimeline(container: ViewGroup): ChatTimelineController {
@@ -101,8 +125,11 @@ internal class ProductionRowViews(
     }
 
     /** A message view as ChatFragment constructs it, before anything sets it up: its theme defaults. */
-    fun freshMessageView(): View =
-        targets.swipeReplyTextViewConstructor.newInstance(fragment, fragment.requireContext()) as View
+    fun freshMessageView(): View = freshMessageView(fragment.requireContext())
+
+    /** A message view as ChatFragment constructs it, in [context] instead of the page's. */
+    fun freshMessageView(context: Context): TextView =
+        targets.swipeReplyTextViewConstructor.newInstance(fragment, context) as TextView
 
     private companion object {
         const val FRAGMENT_TAG = "row-view-parity-harness"
