@@ -128,6 +128,7 @@ private class ContainerTimelineViews(
     /* The tag is written here, by the bind, before the view is added, as it always was. */
     override fun create(row: ChatTimelineRow): View {
         val probeBuild = com.fs.twitchminichat.probe.StartupProbe.buildIn(com.fs.twitchminichat.probe.StartupProbe.BUILD_CREATE_AND_BIND)
+        com.fs.twitchminichat.probe.StartupProbe.inject("build", 0, com.fs.twitchminichat.probe.StartupProbe.bindOrdinal(), target = 10)
         val view = rowViews.create(row)
         com.fs.twitchminichat.probe.StartupProbe.buildOut(probeBuild, view)
         return view
