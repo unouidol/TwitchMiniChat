@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The attributes of fragment_chat.xml's chatList, so its rows sit and round exactly as the real
+    ones. Only the height differs: wrap_content, so that a list measured with no height limit lays
+    out every row. A pass that needs a viewport gives the list a fixed height of its own.
+-->
+<androidx.recyclerview.widget.RecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clipToPadding="false"
+    android:padding="12dp"
+    android:scrollbars="vertical"
+    android:contentDescription="@string/chat_messages" />

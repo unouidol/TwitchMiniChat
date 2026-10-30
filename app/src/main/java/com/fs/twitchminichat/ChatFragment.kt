@@ -1,5 +1,6 @@
 package com.fs.twitchminichat
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
@@ -25,7 +26,6 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.MultiAutoCompleteTextView
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -34,6 +34,7 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isEmpty
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -55,7 +56,6 @@ import com.fs.twitchminichat.chat.PendingEchoEvent
 import com.fs.twitchminichat.chat.PendingEchoRow
 import com.fs.twitchminichat.chat.PendingEchoStatus
 import com.fs.twitchminichat.chat.EmoteAnimationGate
-import com.fs.twitchminichat.chat.TimelineSpan
 import com.fs.twitchminichat.chat.HistoryBackfillDecision
 import com.fs.twitchminichat.chat.HistoryBackfillInputs
 import com.fs.twitchminichat.chat.HistoryBackfillPolicy
@@ -180,8 +180,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private lateinit var channelSwitchBox: LinearLayout
     private lateinit var textStatus: TextView
-    private lateinit var scrollChat: ScrollView
-    private lateinit var chatContainer: LinearLayout
+    /** The chat timeline's list: only the shown rows, each with a view while the list lays it out. */
+    private lateinit var chatList: RecyclerView
     /** Orders asynchronous history and live rows by Twitch timestamp. */
     private lateinit var chatTimelineController: ChatTimelineController
     /** Owns inline emote requests and animated drawable lifecycles for chat rows. */
@@ -189,16 +189,33 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     /**
      * Decides which rows' animated emotes run, for the life of the chat view. This page
-     * only reports to it: started or stopped, current page or not, and the viewport.
+     * only reports to it: started or stopped, and current page or not.
      */
     private var emoteAnimationGate: EmoteAnimationGate<AnimatedEmoteRow>? = null
 
-    /* True while a viewport reconcile is posted and has not run yet. */
-    private var emoteAnimationReconcilePending = false
+    /**
+     * Whether the chat follows new rows: the user's scrolls decide it, as the ScrollView's did.
+     *
+     * A call with no movement is not a scroll: RecyclerView reports one after any layout that
+     * changes which rows are attached (RecyclerView 1.3.1, RecyclerView.java:4740-4741). While history
+     * arrives, rows are inserted faster than the list lays them out, so the newest row often has no
+     * view yet when such a layout reports; asked then, "near the bottom" would answer no and the chat
+     * would stop following in the middle of its own start-up. The ScrollView reported only changes
+     * of its scroll offset, and so does this listener.
+     */
+    private val chatScrollListener = object : RecyclerView.OnScrollListener() {
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+            if (dx == 0 && dy == 0) return
 
-    private val emoteAnimationReconcile = Runnable {
-        emoteAnimationReconcilePending = false
-        reportEmoteAnimationViewport()
+            val nearBottom = isNearBottom()
+            stickToBottom = nearBottom
+
+            if (nearBottom) {
+                unseenMessages = 0
+            }
+
+            updateJumpToBottomButton()
+        }
     }
 
     /* Re-asks the pager's owner; registered from onStart to onStop. */
@@ -1079,9 +1096,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     /**
      * Hides all currently rendered messages from a locally hidden user.
      *
-     * The rows stay in the timeline and their views in chatContainer; only which are
-     * shown changes. This allows them to become visible again immediately if the user is
-     * later unblocked.
+     * The rows stay in the timeline; only which are shown changes, and the list holds
+     * only the shown ones. This allows them to become visible again immediately if the
+     * user is later unblocked.
      */
     private fun removeMessagesOfHiddenUser(user: String) {
         val normalized = normalizeChatUser(user)
@@ -1107,7 +1124,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * be made visible again without reopening the whole chat.
      */
     private fun refreshHiddenUserVisibilityInChat() {
-        if (!this::chatContainer.isInitialized) return
+        if (!this::chatList.isInitialized) return
         if (!isAdded) return
 
         val changedAnyView = chatTimelineController.setHiddenUsers(
@@ -1392,11 +1409,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      *
      * Long-pressing refresh lets the user flag the moment a gap was noticed, so
      * the journal can be read without knowing the exact wall-clock time later.
+     *
+     * renderedRows is the number of shown rows. Before 5d it was the container's child
+     * count, which included the rows of hidden users; a list holds only the shown rows,
+     * and its own child count would be only the rows laid out on screen.
      */
     private fun markDiagnosticsMoment() {
         recordDiagnostics(
             "user.marker",
-            "renderedRows" to chatContainer.childCount
+            "renderedRows" to chatTimelineController.shownRowCount
         )
 
         Toast.makeText(
@@ -1466,11 +1487,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         channelSwitchBox = view.findViewById(R.id.channelSwitchBox)
         textStatus = view.findViewById(R.id.textStatus)
-        scrollChat = view.findViewById(R.id.scrollChat)
-        chatContainer = view.findViewById(R.id.chatContainer)
-        chatTimelineController = ChatTimelineController(chatContainer, rowViewBinder)
+        chatList = view.findViewById(R.id.chatList)
+        chatTimelineController = ChatTimelineController(chatList, rowViewBinder)
         val animationGate = EmoteAnimationGate<AnimatedEmoteRow>(
-            spanOf = { row -> timelineSpanOf(row.view) },
             setAnimating = { row, animating -> row.setAnimationsWanted(animating) }
         )
         emoteAnimationGate = animationGate
@@ -1479,8 +1498,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             animatedRows = object : AnimatedEmoteRowListener {
                 override fun onAnimatedRowAdded(row: AnimatedEmoteRow) {
                     animationGate.add(row)
-                    /* Usually not laid out yet: the next reconcile places it. */
-                    scheduleEmoteAnimationReconcile()
                 }
 
                 override fun onAnimatedRowReleased(row: AnimatedEmoteRow) {
@@ -1488,10 +1505,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 }
             }
         )
-        /* Rows inserted or resized above the viewport move the others without a scroll. */
-        chatContainer.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            scheduleEmoteAnimationReconcile()
-        }
         emoteCatalogController = TwitchEmoteCatalogController(
             context = requireContext(),
             accountId = accountId
@@ -1752,8 +1765,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
 
         view.setOnClickListener(clearChannelFocusClickListener)
-        scrollChat.setOnClickListener(clearChannelFocusClickListener)
-        chatContainer.setOnClickListener(clearChannelFocusClickListener)
+        /* A tap no row takes, between, around or below the rows: RecyclerView would never click on its own. */
+        chatList.setOnClickListener(clearChannelFocusClickListener)
+        attachEmptySpaceTaps(chatList)
         textStatus.setOnClickListener(clearChannelFocusClickListener)
         replyBar.setOnClickListener(clearChannelFocusClickListener)
 
@@ -1913,17 +1927,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         ViewCompat.requestApplyInsets(view)
 
-        scrollChat.setOnScrollChangeListener { _, _, _, _, _ ->
-            val nearBottom = isNearBottom()
-            stickToBottom = nearBottom
-
-            if (nearBottom) {
-                unseenMessages = 0
-            }
-
-            updateJumpToBottomButton()
-            scheduleEmoteAnimationReconcile()
-        }
+        chatList.addOnScrollListener(chatScrollListener)
 
         updateJumpToBottomButton()
 
@@ -1965,13 +1969,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         externalBrowserLinkController?.release()
         externalBrowserLinkController = null
 
-        /* No removal reaches the views that go with the page, so their sessions end here. */
+        /*
+         * No holder reaches onViewRecycled when the page's view goes - the list recycles nothing on
+         * detach (ChatRowViewBinder, item 8) - so the sessions of the attached and cached rows end here.
+         */
         emoteImageLoader?.releaseAll()
         emoteImageLoader = null
-        if (this::scrollChat.isInitialized) {
-            scrollChat.removeCallbacks(emoteAnimationReconcile)
-        }
-        emoteAnimationReconcilePending = false
         emoteAnimationGate = null
         emoteCatalogController?.close()
         emoteCatalogController = null
@@ -3028,12 +3031,24 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
     }
 
+    /**
+     * Whether the newest row is in view, or ends within [bottomThresholdPx] below the list's
+     * bottom edge.
+     *
+     * Exact pixels from the laid-out views, as the ScrollView's answer was, and not
+     * computeVerticalScroll*, which LinearLayoutManager estimates from the average row height.
+     * The newest row must have a view: a list scrolled away from it, or not laid out since it
+     * arrived, is not near the bottom. A list with no rows, or none laid out yet, is, as an empty
+     * ScrollView was.
+     */
     private fun isNearBottom(): Boolean {
-        if (!this::scrollChat.isInitialized || !this::chatContainer.isInitialized) return true
+        if (!this::chatList.isInitialized) return true
 
-        val contentBottom = chatContainer.bottom
-        val viewportBottom = scrollChat.scrollY + scrollChat.height
-        val distanceFromBottom = contentBottom - viewportBottom
+        val count = chatList.adapter?.itemCount ?: 0
+        if (count == 0 || chatList.isEmpty()) return true
+
+        val newest = chatList.findViewHolderForAdapterPosition(count - 1)?.itemView ?: return false
+        val distanceFromBottom = newest.bottom - (chatList.height - chatList.paddingBottom)
 
         return distanceFromBottom <= bottomThresholdPx
     }
@@ -3664,9 +3679,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
+    /**
+     * Brings the newest row into view, after whatever this turn of the loop still inserts.
+     *
+     * Posted, as the ScrollView's scroll was. The newest row is read when the post runs, and the
+     * list scrolls to it at its next layout, ending at its bottom edge. One difference, reasoned
+     * from LinearLayoutManager's scrollToPosition: a row taller than the whole list shows its top,
+     * where the ScrollView showed the bottom of everything.
+     */
     private fun scrollToBottom() {
-        scrollChat.post {
-            scrollChat.scrollTo(0, chatContainer.bottom)
+        chatList.post {
+            val count = chatList.adapter?.itemCount ?: 0
+            if (count > 0) {
+                chatList.scrollToPosition(count - 1)
+            }
             stickToBottom = true
             unseenMessages = 0
             updateJumpToBottomButton()
@@ -3678,39 +3704,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         return (activity as? CurrentChatPageSource)?.isCurrentChatPage(accountId) ?: true
     }
 
-    /**
-     * Reports the viewport to [emoteAnimationGate] once, [EMOTE_ANIMATION_RECONCILE_DELAY_MS]
-     * after the first scroll or layout that asks for it. Those that arrive before it runs
-     * are absorbed, and it reads the position when it runs: at most one reconcile per
-     * interval, however fast the scroll events come, and never one per event.
+    /*
+     * Lint's ClickableViewAccessibility asks that a view given a touch listener override performClick.
+     * RecyclerView does not, and needs not here: the listener calls the list's own performClick on the
+     * tap it detects, and an accessibility click reaches the same OnClickListener through
+     * View.performClick, which RecyclerView inherits.
      */
-    private fun scheduleEmoteAnimationReconcile() {
-        if (emoteAnimationReconcilePending || !this::scrollChat.isInitialized) return
-
-        emoteAnimationReconcilePending = true
-        scrollChat.postDelayed(emoteAnimationReconcile, EMOTE_ANIMATION_RECONCILE_DELAY_MS)
-    }
-
-    private fun reportEmoteAnimationViewport() {
-        val gate = emoteAnimationGate ?: return
-        if (!this::scrollChat.isInitialized || !this::chatContainer.isInitialized) return
-
-        /* The timeline's coordinates are the container's; the scroll offset is the view's. */
-        val top = scrollChat.scrollY - chatContainer.top
-        gate.onViewport(top = top, bottom = top + scrollChat.height)
-    }
-
-    /** Where [row] is in the timeline's coordinates, or null when it is not in the timeline. */
-    private fun timelineSpanOf(row: View): TimelineSpan? {
-        if (!this::chatContainer.isInitialized) return null
-
-        var top = 0
-        var current: View = row
-        while (current !== chatContainer) {
-            top += current.top
-            current = current.parent as? View ?: return null
-        }
-        return TimelineSpan(top = top, bottom = top + row.height)
+    @SuppressLint("ClickableViewAccessibility")
+    private fun attachEmptySpaceTaps(list: RecyclerView) {
+        list.setOnTouchListener(ChatListEmptySpaceTaps(list))
     }
 
     private fun isDarkTheme(): Boolean {
@@ -4068,16 +4070,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
          * taps feel delayed.
          */
         private const val COMPOSER_FOCUS_GUARD_MS = 420L
-
-        /**
-         * How long a scroll or a layout waits before the visible rows are reconciled.
-         *
-         * A row that scrolls into view shows the frame it stopped on until then; a row
-         * that leaves keeps running until then. A tenth of a second is short enough not
-         * to be seen as a frozen emote, and caps the work at ten reconciles a second
-         * during a fling.
-         */
-        private const val EMOTE_ANIMATION_RECONCILE_DELAY_MS = 100L
 
         /**
          * Maximum time after composer ACTION_DOWN where an outside click can be considered

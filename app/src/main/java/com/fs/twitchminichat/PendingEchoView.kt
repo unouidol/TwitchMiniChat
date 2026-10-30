@@ -55,7 +55,7 @@ class PendingEchoView(
             ChatTimelineChange.ECHO_STATUS -> {
                 val echo = checkNotNull(row as? PendingEchoRow) {
                     "An echo's status was rebound with a row that is not an echo: ${row.javaClass.simpleName}. " +
-                        "Invariant: ChatTimelineViewSync.applyEchoEvent is the only source of ECHO_STATUS, and it " +
+                        "Invariant: ChatTimelineListSync.applyEchoEvent is the only source of ECHO_STATUS, and it " +
                         "passes the PendingEchoRow it moved."
                 }
                 showStatus(echo.status)

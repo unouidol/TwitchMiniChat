@@ -28,11 +28,19 @@ import com.fs.twitchminichat.chat.SystemLineRow
  * of class name alone is not a difference; everything else is compared exactly. The two members
  * read by name - a swipe view's onSwipeReply and a link span's url - come from [targets], resolved
  * before the run; a view or span of any other class is described by its class, not guessed at.
+ *
+ * A row's own layout params belong to its container, not to the row: a LinearLayout gives its
+ * children a weight and a RecyclerView gives its children none, so since 5d, where production rows
+ * sit in a RecyclerView and the frozen ones in a LinearLayout, a row's layout params are compared by
+ * width, height and margins only. Inside a row, where both paths use the same containers, the weight
+ * is compared as before.
  */
 internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
 
-    /** The state of [view] and, for a view group, of its children, in order. */
-    fun of(view: View): Map<String, Any?> {
+    /** The state of [view], a row's view, and of its children, in order. */
+    fun of(view: View): Map<String, Any?> = of(view, row = true)
+
+    private fun of(view: View, row: Boolean): Map<String, Any?> {
         val state = linkedMapOf<String, Any?>()
         state["kind"] = kindOf(view)
         state["visibility"] = view.visibility
@@ -45,7 +53,11 @@ internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
         state["layoutParams"] = view.layoutParams?.let { params ->
             val margins = (params as? ViewGroup.MarginLayoutParams)
                 ?.let { listOf(it.leftMargin, it.topMargin, it.rightMargin, it.bottomMargin) }
-            listOf(params.width, params.height, margins, (params as? LinearLayout.LayoutParams)?.weight)
+            if (row) {
+                listOf(params.width, params.height, margins)
+            } else {
+                listOf(params.width, params.height, margins, (params as? LinearLayout.LayoutParams)?.weight)
+            }
         }
         state["focusable"] = view.focusable
         state["isFocusable"] = view.isFocusable
@@ -75,7 +87,7 @@ internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
             state["orientation"] = view.orientation
         }
         if (view is ViewGroup) {
-            state["children"] = (0 until view.childCount).map { index -> of(view.getChildAt(index)) }
+            state["children"] = (0 until view.childCount).map { index -> of(view.getChildAt(index), row = false) }
         }
         return state
     }

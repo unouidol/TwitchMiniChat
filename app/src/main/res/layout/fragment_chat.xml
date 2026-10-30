@@ -132,20 +132,19 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <ScrollView
-            android:id="@+id/scrollChat"
+        <!--
+            The chat timeline. Its rows sit and scroll inside the 12 dp the old container's
+            padding gave them: clipToPadding="false" lets them scroll through it. The ScrollView
+            showed a vertical scroll bar by its style; a RecyclerView shows one only when asked.
+        -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chatList"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:clickable="true"
-            android:contentDescription="@string/chat_messages">
-
-            <LinearLayout
-                android:id="@+id/chatContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp" />
-        </ScrollView>
+            android:clipToPadding="false"
+            android:padding="12dp"
+            android:scrollbars="vertical"
+            android:contentDescription="@string/chat_messages" />
 
         <Button
             android:id="@+id/btnJumpToBottom"

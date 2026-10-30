@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The attributes of fragment_chat.xml's chatContainer, so its padding rounds exactly as the real one. -->
+<!--
+    The attributes fragment_chat.xml's chatContainer had at 4804609, so its padding rounds exactly as
+    the frozen rows' container did. Since 5d production rows go into parity_harness_list instead.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"

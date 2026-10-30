@@ -1,13 +1,12 @@
 package com.fs.twitchminichat
 
-import android.view.View
-import android.view.ViewGroup
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.fs.twitchminichat.chat.ChatTimeline
-import com.fs.twitchminichat.chat.ChatTimelineChange
+import com.fs.twitchminichat.chat.ChatTimelineListSync
 import com.fs.twitchminichat.chat.ChatTimelineRow
-import com.fs.twitchminichat.chat.ChatTimelineViewSync
-import com.fs.twitchminichat.chat.ChatTimelineViews
 import com.fs.twitchminichat.chat.PendingEchoEvent
+import com.fs.twitchminichat.chat.ShownRowsUpdate
 
 /** Identifies the stable chronological position of one rendered chat row. */
 data class ChatTimelinePosition(
@@ -60,96 +59,86 @@ object ChatTimelineOrderer {
 }
 
 /**
- * Keeps rendered chat rows ordered across asynchronous history and live delivery.
+ * Keeps rendered chat rows ordered across asynchronous history and live delivery, in the chat
+ * list [list].
  *
- * The order is decided by a [ChatTimeline], the list of rows, and the container's
- * children follow it: the child at an index is the view of the row at that index, built
- * from that row by [rowViews], and carries that row as its tag. This controller must be
- * the only writer of the container.
+ * The order is decided by a [ChatTimeline], the list of rows, and which rows are shown by the
+ * hidden users; [ChatTimelineListSync] turns each change into updates to the shown rows, and the
+ * list's adapter applies them. The list holds only the shown rows: the item at a position is the
+ * shown row at that position, its view built and bound by [rowViews] when the list lays it out,
+ * carrying that row as its tag. A row's view does not exist until then, and only rows the list lays
+ * out get one. This controller must be the only writer of the list's adapter.
+ *
+ * The list is set up here, so that the page and the device harness get the same one: a vertical
+ * LinearLayoutManager, no item animator (an animator could show two holders for one row,
+ * ChatRowViewBinder item 4), and the adapter.
  */
 class ChatTimelineController internal constructor(
-    container: ViewGroup,
+    list: RecyclerView,
     rowViews: ChatRowViewBinder,
     currentTimeMillis: () -> Long = System::currentTimeMillis
 ) {
-    private val sync = ChatTimelineViewSync(
-        views = ContainerTimelineViews(container, rowViews),
-        timeline = ChatTimeline(currentTimeMillis)
-    )
+    private val sync = ChatTimelineListSync(ChatTimeline(currentTimeMillis))
+    private val adapter = ChatTimelineAdapter(rowViews)
+
+    init {
+        list.layoutManager = LinearLayoutManager(list.context)
+        list.itemAnimator = null
+        list.adapter = adapter
+    }
+
+    /** How many rows the list shows: the rows of the timeline, less those of hidden users. */
+    val shownRowCount: Int
+        get() = adapter.itemCount
 
     /**
-     * Inserts one row according to its Twitch timestamp, with the data [row] builds for it,
-     * and the view built from that data.
+     * Inserts one row according to its Twitch timestamp, with the data [row] builds for it. Its
+     * view is built when the list lays it out, if it does.
      */
     fun insert(
         messageTimestampSec: Double?,
         preservedPosition: ChatTimelinePosition? = null,
         row: (ChatTimelinePosition) -> ChatTimelineRow
     ): ChatTimelinePosition {
-        return sync.insert(messageTimestampSec, preservedPosition, row).position
+        val inserted = sync.insert(messageTimestampSec, preservedPosition, row)
+        inserted.update?.let(adapter::apply)
+        return inserted.row.position
     }
 
     /** Clears the rendered timeline and its ordering metadata. */
     fun clear() {
-        sync.clear()
+        adapter.apply(sync.clear())
     }
 
     /** Hides the messages of [usernameLower], a trimmed and lowercased name. Returns whether any row changed. */
     fun hideUser(usernameLower: String): Boolean {
-        return sync.hideUser(usernameLower)
+        return applyAll(sync.hideUser(usernameLower))
     }
 
     /** Makes [users], trimmed and lowercased, the hidden users. Returns whether any row changed. */
     fun setHiddenUsers(users: Set<String>): Boolean {
-        return sync.setHiddenUsers(users)
+        return applyAll(sync.setHiddenUsers(users))
     }
 
-    /** Moves the echo of [localId] by [event], rebinding its view in place. Returns whether its status changed. */
+    /**
+     * Moves the echo of [localId] by [event]; its view, if it has one, is rebound in place with the
+     * change as payload. Returns whether its status changed.
+     */
     fun applyEchoEvent(localId: String, event: PendingEchoEvent): Boolean {
-        return sync.applyEchoEvent(localId, event)
+        val change = sync.applyEchoEvent(localId, event) ?: return false
+        adapter.apply(change)
+        return true
     }
 
     /** Removes the echo of [localId] and returns its position for the canonical message, or null. */
     fun removeEcho(localId: String): ChatTimelinePosition? {
-        return sync.removeEcho(localId)
-    }
-}
-
-/**
- * The timeline's views as the children of [container], each built and bound by [rowViews],
- * which also writes each view's row as its tag. A view leaves the container unbound, so what it
- * loaded for its row - a message's emotes - ends with the removal, not when the view is detached.
- */
-private class ContainerTimelineViews(
-    private val container: ViewGroup,
-    private val rowViews: ChatRowViewBinder
-) : ChatTimelineViews<View> {
-
-    /* The tag is written here, by the bind, before the view is added, as it always was. */
-    override fun create(row: ChatTimelineRow): View = rowViews.create(row)
-
-    override fun add(view: View, row: ChatTimelineRow, index: Int) {
-        container.addView(view, index)
+        val removed = sync.removeEcho(localId) ?: return null
+        adapter.apply(removed.update)
+        return removed.position
     }
 
-    override fun removeAt(index: Int) {
-        rowViews.unbind(container.getChildAt(index))
-        container.removeViewAt(index)
-    }
-
-    override fun removeAll() {
-        for (index in 0 until container.childCount) {
-            rowViews.unbind(container.getChildAt(index))
-        }
-        container.removeAllViews()
-    }
-
-    override fun setShown(index: Int, shown: Boolean) {
-        container.getChildAt(index).visibility = if (shown) View.VISIBLE else View.GONE
-    }
-
-    /* The tag follows the row, as the bind set it; the view itself applies the change. */
-    override fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange) {
-        rowViews.rebind(container.getChildAt(index), row, change)
+    private fun applyAll(updates: List<ShownRowsUpdate>): Boolean {
+        updates.forEach(adapter::apply)
+        return updates.isNotEmpty()
     }
 }

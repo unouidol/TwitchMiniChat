@@ -59,6 +59,7 @@ internal class EmoteLayerPass(
     private val targets: ReflectiveTargets,
     private val snapshot: ViewStateSnapshot,
     private val darkTheme: Boolean,
+    private val widthPx: Int,
     private val newContainer: () -> LinearLayout,
     private val render: (ViewGroup) -> Bitmap
 ) {
@@ -72,7 +73,7 @@ internal class EmoteLayerPass(
     /** Production against the frozen layer for every emote row, the animated version of [staticOnly] ids failing as a 404. */
     fun run(staticOnly: Set<String>): JSONObject {
         val productionImages = FixedEmoteImageSource(staticOnly)
-        val production = ProductionRowViews(activity, ParityCatalogue.SIGNED_IN, targets)
+        val production = ProductionRowViews(activity, ParityCatalogue.SIGNED_IN, targets, widthPx)
         production.installEmoteLoader(productionImages, EmoteRowRecorder())
         val frozen = FrozenRowViews4804609(activity, ParityCatalogue.SIGNED_IN)
         val frozenImages = FixedEmoteImageSource(staticOnly)
@@ -87,7 +88,7 @@ internal class EmoteLayerPass(
         for ((index, row) in emoteRows) {
             val result = JSONObject().put("id", row.id)
             productionImages.label = row.id
-            val productionContainer = newContainer().also { ParityCatalogue.produce(row, index, production, it) }
+            val productionContainer = production.newList().also { ParityCatalogue.produce(row, index, production, it) }
             frozenImages.label = row.id
             val frozenContainer = reference(row, index, frozen, layer)
 
@@ -185,10 +186,10 @@ internal class EmoteLayerPass(
         }
 
     /* [row] through its producer on a page of its own, whose loader draws from a source of its own. */
-    private fun builtOnItsOwnPage(row: ParityRow.Message, index: Int): LinearLayout {
-        val page = ProductionRowViews(activity, ParityCatalogue.SIGNED_IN, targets)
+    private fun builtOnItsOwnPage(row: ParityRow.Message, index: Int): ViewGroup {
+        val page = ProductionRowViews(activity, ParityCatalogue.SIGNED_IN, targets, widthPx)
         page.installEmoteLoader(FixedEmoteImageSource(emptySet()), EmoteRowRecorder())
-        return newContainer().also { ParityCatalogue.produce(row, index, page, it) }
+        return page.newList().also { ParityCatalogue.produce(row, index, page, it) }
     }
 
     /* Every request [images] recorded with [label], or every request when [label] is null: format, size and URL. */

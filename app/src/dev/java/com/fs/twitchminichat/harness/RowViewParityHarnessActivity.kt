@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.createBitmap
 import androidx.core.view.doOnLayout
+import androidx.core.view.isEmpty
 import com.fs.twitchminichat.BuildConfig
 import com.fs.twitchminichat.PendingEchoView
 import com.fs.twitchminichat.R
@@ -37,7 +38,7 @@ import java.lang.reflect.InvocationTargetException
  * Started by adb, never from the app:
  * `adb shell am start -n com.fs.twitchminichat.dev/com.fs.twitchminichat.harness.RowViewParityHarnessActivity --es theme night`
  * (`day` when the extra is absent). Each row is laid out at this window's width, which is the chat
- * column's: nothing between the window and chatContainer has horizontal padding. The results go to
+ * column's: nothing between the window and chatList has horizontal padding. The results go to
  * files/parity-harness/<theme>.json, with PNGs of both paths for every row whose pixels differ, and
  * one line is logged under [TAG] when it is done. Then the activity finishes.
  *
@@ -51,9 +52,17 @@ import java.lang.reflect.InvocationTargetException
  * The emote passes follow, on pages whose loader draws from a [FixedEmoteImageSource] instead of
  * Glide: [EmoteLayerPass], each emote row against the frozen view plus [FrozenEmoteLayer4804609],
  * once with every image available and once with the animated version answering 404; then
- * [EmoteLifecycleProof], on rows attached to this window. Before any of them, [RenderSizeMeasurement]
- * records what decides mutant A18. The parity pass itself runs with no loader, as before, and the run
- * checks that its page has none.
+ * [EmoteLifecycleProof], on rows attached to this window; then, since 5d, [RecyclerProof], the cache
+ * and the pool of a real RecyclerView scrolled through the production adapter, and [ScrollProof], the
+ * page's own following of new rows. Before any of them, [RenderSizeMeasurement] records what decides
+ * mutant A18. The parity pass itself runs with no loader, as before, and the run checks that its page
+ * has none.
+ *
+ * Since 5d the production rows sit in a RecyclerView laid out like chatList, and the frozen ones in a
+ * LinearLayout laid out like the old chatContainer. A hidden row is no view at all in production and a
+ * GONE view in the frozen copy, so the frozen rows a pass compares are the shown ones, and the row
+ * whose user is hidden is checked for exactly that: no view on one side, one GONE view on the other.
+ * After every layout of a production list, [ChatListChecks] checks it against its timeline.
  *
  * Two optional extras: `--es passes emote` runs only the measurement and the emote passes, and
  * `--es passes measure` only the measurement; `--ef fontScale 1.3` runs at that font scale instead
@@ -176,6 +185,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     }
 
     private fun runResolved(width: Int, root: FrameLayout, targets: ReflectiveTargets) {
+        ChatListChecks.reset()
         val snapshot = ViewStateSnapshot(targets)
         val passes = intent.getStringExtra(EXTRA_PASSES) ?: PASSES_ALL
         check(passes in setOf(PASSES_ALL, PASSES_EMOTE, PASSES_MEASURE)) { "unknown passes extra: $passes" }
@@ -191,7 +201,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         report.put("sdk", Build.VERSION.SDK_INT)
         report.put("reflectiveTargets", JSONArray(ReflectiveTargets.descriptions))
 
-        report.put("renderSize", RenderSizeMeasurement(ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)).measure(this))
+        report.put("renderSize", RenderSizeMeasurement(ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)).measure(this))
         if (passes == PASSES_MEASURE) {
             finishWith(report, "renderSize measured")
             return
@@ -206,31 +216,68 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     private fun textPasses(width: Int, targets: ReflectiveTargets, snapshot: ViewStateSnapshot, report: JSONObject) {
         val output = File(filesDir, "parity-harness").apply { mkdirs() }
         val frozen = FrozenRowViews4804609(this, ParityCatalogue.SIGNED_IN)
-        val production = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
+        val production = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)
 
         val rows = JSONArray()
         var identical = 0
         ParityCatalogue.rows.forEachIndexed { index, row ->
-            val result = compareRow(row.id, width, output, snapshot) { side, container ->
-                if (side == PRODUCTION) {
-                    ParityCatalogue.produce(row, index, production, container)
-                } else {
-                    ParityCatalogue.freeze(row, index, frozen, container)
-                }
+            val result = compareRow(
+                id = row.id,
+                width = width,
+                output = output,
+                snapshot = snapshot,
+                expectHidden = (row as? ParityRow.Message)?.hidden == true,
+                produce = { production.newList().also { ParityCatalogue.produce(row, index, production, it) } },
+                freeze = { newContainer().also { ParityCatalogue.freeze(row, index, frozen, it) } }
+            )
+            if (result.optBoolean("bitmapIdentical") && result.optBoolean("stateIdentical") &&
+                result.optBoolean("hiddenAsExpected")
+            ) {
+                identical++
             }
-            if (result.optBoolean("bitmapIdentical") && result.optBoolean("stateIdentical")) identical++
             rows.put(result)
         }
         report.put("rows", rows)
         report.put("rowsIdentical", identical)
         report.put("rowsTotal", ParityCatalogue.rows.size)
+
+        /*
+         * A hidden row's look before its user is hidden: the row the rebind proof's C-R reads, since a
+         * hidden row has no view to read it from, compared with the frozen copy so that C-R's chain still
+         * reaches frozen code for it.
+         */
+        val beforeHiding = JSONArray()
+        var beforeHidingIdentical = 0
+        /* A page of its own: the parity page's deduplicator has already accepted these rows once. */
+        val shownPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)
+        ParityCatalogue.rows.forEachIndexed { index, row ->
+            if ((row as? ParityRow.Message)?.hidden != true) return@forEachIndexed
+            val result = compareRow(
+                id = "${row.id} (shown)",
+                width = width,
+                output = output,
+                snapshot = snapshot,
+                expectHidden = false,
+                produce = { shownPage.newList().also { ParityCatalogue.produce(row, index, shownPage, it, hide = false) } },
+                freeze = { newContainer().also { ParityCatalogue.freeze(row.copy(hidden = false), index, frozen, it) } }
+            )
+            if (result.optBoolean("bitmapIdentical") && result.optBoolean("stateIdentical") &&
+                result.optBoolean("hiddenAsExpected")
+            ) {
+                beforeHidingIdentical++
+            }
+            beforeHiding.put(result)
+        }
+        report.put("rowsBeforeHiding", beforeHiding)
+        report.put("rowsBeforeHidingIdentical", beforeHidingIdentical)
+        report.put("rowsBeforeHidingTotal", beforeHiding.length())
         /* The parity pass compares text alone: neither of its paths may have a loader. */
         report.put("parityPageHasNoEmoteLoader", production.emoteLoader == null)
         report.put("controls", controls(width, frozen, targets, snapshot))
         report.put("themeDefaults", themeDefaults(production, snapshot))
 
         /* On a fragment of its own, so that its producers accept every catalogue row once more. */
-        val rebindPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
+        val rebindPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)
         val rebindImages = FixedEmoteImageSource(staticOnly = emptySet())
         rebindPage.installEmoteLoader(rebindImages, EmoteRowRecorder())
         val rebind = RebindProof(
@@ -243,20 +290,23 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         report.put("rebindProof", rebind)
     }
 
-    /* The emote layer with and without a 404, its controls, then the lifecycle proof, which runs across loop turns. */
+    /*
+     * The emote layer with and without a 404, its controls, then the lifecycle proof, the recycler proof
+     * and the scroll proof, which run across loop turns, one after the other.
+     */
     private fun emotePasses(width: Int, root: FrameLayout, targets: ReflectiveTargets, snapshot: ViewStateSnapshot, report: JSONObject) {
         val render = { container: ViewGroup -> render(container, width) }
-        val layer = EmoteLayerPass(this, targets, snapshot, isNightModeActive(), ::newContainer, render)
+        val layer = EmoteLayerPass(this, targets, snapshot, isNightModeActive(), width, ::newContainer, render)
         report.put("emoteLayer", layer.run(staticOnly = emptySet()))
         report.put("emoteLayerWith404", layer.run(staticOnly = setOf(KAPPA)))
         report.put("emoteLayerControls", layer.controls())
 
         /* The rows' data as their producer tags them, from a page with no loader, so that nothing loads on the way. */
-        val dataPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
+        val dataPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)
         val dataRows = (ParityCatalogue.emoteRows + EmoteLifecycleProof.PLAIN_ROW).associateWith { id ->
             val row = ParityCatalogue.rows.first { it.id == id }
-            val container = newContainer().also { ParityCatalogue.produce(row, ParityCatalogue.rows.indexOf(row), dataPage, it) }
-            checkNotNull(container.getChildAt(0)?.tag as? ChatMessageRow) { "the producer of $id left no message row" }
+            val list = dataPage.newList().also { ParityCatalogue.produce(row, ParityCatalogue.rows.indexOf(row), dataPage, it) }
+            checkNotNull(list.getChildAt(0)?.tag as? ChatMessageRow) { "the producer of $id left no message row" }
         }
         val frozen = FrozenRowViews4804609(this, ParityCatalogue.SIGNED_IN)
         val references = ParityCatalogue.emoteRows.associateWith { id ->
@@ -289,7 +339,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             }
         }
 
-        val lifecyclePage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets)
+        val lifecyclePage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)
         val lifecycleImages = FixedEmoteImageSource(staticOnly = emptySet()).apply { holdDeliveries = true }
         val recorder = EmoteRowRecorder()
         lifecyclePage.installEmoteLoader(lifecycleImages, recorder)
@@ -307,7 +357,49 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         ).start { lifecycle ->
             try {
                 report.put("emoteLifecycle", lifecycle)
-                finishWith(report, summaryOf(report))
+                recyclerAndScroll(width, root, targets, dataRows, references, echoReference, report)
+            } catch (failure: Exception) {
+                abort(failure)
+            }
+        }
+    }
+
+    /* The recycler proof, then the scroll proof, each on a page and a list of its own; then the run ends. */
+    private fun recyclerAndScroll(
+        width: Int,
+        root: FrameLayout,
+        targets: ReflectiveTargets,
+        dataRows: Map<String, ChatMessageRow>,
+        references: Map<String, () -> LinearLayout>,
+        echoReference: () -> LinearLayout,
+        report: JSONObject
+    ) {
+        val recyclerPage = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)
+        val recyclerImages = FixedEmoteImageSource(staticOnly = emptySet()).apply { holdDeliveries = true }
+        val recorder = EmoteRowRecorder()
+        recyclerPage.installEmoteLoader(recyclerImages, recorder)
+        RecyclerProof(
+            root = root,
+            page = recyclerPage,
+            targets = targets,
+            images = recyclerImages,
+            recorder = recorder,
+            rowData = dataRows,
+            references = references,
+            echoReference = echoReference,
+            render = { container -> render(container, width) }
+        ).start { recycler ->
+            try {
+                report.put("recyclerProof", recycler)
+                ScrollProof(root, ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width)).start { scroll ->
+                    try {
+                        report.put("scrollProof", scroll)
+                        report.put("listChecks", ChatListChecks.toJson())
+                        finishWith(report, summaryOf(report))
+                    } catch (failure: Exception) {
+                        abort(failure)
+                    }
+                }
             } catch (failure: Exception) {
                 abort(failure)
             }
@@ -325,11 +417,15 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         val parts = mutableListOf<String>()
         if (report.has("rowsTotal")) {
             parts += "rows=${report.getInt("rowsTotal")} identical=${report.getInt("rowsIdentical")}"
+            parts += "beforeHiding=${report.getInt("rowsBeforeHidingIdentical")}/${report.getInt("rowsBeforeHidingTotal")}"
             val rebind = report.getJSONObject("rebindProof")
             val pairs = rebind.getJSONObject("pairs")
             parts += "rebindPairs=${pairs.getJSONObject("vacuity").getInt("pairs")} rebindIdentical=${pairs.getInt("identical")} " +
                 "sessionsHeld=${pairs.getInt("sessionsHeld")} imagesHeld=${pairs.getInt("imagesHeld")} " +
                 "rebindPassed=${rebind.getBoolean("passed")}"
+            val direct = rebind.getJSONObject("directBind")
+            parts += "directBind=${direct.getInt("pixelsIdentical")}/${direct.getInt("echoes")}px " +
+                "${direct.getInt("stateIdentical")}/${direct.getInt("echoes")}state+${direct.getInt("declaredExceptionsMet")}declared"
         }
         val layer = report.getJSONObject("emoteLayer")
         val layer404 = report.getJSONObject("emoteLayerWith404")
@@ -337,6 +433,12 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         parts += "emoteLayerWith404=${layer404.getInt("rowsIdentical")}/${layer404.getInt("rowsTotal")}"
         val lifecycle = report.getJSONObject("emoteLifecycle")
         parts += "lifecycle=${lifecycle.getInt("passed")}/${lifecycle.getInt("expectedSteps")}"
+        val recycler = report.getJSONObject("recyclerProof")
+        parts += "recycler=${recycler.getInt("passed")}/${recycler.getInt("expectedSteps")}"
+        val scroll = report.getJSONObject("scrollProof")
+        parts += "scroll=${scroll.getInt("passed")}/${scroll.getInt("expectedSteps")}"
+        val checks = report.getJSONObject("listChecks")
+        parts += "listChecks=${checks.getInt("checks")} listCheckFailures=${checks.getInt("failureCount")}"
         return parts.joinToString(" ")
     }
 
@@ -345,23 +447,41 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         File(output, "$themeName.json").writeText(result.toString(2))
     }
 
-    /* One row through both paths: child count, pixels of every child, and their state. */
+    /*
+     * One row through both paths: the rows each shows, the pixels of the whole container, and the state
+     * of every shown row's view. [expectHidden] says the row's user is hidden after it arrives: then the
+     * production list must hold no view and the frozen container one GONE view, and otherwise the frozen
+     * container no GONE view at all.
+     */
     private fun compareRow(
         id: String,
         width: Int,
         output: File,
         snapshot: ViewStateSnapshot,
-        build: (String, ViewGroup) -> Unit
+        expectHidden: Boolean,
+        produce: () -> ViewGroup,
+        freeze: () -> ViewGroup
     ): JSONObject {
         val result = JSONObject().put("id", id)
         try {
-            val productionContainer = newContainer().also { build(PRODUCTION, it) }
-            val frozenContainer = newContainer().also { build(FROZEN, it) }
-            val productionBitmap = render(productionContainer, width)
+            val productionList = produce()
+            val frozenContainer = freeze()
+            val productionBitmap = render(productionList, width)
             val frozenBitmap = render(frozenContainer, width)
 
             val pixels = PixelDiff.of(productionBitmap, frozenBitmap)
-            result.put("childCount", "${productionContainer.childCount}/${frozenContainer.childCount}")
+            val frozenShown = (0 until frozenContainer.childCount)
+                .map { index -> frozenContainer.getChildAt(index) }
+                .filter { child -> child.visibility != View.GONE }
+            val frozenGone = frozenContainer.childCount - frozenShown.size
+            val hiddenAsExpected = if (expectHidden) {
+                frozenGone == 1 && productionList.isEmpty()
+            } else {
+                frozenGone == 0
+            }
+            result.put("childCount", "${productionList.childCount}/${frozenShown.size}")
+            result.put("frozenGoneChildren", frozenGone)
+            result.put("hiddenAsExpected", hiddenAsExpected)
             result.put("bitmapIdentical", pixels.identical)
             result.put("bitmapDifference", pixels.describe())
             if (!pixels.identical) {
@@ -369,10 +489,9 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
                 save(frozenBitmap, File(output, "$themeName-$id-frozen.png"))
             }
 
-            val productionState = (0 until productionContainer.childCount)
-                .map { snapshot.of(productionContainer.getChildAt(it)) }
-            val frozenState = (0 until frozenContainer.childCount)
-                .map { snapshot.of(frozenContainer.getChildAt(it)) }
+            val productionState = (0 until productionList.childCount)
+                .map { snapshot.of(productionList.getChildAt(it)) }
+            val frozenState = frozenShown.map { child -> snapshot.of(child) }
             val stateDiff = snapshot.diff(productionState, frozenState)
             result.put("stateIdentical", stateDiff.isEmpty())
             result.put("stateDiff", JSONArray(stateDiff))
@@ -382,6 +501,7 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
             val cause = thrown.targetException
             result.put("bitmapIdentical", false)
             result.put("stateIdentical", false)
+            result.put("hiddenAsExpected", false)
             result.put("error", "${cause.javaClass.name}: ${cause.message}")
         }
         return result
@@ -418,11 +538,11 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
          * has accepted, so the same row built twice on it would be suppressed the second time.
          */
         val row = ParityCatalogue.rows.first { it.id == "msg.mention" }
-        val first = newContainer().also {
-            ParityCatalogue.produce(row, 0, ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets), it)
+        val first = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width).let { page ->
+            page.newList().also { ParityCatalogue.produce(row, 0, page, it) }
         }
-        val second = newContainer().also {
-            ParityCatalogue.produce(row, 0, ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets), it)
+        val second = ProductionRowViews(this, ParityCatalogue.SIGNED_IN, targets, width).let { page ->
+            page.newList().also { ParityCatalogue.produce(row, 0, page, it) }
         }
         check(first.childCount == 1 && second.childCount == 1) {
             "control productionTwice: the builds produced ${first.childCount} and ${second.childCount} rows, not 1 each"
@@ -476,8 +596,6 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
         const val PASSES_ALL = "all"
         const val PASSES_EMOTE = "emote"
         const val PASSES_MEASURE = "measure"
-        const val PRODUCTION = "production"
-        const val FROZEN = "frozen"
 
         /* The emote id of the catalogue's emote rows, declared static-only for the pass with a 404. */
         const val KAPPA = "25"
