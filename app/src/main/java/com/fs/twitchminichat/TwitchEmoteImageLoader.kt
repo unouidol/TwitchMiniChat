@@ -156,6 +156,7 @@ internal class TwitchEmoteImageLoader(
         ) ?: return
 
         val request = EmoteImageRequest(url = url, format = TwitchEmoteFormat.ANIMATED, renderSizePx = renderSizePx)
+        com.fs.twitchminichat.probe.StartupProbe.emoteRequest(session.view)
         session.track(images.load(request, object : EmoteImageSink {
             private var resource: Drawable? = null
 
@@ -217,6 +218,7 @@ internal class TwitchEmoteImageLoader(
         ) ?: return
 
         val request = EmoteImageRequest(url = url, format = TwitchEmoteFormat.STATIC, renderSizePx = renderSizePx)
+        com.fs.twitchminichat.probe.StartupProbe.emoteRequest(session.view)
         session.track(images.load(request, object : EmoteImageSink {
             private var resource: Drawable? = null
 

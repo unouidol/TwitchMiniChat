@@ -77,14 +77,18 @@ internal class ChatTimelineAdapter(
     override fun getItemViewType(position: Int): Int = ChatRowViewType.of(rows[position])
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RowHolder {
+        val probeBuild = com.fs.twitchminichat.probe.StartupProbe.buildIn(com.fs.twitchminichat.probe.StartupProbe.BUILD_CREATE)
         val view = binder.newView(viewType)
+        com.fs.twitchminichat.probe.StartupProbe.buildOut(probeBuild, view)
         /* LinearLayoutManager's default is WRAP_CONTENT both ways, which would narrow short rows and their backgrounds. */
         view.layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         return RowHolder(view)
     }
 
     override fun onBindViewHolder(holder: RowHolder, position: Int) {
+        val probeBuild = com.fs.twitchminichat.probe.StartupProbe.buildIn(com.fs.twitchminichat.probe.StartupProbe.BUILD_BIND)
         binder.bind(holder.itemView, rows[position])
+        com.fs.twitchminichat.probe.StartupProbe.buildOut(probeBuild, holder.itemView)
     }
 
     override fun onBindViewHolder(holder: RowHolder, position: Int, payloads: MutableList<Any>) {
