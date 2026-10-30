@@ -126,7 +126,12 @@ private class ContainerTimelineViews(
 ) : ChatTimelineViews<View> {
 
     /* The tag is written here, by the bind, before the view is added, as it always was. */
-    override fun create(row: ChatTimelineRow): View = rowViews.create(row)
+    override fun create(row: ChatTimelineRow): View {
+        val probeBuild = com.fs.twitchminichat.probe.StartupProbe.buildIn(com.fs.twitchminichat.probe.StartupProbe.BUILD_CREATE_AND_BIND)
+        val view = rowViews.create(row)
+        com.fs.twitchminichat.probe.StartupProbe.buildOut(probeBuild, view)
+        return view
+    }
 
     override fun add(view: View, row: ChatTimelineRow, index: Int) {
         container.addView(view, index)
