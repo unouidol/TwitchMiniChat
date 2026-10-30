@@ -245,16 +245,61 @@ On each build's qualification commit, three baselines with `full`, then one laun
 `full inject=<name>`: `mention`, `reconcile`, `buddy`, `hidden`, `beforeinsert`, `insert`, `follow`
 (on page 0's 100th history row), `build` (the 10th view build or bind), `gap` (a message of its own at
 history post 200), `app` (in `Application.onCreate`) and `stall` (400 ms at anchor + 8000 ms, with
-`arg=8000`). Decided before they run:
+`arg=8000`).
 
-- the injection ran: the probe recorded it, for at least 50 ms;
-- **its phase moved:** that phase's value is at least 45 ms above the baselines' largest;
-- **the others did not:** every other per-row segment of the breakdown lies within the baselines'
-  range widened by 10 ms on each side. The between-row parts are too noisy for this and are not held
-  to it; the span total is not either, its launch-to-launch spread being larger than 50 ms;
+**Each injection runs once per launch, never once per row.** The probe runs a delay at most once in a
+launch - after the first, its `injected` returns at once - and each call site fires at one place
+only: page 0's 100th history row, the 10th view build or bind, history post 200, `Application.onCreate`,
+or anchor + 8000 ms. So a phase that sums one segment over every row of the span rises by one delay,
+50 ms, and "at least 45 ms above the baselines' largest value" below is a 90% recovery floor with 5 ms
+for noise.
+
+Decided before they run (the first three proposed on 2026-10-30 and approved; the fourth added by the
+owner of the measurement the same day):
+
+1. **the injection ran:** the probe recorded it, for at least 50 ms (400 for `stall`);
+2. **its phase moved:** that phase's value is at least 45 ms above the baselines' largest;
+3. **the others did not:** every other per-row segment of the breakdown lies within the baselines'
+   range widened by 10 ms on each side. The between-row parts are too noisy for this and are not held
+   to it; the span total is not either, its launch-to-launch spread being larger than 50 ms;
+4. **the injection is accounted for,** whatever any phase's width. Criteria 2 and 3 compare a launch
+   with other launches, and a phase whose range across launches is wider than the delay can hide 50 ms
+   of leakage without failing either. This one is read inside the injected launch:
+   - **inside its phase:** the interval the probe recorded for the delay lies inside the phase it was
+     placed in - the target row's segment; for `build`, the target build; for `gap`, one main-thread
+     message that carries no row. The part of the interval outside it is time the breakdown would put
+     somewhere else. Bound: 1 ms.
+   - **inside the main thread's log:** for every injection on the main thread, the interval lies inside
+     one message the log recorded. The breakdown computes idle as the span less every message it
+     recorded, so time the log does not see would land in idle, where nothing measures it. Bound: 1 ms.
+     `app` is the one exception, by construction: it runs in `Application.onCreate`, before the probe
+     installs the log, and before the span.
+   - **the row's other work unchanged:** the target row's total less the delay, and each of its other
+     segments, lie within the same row's values (same page, same history ordinal) in the three
+     baselines, widened by 5 ms on each side.
+   - **the total, reported:** the span's rise over the baselines' median, with their spread, and the
+     change in idle.
+
+**Why the total is reported, not held to "rises by about the delay".** Two reasons, with numbers. The
+span varied by 142 ms across 2026-10-09's three launches with the fix (2348 to 2490 ms), more than the
+delay. And a delay need not move the span's end: the main thread had 56 to 156 ms of idle inside the
+span on 2026-10-08, and a delay can be absorbed there, while the rows of the other page, whose history
+arrives at its own time, set the end. Nor can "the target's rise plus every other phase's rise equals
+the total's rise" fail as it stands: idle is computed as the span less every measured part, so the
+parts always sum to the span. What that test is for - 30 of 50 ms going somewhere the instrument is
+not looking - is caught where it can be seen: the delay's interval lies 30 ms outside its phase, or
+outside any message the log recorded, and criterion 4 fails.
+
 - `gap` moves "other messages"; `build` moves the view build inside the insert on the control and the
   bind on 5d; `app` moves `act_in` and nothing inside the span; `stall` puts the burst end between
   8350 and 8600 ms, and moves no segment.
+
+**Open, for the owner's decision before the qualification runs.** Criterion 2 can fail a correct
+instrument on a phase wider than the delay. One such phase is known: the control's view build, whose
+range across the five launches of 2026-10-08 was 87 ms (1507 to 1594 ms). A launch at their median
+plus 50 ms, 1610, would land 29 ms below the largest plus 45, 1639, although criterion 4 would show the
+delay in place. Proposed, not adopted: for the control's `build` injection, read criterion 2 on the target build
+itself, its duration at least 45 ms above the same build's largest in the baselines.
 
 A qualification that fails stops the round before the measurement.
 
@@ -269,5 +314,18 @@ Recorded with every launch: the device model, serial, API and build; density and
 Stay-awake setting and the battery's temperature; the JDK and the AGP and Gradle versions each build
 was made with; both pages' channels as reported, with the probe's channel fingerprint; the history
 cap; the APK's commit and hash; the probe's flag; the rows inserted in each span; the launch method
-and time. The account each launch opens is the one 2026-10-09 opened, which must be supplied: it is
-not recorded here.
+and time.
+
+**The account.** The method is 2026-10-09's: an intent launch with `new_account_id`, two chat pages
+on different channels, a channel at the history cap of 400. Which account that round's intent named
+was not recorded; it joins what that round did not record, beside its pid scoping and its font scale,
+the same family as the battery figures. It does not block this round, which compares with its own
+control. What the account protects is the row count, and the positive control already holds it: every
+launch must insert the same number of history rows in its span.
+
+So one account is chosen at the first qualification sitting, before any launch of section C, and held
+for every launch of the section: the qualification, the ten decision launches and the overhead
+launches. Recorded: which account, both pages' channels as reported with the probe's fingerprints, and
+each launch's rows in its span, with the equality they must satisfy: all equal, 800 if both pages
+reach the cap. If the qualification baselines' row counts are not equal with that account, another is
+chosen, before the decision launches and never after.
