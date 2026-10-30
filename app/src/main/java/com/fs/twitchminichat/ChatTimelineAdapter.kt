@@ -87,6 +87,7 @@ internal class ChatTimelineAdapter(
 
     override fun onBindViewHolder(holder: RowHolder, position: Int) {
         val probeBuild = com.fs.twitchminichat.probe.StartupProbe.buildIn(com.fs.twitchminichat.probe.StartupProbe.BUILD_BIND)
+        com.fs.twitchminichat.probe.StartupProbe.inject("build", 0, com.fs.twitchminichat.probe.StartupProbe.bindOrdinal(), target = 10)
         binder.bind(holder.itemView, rows[position])
         com.fs.twitchminichat.probe.StartupProbe.buildOut(probeBuild, holder.itemView)
     }

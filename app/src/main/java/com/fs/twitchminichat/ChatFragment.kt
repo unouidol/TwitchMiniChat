@@ -2985,7 +2985,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     )
 
                     result.messages.forEach { message ->
-                        com.fs.twitchminichat.probe.StartupProbe.historyPostQueued(probeSlotForHistory)
+                        if (com.fs.twitchminichat.probe.StartupProbe.historyPostQueued(probeSlotForHistory) == com.fs.twitchminichat.probe.StartupProbe.GAP_POST) {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                com.fs.twitchminichat.probe.StartupProbe.inject("gap", probeSlotForHistory)
+                            }
+                        }
                         /* History is also a spawn source even if its UI row is stale. */
                         val spawnIngestion = ingestHistorySpawn(applicationContext, message)
 
@@ -3281,6 +3285,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val probeRow = com.fs.twitchminichat.probe.StartupProbe.insertIn(probeSlot)
         try {
             appendChatViewProbed(probeRow, forceScroll, countAsUnread, messageTimestampSec, preservedTimelinePosition, row)
+            com.fs.twitchminichat.probe.StartupProbe.inject("follow", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         } finally {
             com.fs.twitchminichat.probe.StartupProbe.insertOut(probeRow)
         }
@@ -3302,12 +3307,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val shouldAutoScroll = forceScroll || stickToBottom || isNearBottom()
 
+        com.fs.twitchminichat.probe.StartupProbe.inject("beforeinsert", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_BEFORE_INSERT)
         chatTimelineController.insert(
             messageTimestampSec = messageTimestampSec,
             preservedPosition = preservedTimelinePosition,
             row = row
         )
+        com.fs.twitchminichat.probe.StartupProbe.inject("insert", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_AFTER_INSERT)
 
         if (shouldAutoScroll) {
@@ -3697,6 +3704,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val stable = dedupKey.startsWith("id:")
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
         addMentionUser(user)
+        com.fs.twitchminichat.probe.StartupProbe.inject("mention", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_MENTION)
 
         val resolvedMessageTimestampSec = messageTimestampSec
@@ -3707,9 +3715,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             message = message,
             messageTimestampSec = resolvedMessageTimestampSec
         )
+        com.fs.twitchminichat.probe.StartupProbe.inject("reconcile", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_RECONCILE)
 
         maybeCaptureBuddyInfoFromChat(user, message)
+        com.fs.twitchminichat.probe.StartupProbe.inject("buddy", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_BUDDY)
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip message from hidden user")
@@ -3717,6 +3727,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
+        com.fs.twitchminichat.probe.StartupProbe.inject("hidden", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
         appendChatView(
             forceScroll = forceScroll,
             countAsUnread = true,

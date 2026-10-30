@@ -256,11 +256,13 @@ object StartupProbe {
         }
         if (mode == MODE_OFF) return
         for (word in words.drop(1)) {
-            when (word) {
-                "nosnap" -> snapshots = false
-                "nolooper" -> looperLog = false
-                "visibility" -> visibility = true
-                "calibrate" -> calibrate = true
+            when {
+                word.startsWith("inject=") -> inject = word.removePrefix("inject=")
+                word.startsWith("arg=") -> injectArg = word.removePrefix("arg=").toLongOrNull() ?: -1L
+                word == "nosnap" -> snapshots = false
+                word == "nolooper" -> looperLog = false
+                word == "visibility" -> visibility = true
+                word == "calibrate" -> calibrate = true
             }
         }
         processStartRelNs = Process.getStartUptimeMillis() * 1_000_000L - anchorNs
@@ -314,6 +316,12 @@ object StartupProbe {
         appContext = context.applicationContext
         Choreographer.getInstance().postFrameCallback(frameCallback)
         if (mode == MODE_FULL && looperLog) Looper.getMainLooper().setMessageLogging(looperPrinter)
+        if (mode == MODE_FULL && inject == "stall" && injectArg > 0) {
+            Handler(Looper.getMainLooper()).postAtTime(
+                { injected(STALL_MS) },
+                (anchorNs + injectArg * 1_000_000L) / 1_000_000L
+            )
+        }
         val thread = Thread({ probeLoop() }, "tmc-probe")
         probeThread = thread
         thread.start()
@@ -508,6 +516,7 @@ object StartupProbe {
         if (currentRow >= 0 && rowBuildIn[currentRow] < 0L) rowBuildIn[currentRow] = buildStart[i]
         buildCount = i + 1
         building = i
+        if (kind != BUILD_CREATE) bindOrdinal++
         return i
     }
 
@@ -749,6 +758,41 @@ object StartupProbe {
     }
 
     // ---------------------------------------------------------------------------------
+    // Qualification injections (the Q builds only)
+    // ---------------------------------------------------------------------------------
+
+    @JvmField var inject = ""
+    @JvmField var injectArg = -1L
+    private var injectStartNs = -1L
+    private var injectEndNs = -1L
+    private var injectTid = 0
+    private var bindOrdinal = 0
+    private const val STALL_MS = 400L
+    const val GAP_POST = 200
+
+    /** Page 0's history ordinal of the row being recorded, or -1. */
+    fun historyOrdinalOfCurrentRow(): Int =
+        if (mode == MODE_FULL && currentRow >= 0 && rowSource[currentRow] == SRC_HISTORY && rowPage[currentRow] == 0) rowOrdinal[currentRow] else -1
+
+    /** The view builds and binds so far, creates without a bind left out. */
+    fun bindOrdinal(): Int = bindOrdinal
+
+    /** Runs a 50 ms delay once, if [name] is this run's injection, on page 0, at [ordinal] when it has one. */
+    fun inject(name: String, slot: Int = 0, ordinal: Int = -1, target: Int = 100) {
+        if (mode != MODE_FULL || inject != name || slot != 0) return
+        if (ordinal >= 0 && ordinal.toLong() != (if (injectArg > 0) injectArg else target.toLong())) return
+        injected(50L)
+    }
+
+    private fun injected(ms: Long) {
+        if (injectStartNs >= 0L) return
+        injectTid = Process.myTid()
+        injectStartNs = rel()
+        Thread.sleep(ms)
+        injectEndNs = rel()
+    }
+
+    // ---------------------------------------------------------------------------------
     // Calibration, after the window: what one hook call and one logged message cost
     // ---------------------------------------------------------------------------------
 
@@ -831,6 +875,11 @@ object StartupProbe {
         b.append("{\"mode\":").append(mode)
         b.append(",\"commit\":\"").append(com.fs.twitchminichat.BuildConfig.GIT_SHA).append('"')
         b.append(",\"flag\":\"").append(flagText.replace("\"", "'")).append('"')
+        b.append(",\"inject\":\"").append(inject).append('"')
+        b.append(",\"injectArg\":").append(injectArg)
+        b.append(",\"injectStartNs\":").append(injectStartNs)
+        b.append(",\"injectEndNs\":").append(injectEndNs)
+        b.append(",\"injectTid\":").append(injectTid)
         b.append(",\"anchorNs\":").append(anchorNs)
         b.append(",\"processStartRelNs\":").append(processStartRelNs)
         b.append(",\"mainTid\":").append(mainTid)
