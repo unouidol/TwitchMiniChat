@@ -251,14 +251,33 @@ history post 200), `app` (in `Application.onCreate`) and `stall` (400 ms at anch
 launch - after the first, its `injected` returns at once - and each call site fires at one place
 only: page 0's 100th history row, the 10th view build or bind, history post 200, `Application.onCreate`,
 or anchor + 8000 ms. So a phase that sums one segment over every row of the span rises by one delay,
-50 ms, and "at least 45 ms above the baselines' largest value" below is a 90% recovery floor with 5 ms
-for noise.
+50 ms, and criterion 2's floor below, half the delay, is read against that single delay.
+
+**What every quantity is measured in: wall time, and the delay is a sleep.** Every time the probe
+records is `rel()`, `System.nanoTime()` less the anchor (`StartupProbe.kt:243` on the qualification
+builds): row marks, inserts, view builds, the main thread's messages, frames. It counts time a thread
+spends asleep or blocked as well as time it runs. The burst end comes from logcat's monotonic clock,
+the same clock. The injected delay is `Thread.sleep` (`:791`), which passes wall time and uses no CPU.
+So a sleep moves every phase it falls in, and criterion 4's containment and the phase's number read
+the same clock. The probe's one CPU record is its per-thread snapshots, utime and stime from
+`/proc` (`:705-746`), which `analyze.py`'s `cpu_phases` reads. Neither the decision rule nor the
+breakdown uses them, and a sleep cannot qualify them: 2026-10-08 had busy-loop injections for that
+(`spin`, `spinbg`), and this round's qualification builds have none. If the CPU figures are reported,
+they are reported as unqualified context.
 
 Decided before they run (the first three proposed on 2026-10-30 and approved; the fourth added by the
-owner of the measurement the same day):
+owner of the measurement the same day; the second rewritten by the owner the same day, below):
 
 1. **the injection ran:** the probe recorded it, for at least 50 ms (400 for `stall`);
-2. **its phase moved:** that phase's value is at least 45 ms above the baselines' largest;
+2. **the delay reached the output:** the reported value of the target phase rises over the
+   baselines' median by at least half the delay, 25 ms. A pipeline check, and only that: it fails if
+   the number `analyze5d.py` reports did not take the delay in, which criterion 4, reading timestamps,
+   cannot see. It was "at least 45 ms above the baselines' largest" until criterion 4 was added. The
+   largest-value reference was conservative against a false pass, and criterion 4 now rules out a false
+   pass on its own, so the conservatism would only buy false failures: do not restore it. The cases it
+   was checked against: a correct instrument at the median plus 50, rise 50, passes; 30 of 50 landing
+   elsewhere, rise 20, fails, and criterion 4 fails with it; `analyze5d.py` dropping the delay, rise
+   about 0, fails, where criterion 4 would have passed;
 3. **the others did not:** every other per-row segment of the breakdown lies within the baselines'
    range widened by 10 ms on each side. The between-row parts are too noisy for this and are not held
    to it; the span total is not either, its launch-to-launch spread being larger than 50 ms;
@@ -294,12 +313,18 @@ outside any message the log recorded, and criterion 4 fails.
   bind on 5d; `app` moves `act_in` and nothing inside the span; `stall` puts the burst end between
   8350 and 8600 ms, and moves no segment.
 
-**Open, for the owner's decision before the qualification runs.** Criterion 2 can fail a correct
-instrument on a phase wider than the delay. One such phase is known: the control's view build, whose
-range across the five launches of 2026-10-08 was 87 ms (1507 to 1594 ms). A launch at their median
-plus 50 ms, 1610, would land 29 ms below the largest plus 45, 1639, although criterion 4 would show the
-delay in place. Proposed, not adopted: for the control's `build` injection, read criterion 2 on the target build
-itself, its duration at least 45 ms above the same build's largest in the baselines.
+**Open, for the owner's decision before the qualification runs.** One case is left where criterion 2
+can fail a correct instrument: a launch whose phase happens to fall low in its own range. Against the
+median, the injected launch's rise is the delay plus its own variation from the median, so it fails
+when that variation is more than 25 ms below. For every other phase 2026-10-08 measured inside rows,
+whose ranges were 13 ms or less, and for "other messages", whose lowest value was 6 ms below the
+median, that lies outside anything seen. The phases this round adds have no history yet. For the
+control's view build it is not outside: its five values on 2026-10-08 were 1507, 1555, 1560, 1591 and
+1594 ms, and one of the five, 1507, lies 53 ms below their median. About one correct launch in five
+would fail there, and a failed qualification stops the round. Proposed, not adopted: the same delay
+for every injection, 200 ms instead of 50, so that half of it, 100 ms, lies outside every range seen on
+2026-10-08, with no injection treated differently. It needs new qualification commits on both
+branches; the measurement builds do not change.
 
 A qualification that fails stops the round before the measurement.
 
