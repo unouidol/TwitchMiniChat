@@ -15,16 +15,51 @@ results file, or a results file without its counts is a failure of that stage.
 
 | Step | Branch | Commit | APK (dev, arm64) sha256 |
 |---|---|---|---|
-| H1, H3, M, B1 | `feature/5d-recyclerview-timeline` | `fc63adb` | `c3e8cd05df82ca026fb87df6043d62ebd6b056fdfc87073f80ce44c8de26b361` |
+| H1, H3, M, B1 | `feature/5d-recyclerview-timeline` | `fc63adb` | `1d377b6e3611d337c6caffb1f2ae6bc031895246ff6d0b4653b412bcde021342` |
 | H2 | one mutant of `fc63adb` per run | built after the predictions | each read back from the phone |
-| C, qualification, control | `experiment/startup-5d-control` | `ccd2c46` | `70154c5494d01d80dca2cc522753eeb0354214278efe99347bded26a1cfba128` |
-| C, qualification, 5d | `experiment/startup-5d-treatment` | `878f7de` | `fb5381501004697f79f435ec2c66fdf57052c4eaa8a719ea2b22d0cc2570fa67` |
-| C, measurement, control | `experiment/startup-5d-control` | `301111b` | `0003ce879295b4475f343f22315d411027378ca77f904a0a9cd75829d556c60e` |
-| C, measurement, 5d | `experiment/startup-5d-treatment` | `5851fde` | `32043dd4804094bed612cf5f9af516133b7103fbff504eca67b1079bf30387fc` |
+| C, qualification, control | `experiment/startup-5d-control` | `cee6695` | `94d68eb531f0b826b263af5600123f1ce3cb83ef4875c35c5b47509c92320fcf` |
+| C, qualification, 5d | `experiment/startup-5d-treatment` | `a2e72ff` | `cb7fb26b40218f990a9a7905146eb2a1ff36da809b93f5759e02dd7b3d9b2a2a` |
+| C, measurement, control | `experiment/startup-5d-control` | `301111b` | `6fc184a88261f5ee5e9123476dedc0dc612a9ffedc5542c5ef5595ac38a547d9` |
+| C, measurement, 5d | `experiment/startup-5d-treatment` | `5851fde` | `0b23204146d875ee8e0c257668e443f07b4f9cbab8ae4e62a88f8d057920e55a` |
 
 The measurement branches are never merged. `301111b` is `c8a9f99` plus the probe; `5851fde` is
-`fc63adb` plus the same probe. Each embeds only its own commit (read from its dex strings). After the
-round, the phone is left on the final 5d build, read back and recorded in `RELEASE-STATE.md`.
+`fc63adb` plus the same probe. `cee6695` is `301111b` plus the injected delays (`ccd2c46`) and the
+200 ms decision below; `a2e72ff` is `5851fde` plus the same two commits, the second cherry-picked, and
+the two pairs' diffs are identical. Each embeds only its own commit (read from its dex strings). After
+the round, the phone is left on the final 5d build, read back and recorded in `RELEASE-STATE.md`.
+
+### Every APK of the round comes from one machine
+
+The comparison that decides 5d is control against treatment, and the Java Development Kit (JDK) is an
+input no commit records: the gap #83's KDoc documents beside `gitShaForBuild`. Built on two machines,
+the two sides could differ by JDK with nothing to show it. So every APK in the table, the mutants of
+H2 included, is built on one machine, which holds the JDK constant within the round. If the round is
+split across sittings, the measurement section, the qualification and the twenty launches after it,
+is one sitting on one machine. A harness stage may fall in a different sitting from the next one, but
+no single stage may be split.
+
+**The machine, read on 2026-11-02:** `DESKTOP-BCT68L9`. Each APK built from the worktree
+`C:\Users\Fede\StudioProjects\TwitchMiniChat-wt-5d`, from a tree where `git status --porcelain`
+printed nothing before and after the build, with `:app:assembleDevDebug`, in one tree, in this
+order: `fc63adb` first, every one of its 42 tasks executed, then `cee6695`, `a2e72ff`, `301111b` and
+`5851fde`, each incrementally on the one before, as Gradle reported. The APKs and each build's log
+are kept outside any clone, in `C:\Users\Fede\StudioProjects\tmc-5d-round\apks`, so that no later
+build overwrites one. AGP 9.2.1 and Gradle 9.4.1, from the tree. `gradlew --version` there:
+`Launcher JVM: 21.0.10 (JetBrains s.r.o. 21.0.10+1-b1163.110)`, `Daemon JVM: Compatible with Java
+21, JetBrains, nativeImageCapable=false (from gradle/gradle-daemon-jvm.properties)`. That file is
+git-ignored and holds `toolchainVendor=JETBRAINS`, `toolchainVersion=21` and foojay URLs. The daemon
+runs
+`C:\Users\Fede\.gradle\jdks\jetbrains_s_r_o_-21-amd64-windows.2\bin\java.exe`, which reports
+`OpenJDK Runtime Environment JBR-21.0.10+1-1163.110-jcef`. Android SDK `D:\Android\SDK`. Both
+flavours' `google-services.json` are the clone's own, not the CI placeholder: the Firebase project of
+the dev build already on the phone (`d56812b`), checked by its project id and number in that APK's
+resources. Signed with this machine's debug key, certificate SHA-256 `9b3a523b…5c51`, the signer of
+the dev app the phone already held, so each install replaces it in place, with its accounts.
+
+The hashes this table carried before 2026-11-02 were built in another clone, for `fc63adb`, the 50 ms
+qualification commits `ccd2c46` and `878f7de`, `301111b` and `5851fde`. None is used. None was
+installed on the phone either: its dev app was last updated on 2026-10-23 09:23, before any of
+those commits existed.
 
 ## H. The harness
 
@@ -251,7 +286,29 @@ history post 200), `app` (in `Application.onCreate`) and `stall` (400 ms at anch
 launch - after the first, its `injected` returns at once - and each call site fires at one place
 only: page 0's 100th history row, the 10th view build or bind, history post 200, `Application.onCreate`,
 or anchor + 8000 ms. So a phase that sums one segment over every row of the span rises by one delay,
-50 ms, and criterion 2's floor below, half the delay, is read against that single delay.
+200 ms, and criterion 2's floor below, half the delay, is read against that single delay.
+
+**The delay is 200 ms, for every injection that goes through `inject`** (the nine phases and `app`),
+decided by the owner of the measurement on 2026-11-02; it was 50 ms in `ccd2c46` and `878f7de`.
+The reason is in the paragraph that closes this list, which until then held the decision open.
+`stall` is not one of those injections and keeps its 400 ms: it has a constant of its own
+(`STALL_MS`), it was never 50, criterion 2 does not read it, and its window below is written for 400.
+A delay four times larger perturbs four times as much, so before the qualification is relied on:
+
+- **the rows in the span are read on every qualification launch,** injected or not, not only on the
+  decision's launches. Baselines that differ among themselves are the account's case, under *The
+  account* below. An injected launch that differs from equal baselines is the delay changing which
+  rows are ingested;
+- **whether any injected delay trips a timeout or changes which rows are ingested is reported,** per
+  injection. If one does, the round stops there and is reported. No other number is chosen in its
+  place.
+
+Read from the code before any launch, statically, and so not a substitute for the launches: nothing
+on the history path waits for the main thread with a deadline. Each page's request leaves on a thread
+of its own with its window computed before any row of it is ingested. The deduplicator's 1.5 s window
+applies only to a key equal to the one just before it, and two distinct history rows never share a
+key (`id:<message id>`, or `hist:<ms>:<user>:<text hash>`). The buddy capture's 15 s window needs a
+request in flight, and the echoes' 10 s timeout needs a sent message; a cold start has neither.
 
 **What every quantity is measured in: wall time, and the delay is a sleep.** Every time the probe
 records is `rel()`, `System.nanoTime()` less the anchor (`StartupProbe.kt:243` on the qualification
@@ -268,22 +325,24 @@ they are reported as unqualified context.
 Decided before they run (the first three proposed on 2026-10-30 and approved; the fourth added by the
 owner of the measurement the same day; the second rewritten by the owner the same day, below):
 
-1. **the injection ran:** the probe recorded it, for at least 50 ms (400 for `stall`);
+1. **the injection ran:** the probe recorded it, for at least 200 ms (400 for `stall`);
 2. **the delay reached the output:** the reported value of the target phase rises over the
-   baselines' median by at least half the delay, 25 ms. A pipeline check, and only that: it fails if
+   baselines' median by at least half the delay, 100 ms. A pipeline check, and only that: it fails if
    the number `analyze5d.py` reports did not take the delay in, which criterion 4, reading timestamps,
    cannot see. It was "at least 45 ms above the baselines' largest" until criterion 4 was added. The
    largest-value reference was conservative against a false pass, and criterion 4 now rules out a false
    pass on its own, so the conservatism would only buy false failures: do not restore it. The cases it
-   was checked against: a correct instrument at the median plus 50, rise 50, passes; 30 of 50 landing
-   elsewhere, rise 20, fails, and criterion 4 fails with it; `analyze5d.py` dropping the delay, rise
-   about 0, fails, where criterion 4 would have passed;
+   was checked against, scaled from 50 ms to 200: a correct instrument at the median plus 200, rise
+   200, passes; 120 of 200 landing elsewhere, rise 80, fails, and criterion 4 fails with it;
+   `analyze5d.py` dropping the delay, rise about 0, fails, where criterion 4 would have passed;
 3. **the others did not:** every other per-row segment of the breakdown lies within the baselines'
    range widened by 10 ms on each side. The between-row parts are too noisy for this and are not held
-   to it; the span total is not either, its launch-to-launch spread being larger than 50 ms;
+   to it; the span total is not either, its launch-to-launch spread (142 ms on 2026-10-09) being far
+   wider than that margin;
 4. **the injection is accounted for,** whatever any phase's width. Criteria 2 and 3 compare a launch
-   with other launches, and a phase whose range across launches is wider than the delay can hide 50 ms
-   of leakage without failing either. This one is read inside the injected launch:
+   with other launches, and a phase whose range across launches is wider than the delay can hide the
+   delay's leakage, all 200 ms of it, without failing either. This one is read inside the injected
+   launch:
    - **inside its phase:** the interval the probe recorded for the delay lies inside the phase it was
      placed in - the target row's segment; for `build`, the target build; for `gap`, one main-thread
      message that carries no row. The part of the interval outside it is time the breakdown would put
@@ -300,31 +359,35 @@ owner of the measurement the same day; the second rewritten by the owner the sam
      change in idle.
 
 **Why the total is reported, not held to "rises by about the delay".** Two reasons, with numbers. The
-span varied by 142 ms across 2026-10-09's three launches with the fix (2348 to 2490 ms), more than the
-delay. And a delay need not move the span's end: the main thread had 56 to 156 ms of idle inside the
-span on 2026-10-08, and a delay can be absorbed there, while the rows of the other page, whose history
-arrives at its own time, set the end. Nor can "the target's rise plus every other phase's rise equals
-the total's rise" fail as it stands: idle is computed as the span less every measured part, so the
-parts always sum to the span. What that test is for - 30 of 50 ms going somewhere the instrument is
-not looking - is caught where it can be seen: the delay's interval lies 30 ms outside its phase, or
+span varied by 142 ms across 2026-10-09's three launches with the fix (2348 to 2490 ms). That was more
+than the 50 ms delay. It is less than 200, but still most of it, so a launch's own variation could
+still pass or fail "about the delay" either way. And a delay need not move the span's end: the main
+thread had 56 to 156 ms of idle inside the span on 2026-10-08, and a delay can be absorbed there, as
+much as 156 of its 200 ms, while the rows of the other page, whose history arrives at its own time,
+set the end. Nor can "the target's rise plus every other phase's rise equals the total's rise" fail
+as it stands: idle is computed as the span less every measured part, so the
+parts always sum to the span. What that test is for - 120 of 200 ms going somewhere the instrument is
+not looking - is caught where it can be seen: the delay's interval lies 120 ms outside its phase, or
 outside any message the log recorded, and criterion 4 fails.
 
 - `gap` moves "other messages"; `build` moves the view build inside the insert on the control and the
   bind on 5d; `app` moves `act_in` and nothing inside the span; `stall` puts the burst end between
   8350 and 8600 ms, and moves no segment.
 
-**Open, for the owner's decision before the qualification runs.** One case is left where criterion 2
-can fail a correct instrument: a launch whose phase happens to fall low in its own range. Against the
+**Decided on 2026-11-02: 200 ms, for every injection.** Until then this paragraph held the question
+open, and it stays as it was written, so the reason can be read. The owner adopted the proposal at its
+end for its uniformity: no injection needs a special case. One case is left where criterion 2 can
+fail a correct instrument: a launch whose phase happens to fall low in its own range. Against the
 median, the injected launch's rise is the delay plus its own variation from the median, so it fails
 when that variation is more than 25 ms below. For every other phase 2026-10-08 measured inside rows,
 whose ranges were 13 ms or less, and for "other messages", whose lowest value was 6 ms below the
 median, that lies outside anything seen. The phases this round adds have no history yet. For the
 control's view build it is not outside: its five values on 2026-10-08 were 1507, 1555, 1560, 1591 and
 1594 ms, and one of the five, 1507, lies 53 ms below their median. About one correct launch in five
-would fail there, and a failed qualification stops the round. Proposed, not adopted: the same delay
-for every injection, 200 ms instead of 50, so that half of it, 100 ms, lies outside every range seen on
-2026-10-08, with no injection treated differently. It needs new qualification commits on both
-branches; the measurement builds do not change.
+would fail there, and a failed qualification stops the round. Proposed, and adopted on 2026-11-02:
+the same delay for every injection, 200 ms instead of 50, so that half of it, 100 ms, lies outside
+every range seen on 2026-10-08, with no injection treated differently. It needed new qualification
+commits on both branches, `cee6695` and `a2e72ff`; the measurement builds did not change.
 
 A qualification that fails stops the round before the measurement.
 
@@ -337,9 +400,10 @@ A qualification that fails stops the round before the measurement.
 
 Recorded with every launch: the device model, serial, API and build; density and font scale; the
 Stay-awake setting and the battery's temperature; the JDK and the AGP and Gradle versions each build
-was made with; both pages' channels as reported, with the probe's channel fingerprint; the history
-cap; the APK's commit and hash; the probe's flag; the rows inserted in each span; the launch method
-and time.
+was made with (for this round, one machine's, under *Every APK of the round comes from one
+machine*); both pages' channels as reported, with the probe's channel fingerprint; the history cap;
+the APK's commit and hash; the probe's flag; the rows inserted in each span; the launch method and
+time.
 
 **The account.** The method is 2026-10-09's: an intent launch with `new_account_id`, two chat pages
 on different channels, a channel at the history cap of 400. Which account that round's intent named
@@ -354,3 +418,20 @@ launches. Recorded: which account, both pages' channels as reported with the pro
 each launch's rows in its span, with the equality they must satisfy: all equal, 800 if both pages
 reach the cap. If the qualification baselines' row counts are not equal with that account, another is
 chosen, before the decision launches and never after.
+
+## Recorded results
+
+Fill in each row when its case runs; add a run rather than overwriting one.
+
+**The device, read on 2026-11-02 at the start of the round:** `adb devices -l` gave
+`57ebfa06 device product:Nord_EEA model:AC2003 device:Nord transport_id:1`, already authorised for
+`DESKTOP-BCT68L9`: no prompt was needed. `getprop` gave OnePlus, Android 12, API 31, build
+`AC2003_11_F.24`; `wm density` 382 (physical 450), `wm size` 1080 × 2400, system font scale 1.15,
+`stay_on_while_plugged_in` 7, battery 24.9 °C. Its dev app before the round was `d56812b`, sha256
+`8519b894…`, last updated 2026-10-23 09:23, as `RELEASE-STATE.md` records it, read from the APK pulled
+off the phone.
+
+**Harness stages,** every pass with 0 input events unless the row says otherwise:
+
+| Stage | Commit | Dev APK sha256 | Day and night, each | Time |
+|---|---|---|---|---|
