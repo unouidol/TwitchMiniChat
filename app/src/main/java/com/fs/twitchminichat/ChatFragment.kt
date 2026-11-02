@@ -3001,7 +3001,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         }
 
                         runUiIfAlive {
-                            com.fs.twitchminichat.probe.StartupProbe.historyPostRunBegin(probeSlotForHistory)
+                            com.fs.twitchminichat.probe.StartupProbe.historyPostRunBegin(
+                                probeSlotForHistory,
+                                hasId = message.messageId != null,
+                                emotesRaw = message.emotesRaw,
+                                hasTimestamp = message.timestampSec > 0.0,
+                                textLength = message.text.length,
+                                spawnOutcome = spawnIngestion.outcome.name,
+                                spawnSource = spawnIngestion.source?.name
+                            )
                             appendChatLine(
                                 user = message.user,
                                 message = message.text,
