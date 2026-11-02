@@ -27,6 +27,29 @@ Where the plan's words leave a choice, this script makes it, and says so here:
   burst ended before the stall.
 - The display: every launch's readings, before and after, must be one reading; otherwise the build's
   verdict is VOID, not a failure of the instrument.
+- Criterion 1 holds the interval the probe recorded, end less start, to the delay asked for: 200 ms,
+  534 for `stall`.
+- Criterion 2's reference is the median of the three baselines' values.
+- Criterion 3's range is the baselines' lowest less 10 ms to their highest plus 10 ms. With no segment
+  moving, `gap`, `app`, `stall` and 5d's `build` hold all nine segments to it.
+- "The part of the interval outside" a phase or a message is what lies before its start plus what
+  lies after its end, added.
+- Criterion 4's first clause is not applied to `stall`, which no phase of the breakdown contains; its
+  second clause applies to every injection but `app`, as the plan says.
+- Criterion 4's third clause applies only where there is a target row: the seven row injections, and
+  `build` on the control. It compares the target row's total less the recorded interval, not less
+  200 ms, and every one of its seven segments except the one holding the delay (the insert, for
+  `build`), with the same row in each baseline. A baseline without that row fails the clause.
+- Criterion 4's fourth clause reports and decides nothing: the span's rise over the baselines' median,
+  their spread as highest less lowest, and idle's change from their median.
+- A value missing where a criterion needs it fails that criterion.
+- The verdict's order: the display first (VOID), then the baselines' rows in the span (STOPPED, the
+  plan's account case), then an injected launch whose rows differ from theirs (STOPPED), then three
+  baselines and each injection once, then every launch's criteria.
+- Every launch's output names where its phase sits on this build (PHASE_LOCATIONS). Qualification is
+  per build, against the build's own baselines, so the asymmetry is sound here; but `build` sits
+  inside the span on the control and outside every row on 5d, so its value is not comparable across
+  the two builds, and the output says so rather than leaving it to this docstring.
 """
 import importlib.util
 import json
@@ -60,6 +83,28 @@ ROW_PHASES = {
 }
 SEGMENTS = [phase[0] for phase in ROW_PHASES.values()] + [
     "timeline_insert_of_which_view_build", "timeline_insert_without_view_build"]
+
+# Where each injection's phase sits, per build, as every launch's output labels it.
+PHASE_LOCATIONS = {
+    build: dict(
+        {name: "inside page 0's 100th history row, inside the span" for name in ROW_PHASES},
+        gap="a main-thread message of its own between the span's rows, holding no row",
+        app="Application.onCreate, before the span",
+        stall="anchor + 8000 ms, after the span: the burst end, criterion 5",
+        build=(
+            "inside a history row's timeline insert, inside the span: the control builds each row's view at insert"
+            if build == "control" else
+            "outside every row: a bind at the list's layout, wherever that layout falls in time; "
+            "5d builds a view only for a row laid out"
+        ),
+    )
+    for build in ("control", "5d")
+}
+NOT_COMPARABLE_ACROSS_BUILDS = (
+    "Qualification is per build: each phase is read against this build's own baselines. `build` sits "
+    "inside the span on the control and outside every row on 5d, so its values are not comparable "
+    "across the two builds."
+)
 
 CRITERION_3_MS = 10.0
 CRITERION_4_OUTSIDE_MS = 1.0
@@ -291,11 +336,13 @@ def evaluate(build, baselines, f):
                   "stall_placed_at": placed, "baselines_burst_end": before,
                   "the_detector_moves_there": moved, "from_somewhere_else": elsewhere,
                   "pass": moved and elsewhere}
-    return {"run": f["run"], "inject": name, "criteria": c, "pass": all(v["pass"] for v in c.values())}
+    return {"run": f["run"], "inject": name, "phase_location": PHASE_LOCATIONS[build].get(name),
+            "criteria": c, "pass": all(v["pass"] for v in c.values())}
 
 
 def verdict(build, baseline_facts, injected_facts):
-    out = {"build": build, "baselines": [b["run"] for b in baseline_facts]}
+    out = {"build": build, "phase_locations": PHASE_LOCATIONS[build],
+           "phase_locations_note": NOT_COMPARABLE_ACROSS_BUILDS, "baselines": [b["run"] for b in baseline_facts]}
     every = baseline_facts + injected_facts
 
     readings = {f["run"]: f["display"] for f in every}
