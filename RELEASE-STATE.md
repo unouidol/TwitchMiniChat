@@ -833,13 +833,12 @@ prints no timestamps - the authoritative time of a registry change is `updated_a
 
 ## Test device
 
-**Stale, marked 2026-11-02:** the dev row below no longer describes the phone. Read over adb on
-2026-11-02, the dev app is `fc63adb`, the 5d device round's build for H1, sha256 `1d377b6e…`,
-installed at 09:35:41 (`docs/manual-plan-5d-recyclerview.md`, *Recorded results*). It is a
-mid-round build and gets no device-test tag: a tag names a tested build, and nothing is tested
-until the round ends. The round's end refreshes this section with the build it leaves on the
-phone, as that plan says. The stable app still reports 5.5.1, last updated 2026-09-18 14:08; its
-hash was not re-read.
+**Stale, marked 2026-11-02:** the dev row below no longer describes the phone. A device round is in
+progress on `feature/5d-recyclerview-timeline`, and its builds replace the dev app until it ends.
+Each one installed is recorded in that branch's `docs/manual-plan-5d-recyclerview.md`, *Recorded
+results*, and none gets a device-test tag: a tag names a tested build, and nothing is tested until
+the round ends. Refreshing this needs the round's end: the build it leaves on the phone, read back
+from the phone as the table below was read, with its tag.
 
 **Read from the device on 2026-10-23,** over adb, from a OnePlus AC2003 on Android 12 (API 31).
 Each commit below was read from the APK installed on the phone, pulled back off it, with the
