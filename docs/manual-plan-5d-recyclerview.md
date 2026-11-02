@@ -1018,3 +1018,51 @@ not started.
   whose recorders catch any input event between its launch and its dump is void, and is run again.
   That is the harness's rule of 0 input events, applied to these launches and declared here before
   the first of them. A void launch is kept and recorded, never used.
+
+**The qualification, 2026-11-02, 14:42 to 15:08: both builds NOT QUALIFIED.** The round stops here,
+before the measurement, as *Qualification* says a failed qualification does.
+
+- **The launches:** 28 counted, 14 per build, each with 0 input events and the held reading
+  `refreshRate=90.0 frameRateOverride=[] skipwarning=[]` before and after. One more is void: the
+  first `Qc-base-1`, at 14:40. It was launched without the account extra, by a fault of the driver,
+  which passed a Git Bash path to Windows' Python, so the account came back empty. It is kept as
+  `Qc-base-1-void-no-account-extra` and never used.
+- **Rows:** 800 history rows in the span on every launch of both builds, both pages at the cap.
+- **Both pages carry the same channel fingerprint, `c8cb0e91`.** The method's "two chat pages on
+  different channels" is not met by this phone's two accounts. Recorded, not changed: an account's
+  channel is the user's setting.
+- **The untested seam:** the first baseline's facts, as `qualify5d.py` reads them, against its
+  `probe.json` and `logcat.txt` read directly: 17 fields, 0 mismatches.
+- **The control (`03a8775`):** criteria 1 and 2 pass on all eleven injections. Criterion 3 fails on
+  nine: `reconcile`, `buddy`, `hidden`, `beforeinsert`, `insert`, `follow`, `build`, `gap` and `app`.
+  Criterion 4 fails on `buddy` and `hidden`. `mention` and `stall` pass in full.
+- **5d (`0fcd674`):** criteria 1 and 2 pass on all eleven. Criterion 3 fails on the same nine.
+  Criterion 4 fails on `insert`. `mention` and `stall` pass in full.
+- **The burst-end detector is qualified, for the first time in any round.**
+  - Control: burst end 8536.8 ms, inside [8535.1, 8538.2].
+  - 5d: 8535.1 ms, inside [8534.0, 8536.5].
+  - On both builds, every baseline's burst ended before the stall, and the stall lay after the span.
+- **Found by criterion 4, and established from the records: three delays went into a live chat
+  row.** In the control's `buddy` and `hidden` and 5d's `insert`, the delay landed in a live row of
+  page 0 (source 2), not in page 0's 100th history row. The cause is in the probe:
+  - the row call sites pass `historyOrdinalOfCurrentRow()`, which is −1 for any row that is not one
+    of page 0's history rows;
+  - `inject` reads −1 as "this site has no ordinal to match";
+  - so the first live row to reach the call site before the 100th history row takes the delay.
+
+  Whether a live row gets there first depends on when live messages arrive. It is a defect of the
+  probe. Criterion 2 alone passed those launches; criterion 4 caught them. It is not fixed here.
+- **Not yet diagnosed: criterion 3's failures.**
+  - They lie in segments the injection does not touch, by up to 27 ms on the control and 66 ms on
+    5d.
+  - They follow launch order rather than the injection. On 5d, `dedup_backfill_mention` is 132, 134
+    and 132 ms in the three baselines, and 55 to 72 ms in the later launches. On the control it is
+    92, 92 and 94 ms, and 118 to 132 ms later.
+  - The criterion's band, the baselines' range widened by 10 ms, does not hold that drift. What
+    moves it was not examined.
+- **Also recorded, not diagnosed:** 5d's span rose by 700 to 1550 ms in seven of its injected
+  launches, with idle rising by 480 to 960 ms, against baseline spans of 745 to 805 ms.
+- **Published, every value `qualify5d.py` printed:** `experiment/startup-5d/qualification-2026-11-02/`
+  on both experiment branches (`cf0e322`, `22f38c3`): both outputs, the hand-check, and each
+  launch's line. The run directories stay in `C:\Users\Fede\StudioProjects\tmc-5d-round\C`, outside
+  any clone. The phone holds the 5d qualification build, `0fcd674`, since 14:55:16.
