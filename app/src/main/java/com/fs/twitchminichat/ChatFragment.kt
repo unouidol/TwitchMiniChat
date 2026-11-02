@@ -3270,7 +3270,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val probeRow = com.fs.twitchminichat.probe.StartupProbe.insertIn(probeSlot)
         try {
             appendChatViewProbed(probeRow, forceScroll, countAsUnread, messageTimestampSec, preservedTimelinePosition, row)
-            com.fs.twitchminichat.probe.StartupProbe.inject("follow", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+            com.fs.twitchminichat.probe.StartupProbe.injectAtHistoryRow("follow", probeSlot)
         } finally {
             com.fs.twitchminichat.probe.StartupProbe.insertOut(probeRow)
         }
@@ -3292,14 +3292,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         val shouldAutoScroll = forceScroll || stickToBottom || isNearBottom()
 
-        com.fs.twitchminichat.probe.StartupProbe.inject("beforeinsert", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+        com.fs.twitchminichat.probe.StartupProbe.injectAtHistoryRow("beforeinsert", probeSlot)
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_BEFORE_INSERT)
         chatTimelineController.insert(
             messageTimestampSec = messageTimestampSec,
             preservedPosition = preservedTimelinePosition,
             row = row
         )
-        com.fs.twitchminichat.probe.StartupProbe.inject("insert", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+        com.fs.twitchminichat.probe.StartupProbe.injectAtHistoryRow("insert", probeSlot)
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_AFTER_INSERT)
 
         if (shouldAutoScroll) {
@@ -3689,7 +3689,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val stable = dedupKey.startsWith("id:")
         val msgId = dedupKey.removePrefix("id:").takeIf { stable && it.isNotBlank() }
         addMentionUser(user)
-        com.fs.twitchminichat.probe.StartupProbe.inject("mention", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+        com.fs.twitchminichat.probe.StartupProbe.injectAtHistoryRow("mention", probeSlot)
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_MENTION)
 
         val resolvedMessageTimestampSec = messageTimestampSec
@@ -3700,11 +3700,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             message = message,
             messageTimestampSec = resolvedMessageTimestampSec
         )
-        com.fs.twitchminichat.probe.StartupProbe.inject("reconcile", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+        com.fs.twitchminichat.probe.StartupProbe.injectAtHistoryRow("reconcile", probeSlot)
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_RECONCILE)
 
         maybeCaptureBuddyInfoFromChat(user, message)
-        com.fs.twitchminichat.probe.StartupProbe.inject("buddy", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+        com.fs.twitchminichat.probe.StartupProbe.injectAtHistoryRow("buddy", probeSlot)
         com.fs.twitchminichat.probe.StartupProbe.rowMark(probeRow, com.fs.twitchminichat.probe.StartupProbe.MARK_BUDDY)
         if (isUserHidden(user)) {
             Log.d("CHAT_HIDE", "skip message from hidden user")
@@ -3712,7 +3712,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        com.fs.twitchminichat.probe.StartupProbe.inject("hidden", probeSlot, com.fs.twitchminichat.probe.StartupProbe.historyOrdinalOfCurrentRow())
+        com.fs.twitchminichat.probe.StartupProbe.injectAtHistoryRow("hidden", probeSlot)
         appendChatView(
             forceScroll = forceScroll,
             countAsUnread = true,
