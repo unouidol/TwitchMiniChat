@@ -112,4 +112,10 @@ fewer["rows_in_span"] = 799
 out = run_one(fewer)
 assert out["verdict"].startswith("STOPPED"), out["verdict"]
 print("ok an injected launch with other rows stops the qualification")
+# Every launch names where its phase sits on its build, and `build` differently on the two.
+out = run_one(injected("mention", 1000.5, 200))
+assert out["launches"][0]["phase_location"] == q.PHASE_LOCATIONS["control"]["mention"], out["launches"][0]
+assert "not comparable" in out["phase_locations_note"], out["phase_locations_note"]
+assert q.PHASE_LOCATIONS["control"]["build"] != q.PHASE_LOCATIONS["5d"]["build"]
+print("ok each launch names its phase's location, and build's differs between the builds")
 print("all cases as expected")
