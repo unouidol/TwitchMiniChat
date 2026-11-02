@@ -17,6 +17,7 @@ import java.security.MessageDigest
 import java.util.IdentityHashMap
 import java.util.concurrent.atomic.AtomicIntegerArray
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicLongArray
 import java.util.concurrent.locks.LockSupport
 
 /**
@@ -55,6 +56,9 @@ import java.util.concurrent.locks.LockSupport
  *   restore. Both builds call them at the same two places.
  * - The inflation harness (fragment_chat with and without GeckoView) is gone: it answered its
  *   question on 2026-10-08, and no quantity of this measurement uses it.
+ * - History-wait snapshots, 2026-11-02 (see [checkHistoryWait]): two CPU snapshots inside any wait
+ *   in a page's history rows, and in every snapshot each thread's scheduler state and each page's
+ *   posts queued and rows begun.
  */
 object StartupProbe {
 
@@ -69,6 +73,18 @@ object StartupProbe {
     /* A snapshot after a stall long enough to be a line of the startup burst: 30 frames at 90 Hz. */
     private const val LONG_FRAME_NS = 330_000_000L
     private const val REASON_LONG_FRAME_END = 1L shl 62
+
+    /**
+     * How long a page's history rows may pause before the pause counts as a wait. On 2026-11-02 no
+     * on-time launch paused a page's history rows for more than 212 ms (the injected 200 ms
+     * delays included), and every late one paused a page for 902 ms or more.
+     */
+    private const val HISTORY_WAIT_NS = 300_000_000L
+    /** How often the probe thread looks for a wait while a page's history rows are still coming. */
+    private const val HISTORY_WAIT_POLL_NS = 50_000_000L
+    /** Two snapshots per wait, a wait on each page: the most a launch takes. */
+    private const val HISTORY_WAIT_SNAP_CAP = 4
+    private const val REASON_HISTORY_WAIT = 1L shl 61
 
     /* Boundaries. Page boundaries are PAGE_BASE + slot * PAGE_STRIDE + K_*. */
     const val B_ANCHOR = 0
@@ -155,6 +171,8 @@ object StartupProbe {
     private val pagePostsQueued = AtomicIntegerArray(PAGES)
     private val pagePostsRun = IntArray(PAGES)
     private val pageHistoryRowsBegun = IntArray(PAGES)
+    /* When each page's latest history row began, or -1: written on the main thread, read by the probe thread. */
+    private val pageLastHistoryRowNs = AtomicLongArray(PAGES).also { last -> for (slot in 0 until PAGES) last.set(slot, -1L) }
     private val pageScrollPosts = IntArray(PAGES)
     private val pageScrollPostsInSpan = IntArray(PAGES)
     private val pageEverCurrent = BooleanArray(PAGES)
@@ -231,6 +249,11 @@ object StartupProbe {
     private lateinit var snapTid: IntArray
     private lateinit var snapUt: LongArray
     private lateinit var snapSt: LongArray
+    /* Field 3 of each thread's stat, its scheduler state: R running, S sleeping, D waiting on disk. */
+    private lateinit var snapState: ByteArray
+    /* Each page's posts queued and history rows begun, [snapshot * PAGES + slot]. */
+    private lateinit var snapQueued: IntArray
+    private lateinit var snapBegun: IntArray
     private var snapCount = 0
     private var snapThreadsUsed = 0
     private val threadNames = HashMap<Int, String>()
@@ -308,6 +331,9 @@ object StartupProbe {
         snapTid = IntArray(SNAP_CAP * THREADS_PER_SNAP)
         snapUt = LongArray(SNAP_CAP * THREADS_PER_SNAP)
         snapSt = LongArray(SNAP_CAP * THREADS_PER_SNAP)
+        snapState = ByteArray(SNAP_CAP * THREADS_PER_SNAP)
+        snapQueued = IntArray(SNAP_CAP * PAGES)
+        snapBegun = IntArray(SNAP_CAP * PAGES)
     }
 
     /** From Application.onCreate, after its own work: starts the frame recorder and the probe thread. */
@@ -445,6 +471,8 @@ object StartupProbe {
         rowBegin[i] = rel()
         if (history) {
             rowOrdinal[i] = ++pageHistoryRowsBegun[slot]
+            /* After the count, so that the probe thread reading this time also sees the count. */
+            pageLastHistoryRowNs.set(slot, rowBegin[i])
             if (rowOrdinal[i] == 1) pageBoundary(slot, K_FIRST_ROW)
         }
         rowCount = i + 1
@@ -638,8 +666,10 @@ object StartupProbe {
             if (mode == MODE_FULL) {
                 val reason = pendingSnap.getAndSet(0L)
                 if (reason != 0L && snapshots) snapshot(reason, buffer)
+                if (snapshots) checkHistoryWait(buffer)
             }
-            val wait = (if (tenDone) CLOSE_NS else WINDOW_NS) - rel()
+            var wait = (if (tenDone) CLOSE_NS else WINDOW_NS) - rel()
+            if (mode == MODE_FULL && snapshots && historyRowsComing()) wait = minOf(wait, HISTORY_WAIT_POLL_NS)
             if (wait > 0L) LockSupport.parkNanos(wait)
         }
         if (mode == MODE_FULL) {
@@ -687,17 +717,78 @@ object StartupProbe {
             snapTid[at] = tid
             snapUt[at] = lastUt
             snapSt[at] = lastSt
+            snapState[at] = lastState
             n++
         }
         snapLen[i] = n
         snapThreadsUsed += n
+        for (slot in 0 until PAGES) {
+            snapQueued[i * PAGES + slot] = pagePostsQueued.get(slot)
+            snapBegun[i * PAGES + slot] = pageHistoryRowsBegun[slot]
+        }
         snapDone[i] = rel()
         snapCount = i + 1
         snapCostNs += snapDone[i] - started
     }
 
+    /*
+     * The history wait. On 2026-11-02, in 10 of 28 launches, both pages' history rows stopped reaching
+     * the main thread after the same number of rows, both responses already parsed, and resumed
+     * together 0.9 to 1.4 s later. What the process did meanwhile was never sampled: no snapshot
+     * fell inside any of those waits.
+     */
+    private val waitAfterNs = LongArray(PAGES) { -1L }
+    private val waitSnapsTaken = IntArray(PAGES)
+    private var historyWaitSnaps = 0
+
+    /** Whether a page's history rows have begun and are not all begun yet: the time a wait can happen in. */
+    private fun historyRowsComing(): Boolean {
+        for (slot in 0 until PAGES) {
+            if (pageLastHistoryRowNs.get(slot) < 0L) continue
+            val count = pageHistoryCount[slot]
+            if (count >= 0 && pageHistoryRowsBegun[slot] < count) return true
+        }
+        return false
+    }
+
+    /**
+     * Takes a snapshot [HISTORY_WAIT_NS] after a page's latest history row began, while the page
+     * still has history rows to come, and a second one [HISTORY_WAIT_NS] later if the wait lasts.
+     *
+     * The value that tells the causes apart is each history worker's CPU time between the two,
+     * against the 300 ms between them: a worker that is computing gains about 300 ms and reads R;
+     * one that is blocked gains about nothing and reads S, on a lock or a socket, or D, on disk.
+     * Computing cannot be the response's parse, which ends before the worker queues its first
+     * post: it is a slow step of the loop that queues them. Each snapshot's posts queued against
+     * rows begun shows which side held the rows back: as many queued as begun means the worker had
+     * not queued the next post, more queued means the posts were waiting on the main thread.
+     */
+    private fun checkHistoryWait(buffer: ByteArray) {
+        if (historyWaitSnaps >= HISTORY_WAIT_SNAP_CAP) return
+        val now = rel()
+        var due = false
+        for (slot in 0 until PAGES) {
+            val last = pageLastHistoryRowNs.get(slot)
+            if (last < 0L) continue
+            val count = pageHistoryCount[slot]
+            if (count < 0 || pageHistoryRowsBegun[slot] >= count) continue
+            if (waitAfterNs[slot] != last) {
+                waitAfterNs[slot] = last
+                waitSnapsTaken[slot] = 0
+            }
+            if (waitSnapsTaken[slot] < 2 && now - last >= HISTORY_WAIT_NS * (waitSnapsTaken[slot] + 1)) {
+                waitSnapsTaken[slot]++
+                due = true
+            }
+        }
+        if (!due) return
+        historyWaitSnaps++
+        snapshot(REASON_HISTORY_WAIT, buffer)
+    }
+
     private var lastUt = 0L
     private var lastSt = 0L
+    private var lastState: Byte = 0
     /* One open file per thread, read again from its start: no open or close per snapshot. */
     private val statFiles = HashMap<Int, RandomAccessFile>()
 
@@ -733,6 +824,7 @@ object StartupProbe {
         }
         if (close < 0) return false
         if (key != 0 && !threadNames.containsKey(key)) threadNames[key] = String(buffer, open + 1, close - open - 1)
+        lastState = if (close + 2 < length) buffer[close + 2] else 0
         /* After ") ": field 3 is index 0, so utime (14) is index 11 and stime (15) index 12. */
         var field = 0
         var k = close + 2
@@ -990,6 +1082,14 @@ object StartupProbe {
             b.append(",\"tid\":").ints(snapTid, snapThreadsUsed)
             b.append(",\"ut\":").longs(snapUt, snapThreadsUsed)
             b.append(",\"st\":").longs(snapSt, snapThreadsUsed)
+            b.append(",\"state\":\"")
+            for (k in 0 until snapThreadsUsed) {
+                val state = snapState[k].toInt().toChar()
+                b.append(if (state in 'A'..'Z' || state in 'a'..'z') state else '?')
+            }
+            b.append('"')
+            b.append(",\"queued\":").ints(snapQueued, snapCount * PAGES)
+            b.append(",\"begun\":").ints(snapBegun, snapCount * PAGES)
             b.append(",\"names\":{")
             threadNames.entries.forEachIndexed { k, (tid, comm) ->
                 if (k > 0) b.append(',')
