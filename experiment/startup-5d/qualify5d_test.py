@@ -15,6 +15,13 @@ q = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(q)
 
 READING = "refreshRate=60.000004 frameRateOverride=[] skipwarning=[]"
+BATTERY = "saver=0 ac=false usb=true wireless=false"
+
+
+def record(run):
+    """launchcheck.py's record of a launch that counts, as much of it as verdict() reads."""
+    return {"run": run, "void": [], "battery_state": BATTERY,
+            "battery": [{"level": "73", "temperature": "269"}, {"level": "73", "temperature": "270"}]}
 
 
 def baseline(run, wobble=0.0):
@@ -32,6 +39,7 @@ def baseline(run, wobble=0.0):
         "builds": [(1005.2, 1005.8)],
         "rows": [dict(marks, page=0, source=1, ordinal=100)],
         "display": [READING, READING],
+        "check": record(run),
     }
 
 
@@ -149,4 +157,28 @@ five = out["launches"][0]["criteria"]["5"]
 assert five["baselines_burst_end"]["b2"] == "no burst" and five["baselines_with_no_burst"] == ["b2"], five
 assert "b2" not in five["baselines_whose_burst_ended_before_the_stall"], five
 print("ok a baseline with no burst is printed as no burst")
+
+# The conditions of 2026-11-02 after the first qualification: a void launch stops the verdict, and
+# battery saver or the power source must be one state across the build's launches.
+late = injected("mention", 1000.5, 200)
+late["check"]["void"] = ["late delivery: 84 frames drawn inside the span, more than 5"]
+out = run_one(late)
+assert out["verdict"].startswith("STOPPED: void launches") and "inject-mention" in out["verdict"], out["verdict"]
+print("ok a launch with more than 5 frames inside its span stops the verdict: it is re-run, not scored")
+foreign = copy.deepcopy(BASELINES)
+foreign[0]["check"]["void"] = ["a process other than the app's own started between the launch and the end of the span"]
+out = q.verdict("control", foreign, [injected("mention", 1000.5, 200)])
+assert out["verdict"].startswith("STOPPED: void launches") and "b1" in out["verdict"], out["verdict"]
+print("ok a void baseline stops the verdict as well")
+saver = injected("mention", 1000.5, 200)
+saver["check"]["battery_state"] = BATTERY.replace("saver=0", "saver=1")
+out = run_one(saver)
+assert out["verdict"].startswith("VOID: the launches do not share one battery"), out["verdict"]
+print("ok battery saver differing between launches voids the verdict")
+levels = injected("mention", 1000.5, 200)
+levels["check"]["battery"] = [{"level": "80", "temperature": "281"}, {"level": "81", "temperature": "283"}]
+out = run_one(levels)
+assert out["battery"]["one_state"] and not out["verdict"].startswith(("VOID", "STOPPED")), out["verdict"]
+assert out["launches"][0]["pass"], out["launches"][0]
+print("ok the level and the temperature moving decide nothing")
 print("all cases as expected")

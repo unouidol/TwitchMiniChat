@@ -35,6 +35,23 @@ or the round is void: a burst end counts frames, and the qualification qualifies
 
 Skipped frames: "fell" only if every 5d launch's total is below every control launch's. "A great
 deal" cannot be tested without a number, and none is given.
+
+Added on 2026-11-02 after the first qualification, by the owner's decisions, before any decision
+launch:
+
+- Every one of the ten passes launchcheck.py, or the round is STOPPED: a void launch is re-run until
+  five clean launches exist in each arm, never scored. The conditions are there: more than 5 frames
+  drawn inside the span (late delivery), a process other than the app's own started between the
+  launch and the end of the span, an input event, no install with a matching read-back immediately
+  before it (every launch is a first launch after install), battery saver or the power source or the
+  display changing during it.
+- The ten alternate, control first: C T C T C T C T C T, by their host launch times. Otherwise VOID.
+- Battery saver and the power source are one state across the ten and the qualification, or VOID.
+- Five per arm and 25 pairings, as written: ten per arm would make the rule all-100-below, stricter
+  than the rule that does not change.
+- What a result supports is printed with it (WHAT_THE_RESULT_SUPPORTS), with each launch's JIT CPU
+  across its span and its history rows' cost by process age, so that the asymmetry is quantified
+  beside the comparison rather than hidden.
 """
 import importlib.util
 import json
@@ -45,6 +62,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("a5", os.path.join(HERE, "analyze5d.py"))
 a5 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(a5)
+spec = importlib.util.spec_from_file_location("launchcheck", os.path.join(HERE, "launchcheck.py"))
+launchcheck = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(launchcheck)
+
+# The owner's sentence, 2026-11-02, replacing the one written for a forced compile that the phone refused.
+WHAT_THE_RESULT_SUPPORTS = (
+    "Measured on debuggable, uncompiled builds whose JIT compiles during the window being measured. The "
+    "result supports \"the ingestion window fell by X on these builds\" and does NOT support \"users see X "
+    "less on a release build\". The control's window reaches compiled code while 5d's does not, so the "
+    "measured ratio is conservative relative to a cold-against-cold comparison."
+)
 
 RHO = {"span": 1.0 / 2.4, "burst_end": 2.6 / 4.0}
 THRESHOLD = {key: (1.0 + rho) / 2.0 for key, rho in RHO.items()}
@@ -117,6 +145,31 @@ def main(argv):
     out["no_burst_means"] = None if rate is None else (
         "no frame within anchor + 10 s started %d intervals after its vsync: no single stall reached %.0f ms at %.6g Hz"
         % (limit, limit * 1000.0 / rate, rate))
+
+    # Each launch counts or is re-run; battery saver and the power source are held; the ten alternate.
+    records = {path: launchcheck.check(path) for path in control_dirs + treatment_dirs}
+    states = {path: launchcheck.battery_state(b[0]) if b else None
+              for path, b in ((p, launchcheck.battery_readings(p)) for p in control_dirs + treatment_dirs + qualified_dirs)}
+    out["battery_states"] = sorted({s for s in states.values() if s is not None})
+    out["void_battery"] = len(out["battery_states"]) != 1 or None in states.values()
+    out["void_launches"] = {path: r["void"] for path, r in records.items() if r["void"]}
+    launched = sorted((float(open(os.path.join(p, "host-launch.txt")).read().strip()), arm)
+                      for arm, dirs in (("C", control_dirs), ("T", treatment_dirs)) for p in dirs)
+    out["order"] = "".join(arm for _, arm in launched)
+    out["void_order"] = out["order"] != "CT" * 5
+    out["launch_records"] = list(records.values())
+    out["what_the_result_supports"] = WHAT_THE_RESULT_SUPPORTS
+    stop = None
+    if out["void_launches"]:
+        stop = "STOPPED: void launches, each to be re-run, never scored: " + ", ".join(sorted(out["void_launches"]))
+    elif out["void_order"]:
+        stop = "VOID: the ten do not alternate control first (%s)" % out["order"]
+    elif out["void_battery"]:
+        stop = "VOID: the launches do not share one battery saver and power source state"
+    if stop:
+        out["verdicts"] = {"span": stop, "burst_end": stop, "burst_frames": stop}
+        print(json.dumps(out, indent=2))
+        return
 
     # Span: every pairing, 5d over control.
     span_ratios = [[t["span"] / c["span"] for c in control] for t in treatment]

@@ -11,6 +11,14 @@
 # end counts frames, so a launch measured at another rate is not comparable, and decide.py and
 # qualify5d.py void what does not share one reading. 2026-11-02.
 #
+# Since the owner's decisions of 2026-11-02 after the qualification, before any launch they govern:
+# - with APK set, the APK is installed over the dev build before the launch and read back from the
+#   phone (install.txt), so that every launch is a first launch after install, in both arms;
+# - battery saver, the power source, the level and the temperature, before and after (battery.txt);
+# - the build's compile state as the package manager reports it, before the launch
+#   (compile-state.txt).
+# launchcheck.py decides from these files whether the launch counts.
+#
 # ADB and PYTHON name this machine's adb and Python 3, as found on PATH unless set: the round's
 # machine is recorded in docs/manual-plan-5d-recyclerview.md.
 set -u
@@ -38,8 +46,36 @@ display() {
   echo "${rate:-refreshRate=unread} frameRateOverride=[$override] skipwarning=[$limit]"
 }
 
+# Battery saver, the power source, the level and the temperature, as dumpsys battery and the setting give them.
+battery() {
+  local b
+  b=$("$ADB" shell dumpsys battery | tr -d '\r')
+  field() { echo "$b" | grep -m1 "^  $1: " | sed "s/^  $1: //"; }
+  echo "saver=$("$ADB" shell settings get global low_power | tr -d '\r') ac=$(field 'AC powered') usb=$(field 'USB powered') wireless=$(field 'Wireless powered') status=$(field status) level=$(field level) temperature=$(field temperature)"
+}
+
+compile_state() {
+  "$ADB" shell dumpsys package dexopt | tr -d '\r' | grep -A2 "\[$PKG\]" | grep -o '\[status=[^]]*\] \[reason=[^]]*\]' | head -1
+}
+
+if [ -n "${APK:-}" ]; then
+  {
+    echo "apk: $APK"
+    echo "local_sha256: $(sha256sum "$APK" | cut -c1-64)"
+    echo "install_started: $(date +%s.%N)"
+    echo "installed: $("$ADB" install -r "$APK" 2>&1 | tr -d '\r' | tail -1)"
+    echo "install_ended: $(date +%s.%N)"
+    phone_path=$("$ADB" shell pm path $PKG | tr -d '\r' | sed 's/^package://' | head -1)
+    echo "phone_path: $phone_path"
+    echo "phone_sha256: $("$ADB" shell sha256sum "$phone_path" | tr -d '\r' | cut -c1-64)"
+    echo "last_update_time: $("$ADB" shell dumpsys package $PKG | grep -o 'lastUpdateTime=[^ ]* [^ ]*' | head -1 | tr -d '\r')"
+  } > "$OUT/install.txt"
+fi
+
 echo "before: $(display)" > "$OUT/refresh-rate.txt"
 echo "before: $(state)" > "$OUT/device-state.txt"
+echo "before: $(battery)" > "$OUT/battery.txt"
+echo "before: $(compile_state)" > "$OUT/compile-state.txt"
 "$ADB" shell dumpsys battery | grep -E "temperature|level" | tr -d '\r' >> "$OUT/device-state.txt"
 "$ADB" shell am force-stop $PKG
 sleep 3
@@ -68,6 +104,7 @@ if [ "$FLAG" = "off" ]; then
   wait $LOGCAT $GETEVENT 2>/dev/null
   echo "after: $(state)" >> "$OUT/device-state.txt"
   echo "after: $(display)" >> "$OUT/refresh-rate.txt"
+  echo "after: $(battery)" >> "$OUT/battery.txt"
   echo "ok $1 (probe off): $(grep -c . "$OUT/logcat.txt") logcat lines | $(tr '\n' ' ' < "$OUT/refresh-rate.txt")"
   exit 0
 fi
@@ -82,6 +119,7 @@ kill $LOGCAT $GETEVENT 2>/dev/null
 wait $LOGCAT $GETEVENT 2>/dev/null
 echo "after: $(state)" >> "$OUT/device-state.txt"
 echo "after: $(display)" >> "$OUT/refresh-rate.txt"
+echo "after: $(battery)" >> "$OUT/battery.txt"
 if [ -z "$latest" ]; then
   echo "NO DUMP" | tee "$OUT/ERROR"
   exit 1

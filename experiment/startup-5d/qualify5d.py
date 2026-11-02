@@ -64,6 +64,21 @@ Where the plan's words leave a choice, this script makes it, and says so here:
   per build, against the build's own baselines, so the asymmetry is sound here; but `build` sits
   inside the span on the control and outside every row on 5d, so its value is not comparable across
   the two builds, and the output says so rather than leaving it to this docstring.
+
+Added on 2026-11-02 after the first qualification, by the owner's decisions, before the launches they
+govern:
+
+- Every launch passes launchcheck.py, or the verdict is STOPPED: a void launch is re-run, never
+  scored. Its conditions are there: more than 5 frames drawn inside the span, a process other than
+  the app's own started between the launch and the end of the span, an input event, no install with a
+  matching read-back immediately before it, battery saver or the power source or the display changing
+  during it. The frames condition voids qualification launches as well as decision launches.
+- Battery saver and the power source must be one state across the build's launches, or the verdict is
+  VOID, as the display is. The level and the temperature are printed, not held: the phone charges.
+- Every launch's record is printed whole (`launch_records`): its voids, frames inside the span, process
+  starts, install read-back, compile state, battery, each page's channel fingerprint and history
+  count, whether both reached the cap, live rows, the JIT thread's CPU across the span, the history
+  rows' cost by process age, and whatever the history-wait reads caught.
 """
 import importlib.util
 import json
@@ -78,6 +93,9 @@ spec.loader.exec_module(a5)
 spec = importlib.util.spec_from_file_location("decide", os.path.join(HERE, "decide.py"))
 decide = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(decide)
+spec = importlib.util.spec_from_file_location("launchcheck", os.path.join(HERE, "launchcheck.py"))
+launchcheck = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(launchcheck)
 
 INJECT_MS = 200.0
 STALL_MS = 534.0
@@ -190,6 +208,7 @@ def facts(run):
         "builds": [(ms(a), ms(b)) for a, b in zip(builds["start"], builds["end"]) if b >= 0],
         "rows": rows,
         "display": decide.display_readings(run),
+        "check": launchcheck.check(run),
     }
 
 
@@ -404,6 +423,15 @@ def verdict(build, baseline_facts, injected_facts):
     unread = [run for run, rs in readings.items() if len(rs) != 2 or any(decide.refresh_rate(r) is None for r in rs)]
     out["display"] = {"readings": distinct, "unread": unread, "one_reading": len(distinct) == 1 and not unread}
 
+    states = {f["run"]: f["check"]["battery_state"] for f in every}
+    out["battery"] = {"states": sorted({s for s in states.values() if s is not None}),
+                      "unread": [run for run, s in states.items() if s is None],
+                      "levels_and_temperatures": {f["run"]: [(b.get("level"), b.get("temperature")) for b in f["check"].get("battery", [])]
+                                                  for f in every}}
+    out["battery"]["one_state"] = len(out["battery"]["states"]) == 1 and not out["battery"]["unread"]
+    out["void_launches"] = {f["run"]: f["check"]["void"] for f in every if f["check"]["void"]}
+    out["launch_records"] = [f["check"] for f in every]
+
     rows = {f["run"]: f["rows_in_span"] for f in every}
     base_rows = {b["rows_in_span"] for b in baseline_facts}
     out["rows_in_span"] = {
@@ -418,6 +446,11 @@ def verdict(build, baseline_facts, injected_facts):
     out["launches"] = [evaluate(build, baseline_facts, f) for f in injected_facts]
     if not out["display"]["one_reading"]:
         out["verdict"] = "VOID: the launches do not share one display reading"
+    elif not out["battery"]["one_state"]:
+        out["verdict"] = "VOID: the launches do not share one battery saver and power source state"
+    elif out["void_launches"]:
+        out["verdict"] = "STOPPED: void launches were given, and a void launch is re-run, never scored: " + ", ".join(
+            sorted(out["void_launches"]))
     elif not out["rows_in_span"]["baselines_equal"]:
         out["verdict"] = "STOPPED: the baselines' rows in the span differ (the plan's account case)"
     elif out["rows_in_span"]["injected_differing"]:
