@@ -23,7 +23,7 @@ def baseline(run, wobble=0.0):
              "mark3": 1005.0, "mark4": 1006.0, "insertOut": 1007.0}
     return {
         "run": run, "commit": "test", "inject": "", "inject_arg": -1, "inject_start": None, "inject_end": None,
-        "rows_in_span": 800, "span": 2400.0 + wobble, "idle": 100.0,
+        "rows_in_span": 800, "span": 2400.0 + wobble, "span_end": 3400.0, "idle": 100.0,
         "segments": {key: 50.0 + wobble for key in q.SEGMENTS},
         "other_messages": 300.0 + wobble, "binds_ms": 40.0 + wobble, "act_in": 150.0 + wobble,
         "app_in": 100.0, "app_out": 120.0, "burst_end": 5000.0 + wobble,
@@ -118,4 +118,35 @@ assert out["launches"][0]["phase_location"] == q.PHASE_LOCATIONS["control"]["men
 assert "not comparable" in out["phase_locations_note"], out["phase_locations_note"]
 assert q.PHASE_LOCATIONS["control"]["build"] != q.PHASE_LOCATIONS["5d"]["build"]
 print("ok each launch names its phase's location, and build's differs between the builds")
+# Criterion 3's exemption, computed from containment.
+assert q.moving_segments("control", "insert") == {"timeline_insert", "timeline_insert_without_view_build"}
+assert q.moving_segments("control", "build") == {"timeline_insert", "timeline_insert_of_which_view_build"}
+assert q.moving_segments("5d", "build") == set() and q.moving_segments("control", "stall") == set()
+assert q.moving_segments("5d", "mention") == {"dedup_backfill_mention"}
+print("ok criterion 3's exemptions follow from containment")
+
+# The stall after the span: criterion 3 not applicable; inside it: criterion 5 fails.
+stall_after = copy.deepcopy(stall)
+stall_after["span_end"] = 3400.0
+for b in BASELINES:
+    b["span_end"] = 3400.0
+out = run_one(stall_after)
+three = out["launches"][0]["criteria"]["3"]
+assert three["status"] == "NOT APPLICABLE" and "pass" not in three, three
+assert out["launches"][0]["pass"], out["launches"][0]
+print("ok a stall after the span: criterion 3 not applicable, not printed as passed")
+stall_inside = copy.deepcopy(stall)
+stall_inside["span_end"] = 9000.0
+out = run_one(stall_inside)
+assert out["launches"][0]["criteria"]["5"]["pass"] is False and "pass" in out["launches"][0]["criteria"]["3"]
+print("ok a stall inside the span: criterion 5 fails and criterion 3 is held")
+
+# A baseline with no burst, by name.
+quiet = copy.deepcopy(BASELINES)
+quiet[1]["burst_end"] = None
+out = q.verdict("control", quiet, [stall_after])
+five = out["launches"][0]["criteria"]["5"]
+assert five["baselines_burst_end"]["b2"] == "no burst" and five["baselines_with_no_burst"] == ["b2"], five
+assert "b2" not in five["baselines_whose_burst_ended_before_the_stall"], five
+print("ok a baseline with no burst is printed as no burst")
 print("all cases as expected")

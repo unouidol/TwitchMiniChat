@@ -14,8 +14,11 @@ Where the plan's words leave a choice, this script makes it, and says so here:
   segment (A_parts), B_other_messages for `gap`, the act_in boundary for `app`, and for `build` the
   view build inside the insert on the control (A_parts) and the binds on 5d (view_builds_by_kind).
 - Criterion 3's "per-row segments" are A_parts' seven segments and the insert's two parts. A segment
-  that contains the injected phase moves with it and is not held to criterion 3: the insert, for
-  the view build inside it on the control; the insert less its view build, for `insert`.
+  that contains the injected phase moves with it and is not held to criterion 3. Which segments
+  contain it is computed, not listed (2026-11-02, the owner's item 2): each segment is the set of the
+  row's intervals it spans (SEGMENT_INTERVALS), each injection's call site is one interval or none
+  (INJECTION_INTERVAL), and a segment is exempt exactly when it spans that interval. A new phase
+  needs its interval and its segment, and its exemption follows.
 - Criterion 4's target row is page 0's history row at the injection's ordinal (its arg, or 100). For
   `build` it is the build, or bind, whose interval overlaps the delay most; on the control, the row
   whose begin-to-insertOut contains that build is the target row of 4's third clause.
@@ -27,8 +30,12 @@ Where the plan's words leave a choice, this script makes it, and says so here:
   burst ended before the stall.
 - The display: every launch's readings, before and after, must be one reading; otherwise the build's
   verdict is VOID, not a failure of the instrument.
-- Criterion 1 holds the interval the probe recorded, end less start, to the delay asked for: 200 ms,
-  534 for `stall`.
+- Criterion 1 holds the interval the probe recorded, end less start, to at least the delay asked
+  for: 200 ms, 534 for `stall`. No tolerance below and no bound above (the owner's item 7): Android
+  12's Thread.sleep loops on System.nanoTime until the requested time has passed, and the probe
+  brackets the sleep with rel(), so the recorded interval is never shorter than asked; an overshoot
+  is real delay, which criteria 4 and 5 read as recorded, and which can only clear criterion 2's
+  floor more easily.
 - Criterion 2's reference is the median of the three baselines' values.
 - Criterion 3's range is the baselines' lowest less 10 ms to their highest plus 10 ms. With no segment
   moving, `gap`, `app`, `stall` and 5d's `build` hold all nine segments to it.
@@ -36,6 +43,13 @@ Where the plan's words leave a choice, this script makes it, and says so here:
   lies after its end, added.
 - Criterion 4's first clause is not applied to `stall`, which no phase of the breakdown contains; its
   second clause applies to every injection but `app`, as the plan says.
+- `stall` is injected after the span (the owner's items 9 and 11). Criterion 5 checks that it is:
+  the stall begins after the span's last insertOut. When it does, criterion 3 is NOT APPLICABLE to
+  it: no row's segment can contain a delay after the last row, so the check could fail only through
+  the launch's own variation, never through the stall. Its values are printed and it decides
+  nothing. A check the injection cannot fail is not printed as passed beside checks it can fail.
+- A baseline with no burst is printed as "no burst" (the owner's item 5), not folded into the
+  baselines whose burst ended before the stall.
 - Criterion 4's third clause applies only where there is a target row: the seven row injections, and
   `build` on the control. It compares the target row's total less the recorded interval, not less
   200 ms, and every one of its seven segments except the one holding the delay (the insert, for
@@ -106,6 +120,32 @@ NOT_COMPARABLE_ACROSS_BUILDS = (
     "across the two builds."
 )
 
+# A row's intervals between its marks; the view build inside the insert is one of its own.
+INSIDE_THE_INSERT = "mark3-mark4, outside its view build"
+THE_VIEW_BUILD = "the view build inside mark3-mark4"
+# Each per-row segment of the breakdown, as the row intervals it spans.
+SEGMENT_INTERVALS = {
+    "dedup_backfill_mention": {"begin-mark0"},
+    "timestamp_echo_reconcile": {"mark0-mark1"},
+    "buddy_capture": {"mark1-mark2"},
+    "hidden_user_check": {"mark2-insertIn"},
+    "composer_snapshot_follow_decision": {"insertIn-mark3"},
+    "timeline_insert": {INSIDE_THE_INSERT, THE_VIEW_BUILD},
+    "follow_or_count_composer_restore": {"mark4-insertOut"},
+    "timeline_insert_of_which_view_build": {THE_VIEW_BUILD},
+    "timeline_insert_without_view_build": {INSIDE_THE_INSERT},
+}
+assert list(SEGMENT_INTERVALS) == SEGMENTS, "every segment criterion 3 holds has its intervals"
+# The row interval each injection's call site lies in, per build; None outside every row.
+INJECTION_INTERVAL = {
+    build: dict(
+        mention="begin-mark0", reconcile="mark0-mark1", buddy="mark1-mark2", hidden="mark2-insertIn",
+        beforeinsert="insertIn-mark3", insert=INSIDE_THE_INSERT, follow="mark4-insertOut",
+        build=THE_VIEW_BUILD if build == "control" else None, gap=None, app=None, stall=None,
+    )
+    for build in ("control", "5d")
+}
+
 CRITERION_3_MS = 10.0
 CRITERION_4_OUTSIDE_MS = 1.0
 CRITERION_4_ROW_MS = 5.0
@@ -136,6 +176,7 @@ def facts(run):
         "inject_end": ms(d["injectEndNs"]) if started else None,
         "rows_in_span": (result.get("rows_in_span_by_source") or {}).get(1),
         "span": result.get("span"),
+        "span_end": result.get("last_row"),
         "idle": (result.get("B_parts") or {}).get("B_idle"),
         "segments": result.get("A_parts") or {},
         "other_messages": (result.get("B_parts") or {}).get("B_other_messages"),
@@ -200,14 +241,9 @@ def phase_value(build, name, f):
 
 
 def moving_segments(build, name):
-    """The per-row segments the injection is expected to move: its own and those containing it."""
-    if name == "insert":
-        return {"timeline_insert", "timeline_insert_without_view_build"}
-    if name == "build" and build == "control":
-        return {"timeline_insert_of_which_view_build", "timeline_insert"}
-    if name in ROW_PHASES:
-        return {ROW_PHASES[name][0]}
-    return set()
+    """The segments that contain the injection's call site, computed from SEGMENT_INTERVALS."""
+    site = INJECTION_INTERVAL[build][name]
+    return {key for key, spans in SEGMENT_INTERVALS.items() if site is not None and site in spans}
 
 
 def evaluate(build, baselines, f):
@@ -219,6 +255,7 @@ def evaluate(build, baselines, f):
     recorded = None if interval is None else interval[1] - interval[0]
 
     c["1"] = {"recorded_ms": recorded, "at_least_ms": delay,
+              "rule": "at least the delay asked for; no tolerance below, no bound above",
               "pass": recorded is not None and recorded >= delay}
 
     if name != "stall":
@@ -243,7 +280,17 @@ def evaluate(build, baselines, f):
             continue
         low, high = min(values) - CRITERION_3_MS, max(values) + CRITERION_3_MS
         held[key] = {"value": value, "range": [low, high], "pass": low <= value <= high}
-    c["3"] = {"segments": held, "pass": all(entry["pass"] for entry in held.values())}
+    after_the_span = name == "stall" and f["inject_start"] is not None and f["span_end"] is not None and \
+        f["inject_start"] > f["span_end"]
+    if after_the_span:
+        for entry in held.values():
+            entry.pop("pass", None)
+        c["3"] = {"status": "NOT APPLICABLE",
+                  "why": "the stall begins after the span's last row, so no row's segment can contain it: "
+                         "this check could fail only through the launch's own variation, never through the stall",
+                  "segments_for_the_record": held}
+    else:
+        c["3"] = {"segments": held, "pass": all(entry["pass"] for entry in held.values())}
 
     four = {}
     target_row = None
@@ -327,17 +374,24 @@ def evaluate(build, baselines, f):
         after = [t for t in f["frames_ran"] if end is not None and t > end]
         first_frame = after[0] if after else None
         placed = f["inject_arg"] if f["inject_arg"] > 0 else None
-        before = [b["burst_end"] for b in baselines]
+        before = {b["run"]: b["burst_end"] for b in baselines}
         moved = burst is not None and end is not None and first_frame is not None and \
             end - LOGCAT_RESOLUTION_MS <= burst <= first_frame
-        elsewhere = placed is not None and all(v is None or v < placed for v in before)
+        elsewhere = placed is not None and all(v is None or v < placed for v in before.values())
         c["5"] = {"burst_end": burst, "stall_end": end, "first_frame_after": first_frame,
                   "bounds": [None if end is None else end - LOGCAT_RESOLUTION_MS, first_frame],
-                  "stall_placed_at": placed, "baselines_burst_end": before,
+                  "stall_placed_at": placed, "stall_began": f["inject_start"], "span_end": f["span_end"],
+                  "baselines_burst_end": {run: ("no burst" if v is None else v) for run, v in before.items()},
+                  "baselines_whose_burst_ended_before_the_stall": [run for run, v in before.items() if v is not None and placed is not None and v < placed],
+                  "baselines_with_no_burst": [run for run, v in before.items() if v is None],
+                  "after_the_span": after_the_span,
                   "the_detector_moves_there": moved, "from_somewhere_else": elsewhere,
-                  "pass": moved and elsewhere}
+                  "pass": after_the_span and moved and elsewhere}
+    for entry in c.values():
+        if "pass" in entry:
+            entry["status"] = "PASS" if entry["pass"] else "FAIL"
     return {"run": f["run"], "inject": name, "phase_location": PHASE_LOCATIONS[build].get(name),
-            "criteria": c, "pass": all(v["pass"] for v in c.values())}
+            "criteria": c, "pass": all(v["pass"] for v in c.values() if "pass" in v)}
 
 
 def verdict(build, baseline_facts, injected_facts):
@@ -374,7 +428,7 @@ def verdict(build, baseline_facts, injected_facts):
         out["verdict"] = "QUALIFIED"
     else:
         out["verdict"] = "NOT QUALIFIED: " + ", ".join(
-            "%s (criteria %s)" % (launch["inject"], ", ".join(k for k, v in launch["criteria"].items() if not v["pass"]))
+            "%s (criteria %s)" % (launch["inject"], ", ".join(k for k, v in launch["criteria"].items() if v.get("pass") is False))
             for launch in out["launches"] if not launch["pass"])
     return out
 
