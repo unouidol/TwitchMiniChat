@@ -768,6 +768,11 @@ object StartupProbe {
     private var injectTid = 0
     private var bindOrdinal = 0
     private const val STALL_MS = 400L
+    /**
+     * Every phase injection's delay, `app` included; `stall` keeps [STALL_MS]. 200 and not 50: half
+     * of it, criterion 2's floor, lies outside every phase range 2026-10-08 measured.
+     */
+    private const val INJECT_MS = 200L
     const val GAP_POST = 200
 
     /** Page 0's history ordinal of the row being recorded, or -1. */
@@ -777,11 +782,11 @@ object StartupProbe {
     /** The view builds and binds so far, creates without a bind left out. */
     fun bindOrdinal(): Int = bindOrdinal
 
-    /** Runs a 50 ms delay once, if [name] is this run's injection, on page 0, at [ordinal] when it has one. */
+    /** Runs an [INJECT_MS] delay once, if [name] is this run's injection, on page 0, at [ordinal] when it has one. */
     fun inject(name: String, slot: Int = 0, ordinal: Int = -1, target: Int = 100) {
         if (mode != MODE_FULL || inject != name || slot != 0) return
         if (ordinal >= 0 && ordinal.toLong() != (if (injectArg > 0) injectArg else target.toLong())) return
-        injected(50L)
+        injected(INJECT_MS)
     }
 
     private fun injected(ms: Long) {
