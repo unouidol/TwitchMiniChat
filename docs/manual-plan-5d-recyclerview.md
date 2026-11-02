@@ -19,10 +19,33 @@ results file, or a results file without its counts is a failure of that stage.
 | H1 from then on | `feature/5d-recyclerview-timeline` | `d11b629` | recorded under *Recorded results* as built |
 | H1 with S3's landing check, H3, M, B1 | `feature/5d-recyclerview-timeline` | `b954eba` | recorded under *Recorded results* as built |
 | H2 | one mutant of `b954eba` per run | built after the predictions | each read back from the phone |
-| C, qualification, control | `experiment/startup-5d-control` | `03a8775` | `a3c3ca073d3f5984d9e67dd03437f587fafaa893c07da79c4f9012a08da5cdad` |
-| C, qualification, 5d | `experiment/startup-5d-treatment` | `0fcd674` | `163fa113c9217428ca83c5522f10f835c763a972d81443b968c53f3e126a5ae4` |
-| C, measurement, control | `experiment/startup-5d-control` | `301111b` | `6fc184a88261f5ee5e9123476dedc0dc612a9ffedc5542c5ef5595ac38a547d9` |
-| C, measurement, 5d | `experiment/startup-5d-treatment` | `5851fde` | `0b23204146d875ee8e0c257668e443f07b4f9cbab8ae4e62a88f8d057920e55a` |
+| C, qualification, control | `experiment/startup-5d-control` | `cc4c0cf` | `5cc84bb39e493453298bdd6ba1ed931bc019492c90ea9ebf1e4bc12a91cf2449` |
+| C, qualification, 5d | `experiment/startup-5d-treatment` | `1198c79` | `2e298b5c84f2a6f82719376ec32092c7e370136d7d5f6113766510b93d75b24f` |
+| C, measurement, control | `experiment/startup-5d-control-measurement` | `5b09932` | `5b5333f7480c5899068f913dd53b1b0dbd29ff4631198bd4e729ad60e2e220cc` |
+| C, measurement, 5d | `experiment/startup-5d-treatment-measurement` | `888489a` | `b7000916196cb85e8f259a66a5f016c5f6b5d11c630f484c67b3a2bde834b5e1` |
+
+**Since 2026-11-02 21:19 the four builds are the ones above**, built by the owner's decisions after the
+first qualification (*Decided on 2026-11-02, after the qualification*, below).
+
+- **The qualification builds** are `03a8775` and `0fcd674` plus three commits:
+  - the injection fix, `253373a` and `500248e`;
+  - the snapshots inside a wait, `2724b12` and `4d0ca9f`;
+  - the row after a wait, `cc4c0cf` and `1198c79`.
+- **The measurement builds** are `301111b` and `5851fde` plus the same two reads: `5e4750d` and
+  `ecf6ea7`, then `5b09932` and `888489a`.
+
+So a qualification build is again its measurement build plus the injected delays: the qualification
+qualifies the instrument being measured. Verified on the commits:
+- the probe is the same file on the two measurement builds, and the same file on the two
+  qualification builds;
+- the probe's diff from measurement build to qualification build is the same before the reads and
+  after them (hash `134ed035`), so the reads add nothing between the two.
+
+"The measurement builds do not change", below, held until then. It no longer does: they were rebuilt
+and re-hashed. The builds they replace were never measured:
+- `03a8775` (`a3c3ca07…`) and `0fcd674` (`163fa113…`), whose qualification is recorded under *Recorded
+  results*;
+- `301111b` (`6fc184a8…`) and `5851fde` (`0b232041…`), which no launch of the round used.
 
 The measurement branches are never merged. `301111b` is `c8a9f99` plus the probe; `5851fde` is
 `fc63adb` plus the same probe. `cee6695` is `301111b` plus the injected delays (`ccd2c46`) and the
@@ -925,9 +948,14 @@ A qualification that fails stops the round before the measurement.
 
 ### Order of the launches, and what each records
 
-1. Qualification on the control, then on 5d.
-2. **The decision's launches, in one session, control first:** 5 cold starts of `301111b` with
-   `full`, then 5 of `5851fde`. Each is a force-stop, 3 s, then `am start -W` (`run.sh`).
+1. Qualification on the control, then on 5d. Since 2026-11-02 21:19, each launch is preceded by an
+   install of its build, read back from the phone, as the decision's are (*Decided on 2026-11-02,
+   after the qualification*).
+2. **The decision's launches, in one session, alternating, control first** (since 2026-11-02 21:19,
+   decision 5; until then, five control and then five 5d): C T C T C T C T C T, five cold starts of
+   `5b09932` with `full` and five of `888489a`. Each is an install of its build read back from the
+   phone, a force-stop, 3 s, then `am start -W` (`run.sh` with `APK`). A void launch is re-run, in
+   its place in the alternation, until five clean launches exist in each arm.
 3. The overhead launches: 5 with the probe off on each build, and one `full calibrate` on each.
 
 Recorded with every launch: the device model, serial, API and build; density and font scale; the
@@ -954,31 +982,45 @@ chosen, before the decision launches and never after.
 
 ### Decided on 2026-11-02, after the qualification and before any decision launch
 
-**Both arms are measured in one fixed compiled state** (decided by the owner of the measurement).
-The installed dev build runs from its APK with no compiled code: `[status=run-from-apk]
-[reason=unknown]`, a `DEBUGGABLE` package, read at 20:17 and 20:22. Every launch starts interpreted,
-the JIT compiles while the rows run, and a row's cost falls with the process's age (*Recorded
-results*, criterion 3 diagnosed). The control's span reaches the compiled regime and 5d's ends before
-it, so the two builds' rows are not measured on the same code. The decision:
-`cmd package compile -m speed -f com.fs.twitchminichat.dev` on each arm's installed build,
-identically, immediately before the decision launches; the state read back and recorded; re-verified
-between arms. It removes that asymmetry, and the JIT thread competing for CPU during ingestion.
+**No compiled state is chased. The confound is measured instead of removed** (decision 1, the owner
+of the measurement's).
+- **The compile state.** The installed dev build runs from its APK with no compiled code:
+  `[status=run-from-apk] [reason=unknown]`, a `DEBUGGABLE` package, read at 20:17 and 20:22. Every
+  launch starts interpreted, the JIT compiles while the rows run, and a row's cost falls with the
+  process's age (*Recorded results*, criterion 3 diagnosed).
+- **The forced compile was refused.** It was attempted at 20:43 on the installed `0fcd674`:
+  `cmd package compile -m speed -f com.fs.twitchminichat.dev`. It was refused by the phone maker's
+  layer, which answered `Error: Failed to cpmpile !` (sic) in 0.3 s. Nothing was written to any log
+  buffer, and the state read back unchanged, `run-from-apk`. The phone's help text for `compile` is
+  stock Android, and `pm.dexopt.install` reads `speed-profile`, yet the adb install left the build
+  uncompiled. No other mode was tried, because each is a different state from the one decided.
+- **The three other ways to a compiled state are rejected:**
+  - the background job is profile-guided, so each arm's compiled set would depend on its own launch
+    history: an arm-dependent uncontrolled state, worse than uncompiled;
+  - another phone changes a recorded parameter, and the accounts live on this one;
+  - a different install path is speculative, and would yield a profile that does not exist for a
+    fresh install.
+- **Why the comparison stands without one.** The span is wall time. The control really did take
+  about 2.3 s and 5d about 0.8: those are durations a user waits. What the JIT asymmetry
+  contaminates is the attribution, not the comparison.
+- **So, reported with the result:**
+  - the JIT thread's CPU across each span, per launch, for both arms;
+  - the history rows' cost against the process's age, for both arms;
+  - the per-phase breakdown always with that curve beside it, never as clean per-phase costs.
 
-**What a result on that state supports, written before any number, in the owner's words, and stated
-wherever the result is:** "FORCED FULL COMPILATION IS NOT PROFILE-GUIDED RELEASE COMPILATION. It is A
-fixed state, identical across arms and free of warm-up drift, which is strictly better than
-uncompiled-with-warm-up - but it is not what a user's installed release build runs either. So the
-result supports 'on identically compiled debuggable builds, the ingestion window fell by X' and does
-NOT support 'users see X less'."
+  `launchcheck.py` prints both for every launch, and `decide.py` prints them with the verdicts.
+- **The asymmetry's direction, inferred from the curve, not measured directly.** The control's span
+  reaches the cheap regime, from about 2750 to 3000 ms of process age; 5d's ends around 2000 ms. So
+  the control is flattered, and the measured ratio is conservative relative to a cold-against-cold
+  comparison.
 
-**Not executable on this phone as written.** Tried at 20:43 on the installed `0fcd674`: the command
-answered `Error: Failed to cpmpile !` (sic) in 0.3 s and wrote nothing to any log buffer, and the
-state read back unchanged, `run-from-apk`. The phone's help text for `compile` is stock, so the refusal
-is the vendor's layer. `pm.dexopt.install` reads `speed-profile`, yet the adb install left the build
-uncompiled: that layer handles dexopt its own way here. No other filter or reason was tried, since each
-would be a different state from the one decided. No decision launch runs until the owner chooses how
-a compiled state is reached, or whether one is. An install replaces the compiled state, so with one
-package for both arms a compiled state has to be re-established after every install.
+**What a result supports, stated wherever the result is,** in the owner's words. They replace an
+earlier sentence written for identically compiled builds, which these are not:
+
+> Measured on debuggable, uncompiled builds whose JIT compiles during the window being measured. The
+> result supports "the ingestion window fell by X on these builds" and does NOT support "users see X
+> less on a release build". The control's window reaches compiled code while 5d's does not, so the
+> measured ratio is conservative relative to a cold-against-cold comparison.
 
 **The figures of 2026-10-08 and 2026-10-09** were taken on debuggable, uncompiled builds too, as the
 owner of the measurement records them. The model is self-consistent across them; its absolute numbers
@@ -986,8 +1028,8 @@ never described a release build, which is one more reason they are context only.
 repository's records establish is less: the package, `com.fs.twitchminichat.dev` (`run.sh` of
 `experiment/startup-cost-attribution`). Neither round read the build type or the compile state.
 
-**A launch whose history is delivered late is void** (pre-registered by the owner of the measurement
-before any decision launch):
+**A launch whose history is delivered late is void,** in qualification as in the decision (decision 6).
+It was pre-registered by the owner of the measurement before any decision launch:
 
 > A LAUNCH WITH MORE THAN 5 FRAMES DRAWN INSIDE ITS SPAN IS VOID AND IS RE-RUN.
 
@@ -1002,27 +1044,47 @@ before any decision launch):
 - **Why voiding and not alternation:** alternation is for monotonic drift and stays right for that. A
   block-structured confound that acts differently on each arm needs voiding, not balancing: late
   delivery shows on 5d as cheaper rows and on the control as a longer span.
-- **The owner's order:** re-run until ten clean launches exist in each arm, alternating.
-- **Open, asked rather than inferred:**
-  - ten per arm makes 100 pairings, and *The rule* counts 25, which the owner lists among what does
-    not change;
-  - *Order of the launches* above still says control first;
-  - one package serves both arms, so alternating means an install before every launch;
-  - whether the condition also voids qualification launches. The agent reads "void them" as yes,
-    since criterion 3's band cannot hold otherwise; that reading is for the owner to confirm.
+- **It voids qualification launches too,** because criterion 3's band cannot hold otherwise.
 
-**Processes started inside a launch.** Every launch's `logcat.txt` already holds each `ActivityManager:
-Start proc` line. On 2026-11-02 two of the 28 started anything besides the app:
-- `Qc-buddy`, `com.google.android.cellbroadcastreceiver`;
-- `Q5-app`, `com.discord` and a WebView sandboxed process.
+**Five clean launches per arm** (decision 4). The all-25-pairings rule stands as written. Ten per arm
+would make it all-100-below, stricter than the rule that does not change: a silent tightening. If the
+result is INCONCLUSIVE on variance, that is the rule working, and the pre-decided path is that the
+numbers go to Federico.
 
-Both are late launches, so the condition above voids them anyway. The owner's rule:
-- record them per launch;
-- void a launch where something heavy starts;
-- do not control the phone's background generally. The frames condition catches gross interference,
-  and quarantining the phone would be another changed parameter.
+**Full alternation, an install before every launch, control first** (decision 5). Both arms are one
+package, so alternating means an install at every switch, and the install comes before every launch,
+including where the arm does not change. So every launch is a first launch after install, uniformly in
+both arms. Blocks would make launch 1 of each block first-after-install and launches 2 to 5 not,
+non-uniform within an arm, which is worse. All ten are recorded as first-after-install:
+- `run.sh` with `APK` set installs, then reads the installed APK back from the phone (`install.txt`);
+- `launchcheck.py` voids a launch without a matching read-back;
+- `decide.py` voids ten that do not run C T C T C T C T C T by their launch times.
 
-*Open:* "heavy" has no definition yet.
+**A process started inside a launch voids it** (decision 7, the agent's proposal, accepted as written):
+any process start other than the app's own, between the launch and the end of the span. It is
+deliberately strict, since strict and unambiguous beats tuned: the lesson of criterion 2's reference
+and of B1's pid scoping.
+- **Read from:** each launch's `logcat.txt`, which holds every `ActivityManager: Start proc` line.
+- **The launch** is the app's own `Start proc` line.
+- **The app's own** are processes named after its package, or started for a component of it.
+
+*Correction:* the proposal was put with "in 28 launches it caught two". Those two counted every start
+in a launch's log, not the window above. Inside the window it catches none of the 28:
+- `Qc-buddy`'s cell-broadcast receiver started 0.64 s before the app's own process;
+- `Q5-app`'s Discord process and its WebView sandbox process started 6.1 and 7.3 s after its launch,
+  after its span. The sandbox process was started for a document scanner.
+
+**The battery,** from the owner's instruction before the qualification: battery saver, the level and
+the temperature are read and recorded at every launch, before and after (`battery.txt`), beside the
+power source.
+- **Held:** battery saver and the power source. A launch during which either changes is void; a
+  section whose launches do not share one state is void.
+- **Recorded, not held:** the level and the temperature, as the agent reads the instruction "void on a
+  change in any of them". The phone is to be charging, so its level rises from one launch to the
+  next and its temperature moves with it, and a literal void would void every sitting. That reading
+  is for the owner to confirm.
+
+Before the decision launches, battery saver off and the phone charging are confirmed and recorded.
 
 **What does not change:** the prediction, ρ, the thresholds, the all-25-pairings rule and the release
 outcomes. Today's findings touch which launches count and what the numbers describe, not what the rule
@@ -1030,19 +1092,31 @@ says about them.
 
 **The probe, after the qualification:**
 
-- **The fix, on the qualification branches only:** `500248e` (5d) and `253373a` (control). The
-  injection code arrived with the qualification commits, in a section headed "the Q builds only", so
-  the fix leaves the measurement builds' code as it is: `301111b`, sha256 `6fc184a8…`, and `5851fde`,
-  `0b232041…`.
-- **Read 1, two snapshots inside a wait in a page's history rows:** `4d0ca9f` (5d) and `2724b12`
-  (control). It is probe code, and for now it is on the qualification branches only. While it is
-  there and not on the measurement branches, a qualification build is the measurement build plus the
-  injected delays plus this read. Putting it on the measurement builds too is the owner's choice. They
-  would then be rebuilt and re-hashed.
-- **Read 2 is not built.** It asked for the first row after a wait, as its IRC command and its tag
-  names. A history message reaches the app from the backend as JSON, parsed into user, text, emotes,
-  id and timestamp (`BackendHistoryResponseParser`), and no IRC command or tag exists for it. What
-  stands in for it is the owner's choice.
+- **The fix, on the qualification branches only** (injection code): `253373a` (control) and `500248e`
+  (5d).
+- **Read 1, two snapshots inside a wait in a page's history rows:** probe code, on all four builds
+  (decision 2). The qualification must qualify the thing being measured. A qualification build
+  carrying probe code its measurement build lacks would qualify a cousin of the measured build: the
+  same property as a frozen copy that must not be steered, the instrument has to be the one under
+  test.
+- **Read 2, the first history row of a page after a wait, by shape** (decision 3), on all four builds.
+  It records:
+  - which of the fields the backend may leave out are present: id, emotes and timestamp. User and
+    text are always set by the parser, so their presence says nothing;
+  - the spawn ingestion's own classification of the message, its outcome's and source's names;
+  - the emote count: the `start-end` entries of its emotes field, as the app's parser reads it, less
+    the parser's check of each emote id;
+  - the text's length in UTF-16 units.
+
+  An enormous emote list and an enormous message are the two likeliest causes of a per-message stall,
+  and a count and a length are not values or text. Not built, and rejected by the owner: the IRC
+  command and tag names asked for first, since a history row reaches the app as backend JSON
+  (`BackendHistoryResponseParser`) and has neither; and the JSON's key names, since a parser hook on
+  all 400 items in every launch perturbs the thing being measured for less information.
+
+- **The qualification sitting's launches are each preceded by an install too,** the agent's
+  extension of decision 5 by decision 2's principle: the qualification qualifies the instrument under
+  the conditions it measures in. It is for the owner to confirm.
 
 ## Recorded results
 
@@ -1203,6 +1277,17 @@ phone's reading of 20:22.
   Read statically, not established: each history message passes through the worker's loop, which
   calls the spawn ingestion before posting it, and the spawn store is app-wide, so both pages share
   it. Not chased: it does not hold the round.
+
+  **Written down before anyone reads the stall as a performance bug** (the owner of the
+  measurement). The lead above is read from the code, not established, and stays labelled that way.
+  If it holds, the stall sits in a load-bearing path:
+  - the Pokémon Community Game (PCG) probes' configuration is set the way it is for stable inventory
+    and Pokédex reads, and is not changed without discussing reasons and consequences first;
+  - the backfill feeds spawn detection, which is why loading fewer messages was never a free lever.
+
+  So it is a candidate product defect whose likely location is a path that is not ours to optimise
+  unilaterally. Identifying it is in scope: the history-wait reads are there for that. Changing it is
+  a conversation with Federico about reasons and consequences, not a patch.
 - **Open, recorded and not chased.** They become interesting if they survive a compiled state.
   - **The control's rise from `beforeinsert` on,** delivered on time and seen at the same process
     age. Dedup was 158–283 µs at 1500 to 2250 ms, against the baselines' 138–174, and 87–110 µs from
