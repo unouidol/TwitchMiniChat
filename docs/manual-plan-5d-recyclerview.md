@@ -976,6 +976,7 @@ unset, so 30. What it means for criterion 5 and for the burst end is under *Qual
 | H1 | `fc63adb` | `1d377b6e…` | parity 34 / 34, `rowsBeforeHiding` 1 / 1; controls behaved; emote layer 2 / 2, with a 404 2 / 2, its controls behaved; pairs 658 / 658, `sessionsHeld` 658, `imagesHeld` 658, not vacuous; C-R 34 / 34, no declared exception; preconditions 5 / 5; lifecycle 16 / 16; list checks 121, 0 failures. **Not as predicted:** direct bind pixels 9 / 9, **state 0 / 9, declared exceptions met 0**: every echo's message view has 4 spans against the reference's 3, and `echo.unconfirmed-confirmed` has the declared text difference as well; **recycler 4 / 8**: R1, R5 and R7 fail only `pixelsEqualTheReference`, R2 only `noPoolRecycle` (scrolled 201 px); **scroll 2 / 3**: S1 fails only `theLayoutReportedAStillScrollWhileTheNewestRowHadNoView` (`stillReports` 1). Day and night failed the same checks. The round stops here until this is understood; H2 has not started | 09:35–09:36 |
 | H1, first run | `d11b629` | `41a9da8b…` | **night:** every count of *Proves it*, and every value pre-registered in `84397ba`, as the next row gives them. **Day void:** 786 input events over about four and a half minutes, the phone in use, and it wrote no result | 11:51–11:58 |
 | H1, day again | `d11b629` | `41a9da8b…` | the day pass alone, at the owner's instruction, on the same install, its hash read back and not reinstalled: parity 34 / 34, `rowsBeforeHiding` 1 / 1; controls behaved; emote layer 2 / 2, with a 404 2 / 2, its controls behaved; pairs 658 / 658, `sessionsHeld` 658, `imagesHeld` 658, not vacuous; C-R 34 / 34, no declared exception; direct bind pixels 9 / 9, state 8 / 9, the declared exception met exactly (`/children[1]/text`), `layoutsAddedOnlyTheWatcher` 9; preconditions 5 / 5; lifecycle 16 / 16; recycler 8 / 8, R2 `positionsSentToThePool` [0] at 201 px, R1, R5 and R7 `rowLayoutPendingAfterDelivery` true, heights 52 then 68, both bitmaps 1022 × 68, R3's the same; scroll 3 / 3, `stillReports` 1 with the newest row viewless (`["none"]`); list checks 124, 0 failures; no pass aborted and no step recorded an error, so `Settled` refused nothing. **As predicted, in both themes** | 12:00 |
+| H1, S3's landing check | `b954eba` | `27e6fa79…` | every count of *Proves it* and every value pre-registered in `84397ba`, as on `d11b629`, in both themes; and S3's `oneRowWentAboveIt` passed, the first visible row's position 14 then 15, its top at −35 px before and after, as `1ed7915` pre-registered. **5d keeps the visible rows in place when one row is inserted above them: established in the harness, no longer reasoned** | 14:32–14:33 |
 
 **H1 on `d11b629` holds, as pre-registered.** Day and night agree on every value. R7's heights, the one
 value left unpredicted, are 52 and then 68. The stage's two passes come from two runs of it, about
@@ -983,3 +984,37 @@ two minutes apart on one install (night done at 11:58:22, day at 12:00:31): the 
 first and the day pass of the second. The 09:33 void had both themes re-run; this one re-ran the day
 alone, as the owner instructed. H2 has
 not started.
+
+**The qualification sitting, 2026-11-02, written before its first counted launch.**
+
+- **The control's qualification build installed:** `03a8775`, sha256 `a3c3ca07…`, read back from the
+  phone at 14:36:07. The scripts run from `C:\Users\Fede\StudioProjects\tmc-5d-round\C`, extracted
+  from `0cba63c` and checked file by file against it, so that no run directory lands in a clone.
+- **The account, identified by one launch excluded from every count.** Account ids are random
+  identifiers held only in the encrypted account store, which is not read. So one cold start of the
+  control's qualification build with `full` and no account extra (`C-identify-accounts`, 14:37) was
+  run to learn them. Only these were read from its record: the account ids, and each page's channel
+  fingerprint, history count and current flag. Not one timing was read.
+  - There are two accounts, `0d3d33b8…` and `57f6e8bc…`.
+  - One page created its view in the window: `0d3d33b8…`'s, channel `c8cb0e91`, 400 history rows,
+    the cap. The second slot stayed empty, so the method's "two chat pages" did not appear at a cold
+    start.
+  - **Chosen and held for every launch of the section: `0d3d33b8…`.** It is the only account whose
+    page loaded, its channel is at the cap, and page 0's 100th history row is there for the
+    injections.
+  - Whether the second page appears with the extra is read from the first baseline. If the
+    baselines' rows in the span differ, another account is chosen before the decision launches, as
+    *The account* says.
+- **The display's rate changed before the section began, by no action of this sitting.**
+  - At 11:47 it read 60.000004 Hz, with `peak_refresh_rate` 60.000004.
+  - At 14:37 it read 90.0 Hz, with `peak_refresh_rate` 90.0 and the range [0, 90].
+  - No command of this sitting changed a setting.
+
+  The owner's binding requirement is that the rate is held and recorded, not which rate. So the
+  section is held at the rate it begins at, 90.0 Hz, and is void if any reading differs. At 90 Hz,
+  N = 333 ms; the 534 ms stall logs at either rate.
+- **The phone was in use.** Two taps were recorded about 0.7 s before the identification launch
+  started. So each launch first waits until the phone has recorded no input event for 20 s. A launch
+  whose recorders catch any input event between its launch and its dump is void, and is run again.
+  That is the harness's rule of 0 input events, applied to these launches and declared here before
+  the first of them. A void launch is kept and recorded, never used.
