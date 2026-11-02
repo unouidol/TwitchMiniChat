@@ -59,6 +59,8 @@ import java.util.concurrent.locks.LockSupport
  * - History-wait snapshots, 2026-11-02 (see [checkHistoryWait]): two CPU snapshots inside any wait
  *   in a page's history rows, and in every snapshot each thread's scheduler state and each page's
  *   posts queued and rows begun.
+ * - The row after a wait, 2026-11-02 (see [historyPostRunBegin]): the first history row of a page
+ *   after a wait, by its shape only.
  */
 object StartupProbe {
 
@@ -440,11 +442,89 @@ object StartupProbe {
         return pagePostsQueued.incrementAndGet(slot)
     }
 
-    /** As the posted history runnable starts on the main thread. */
-    fun historyPostRunBegin(slot: Int) {
+    /**
+     * As the posted history runnable starts on the main thread. The other arguments describe its
+     * message by shape, never by a value or its text: they are kept only for the first row of a
+     * page after a wait ([recordWaitRow]).
+     */
+    fun historyPostRunBegin(
+        slot: Int,
+        hasId: Boolean,
+        emotesRaw: String?,
+        hasTimestamp: Boolean,
+        textLength: Int,
+        spawnOutcome: String,
+        spawnSource: String?
+    ) {
         if (slot !in 0 until PAGES || mode != MODE_FULL || closed) return
         pendingSource = SRC_HISTORY
         pendingSourceSlot = slot
+        val last = pageLastHistoryRowNs.get(slot)
+        if (last < 0L || waitRowCount >= WAIT_ROW_CAP) return
+        val gap = rel() - last
+        if (gap >= HISTORY_WAIT_NS) recordWaitRow(slot, gap, hasId, emotesRaw, hasTimestamp, textLength, spawnOutcome, spawnSource)
+    }
+
+    /*
+     * The first history row of a page after a wait: the row the wait held back. Recorded by shape:
+     * which of the fields the backend may leave out are present (user and text are always set, so
+     * their presence says nothing), the emote count, the text's length in UTF-16 units, and how the
+     * spawn ingestion classified the message, by its outcome's and source's names.
+     */
+    private const val WAIT_ROW_CAP = 4
+    private var waitRowCount = 0
+    private val waitRowSlot = IntArray(WAIT_ROW_CAP)
+    private val waitRowOrdinal = IntArray(WAIT_ROW_CAP)
+    private val waitRowAt = LongArray(WAIT_ROW_CAP)
+    private val waitRowGapNs = LongArray(WAIT_ROW_CAP)
+    private val waitRowHasId = BooleanArray(WAIT_ROW_CAP)
+    private val waitRowHasEmotes = BooleanArray(WAIT_ROW_CAP)
+    private val waitRowHasTimestamp = BooleanArray(WAIT_ROW_CAP)
+    private val waitRowEmotes = IntArray(WAIT_ROW_CAP)
+    private val waitRowTextLength = IntArray(WAIT_ROW_CAP)
+    private val waitRowSpawnOutcome = arrayOfNulls<String>(WAIT_ROW_CAP)
+    private val waitRowSpawnSource = arrayOfNulls<String>(WAIT_ROW_CAP)
+
+    private fun recordWaitRow(
+        slot: Int,
+        gapNs: Long,
+        hasId: Boolean,
+        emotesRaw: String?,
+        hasTimestamp: Boolean,
+        textLength: Int,
+        spawnOutcome: String,
+        spawnSource: String?
+    ) {
+        val i = waitRowCount
+        waitRowSlot[i] = slot
+        waitRowOrdinal[i] = pageHistoryRowsBegun[slot] + 1
+        waitRowAt[i] = rel()
+        waitRowGapNs[i] = gapNs
+        waitRowHasId[i] = hasId
+        waitRowHasEmotes[i] = emotesRaw != null
+        waitRowHasTimestamp[i] = hasTimestamp
+        waitRowEmotes[i] = emoteCount(emotesRaw)
+        waitRowTextLength[i] = textLength
+        waitRowSpawnOutcome[i] = spawnOutcome
+        waitRowSpawnSource[i] = spawnSource
+        waitRowCount = i + 1
+    }
+
+    /**
+     * The `start-end` entries of an emotes field, `id:start-end,start-end/id:start-end`: one per emote
+     * the row shows, as the app's own parser reads the field, less its check of each emote id.
+     */
+    private fun emoteCount(emotesRaw: String?): Int {
+        if (emotesRaw.isNullOrBlank()) return 0
+        var count = 0
+        for (specification in emotesRaw.split('/')) {
+            val separator = specification.indexOf(':')
+            if (separator <= 0) continue
+            for (position in specification.substring(separator + 1).split(',')) {
+                if (position.indexOf('-') > 0) count++
+            }
+        }
+        return count
     }
 
     /** As the posted history runnable ends: the last one of the page closes the insertion phase. */
@@ -1096,6 +1176,19 @@ object StartupProbe {
                 b.append('"').append(tid).append("\":\"").append(comm.replace("\\", "\\\\").replace("\"", "'")).append('"')
             }
             b.append("}}")
+            b.append(",\"waitRows\":{\"n\":").append(waitRowCount)
+            b.append(",\"slot\":").ints(waitRowSlot, waitRowCount)
+            b.append(",\"ordinal\":").ints(waitRowOrdinal, waitRowCount)
+            b.append(",\"at\":").longs(waitRowAt, waitRowCount)
+            b.append(",\"gapNs\":").longs(waitRowGapNs, waitRowCount)
+            b.append(",\"hasId\":").append((0 until waitRowCount).joinToString(",", "[", "]") { k -> waitRowHasId[k].toString() })
+            b.append(",\"hasEmotes\":").append((0 until waitRowCount).joinToString(",", "[", "]") { k -> waitRowHasEmotes[k].toString() })
+            b.append(",\"hasTimestamp\":").append((0 until waitRowCount).joinToString(",", "[", "]") { k -> waitRowHasTimestamp[k].toString() })
+            b.append(",\"emotes\":").ints(waitRowEmotes, waitRowCount)
+            b.append(",\"textLength\":").ints(waitRowTextLength, waitRowCount)
+            b.append(",\"spawnOutcome\":").append((0 until waitRowCount).joinToString(",", "[", "]") { k -> "\"${waitRowSpawnOutcome[k]}\"" })
+            b.append(",\"spawnSource\":").append((0 until waitRowCount).joinToString(",", "[", "]") { k -> waitRowSpawnSource[k]?.let { name -> "\"$name\"" } ?: "null" })
+            b.append('}')
         }
         b.append('}')
         return b.toString()
