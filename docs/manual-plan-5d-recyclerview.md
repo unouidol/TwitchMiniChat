@@ -35,7 +35,9 @@ same day (`03a8775`, cherry-picked as `0fcd674`), *Qualification* below; the two
 identical. `cee6695` and `a2e72ff`, sha256 `94d68eb5…` and `cb7fb26b…`, were built this morning and
 never installed: the stall's duration superseded them before any qualification launch. The
 measurement builds do not change: the stall is not in them, and every launch of the section, theirs
-included, is run and read with the scripts of `03a8775`, which run on the host.
+included, is run and read with the host scripts of the branches' tips, `e2e8e39` and `ee6b027` since
+2026-11-02 14:14. Those two commits change nothing outside `experiment/` after `03a8775` and
+`0fcd674`, so the qualification APKs stay those two builds.
 
 `d11b629` is `fc63adb` with the harness's instrument fixes of 2026-11-02 (*H1 on `fc63adb`,
 diagnosed*, below) and the round's documents. `git diff fc63adb d11b629 -- app/src/main gradle
@@ -290,6 +292,70 @@ stays as written, and `predictions.json` finalises it.
   reaches the page's listener while the newest row has no view, `isNearBottom` answers no, and the
   page stops following until the posted `scrollToBottom` runs. S1's later checks run after that and
   pass.
+
+**A mutant that moves a release in time: its kill set is derived, never estimated** (written on
+2026-11-02, before `predictions.json`). A mutant that changes when a release happens does not only
+break the step that observes the release. It falsifies the preconditions of every later step that
+assumes the state before the release. Twice now an estimate from the step the mutant is about came
+short. O2 in #89, the same posted release on 5c, failed L2, L3 and L4 for each emote row: six steps,
+where Phase 1 had estimated four (the estimate as the owner records it), L4 by its precondition. And
+M1 here fails R4 by its precondition, which the restatement above first missed. So for every mutant
+of this family, the kill set is derived by walking every later step of every proof, in order, with
+its preconditions, against the state the mutant leaves, and the walk is done before
+`predictions.json` is hashed. Two properties of the harness the walk depends on:
+
+- **A false precondition does not stop its own phase.** `ProofSteps` and the lifecycle proof record
+  it, run the rest of that phase, and skip only the step's later phases. R4 still scrolls when its
+  precondition fails, and L4 still unbinds.
+- **A step's state is what the earlier steps of its own proof left.** Each proof builds its own page
+  and list, so a mutant's effect reaches every later step of the same proof and no step of another.
+
+The family is M1, M2, M3 and M5. M4, M6 and M7 move no release. Each walk below is reasoned from the
+code on 2026-11-02, not run.
+
+- **M1, the posted release.** Its exact edit decides its kill set, so it is written here for
+  `predictions.json`: in `LoadSession.onViewDetachedFromWindow`, after the pause,
+  `textView.post { if (!isReleased && !textView.isAttachedToWindow) sessions.release(textView) }`.
+  It makes two choices, the owner's to confirm:
+  - **Through the registry, not by calling `release()` directly.** 5c's code called the session's
+    `release()`. In 5d that leaves the session registered, so the next path that ends it (an unbind
+    at recycle, a bind, `releaseAll`) releases it a second time, and `LoadSession.release`'s
+    precondition, "released twice", throws. In the recycler proof that throw would come from inside
+    `scrollBy`, in R4, leaving RecyclerView in the middle of a recycle, and nothing after it could be
+    derived. `EmoteSessions.release` removes a session before it releases it, so the release happens
+    once, as it did before 5c.
+  - **Without 5c's page condition.** 5c's post released only while `chatPageView` was attached.
+    5d's loader holds no page view, and the harness's fragment has none, held at CREATED, so a
+    condition on the fragment's view would never be met there and M1 would release nothing. No proof
+    detaches a page while its rows stay attached, so dropping it changes nothing they can see.
+
+  Walked with that edit, M1 fails:
+  - **R3:** the same holder comes back from the cache with no bind and no new load, and without its
+    images. It fails `oneImagePerEmote`, `running`, `pixelsEqualTheReference` and
+    `releaseNotReported`. `imagesAreTheDeliveredOnes` passes vacuously, with no image shown, and
+    `oneImagePerEmote` in the same step is what keeps the step from passing.
+  - **R4,** by its precondition `loadsLive`: R1's loads were released before it ran.
+  - **L2, L3 and L4 for each emote row,** L4 by its precondition, as O2 did on 5c.
+
+  It does not fail:
+  - R2, which detaches the holder and checks it within one turn, before the post runs;
+  - R5 to R7, each of which binds its rows afresh;
+  - R8, which detaches the list and checks within one turn. `releaseAll` then ends every session, so
+    each post finds its session released.
+
+  The table's R2 and R8 for M1 are withdrawn by this walk.
+- **M2, `onViewRecycled` does not unbind:** R4 (`everyLoadCleared`, `releaseReportedOnce`), R7
+  (`itsLoadsCleared`), L7 and L8, as the table has it. Every later precondition holds: R5's loads
+  come from its own bind, R6's and R8's likewise, and a session left behind ends at its view's next
+  bind or at `releaseAll`. The rebind proof's pairs never reach `onViewRecycled`:
+  `AdapterBinding.bindAgain` binds without it.
+- **M3, a status change notified without its payload:** the full bind ends the echo's session and
+  starts another. So L10 and R6 fail (`noLoadCleared`, `imagesStillInstalled`, `running`), with
+  parity and C-R on `echo.unconfirmed-confirmed`, as the table has it. R7 passes. Its precondition,
+  the echo confirmed, holds, and the loads R6's full bind requested are cleared at its recycle, which
+  is what R7 checks.
+- **M5, `releaseAll` removed from `onDestroyView`:** R8 alone, at its last check. No step follows it
+  in the recycler proof, and the scroll proof's rows hold no emotes.
 
 ### H3 — The clean final build, once more
 
@@ -671,27 +737,31 @@ a figure. The window stays in the list below as it was written.
 **The qualification's verdict is computed, not judged (2026-11-02).** Until then no script
 evaluated criteria 1 to 5, so the verdict would have been a reading of recorded values by whoever was
 there: what pre-registration exists to remove, and what `decide.py` removes for ρ by fixing it in
-code. `qualify5d.py` (from `03a8775` and `0fcd674`) now computes, for one build, criteria 1 to 5, the
+code. `qualify5d.py` (from `03a8775` and `0fcd674`, labelled from `e2e8e39` and `ee6b027`) now
+computes, for one build, criteria 1 to 5, the
 rows-in-span rule and the display reading from the run directories, and prints every value it
 compares beside each verdict: `python -I qualify5d.py <control|5d> <3 baselines> -- <the 11 injected
 launches>`. A script rather than a hand, because criterion 4 alone compares each target row's
 segments with three baselines in 22 injected launches, which is where a hand slips, and because a
 computed verdict can be rerun by anyone who was not there.
 
-The choices the plan's words leave open are made in its docstring, and they are the owner's to
-review before the qualification runs. The main ones:
-
-- a phase's value is the one `analyze5d.py` reports;
-- `build`'s phase is the view build inside the insert on the control, and the binds on 5d;
-- a segment that contains the injected phase moves with it and is not held to criterion 3;
-- "inside one message" is read against the message that overlaps the delay most.
+The choices the plan's words leave open are made in its docstring, every one listed there, and they
+are the owner's to review before the qualification runs; the owner asked for the list in full, and
+it was handed over as written on 2026-11-02. Nine of them were found by auditing the code against the
+first list, which had left them out. One is answered already: `build` is the view build inside the
+insert on the control and the binds on 5d, which is sound because qualification is per build, against
+that build's own baselines. But `build` then sits inside the span on the control and outside every
+row on 5d, so its values are not comparable across the builds: the output names each phase's place
+on its build (`phase_location`, and `phase_locations` with a note for the whole build), so that no
+reader takes a cross-build `build` comparison as meaningful.
 
 `qualify5d_test.py` runs it on hand-made launches: criterion 2's three scaled cases, a delay leaking
 into another segment, a delay outside its segment, criterion 5 inside and outside its bounds, a
-display reading that changes and rows that differ. All 13 cases came out as expected, run on this
-machine on 2026-11-02. What has not run is its reading of a real run directory (`facts`), since no
+display reading that changes, rows that differ, and the phase labels. All 14 cases came out as
+expected, run on this machine on 2026-11-02. What has not run is its reading of a real run directory (`facts`), since no
 qualification launch exists: before the first verdict is read, the first baseline's printed facts
-are checked by hand against its `probe.json`. Every run directory is kept, so that the verdict can be
+are checked by hand against its `probe.json`, once. No fixture is built for it: it would only move
+the untested reading somewhere else. Every run directory is kept, so that the verdict can be
 rechecked.
 
 **Why the total is reported, not held to "rises by about the delay".** Two reasons, with numbers. The
