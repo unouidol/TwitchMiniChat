@@ -244,6 +244,25 @@ Changed by the instrument, and the counts they reach unchanged:
 - **list checks:** 124 in each theme, 0 failures: `fc63adb`'s 121, and the three layouts the recycler
   proof now makes after a delivery.
 
+#### A row inserted above the viewport: established in the harness, not reasoned (asked 2026-11-02)
+
+It was reasoned from LinearLayoutManager's anchoring that in 5d a row inserted above the viewport
+leaves the visible rows where they are, where the ScrollView pushed them down; S3 was written to
+see it. If it holds, 5d delivers scroll anchoring's benefit for free, and step 8 may leave the
+release's path. S3 passed on `fc63adb` and on `d11b629`, in both themes, with the first visible
+row's top at −35 px before and after. That pass does not establish it yet, because S3 never checks
+where the row it inserts landed. A row landing below the viewport, or at the end, would also leave
+the first visible row in place, and `twoUnseenRows` holds either way: S1's vacuous pass, in another
+form.
+
+So the harness gains the check that settles it, `oneRowWentAboveIt`: the first visible row's adapter
+position rises by exactly one, which only a row inserted above it can cause. Its positions before and
+after are recorded. **Pre-registered on 2026-11-02, before its first run:** it passes in both
+themes, the positions recorded as p and p + 1, and every count of H1 above is unchanged. Reported as
+its own result. What it establishes is 5d's behaviour, for one row, scrolled up. The ScrollView's
+behaviour before 5d stays reasoned, since no harness runs it. Several rows at once, and anchoring as
+a design, are not part of it.
+
 ### H2 — Predictions, then mutants
 
 **Do.** After H1, and only then, because the step list is final only once H1 has run, write
@@ -344,6 +363,27 @@ code on 2026-11-02, not run.
     each post finds its session released.
 
   The table's R2 and R8 for M1 are withdrawn by this walk.
+
+  **M1 is an instrument, not a restoration.** Both choices were approved by the owner on
+  2026-11-02, for the reason they share. M1's job is to produce, at R3's observation point, the
+  effect the predicted defect would have, so that R3's failure proves R3 can see it. Fidelity to
+  5c's text is not the goal, and in two places it is incompatible with that job:
+  - called directly, the release throws inside R4's `scrollBy`, and nothing after it can be derived;
+  - with the page condition, M1 is inert in the harness and kills nothing, which would be misread
+    as an insensitive instrument.
+
+  Two things are declared with it, here, in the pull request and in the mutant's own comment, as
+  #81's frozen-defect discipline asks of anything deliberately not what it looks like:
+  - **M1 deviates from 5c's text in exactly those two places,** each for its reason. "M1 restores
+    5c's release" must not be read as "M1 is 5c's code".
+  - **M1 failing R3 proves that the instrument is sensitive.** It does not prove that the code
+    before 5c, on a real RecyclerView, would have shown the defect. That claim stays deduced from
+    the source, as it has been since 2026-10-07: the distinction between reaching a path and
+    observing a defect, one level deeper.
+
+  Also for the pull request: under M1, R3's `imagesAreTheDeliveredOnes` passes vacuously, with no
+  image shown, and `oneImagePerEmote` is what keeps R3 failing. The kill is credited to that
+  assertion.
 - **M2, `onViewRecycled` does not unbind:** R4 (`everyLoadCleared`, `releaseReportedOnce`), R7
   (`itsLoadsCleared`), L7 and L8, as the table has it. Every later precondition holds: R5's loads
   come from its own bind, R6's and R8's likewise, and a session left behind ends at its view's next
@@ -375,6 +415,15 @@ Reinstall the clean final APK and run both themes again: the same counts as H1.
 - **Swipe-to-reply inside the list,** on a message with an id.
 - **An echo sent and confirmed,** and the same echo scrolled far away and back.
 - **Hide a user, then show them again** from the blocked-users screen.
+- **Does the history still drip in? A scope decision, not a check** (added 2026-11-02). During the
+  round, with the 5d build on the phone, not after the pull request merges: Federico opens the app
+  on a cached channel and says whether the history still appears to drip in rather than arrive.
+  Nothing passes or fails here. 5d does not fix "messages enter one at a time": it only shortens the
+  window, from about 2.4 s to about 1.0 (the prediction's figures). Whether dripping is still
+  visible at about one second is a question for an eye, and the answer decides whether batching,
+  step 7, is inside this release's scope at all. If it is not visible, step 7 and its reading debt
+  on Chatterino's `addMessagesAtStart` both leave the release's path. Recorded here: his words, the
+  build, the channel and the time.
 
 ## B. The background measurement
 
@@ -387,6 +436,53 @@ three-way bands.
 **What it decides.** Whether 5d removed the start-up cost the 2026-10-08 attribution found: the view
 of every history row built at insert, of which about 15 are ever seen. #84's deferral of the
 toolchain upgrade waits for this measurement to be taken and recorded, not for a particular outcome.
+
+### What each outcome means for the release (decided 2026-11-02, before any number)
+
+**The release.** Decided by Federico on 2026-11-02: one release carries all of the chat rendering
+work, 5d included, as a closed chapter. So this measurement's outcome is on the release's path, and
+what each outcome means is written here before qualification has produced any number. Deciding it
+after seeing the numbers is how a pre-registration launders itself, and a release schedule is exactly
+the pressure that would do it.
+
+- **The correctness gates block the release:** the harness, the lifecycle proof inside it, the
+  seven mutants of H2 as predicted, the manual checks of M, and B1.
+- **The prediction's outcome does not block it.** HOLDS, FAILS and INCONCLUSIVE are what the rule
+  decides about a model of where start-up time goes. A span falling to 1.6 s instead of about 1.0
+  means the prediction failed and the product improved: a wrong model is a knowledge problem, not a
+  quality one. FAILS or INCONCLUSIVE is recorded with all its numbers and becomes an open question.
+  #84's deferral says the same: it waits for the measurement to be taken and recorded, not to come
+  out a particular way.
+- **One exception: 5d not better on either quantity.** Then it is no longer a question about the
+  model. The numbers go to Federico, and the release decision is his, taken with them visible. The
+  rule decides HOLDS, FAILS or INCONCLUSIVE; what is done with anything but HOLDS is not
+  pre-registered here.
+
+  What "not better" means, as the agent reads the owner's words. **It is for the owner to confirm
+  before the decision launches**, since no decision number exists until then.
+  - On one quantity, "not better" is: not every one of its 25 pairings gives a ratio below 1, 5d over
+    control. That is the rule's own all-pairings test, with its threshold moved to "no change".
+  - "On either" means on the span, on the first stable frame, or on both.
+  - A 5d launch with no burst counts as below 1, by the same dominance as the rule's no-burst clause.
+
+  This reading sends every case in doubt, a mixed set of pairings included, to the owner rather than
+  away from him. `decide.py` computes it beside the verdicts (`better_than_control`), so that it is
+  no more a judgement than they are.
+
+**What the chapter does not close,** named here so that each is a visible choice:
+
+- **Messages missing after a reconnection,** the second symptom, is cause 4 in
+  `claude/history-gap-offscreen-tabs.md`, still unattributed. The owner gives that path; the file is
+  not in this clone and was not found on this machine on 2026-11-02. It is not part of this work, and
+  this release does not close it. The pull request says so, so that nobody reads "the chat work is
+  complete" as covering it.
+- **The AGP 9.4 / Gradle 9.6 upgrade, and pinning the JDK,** unlock when this measurement is
+  recorded (`RELEASE-STATE.md`, *Deferred*), but they are not in this release. A toolchain change
+  immediately before a release adds risk to it, and, as the owner reads #84, an upgrade is a pull
+  request with its own continuous integration (CI). The sentence was not found in #84's description
+  or in the deferral's entry on 2026-11-02. When the measurement is recorded, the deferral's entry
+  records that its condition is met and that the work is scheduled after the release, so that
+  "unlocked" does not read as "do it now".
 
 ### The prediction, handed over, verbatim
 
@@ -754,6 +850,34 @@ that build's own baselines. But `build` then sits inside the span on the control
 row on 5d, so its values are not comparable across the builds: the output names each phase's place
 on its build (`phase_location`, and `phase_locations` with a note for the whole build), so that no
 reader takes a cross-build `build` comparison as meaningful.
+
+The owner approved all sixteen choices on 2026-11-02, with four things, each answered in the script
+before any qualification launch:
+
+- **Item 2, criterion 3's exemption, is computed, not hardcoded.** It was hardcoded: three cases in
+  `moving_segments`. It is now derived from containment. Each segment is the set of a row's intervals
+  between its marks, with the view build inside the insert an interval of its own. Each injection's
+  call site is one of those intervals, or none, for those outside every row. A segment is exempt
+  exactly when it contains the injection's interval. A new phase needs only its interval and its
+  segment, and its exemption follows.
+- **Item 7, criterion 1's tolerance:** at least the delay asked for, with no tolerance below and no
+  bound above. Android 12's `Thread.sleep` loops on `System.nanoTime` until the requested time has
+  passed (libcore's `Thread.java`, read from its source on 2026-11-02), and the probe brackets the
+  sleep with `rel()`, so the recorded interval is never shorter than asked. An overshoot is real
+  delay. Criteria 4 and 5 read the recorded interval, never the asked one, and criterion 2's floor
+  is half the asked delay, which an overshoot can only clear more easily.
+- **Items 9 and 11, where `stall` is injected:** outside the span, after it, at anchor + 8000 ms,
+  where the span ends with the last history row's insert. Its placement is now checked rather than
+  assumed: criterion 5 gains a clause, "after the span", met when the stall begins after the span's
+  last insertOut. With it met, criterion 3 is reported NOT APPLICABLE for `stall`. No row's segment
+  can contain a delay after the last row, so criterion 3 could fail only through the launch's own
+  variation, never through the stall, and a check the injection cannot fail is not printed beside
+  checks it can fail. Its segment values are still printed, for the record. `stall`'s qualification
+  is criterion 5. If the stall falls inside the span, criterion 5 fails, and criterion 3 is held as
+  for any injection. `app`, before the span, keeps criterion 3: its delay moves the whole start-up
+  later and can move the span's work, and "nothing inside the span" is what the plan says it moves.
+- **Item 5, a baseline with no burst,** is printed as `no burst`, by name, and not folded into
+  "every baseline before 8000 ms", which would read as every baseline having had an early burst.
 
 `qualify5d_test.py` runs it on hand-made launches: criterion 2's three scaled cases, a delay leaking
 into another segment, a delay outside its segment, criterion 5 inside and outside its bounds, a
