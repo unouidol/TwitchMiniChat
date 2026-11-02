@@ -16,8 +16,9 @@ results file, or a results file without its counts is a failure of that stage.
 | Step | Branch | Commit | APK (dev, arm64) sha256 |
 |---|---|---|---|
 | H1, its runs of 2026-11-02 at 09:33 and 09:35 | `feature/5d-recyclerview-timeline` | `fc63adb` | `1d377b6e3611d337c6caffb1f2ae6bc031895246ff6d0b4653b412bcde021342` |
-| H1 from then on, H3, M, B1 | `feature/5d-recyclerview-timeline` | `d11b629` | recorded under *Recorded results* as built |
-| H2 | one mutant of `d11b629` per run | built after the predictions | each read back from the phone |
+| H1 from then on | `feature/5d-recyclerview-timeline` | `d11b629` | recorded under *Recorded results* as built |
+| H1 with S3's landing check, H3, M, B1 | `feature/5d-recyclerview-timeline` | `b954eba` | recorded under *Recorded results* as built |
+| H2 | one mutant of `b954eba` per run | built after the predictions | each read back from the phone |
 | C, qualification, control | `experiment/startup-5d-control` | `03a8775` | `a3c3ca073d3f5984d9e67dd03437f587fafaa893c07da79c4f9012a08da5cdad` |
 | C, qualification, 5d | `experiment/startup-5d-treatment` | `0fcd674` | `163fa113c9217428ca83c5522f10f835c763a972d81443b968c53f3e126a5ae4` |
 | C, measurement, control | `experiment/startup-5d-control` | `301111b` | `6fc184a88261f5ee5e9123476dedc0dc612a9ffedc5542c5ef5595ac38a547d9` |
@@ -255,7 +256,8 @@ where the row it inserts landed. A row landing below the viewport, or at the end
 the first visible row in place, and `twoUnseenRows` holds either way: S1's vacuous pass, in another
 form.
 
-So the harness gains the check that settles it, `oneRowWentAboveIt`: the first visible row's adapter
+So the harness gains the check that settles it, `oneRowWentAboveIt` (`b954eba`, which changes only
+`ScrollProof.kt` after `8535b3c`): the first visible row's adapter
 position rises by exactly one, which only a row inserted above it can cause. Its positions before and
 after are recorded. **Pre-registered on 2026-11-02, before its first run:** it passes in both
 themes, the positions recorded as p and p + 1, and every count of H1 above is unchanged. Reported as
