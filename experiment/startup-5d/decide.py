@@ -22,6 +22,12 @@ single stall reached N = 30 x 1000 / R ms at the launches' refresh rate R: 500 m
 90 Hz. It does not assert a smooth start; a frame 499 ms late at 60 Hz leaves no line. The output
 names R and N from the launches' own readings.
 
+Better than the control (added 2026-11-02, before any measurement, as the agent read the owner's
+words, for the owner to confirm before these launches): on a quantity, every one of its 25
+pairings gives a ratio below 1, a 5d launch with no burst counting as below. Not better on either
+quantity sends the numbers to the owner, whose release decision it then is; the rule's verdicts are
+unchanged by it.
+
 The refresh rate (added 2026-11-02, before any measurement): run.sh reads the display's rate, any
 frame rate override and Choreographer's warning limit before and after each launch. Every reading of
 the ten launches, and of the qualification's launches when --qualified names them, must be the same,
@@ -131,6 +137,15 @@ def main(argv):
         out["pairings"]["burst_end"] = fsf
         flat = [x if x != "no burst" else 0.0 for row in fsf for x in row]
         out["verdicts"]["burst_end"] = "VOID" if out["void_rows"] else classify(flat, THRESHOLD["burst_end"])
+
+    # Better than the control, on each quantity: every pairing below 1.
+    better = {"span": all(x < 1.0 for row in span_ratios for x in row)}
+    if "burst_end" in out["pairings"]:
+        better["burst_end"] = all((x == "no burst") or x < 1.0 for row in out["pairings"]["burst_end"] for x in row)
+    else:
+        better["burst_end"] = None
+    out["better_than_control"] = better
+    out["not_better_on_either"] = None if out["void_refresh_rate"] or None in better.values() else not all(better.values())
 
     # Skipped frames: all below all, or not shown to fall. No number for "a great deal".
     worst_treatment = max(t["burst_frames"] for t in treatment)
