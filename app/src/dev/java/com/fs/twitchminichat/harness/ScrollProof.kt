@@ -4,6 +4,7 @@ import android.util.TypedValue
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.recyclerview.widget.RecyclerView
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -11,9 +12,9 @@ import org.json.JSONObject
  * fixed height, with the rows coming through appendChatLine as live chat and history deliver them, the
  * page's own scroll listener registered on the list, and its own scrollToBottom posting to it.
  *
- * - S1: stuck at the bottom, a row arrives while the list still has a newer row it has not laid out:
- *   the layout between them reports a "scroll" with no movement, and the page must keep following.
- *   Then the newest row ends at the list's bottom edge.
+ * - S1: stuck at the bottom, a row arrives while the list still has newer rows it has not laid out:
+ *   the layout between them reports a "scroll" with no movement while the newest row has no view, and
+ *   the page must keep following. Then the newest row ends at the list's bottom edge.
  * - S2: scrolled up, a row arrives: the first visible row stays where it is, and one unseen row is
  *   counted.
  * - S3: scrolled up, a row arrives that sorts above the first visible row, as history can: the first
@@ -43,6 +44,8 @@ internal class ScrollProof(
             var reporting = false
             var stillReports = 0
             var stillReportsWithoutTheNewestRow = 0
+            /* At each, how far below the list's bottom edge the newest row ended; "none" when it had no view. */
+            val gaps = mutableListOf<Any>()
             listOf(
                 {
                     heightPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, LIST_HEIGHT_DP, root.resources.displayMetrics).toInt()
@@ -54,7 +57,9 @@ internal class ScrollProof(
                         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                             if (!reporting || dx != 0 || dy != 0) return
                             stillReports++
-                            if (newestBottomGap() == Int.MAX_VALUE) stillReportsWithoutTheNewestRow++
+                            val gap = newestBottomGap()
+                            gaps += if (gap == Int.MAX_VALUE) "none" else gap
+                            if (gap == Int.MAX_VALUE) stillReportsWithoutTheNewestRow++
                         }
                     })
                     repeat(FIRST_ROWS) { append() }
@@ -70,18 +75,26 @@ internal class ScrollProof(
                     /*
                      * Within one turn, so that no frame can lay the list out in between: a row arrives, the
                      * list is asked to show it - what that row's posted scrollToBottom does when it runs -
-                     * and a second row arrives before the list lays out. That layout brings the first to the
-                     * bottom edge with the second still below it, viewless, and reports it as a scroll with
+                     * and two more rows arrive before the list lays out. That layout brings the first to the
+                     * bottom edge with the newest still below it, viewless, and reports it as a scroll with
                      * no movement: the moment history's rows arrive faster than the list lays them out.
+                     *
+                     * Two, not one: LinearLayoutManager fills past the bottom edge by the list's bottom
+                     * padding (LinearLayoutManager.java:613-614, :669-672), so a single row after the one
+                     * scrolled to always gets a view there; the second starts below that fill. On
+                     * 2026-11-02 one row was appended here, it had a view at the report, and S1's other
+                     * checks passed without the race.
                      */
                     append()
                     list.scrollToPosition((list.adapter?.itemCount ?: 0) - 1)
                     append()
+                    append()
                     reporting = true
-                    page.layOut(list, "S1 layout with a newer row pending", heightPx)
+                    page.layOut(list, "S1 layout with newer rows pending", heightPx)
                     reporting = false
                     r.check("theLayoutReportedAStillScrollWhileTheNewestRowHadNoView", stillReportsWithoutTheNewestRow > 0)
                     r.observe("stillReports", stillReports)
+                    r.observe("newestRowGapAtEachStillReportPx", JSONArray(gaps))
                     r.check("stillStuck", page.stickToBottom)
                 },
                 {

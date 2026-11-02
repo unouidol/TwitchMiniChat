@@ -34,11 +34,18 @@ import com.fs.twitchminichat.chat.SystemLineRow
  * sit in a RecyclerView and the frozen ones in a LinearLayout, a row's layout params are compared by
  * width, height and margins only. Inside a row, where both paths use the same containers, the weight
  * is compared as before.
+ *
+ * A view is read only when it is [Settled]: its spans include what its layout attached, so a view read
+ * before its layout and one read after differ by DynamicLayout's ChangeWatcher with nothing wrong in
+ * either.
  */
 internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
 
-    /** The state of [view], a row's view, and of its children, in order. */
-    fun of(view: View): Map<String, Any?> = of(view, row = true)
+    /** The state of [view], a row's view, and of its children, in order; [view] must be [Settled]. */
+    fun of(view: View): Map<String, Any?> {
+        Settled.require(view, "a snapshot")
+        return of(view, row = true)
+    }
 
     private fun of(view: View, row: Boolean): Map<String, Any?> {
         val state = linkedMapOf<String, Any?>()
@@ -100,7 +107,12 @@ internal class ViewStateSnapshot(private val targets: ReflectiveTargets) {
         }
         if (production is List<*> && frozen is List<*>) {
             if (production.size != frozen.size) {
-                return listOf("$path: production has ${production.size}, frozen has ${frozen.size}")
+                /* Named, not only counted, unless they are views: a span list's names are the difference. */
+                val named = (production + frozen).none { it is Map<*, *> }
+                return listOf(
+                    "$path: production has ${production.size}, frozen has ${frozen.size}" +
+                        if (named) ": production=$production frozen=$frozen" else ""
+                )
             }
             return production.indices.flatMap { index -> diff(production[index], frozen[index], "$path[$index]") }
         }

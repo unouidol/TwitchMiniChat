@@ -162,9 +162,11 @@ internal class EmoteLayerPass(
             ParityCatalogue.freeze(row, index, frozen, container)
             smallerLayer.apply(container.getChildAt(0) as TextView, row.emotesRaw!!, darkTheme, renderSizePx = size - 1)
         }
+        /* Drawn first: a view is read only once it is laid out (Settled). */
+        val sizePixels = compare(reference, smaller)
         val sizeState = snapshot.diff(snapshot.of(reference.getChildAt(0)), snapshot.of(smaller.getChildAt(0)))
         out.put("onePixelSmaller_renderSizesPx", "$size/${size - 1}")
-        out.put("onePixelSmaller_pixelsDiffer", !compare(reference, smaller).identical)
+        out.put("onePixelSmaller_pixelsDiffer", !sizePixels.identical)
         out.put("onePixelSmaller_stateDiffers", sizeState.isNotEmpty())
         out.put("onePixelSmaller_stateDiff", JSONArray(sizeState.take(4)))
         out.put("onePixelSmaller_requestsDiffer", requestsOf(referenceImages, null) != requestsOf(smallerImages, null))

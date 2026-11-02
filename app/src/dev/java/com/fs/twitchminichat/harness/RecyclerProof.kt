@@ -19,6 +19,7 @@ import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.PendingEchoEvent
 import com.fs.twitchminichat.chat.PendingEchoRow
 import com.fs.twitchminichat.chat.PendingEchoStatus
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -29,12 +30,19 @@ import org.json.JSONObject
  *
  * Why scrollBy: it lays out and recycles synchronously and starts no prefetch (RecyclerView 1.3.1:
  * only nestedScrollBy, touch drags and flings post to the prefetcher), so a row scrolled just out of
- * view goes to the list's cache - two holders, kept for their positions and handed back without a
- * bind - and reaches the pool, and onViewRecycled, only when it is evicted from the cache.
+ * view goes to the list's cache - [CACHE_SIZE] holders, kept for their positions and handed back
+ * without a bind - and reaches the pool, and onViewRecycled, only when it is evicted from the cache.
+ * The cache evicts its oldest holder to make room (RecyclerView.java:7103-7105), so the rows above
+ * the emote row, which leave before it, are evicted as it enters: R2 sees that eviction exactly.
+ *
+ * The images' delivery asks for a layout (TwitchEmoteImageLoader.installDrawable requests one), and a
+ * row is drawn only once it has run ([Settled]): after a delivery the proof lays the list out, as the
+ * frame after it would, and records the row's height before and after.
  *
  * - R1: an emote row in view, its images delivered and running.
  * - R2: scrolled just out of view. Its holder is detached and in the cache (read by reflection), no
- *   pool recycle of it was seen, its loads are live and its animations stopped.
+ *   pool recycle of it was seen, its loads are live and its animations stopped. Exactly the holders
+ *   of the rows the cache had to evict went to the pool: row 0 alone.
  * - R3: scrolled back. The same holder, with no bind and no new load, its images, the reference's
  *   pixels, running again. This is the path 5c's defect broke: with the release on detach that 5c
  *   removed, the row would come back here without its emotes.
@@ -70,8 +78,9 @@ internal class RecyclerProof(
     private lateinit var timeline: ChatTimelineController
     private var heightPx = 0
 
-    /* Every holder the list sent to the pool, in order, as its RecyclerListener saw it. */
+    /* Every holder the list sent to the pool, in order, as its RecyclerListener saw it, and the position each had then. */
     private val recycled = mutableListOf<RecyclerView.ViewHolder>()
+    private val recycledPositions = mutableListOf<Int>()
 
     private lateinit var emoteHolder: RecyclerView.ViewHolder
     private var scrolledAway = 0
@@ -98,7 +107,10 @@ internal class RecyclerProof(
                 list = page.newList()
                 root.addView(list, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx))
                 timeline = page.newTimeline(list)
-                list.addRecyclerListener { holder -> recycled += holder }
+                list.addRecyclerListener { holder ->
+                    recycled += holder
+                    recycledPositions += holder.layoutPosition
+                }
                 images.label = "R1"
                 for (index in 0 until ROWS) {
                     val data = if (index == EMOTE_INDEX) emoteData else rowData.getValue(EmoteLifecycleProof.PLAIN_ROW)
@@ -107,7 +119,7 @@ internal class RecyclerProof(
                 page.layOut(list, "R1 insert", heightPx)
                 r.pre("attached", list.isAttachedToWindow)
                 r.pre("loadsWaiting", images.loadsOf("R1").count { it.pending } == emotes)
-                images.deliverPending()
+                deliverAndLayOut(r, "R1 delivered", EMOTE_INDEX)
                 emoteHolder = checkNotNull(list.findViewHolderForAdapterPosition(EMOTE_INDEX)) { "the emote row has no view" }
                 r.pre("rowsBelowTheView", list.childCount < ROWS)
                 checkShowing(r, emoteHolder.itemView as TextView, "R1", emotes, references.getValue(EMOTE_ROW))
@@ -127,7 +139,10 @@ internal class RecyclerProof(
                 r.observe("scrolledPx", scrolledAway)
                 r.check("detached", emoteHolder.itemView.parent == null && !emoteHolder.itemView.isAttachedToWindow)
                 r.check("inTheCache", cachedHolders().any { it === emoteHolder })
-                r.check("noPoolRecycle", recycled.size == recycledBefore && recycled.none { it === emoteHolder })
+                r.check("noPoolRecycleOfIt", recycled.none { it === emoteHolder })
+                val pooled = recycledPositions.drop(recycledBefore)
+                r.observe("positionsSentToThePool", JSONArray(pooled))
+                r.check("onlyTheForcedEvictions", pooled == (0 until EMOTE_INDEX + 1 - CACHE_SIZE).toList())
                 r.check("loadsLive", images.loadsOf("R1").count { it.live } == emotes)
                 r.check("stopped", animatedOf("R1").none { it.isRunning })
                 r.check("releaseNotReported", recorder.releasesOf(emoteHolder.itemView) == 0)
@@ -170,7 +185,7 @@ internal class RecyclerProof(
                 list.scrollBy(0, -scrolledFar)
                 checkList("R5 scrolled back")
                 r.pre("loadsWaiting", images.loadsOf("R5").count { it.pending } == emotes)
-                images.deliverPending()
+                deliverAndLayOut(r, "R5 delivered", EMOTE_INDEX)
                 val back = checkNotNull(list.findViewHolderForAdapterPosition(EMOTE_INDEX)) { "the emote row has no view" }
                 r.observe("theHolderOfR1", back === emoteHolder)
                 checkShowing(r, back.itemView as TextView, "R5", emotes, references.getValue(EMOTE_ROW))
@@ -224,14 +239,14 @@ internal class RecyclerProof(
                 list.scrollBy(0, far)
                 checkList("R7 scrolled back")
                 r.check("loadsRequested", images.loadsOf("R7").count { it.pending } == echoEmotes)
-                images.deliverPending()
+                deliverAndLayOut(r, "R7 delivered", ECHO_INDEX)
                 val back = checkNotNull(list.findViewHolderForAdapterPosition(ECHO_INDEX)) { "the echo has no view" }
                 val echo = back.itemView as PendingEchoView
                 r.check("boundAtConfirmed", (echo.tag as? PendingEchoRow)?.status == PendingEchoStatus.CONFIRMED)
                 r.check("confirmedLook", echo.alpha == 1f)
                 r.check("imagesShown", imagesShownBy(echo.messageView).size == echoEmotes)
                 r.check("running", animatedOf("R7").let { animated -> animated.size == echoEmotes && animated.all { it.isRunning } })
-                r.check("pixelsEqualTheReference", rowPixelsEqual(echo, echoReference()))
+                r.check("pixelsEqualTheReference", rowPixelsEqual(r, echo, echoReference()))
             })
         }
 
@@ -270,7 +285,21 @@ internal class RecyclerProof(
         r.check("oneImagePerEmote", shown.size == emotes && delivered.size == emotes)
         r.check("imagesAreTheDeliveredOnes", shown.all { drawable -> delivered.any { it === drawable } })
         r.check("running", animatedOf(label).let { animated -> animated.size == emotes && animated.all { it.isRunning } })
-        r.check("pixelsEqualTheReference", rowPixelsEqual(view, reference()))
+        r.check("pixelsEqualTheReference", rowPixelsEqual(r, view, reference()))
+    }
+
+    /*
+     * Delivers the held images, then lays the list out as the frame after them would: each delivery
+     * asks for that layout. Records whether the row at [position] had a layout pending after the
+     * delivery, and its height before and after the layout.
+     */
+    private fun deliverAndLayOut(r: ProofSteps.Record, where: String, position: Int) {
+        images.deliverPending()
+        val delivered = list.findViewHolderForAdapterPosition(position)?.itemView
+        r.observe("rowLayoutPendingAfterDelivery", delivered?.isLayoutRequested)
+        r.observe("rowHeightBeforeItsLayoutPx", delivered?.height)
+        page.layOut(list, where, heightPx)
+        r.observe("rowHeightAfterItsLayoutPx", list.findViewHolderForAdapterPosition(position)?.itemView?.height)
     }
 
     /* The holders in the list's cache, read by reflection: RecyclerView.mRecycler.mCachedViews. */
@@ -292,18 +321,25 @@ internal class RecyclerProof(
         return text.getSpans(0, text.length, ImageSpan::class.java).map { span -> span.drawable }
     }
 
-    /* [view], a row in the list, against the reference's only row, each drawn alone at its own size. */
-    private fun rowPixelsEqual(view: View, reference: LinearLayout): Boolean {
+    /*
+     * [view], a row in the list, against the reference's only row, each drawn alone at its own size;
+     * both bitmaps' sizes are recorded in [r].
+     */
+    private fun rowPixelsEqual(r: ProofSteps.Record, view: View, reference: LinearLayout): Boolean {
         render(reference).recycle()
         val left = draw(view)
         val right = draw(reference.getChildAt(0))
+        r.observe("rowBitmapPx", "${left.width}x${left.height}")
+        r.observe("referenceBitmapPx", "${right.width}x${right.height}")
         return PixelDiff.of(left, right).identical.also {
             left.recycle()
             right.recycle()
         }
     }
 
+    /* [view] at its bounds as they are, so only once it is [Settled]. */
     private fun draw(view: View): Bitmap {
+        Settled.require(view, "a draw")
         val bitmap = createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bitmap))
         return bitmap
@@ -316,6 +352,14 @@ internal class RecyclerProof(
         private const val EMOTE_ROW = "msg.emotes"
         private const val ROWS = 40
         private const val EMOTE_INDEX = 2
+
+        /**
+         * The list's cache: RecyclerView 1.3.1's DEFAULT_CACHE_SIZE (RecyclerView.java:6528), which
+         * only the prefetcher enlarges, and scrollBy never starts it. With the emote row at
+         * [EMOTE_INDEX], the rows above it leave the view first, and the cache must evict the first
+         * EMOTE_INDEX + 1 - CACHE_SIZE of them to the pool as the emote row enters it.
+         */
+        private const val CACHE_SIZE = 2
         private const val ECHO_INDEX = 30
         private const val ECHO_LOCAL_ID = "parity-recycler-echo"
         private const val LIST_HEIGHT_DP = 160f

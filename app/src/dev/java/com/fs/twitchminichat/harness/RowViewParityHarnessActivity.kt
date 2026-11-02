@@ -569,13 +569,17 @@ class RowViewParityHarnessActivity : AppCompatActivity() {
     private fun newContainer(): LinearLayout =
         layoutInflater.inflate(R.layout.parity_harness_container, FrameLayout(this), false) as LinearLayout
 
-    /* Laid out at the chat column's width and drawn in software; the parent applies each child's alpha. */
+    /*
+     * Laid out at the chat column's width and drawn in software; the parent applies each child's alpha.
+     * The layout must leave it [Settled], which is what lets a snapshot follow a render.
+     */
     private fun render(container: ViewGroup, width: Int): Bitmap {
         container.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
         container.layout(0, 0, container.measuredWidth, container.measuredHeight)
+        Settled.require(container, "a render")
         val bitmap = createBitmap(width, container.measuredHeight.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         container.draw(Canvas(bitmap))
         return bitmap

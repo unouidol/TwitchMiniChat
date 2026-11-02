@@ -52,7 +52,12 @@ import org.json.JSONObject
  * The direct-bind check (5d): every echo bound at once at its last status, as the list binds an echo
  * that comes back from the pool, against the same echo built through its history. The pixels must
  * match for every echo, and the state for all but [DIRECT_BIND_EXCEPTION], whose hidden status line
- * keeps a different text (ChatRowViewBinder, item 5).
+ * keeps a different text (ChatRowViewBinder, item 5). Both sides are production's.
+ *
+ * Every view is snapshotted [Settled], after the layout that renders it: the fresh builds, both views
+ * of every pair, and the direct binds. On 2026-11-02 the direct binds were snapshotted after their
+ * layout and the fresh builds before theirs, and every echo differed by one span. What each first
+ * layout adds to a row's spans is recorded, by class, for the direct binds and their fresh builds.
  *
  * Since 5d production binds a view to a second row whenever a holder comes back from the pool. This
  * proof is what shows that doing so is correct.
@@ -94,6 +99,12 @@ internal class RebindProof(
         result.put("emoteRows", JSONArray(subjects.filter { it.emotes > 0 }.map { it.row.id }))
 
         val freshBuilds = subjects.associate { subject -> subject.row.id to fresh(subject, "fresh ${subject.row.id}") }
+        /* Laid out by a render before they are read, as every snapshot must be; what that first layout added to their spans is kept. */
+        val freshLayoutAdded = freshBuilds.mapValues { (_, container) ->
+            val before = spanClassesOf(container.getChildAt(0))
+            render(container).recycle()
+            spanClassesOf(container.getChildAt(0)).without(before)
+        }
         val freshStates = freshBuilds.mapValues { (_, container) -> snapshot.of(container.getChildAt(0)) }
 
         val createVersusProducer = createVersusProducer(subjects)
@@ -102,7 +113,7 @@ internal class RebindProof(
         val pairs = pairs(subjects, freshBuilds, freshStates)
         result.put("pairs", pairs)
 
-        val directBind = directBind(subjects, freshBuilds, freshStates)
+        val directBind = directBind(subjects, freshBuilds, freshStates, freshLayoutAdded)
         result.put("directBind", directBind)
 
         val preconditions = preconditions(subjects)
@@ -191,9 +202,9 @@ internal class RebindProof(
     }
 
     /*
-     * Every ordered pair of the same kind: A bound, then B bound to the same view, against B fresh, in
-     * pixels and state; then what the loads say of the view's sessions, and whether its text holds B's
-     * images.
+     * Every ordered pair of the same kind: A bound and laid out, as a row on screen is, then B bound to
+     * the same view and laid out, against B fresh, in pixels and state; then what the loads say of the
+     * view's sessions, and whether its text holds B's images.
      */
     private fun pairs(
         subjects: List<Subject>,
@@ -233,6 +244,7 @@ internal class RebindProof(
                     val view = holder.itemView
                     container.addView(view)
                     replayEvents(holder, a)
+                    render(container).recycle()
                     val before = snapshot.of(view)
 
                     images.label = bLabel
@@ -242,6 +254,8 @@ internal class RebindProof(
                     if (container.childCount == 1 && fresh.childCount == 1) oneChildEach++
                     if (container.childCount == 1 && container.getChildAt(0) === view) sameView++
 
+                    /* Drawn first: the bind asked for a layout, and the view is read only once it has run. */
+                    val pixels = compare(container, fresh)
                     val after = snapshot.of(view)
                     if (a !== b) {
                         differentRows++
@@ -255,7 +269,6 @@ internal class RebindProof(
                         }
                     }
 
-                    val pixels = compare(container, fresh)
                     val state = snapshot.diff(after, freshStates.getValue(b.row.id))
                     if (pixels.identical) bitmapIdentical++
                     if (state.isEmpty()) stateIdentical++
@@ -332,26 +345,35 @@ internal class RebindProof(
     /*
      * Every echo bound at once at its last status, through the adapter, against the same echo built
      * through its history. Pixels for every echo; state for every echo but the declared one, whose one
-     * difference must be exactly the one declared: the text of the hidden status line.
+     * difference must be exactly the one declared: the text of the hidden status line. Recorded, and
+     * decided by nothing: the spans each side's first layout added, by class.
      */
     private fun directBind(
         subjects: List<Subject>,
         freshBuilds: Map<String, LinearLayout>,
-        freshStates: Map<String, Map<String, Any?>>
+        freshStates: Map<String, Map<String, Any?>>,
+        freshLayoutAdded: Map<String, List<String>>
     ): JSONObject {
         val out = JSONObject()
         val echoes = subjects.filter { subject -> subject.data is PendingEchoRow }
         var pixelsIdentical = 0
         var stateIdentical = 0
         var exceptionsMet = 0
+        var layoutsAddedOnlyTheWatcher = 0
         val rows = JSONArray()
         for (echo in echoes) {
             val last = echo.data as PendingEchoRow
             val container = newContainer()
             images.label = "direct ${echo.row.id}"
-            container.addView(binding.create(last, container).itemView)
+            val view = binding.create(last, container).itemView
+            container.addView(view)
+            val before = spanClassesOf(view)
+            /* Drawn first, as the fresh build was: the view is read only once its layout has run. */
             val pixels = compare(container, freshBuilds.getValue(echo.row.id))
-            val state = snapshot.diff(snapshot.of(container.getChildAt(0)), freshStates.getValue(echo.row.id))
+            val layoutAdded = spanClassesOf(view).without(before)
+            val freshAdded = freshLayoutAdded.getValue(echo.row.id)
+            if (layoutAdded == listOf(LAYOUT_WATCHER) && freshAdded == listOf(LAYOUT_WATCHER)) layoutsAddedOnlyTheWatcher++
+            val state = snapshot.diff(snapshot.of(view), freshStates.getValue(echo.row.id))
             if (pixels.identical) pixelsIdentical++
             val declared = echo.row.id == DIRECT_BIND_EXCEPTION.rowId
             if (state.isEmpty()) {
@@ -361,7 +383,9 @@ internal class RebindProof(
             }
             rows.put(JSONObject().put("row", echo.row.id).put("status", last.status.name)
                 .put("bitmapIdentical", pixels.identical).put("bitmap", pixels.describe())
-                .put("stateDiff", JSONArray(state.take(8))))
+                .put("stateDiff", JSONArray(state.take(8)))
+                .put("spansItsLayoutAdded", JSONArray(layoutAdded))
+                .put("spansTheFreshBuildsLayoutAdded", JSONArray(freshAdded)))
         }
         out.put("echoes", echoes.size)
         out.put("expectedEchoes", EXPECTED_ECHOES)
@@ -370,11 +394,31 @@ internal class RebindProof(
         out.put("declaredException", JSONObject().put("row", DIRECT_BIND_EXCEPTION.rowId)
             .put("field", DIRECT_BIND_EXCEPTION.field).put("reason", DIRECT_BIND_EXCEPTION.reason))
         out.put("declaredExceptionsMet", exceptionsMet)
+        out.put("layoutsAddedOnlyTheWatcher", layoutsAddedOnlyTheWatcher)
         out.put("rows", rows)
         out.put("passed", echoes.size == EXPECTED_ECHOES && pixelsIdentical == echoes.size &&
             stateIdentical == echoes.size - 1 && exceptionsMet == 1)
         return out
     }
+
+    /*
+     * The class of every span in the text of [view] and of each view inside it, after the path of the
+     * view that shows it, as the snapshot writes paths: what a layout adds is read by comparing two of
+     * these. Read on a view in any layout state, so never compared with a snapshot.
+     */
+    private fun spanClassesOf(view: View, path: String = ""): List<String> {
+        val own = ((view as? TextView)?.text as? Spanned)?.let { text ->
+            text.getSpans(0, text.length, Any::class.java).map { span -> "$path ${span.javaClass.name}" }
+        }.orEmpty()
+        val inside = (view as? ViewGroup)?.let { group ->
+            (0 until group.childCount).flatMap { index -> spanClassesOf(group.getChildAt(index), "$path/children[$index]") }
+        }.orEmpty()
+        return own + inside
+    }
+
+    /* This list less one of each element of [other]: what a layout added, duplicates kept. */
+    private fun List<String>.without(other: List<String>): List<String> =
+        toMutableList().apply { other.forEach { element -> remove(element) } }
 
     /* The drawables of the image spans in the text [view] shows. */
     private fun imageDrawablesOf(view: View): List<Any> {
@@ -473,6 +517,9 @@ internal class RebindProof(
          * bound at a status other than sending, is gone: 5d binds an echo from the pool at any status.
          */
         const val EXPECTED_PRECONDITIONS = 5
+
+        /** The span a TextView's first layout attaches to a Spannable text, as [spanClassesOf] writes it for an echo's message view. */
+        private const val LAYOUT_WATCHER = "/children[0] android.text.DynamicLayout\$ChangeWatcher"
 
         private const val UNKNOWN_VIEW_TYPE = 99
         private const val NOT_A_CHANGE = "not a change"
