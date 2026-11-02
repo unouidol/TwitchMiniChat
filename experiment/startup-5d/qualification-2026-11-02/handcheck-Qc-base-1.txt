@@ -1,0 +1,20 @@
+commit                       same   direct="03a8775" facts="03a8775"
+inject                       same   direct="" facts=""
+inject_start                 same   direct=null facts=null
+rows recorded                same   direct=817 facts=817
+history rows in the span     same   direct=800 facts=800
+span                         same   direct=2210.089999 facts=2210.089999
+span_end                     same   direct=3584.176197 facts=3584.176197
+act_in                       same   direct=239.102448 facts=239.102448
+app_in                       same   direct=199.833386 facts=199.833386
+app_out                      same   direct=199.983698 facts=199.983698
+burst_end                    same   direct=3666.914468999952 facts=3666.914468999952
+frames ran                   same   direct=897 facts=897
+first frame ran              same   direct=400.545886 facts=400.545886
+messages                     same   direct=3545 facts=3545
+finished builds              same   direct=817 facts=817
+page 0's history row 100     same   direct={"begin": 1677.770937, "mark0": 1677.926562, "mark1": 1678.002552, "mark2": 1678.007864, "insertIn": 1678.073073, "mark3": 1678.080625, "mark4": 1680.2175, "insertOut": 1680.306771} facts={"begin": 1677.770937, "mark0": 1677.926562, "mark1": 1678.002552, "mark2": 1678.007864, "insertIn": 1678.073073, "mark3": 1678.080625, "mark4": 1680.2175, "insertOut": 1680.306771}
+display                      same   direct=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] facts=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"]
+pages: [(0, '0d3d33b8', 'c8cb0e91', 400, False), (1, '57f6e8bc', 'c8cb0e91', 400, False)]
+segments facts() carries: ['buddy_capture', 'composer_snapshot_follow_decision', 'dedup_backfill_mention', 'follow_or_count_composer_restore', 'hidden_user_check', 'sum_of_the_parts', 'timeline_insert', 'timeline_insert_of_which_view_build', 'timeline_insert_without_view_build', 'timestamp_echo_reconcile']
+mismatches: 0

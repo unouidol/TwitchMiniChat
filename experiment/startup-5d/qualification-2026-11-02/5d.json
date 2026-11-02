@@ -1,0 +1,1900 @@
+{
+  "build": "5d",
+  "phase_locations": {
+    "mention": "inside page 0's 100th history row, inside the span",
+    "reconcile": "inside page 0's 100th history row, inside the span",
+    "buddy": "inside page 0's 100th history row, inside the span",
+    "hidden": "inside page 0's 100th history row, inside the span",
+    "beforeinsert": "inside page 0's 100th history row, inside the span",
+    "insert": "inside page 0's 100th history row, inside the span",
+    "follow": "inside page 0's 100th history row, inside the span",
+    "gap": "a main-thread message of its own between the span's rows, holding no row",
+    "app": "Application.onCreate, before the span",
+    "stall": "anchor + 8000 ms, after the span: the burst end, criterion 5",
+    "build": "outside every row: a bind at the list's layout, wherever that layout falls in time; 5d builds a view only for a row laid out"
+  },
+  "phase_locations_note": "Qualification is per build: each phase is read against this build's own baselines. `build` sits inside the span on the control and outside every row on 5d, so its values are not comparable across the two builds.",
+  "baselines": [
+    "Q5-base-1",
+    "Q5-base-2",
+    "Q5-base-3"
+  ],
+  "display": {
+    "readings": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+    ],
+    "unread": [],
+    "one_reading": true
+  },
+  "rows_in_span": {
+    "each": {
+      "Q5-base-1": 800,
+      "Q5-base-2": 800,
+      "Q5-base-3": 800,
+      "Q5-mention": 800,
+      "Q5-reconcile": 800,
+      "Q5-buddy": 800,
+      "Q5-hidden": 800,
+      "Q5-beforeinsert": 800,
+      "Q5-insert": 800,
+      "Q5-follow": 800,
+      "Q5-build": 800,
+      "Q5-gap": 800,
+      "Q5-app": 800,
+      "Q5-stall": 800
+    },
+    "baselines_equal": true,
+    "injected_differing": []
+  },
+  "baselines_injected_nothing": true,
+  "injections": {
+    "each_once": true,
+    "ran": [
+      "mention",
+      "reconcile",
+      "buddy",
+      "hidden",
+      "beforeinsert",
+      "insert",
+      "follow",
+      "build",
+      "gap",
+      "app",
+      "stall"
+    ]
+  },
+  "launches": [
+    {
+      "run": "Q5-mention",
+      "inject": "mention",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.1081250000002,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 315.503383,
+          "baselines": [
+            131.644664,
+            133.60288,
+            131.784113
+          ],
+          "baselines_median": 131.784113,
+          "rise": 183.71927,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "timestamp_echo_reconcile": {
+              "value": 44.284936,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 3.682191,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 31.187719,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.985512,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 41.853629,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 25.259905,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 41.853629,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1443.166406,
+                1643.412031
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1443.134791,
+                1643.899166
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "timestamp_echo_reconcile": {
+                  "value": 0.13843699999983983,
+                  "range": [
+                    -4.9419269999998505,
+                    5.072292000000061
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.006719000000202868,
+                  "range": [
+                    -4.995833000000175,
+                    5.005051999999978
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.07239599999979873,
+                  "range": [
+                    -4.961510999999973,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.008021000000098866,
+                  "range": [
+                    -4.994478999999956,
+                    5.009115000000065
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.08625000000006366,
+                  "range": [
+                    -4.94947900000011,
+                    5.06932299999994
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.07166599999982282,
+                  "range": [
+                    -4.980780999999979,
+                    5.039582999999993
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.5209889999996449,
+                  "range": [
+                    -4.66567699999996,
+                    5.451874999999973
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": -76.04875100000027,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": -6.706079999991971
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": true
+    },
+    {
+      "run": "Q5-reconcile",
+      "inject": "reconcile",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.12875000000008,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 248.26766,
+          "baselines": [
+            48.03105,
+            47.402594,
+            48.930976
+          ],
+          "baselines_median": 48.03105,
+          "rise": 200.23661,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 110.346142,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 3.850196,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 30.815469,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.913393,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 40.434577,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 22.134532,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 40.434577,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1382.74776,
+                1582.966197
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1382.593385,
+                1583.381249
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.12286500000004708,
+                  "range": [
+                    -4.875937000000022,
+                    5.20718799999986
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.01802100000008977,
+                  "range": [
+                    -4.995833000000175,
+                    5.005051999999978
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.11520799999993869,
+                  "range": [
+                    -4.961510999999973,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.00937500000009095,
+                  "range": [
+                    -4.994478999999956,
+                    5.009115000000065
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.09192799999982526,
+                  "range": [
+                    -4.94947900000011,
+                    5.06932299999994
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.07411400000000867,
+                  "range": [
+                    -4.980780999999979,
+                    5.039582999999993
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.521197999999913,
+                  "range": [
+                    -4.66567699999996,
+                    5.451874999999973
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": -51.5055739999998,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": -6.327769999996917
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-buddy",
+      "inject": "buddy",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.11421900000005,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 205.544834,
+          "baselines": [
+            3.693501,
+            3.832812,
+            3.9829499999999998
+          ],
+          "baselines_median": 3.832812,
+          "rise": 201.71202200000002,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 97.605585,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 41.378317,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 32.033451,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.545256,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 39.101515,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 22.657289,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 39.101515,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1555.696093,
+                1755.835052
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1555.446927,
+                1756.25375
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.15442700000016885,
+                  "range": [
+                    -4.875937000000022,
+                    5.20718799999986
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.06666599999994105,
+                  "range": [
+                    -4.9419269999998505,
+                    5.072292000000061
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.11588500000016211,
+                  "range": [
+                    -4.961510999999973,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.013020999999980631,
+                  "range": [
+                    -4.994478999999956,
+                    5.009115000000065
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.10734400000001187,
+                  "range": [
+                    -4.94947900000011,
+                    5.06932299999994
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.08572899999990113,
+                  "range": [
+                    -4.980780999999979,
+                    5.039582999999993
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.5678120000000035,
+                  "range": [
+                    -4.66567699999996,
+                    5.451874999999973
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 32.538957999999866,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": -7.214391999992813
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-hidden",
+      "inject": "hidden",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.66270799999984,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 235.202177,
+          "baselines": [
+            31.972654,
+            35.608892,
+            35.915719
+          ],
+          "baselines_median": 35.608892,
+          "rise": 199.593285,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 88.664164,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 39.273808,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.89736,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.195511,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 49.848763,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 20.527088,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 49.848763,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1660.240156,
+                1860.989166
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1659.983229,
+                1861.298385
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.15963500000020758,
+                  "range": [
+                    -4.875937000000022,
+                    5.20718799999986
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.0593749999998181,
+                  "range": [
+                    -4.9419269999998505,
+                    5.072292000000061
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.004532000000153857,
+                  "range": [
+                    -4.995833000000175,
+                    5.005051999999978
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.017655999999988126,
+                  "range": [
+                    -4.994478999999956,
+                    5.009115000000065
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.12437499999987267,
+                  "range": [
+                    -4.94947900000011,
+                    5.06932299999994
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.05833400000005895,
+                  "range": [
+                    -4.980780999999979,
+                    5.039582999999993
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.510209000000259,
+                  "range": [
+                    -4.66567699999996,
+                    5.451874999999973
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 1552.833957,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": 546.5227790000138
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-beforeinsert",
+      "inject": "beforeinsert",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.1089589999999,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 205.84717,
+          "baselines": [
+            4.810457,
+            5.575177,
+            5.53479
+          ],
+          "baselines_median": 5.53479,
+          "rise": 200.31238000000002,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 61.308794,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 29.243685,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 2.742285,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 23.512657,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 34.439402,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 17.55355,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 34.439402,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1598.759947,
+                1798.902916
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1598.501041,
+                1799.239739
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.1306250000000091,
+                  "range": [
+                    -4.875937000000022,
+                    5.20718799999986
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.060365000000047075,
+                  "range": [
+                    -4.9419269999998505,
+                    5.072292000000061
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.00525999999990745,
+                  "range": [
+                    -4.995833000000175,
+                    5.005051999999978
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.03307300000005853,
+                  "range": [
+                    -4.961510999999973,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.13796800000000076,
+                  "range": [
+                    -4.94947900000011,
+                    5.06932299999994
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.05375000000003638,
+                  "range": [
+                    -4.980780999999979,
+                    5.039582999999993
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.45505100000013954,
+                  "range": [
+                    -4.66567699999996,
+                    5.451874999999973
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 1026.2424990000002,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": 483.5980900000036
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-insert",
+      "inject": "insert",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.51510400000006,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 246.187095,
+          "baselines": [
+            42.233818,
+            47.174476,
+            48.403223
+          ],
+          "baselines_median": 47.174476,
+          "rise": 199.012619,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 71.04025,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 33.466678,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 2.995321,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 26.066907,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.242082,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 18.904537,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                3112.659165,
+                3112.718592
+              ],
+              "outside_ms": 280.376041,
+              "pass": false
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                2831.104634,
+                3032.954686
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.04875000000038199,
+                  "range": [
+                    -4.875937000000022,
+                    5.20718799999986
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.03119699999979275,
+                  "range": [
+                    -4.9419269999998505,
+                    5.072292000000061
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.0036460000001170556,
+                  "range": [
+                    -4.995833000000175,
+                    5.005051999999978
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.02874999999994543,
+                  "range": [
+                    -4.961510999999973,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.0073959999999715365,
+                  "range": [
+                    -4.994478999999956,
+                    5.009115000000065
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.02031299999998737,
+                  "range": [
+                    -4.980780999999979,
+                    5.039582999999993
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": -200.31562499999973,
+                  "range": [
+                    -4.66567699999996,
+                    5.451874999999973
+                  ],
+                  "pass": false
+                }
+              },
+              "pass": false
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 1152.2831239999998,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": 595.6902189999992
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-follow",
+      "inject": "follow",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.16817700000001,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 221.28761,
+          "baselines": [
+            21.859731,
+            31.78,
+            32.535114
+          ],
+          "baselines_median": 31.78,
+          "rise": 189.50761,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 72.080734,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 31.164951,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 2.871649,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 25.325478,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.358186,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 36.026865,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 36.026865,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                3105.906041,
+                3306.11578
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                3105.694218,
+                3306.306822
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.08166699999992488,
+                  "range": [
+                    -4.875937000000022,
+                    5.20718799999986
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.029426999999941472,
+                  "range": [
+                    -4.9419269999998505,
+                    5.072292000000061
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.0034370000003036694,
+                  "range": [
+                    -4.995833000000175,
+                    5.005051999999978
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.026405999999951746,
+                  "range": [
+                    -4.961510999999973,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.006198000000040338,
+                  "range": [
+                    -4.994478999999956,
+                    5.009115000000065
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.03640700000005381,
+                  "range": [
+                    -4.94947900000011,
+                    5.06932299999994
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.22510400000010122,
+                  "range": [
+                    -4.66567699999996,
+                    5.451874999999973
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 1442.5111959999997,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": 806.1418949999991
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-build",
+      "inject": "build",
+      "phase_location": "outside every row: a bind at the list's layout, wherever that layout falls in time; 5d builds a view only for a row laid out",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.12916700000005,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 422.6147819999983,
+          "baselines": [
+            150.7955200000008,
+            137.9842200000012,
+            170.5783330000031
+          ],
+          "baselines_median": 150.7955200000008,
+          "rise": 271.8192619999975,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 55.371154,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 27.190108,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 3.130611,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 22.709946,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.0351099999999995,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 33.00198,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 20.118596,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 33.00198,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "build": [
+                1442.64901,
+                1644.451354
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1392.534635,
+                1729.478646
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 1107.548384,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": 626.7447869999971
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-gap",
+      "inject": "gap",
+      "phase_location": "a main-thread message of its own between the span's rows, holding no row",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.14567699999998,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 310.4490579999965,
+          "baselines": [
+            76.88842099999852,
+            35.986880000000156,
+            33.572707999998556
+          ],
+          "baselines_median": 35.986880000000156,
+          "rise": 274.46217799999636,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 59.279484,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 26.49328,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 2.766871,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 23.043118,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 3.963895,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 33.743615,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 22.199213,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 33.743615,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "message": [
+                3116.081301,
+                3316.408905
+              ],
+              "holds_a_row": false,
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                3116.081301,
+                3316.408905
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 1466.0488010000001,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": 959.8111230000227
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-app",
+      "inject": "app",
+      "phase_location": "Application.onCreate, before the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.125833,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 441.242135,
+          "baselines": [
+            246.036979,
+            235.176927,
+            236.034636
+          ],
+          "baselines_median": 236.034636,
+          "rise": 205.207499,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 56.271216,
+              "range": [
+                121.644664,
+                143.60288
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 24.26171,
+              "range": [
+                37.402594,
+                58.930976
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 2.828073,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 22.033805,
+              "range": [
+                21.972654,
+                45.915719
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.250298,
+              "range": [
+                -5.189543,
+                15.575177
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 31.754915,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": false
+            },
+            "follow_or_count_composer_restore": {
+              "value": 22.980404,
+              "range": [
+                11.859731,
+                42.535114
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 31.754915,
+              "range": [
+                32.233818,
+                58.403223
+              ],
+              "pass": false
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "phase": [
+                200.795521,
+                401.109427
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 707.5562489999998,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": 895.5100859999991
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "Q5-stall",
+      "inject": "stall",
+      "phase_location": "anchor + 8000 ms, after the span: the burst end, criterion 5",
+      "criteria": {
+        "1": {
+          "recorded_ms": 534.3956249999992,
+          "at_least_ms": 534.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "status": "NOT APPLICABLE",
+          "why": "the stall begins after the span's last row, so no row's segment can contain it: this check could fail only through the launch's own variation, never through the stall",
+          "segments_for_the_record": {
+            "dedup_backfill_mention": {
+              "value": 214.813853,
+              "range": [
+                121.644664,
+                143.60288
+              ]
+            },
+            "timestamp_echo_reconcile": {
+              "value": 48.191334,
+              "range": [
+                37.402594,
+                58.930976
+              ]
+            },
+            "buddy_capture": {
+              "value": 4.444438,
+              "range": [
+                -6.3064990000000005,
+                13.982949999999999
+              ]
+            },
+            "hidden_user_check": {
+              "value": 36.966052,
+              "range": [
+                21.972654,
+                45.915719
+              ]
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 5.413442,
+              "range": [
+                -5.189543,
+                15.575177
+              ]
+            },
+            "timeline_insert": {
+              "value": 46.961239,
+              "range": [
+                32.233818,
+                58.403223
+              ]
+            },
+            "follow_or_count_composer_restore": {
+              "value": 30.114956,
+              "range": [
+                11.859731,
+                42.535114
+              ]
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ]
+            },
+            "timeline_insert_without_view_build": {
+              "value": 46.961239,
+              "range": [
+                32.233818,
+                58.403223
+              ]
+            }
+          }
+        },
+        "4": {
+          "clauses": {
+            "inside_the_main_threads_log": {
+              "message": [
+                8000.096143,
+                8535.397028
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 57.05260299999986,
+              "baselines_span_spread": 59.83906200000001,
+              "idle_change": -2.046009999992748
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        },
+        "5": {
+          "burst_end": 8535.119642999023,
+          "stall_end": 8534.952914,
+          "first_frame_after": 8536.543278,
+          "bounds": [
+            8533.952914,
+            8536.543278
+          ],
+          "stall_placed_at": 8000,
+          "stall_began": 8000.557289,
+          "span_end": 2232.588749,
+          "baselines_burst_end": {
+            "Q5-base-1": 983.6119819991291,
+            "Q5-base-2": 2422.000805001706,
+            "Q5-base-3": 2445.262283999473
+          },
+          "baselines_whose_burst_ended_before_the_stall": [
+            "Q5-base-1",
+            "Q5-base-2",
+            "Q5-base-3"
+          ],
+          "baselines_with_no_burst": [],
+          "after_the_span": true,
+          "the_detector_moves_there": true,
+          "from_somewhere_else": true,
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": true
+    }
+  ],
+  "verdict": "NOT QUALIFIED: reconcile (criteria 3), buddy (criteria 3), hidden (criteria 3), beforeinsert (criteria 3), insert (criteria 3, 4), follow (criteria 3), build (criteria 3), gap (criteria 3), app (criteria 3)"
+}
