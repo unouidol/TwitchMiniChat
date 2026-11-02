@@ -15,8 +15,9 @@ results file, or a results file without its counts is a failure of that stage.
 
 | Step | Branch | Commit | APK (dev, arm64) sha256 |
 |---|---|---|---|
-| H1, H3, M, B1 | `feature/5d-recyclerview-timeline` | `fc63adb` | `1d377b6e3611d337c6caffb1f2ae6bc031895246ff6d0b4653b412bcde021342` |
-| H2 | one mutant of `fc63adb` per run | built after the predictions | each read back from the phone |
+| H1, its runs of 2026-11-02 at 09:33 and 09:35 | `feature/5d-recyclerview-timeline` | `fc63adb` | `1d377b6e3611d337c6caffb1f2ae6bc031895246ff6d0b4653b412bcde021342` |
+| H1 from then on, H3, M, B1 | `feature/5d-recyclerview-timeline` | `d11b629` | recorded under *Recorded results* as built |
+| H2 | one mutant of `d11b629` per run | built after the predictions | each read back from the phone |
 | C, qualification, control | `experiment/startup-5d-control` | `cee6695` | `94d68eb531f0b826b263af5600123f1ce3cb83ef4875c35c5b47509c92320fcf` |
 | C, qualification, 5d | `experiment/startup-5d-treatment` | `a2e72ff` | `cb7fb26b40218f990a9a7905146eb2a1ff36da809b93f5759e02dd7b3d9b2a2a` |
 | C, measurement, control | `experiment/startup-5d-control` | `301111b` | `6fc184a88261f5ee5e9123476dedc0dc612a9ffedc5542c5ef5595ac38a547d9` |
@@ -27,6 +28,12 @@ The measurement branches are never merged. `301111b` is `c8a9f99` plus the probe
 200 ms decision below; `a2e72ff` is `5851fde` plus the same two commits, the second cherry-picked, and
 the two pairs' diffs are identical. Each embeds only its own commit (read from its dex strings). After
 the round, the phone is left on the final 5d build, read back and recorded in `RELEASE-STATE.md`.
+
+`d11b629` is `fc63adb` with the harness's instrument fixes of 2026-11-02 (*H1 on `fc63adb`,
+diagnosed*, below) and the round's documents. `git diff fc63adb d11b629 -- app/src/main gradle
+build.gradle.kts settings.gradle.kts gradle.properties app/build.gradle.kts` prints nothing: 5d's
+production code is `fc63adb`'s, so the qualification and measurement builds, made from `fc63adb`,
+still measure it. The mutants are made from `d11b629`, so that each one runs the fixed harness.
 
 ### Every APK of the round comes from one machine
 
@@ -92,6 +99,134 @@ frozen ones in the LinearLayout `chatContainer` was; see the harness activity's 
 
 **Failing looks like.** Any other count. A different count stops the round until it is understood.
 
+#### H1 on `fc63adb`, diagnosed (2026-11-02)
+
+Each mismatch was diagnosed to a cause, with its evidence, before it was classified: (a) a defect in
+5d's code, (b) a defect in the instrument, (c) a wrong prediction about correct behaviour. All four
+are (b). None is (a): no line of `app/src/main` changed to fix any of them. The sources cited are
+RecyclerView 1.3.1's, which `devDebugRuntimeClasspath` resolves, and line numbers in the harness are
+`fc63adb`'s.
+
+- **R2, `noPoolRecycle` alone (scrolled 201 px).** R2's other five checks passed, the holder in the
+  cache among them, and R3 passed all of its own, the same holder with no new load among them.
+  201 px is 29 (the list's top padding) + 52 + 52 (rows 0 and 1) + 68 (the emote row, row 2), so
+  rows 0 and 1 leave the view before the emote row does. The cache holds 2 (`DEFAULT_CACHE_SIZE`,
+  RecyclerView.java:6528); `scrollBy` never starts the prefetcher that would enlarge it (:1940-1954;
+  only :2020, :3874 and :5915 post to it); and a full cache sends its oldest holder to the pool,
+  through the RecyclerListener the proof counts, before it takes the new one (:7103-7105,
+  :7049-7058, :7176-7177). The clause asserted that no holder at all reached the pool, where its
+  KDoc asked for "no pool recycle of it". **Cause:** the clause demanded what RecyclerView cannot do
+  with the emote row at position 2. **(b).** `d11b629` scopes it to the emote holder and asserts the
+  forced eviction exactly: the positions recycled during R2 must be [0]. Recorded, row 0's eviction
+  becomes an observation rather than an inference.
+
+  **What R2's failure did not do:** it did not refuse to let R3 claim the cache path. Its failing
+  clause was a false alarm about another row, and the guards that protect R3 (`inTheCache`, in R2
+  and as R3's precondition, and `noNewLoad`) all passed. Nor could it discriminate: it failed on
+  every build, so M1's predicted R2 failure proved nothing. H1 establishes that the cache path is
+  **reached** on the clean build. Whether the defect deduced on 2026-10-07 is **observed** is H2's
+  question, and M1 must fail R3.
+- **Direct bind, state 0 / 9, declared exceptions met 0.** Both sides are production's: one echo
+  created at its last status, and the same echo built through its history by the same adapter. The
+  direct bind rendered its view (RebindProof.kt:353) and then snapshotted it (:354); the fresh builds
+  were snapshotted (:97) before anything rendered them. The pairs check snapshots before rendering on
+  both sides, and passed 658 / 658. The parity pass renders before it snapshots, and it lists a
+  rendered echo's message view with four spans: `DynamicLayout$ChangeWatcher`,
+  `TextView$ChangeWatcher`, a `ForegroundColorSpan` and `EmojiTransformationMethod`. The first is
+  attached by a TextView's layout to Spannable text, and draws nothing. **The decisive control:**
+  `echo.sending` differed by one span too, and its last status is its first, so both sides made the
+  identical call with identical data. That rules out the data and the bind, and is why this
+  diagnosis is not a story. **Cause:** a view snapshotted after its layout, compared with one
+  snapshotted before. **(b).** In `d11b629` both sides are snapshotted after their layout, and the
+  spans each side's first layout added are recorded by class, so that the watcher is observed, not
+  inferred. Pixels 9 / 9 with state 0 / 9: only the non-graphical comparison could see it.
+- **R1, R5 and R7, `pixelsEqualTheReference` alone.** Each delivered the held images and drew at
+  once: the list's row at its bounds as they stood, against a reference that render had laid out
+  (RecyclerProof.kt:296-299). Each delivery requests a layout (TwitchEmoteImageLoader.kt:390), which
+  runs at the list's next layout. The emote row is 52 px without its images (`msg.emotes` in the
+  parity pass, which has no loader: 110 px less 58 of container padding) and 68 px with them (the
+  emote layer's, 126 less 58). Controls: R3 compares the same holder with the same reference after
+  a scroll has laid it out, and passed; the lifecycle proof renders both sides before it compares,
+  and passed 16 / 16. **Cause:** the row was drawn before the layout its own delivery had asked for.
+  **(b).** In `d11b629` the list is laid out after each delivery, as the next frame would lay it
+  out, and the row's pending layout, its heights and both bitmaps' sizes are recorded. **Not the
+  direct bind's root cause:** another mechanism at another line, and fixing either leaves the other
+  failing. But the same family: a view observed before a layout its own content asked for.
+- **S1, `theLayoutReportedAStillScrollWhileTheNewestRowHadNoView` alone (`stillReports` 1).** The
+  layout reported once with no movement, and at that report the newest row had a view. When the row
+  scrolled to has no view, LinearLayoutManager lays it out from the end, its bottom at the bottom
+  edge (LinearLayoutManager.java:960-967), then fills past that edge by `getEndPadding()` (:613-614,
+  :669-672), the list's bottom padding, 29 px (OrientationHelper.java:431-432). S1 appended one row
+  after the one it scrolled to, and a single row always gets a view in that fill. **Cause:** S1
+  never built its race. S1 was wrong, not the rule. **(b).** `d11b629` appends two rows after the one
+  scrolled to; the second begins 52 px past the edge, below the fill.
+
+  **The still-scroll check earned its keep.** S1's other checks passed without the race existing.
+  Without that check, S1 would have gone green while testing nothing: a vacuous pass inside a test
+  written to catch a race. Sharper still, M7 would have passed S1 as well. With one pending row the
+  newest ended 52 px below the edge, within `bottomThresholdPx` (72 dp, 171 px), so "near the
+  bottom" answered yes even when asked (reasoned from the code; the run recorded no gap). **The
+  zero-movement rule is not yet shown right.** It is not shown wrong either: nothing has exercised
+  it. Until S1 is re-run with its race, the start-up race's fix is untested code, and nothing this
+  work established includes it.
+
+**Two of the four failures, arguably three, are one property:** a snapshot or a draw taken before a
+pending layout is not comparable with one taken after it. The pairs check got this right by the
+order of its calls; the direct bind and the recycler proof's draw got it wrong independently.
+`d11b629` makes the order structural, not a discipline. `Settled`, which every snapshot, every draw
+of a row at its bounds and every render calls, fails at once, naming the view, unless the view is
+laid out with no layout pending in it or in any shown descendant. Of the two forms, it is the
+assertion, not helpers that lay the view out themselves, for two reasons:
+
+- A list's rows are laid out by their list, at the list's height, which only the proof knows. A
+  helper laying a row out alone would put it in a state production never reaches.
+- A helper that laid every view out would hide a row that never asks for the layout its content
+  needs, such as a `requestLayout` missing after an image arrives. That is production behaviour
+  under test, and the assertion leaves it to show in pixels.
+
+The one state it can require is "laid out", because the parity pass and every list row can be read
+only after a layout. So the direct bind's references moved to after their layout, not the direct
+bind to before its own, and the pairs check moved with them. GONE views are not held to it: no
+layout lays one out.
+
+**Corrections, both recorded.** Two of the owner's premises were retracted on 2026-11-02 after the
+diagnosis: that R2's assertion had done its job (its failing clause was a false alarm about another
+row), and that the direct bind's reference was assembled from frozen parts (both its sides are
+production's). The amendment of the same morning, written by the agent, said criterion 2 does not
+read `stall`; that was its inference, not the plan's text (*Qualification*, below).
+
+#### From `d11b629` on: what changes, pre-registered on 2026-11-02 before its first run
+
+Every count of *Proves it* above stands, unchanged. The instrument changed, so the changes it makes
+are written here beside the counts, and the old ones stay readable above. Two assertions are new:
+
+- **new, `Settled` refuses nothing:** no snapshot, draw or render of an unsettled view, so both
+  themes reach their done line, no pass aborts and no step records an error;
+- **new, R2's `onlyTheForcedEvictions` passes,** with `positionsSentToThePool` [0]: rows 0, 1 and 2
+  leave a two-slot cache in that order, and row 2's entry evicts row 0. On every mutant of H2 as
+  well: none of them touches the cache or the order rows leave it. R2's scoped `noPoolRecycleOfIt`
+  passes, and `scrolledPx` is 201, as on `fc63adb`.
+
+Recorded, deciding nothing, each with the value the diagnosis predicts:
+
+- **R1, R5 and R7:** `rowLayoutPendingAfterDelivery` true, the cause seen directly. For R1 and R5,
+  `rowHeightBeforeItsLayoutPx` 52 and `rowHeightAfterItsLayoutPx` 68, and `rowBitmapPx` equal to
+  `referenceBitmapPx`, 1022 × 68 (1080 less 29 px of padding on each side). R3, `rowBitmapPx` and
+  `referenceBitmapPx` 1022 × 68. For R7, the height after the layout greater than before, and its
+  two bitmaps the same size; no value is predicted, since the echo's heights were never recorded.
+- **direct bind:** `layoutsAddedOnlyTheWatcher` 9. On each side of every echo, the first layout
+  added exactly one span, `android.text.DynamicLayout$ChangeWatcher`, to the message view.
+- **S1:** `stillReports` 1, at which the newest row had no view (`newestRowGapAtEachStillReportPx`
+  ["none"]). Every S1 check passes.
+
+Changed by the instrument, and the counts they reach unchanged:
+
+- **pairs:** each view is laid out before each snapshot: A before B is bound, as a holder from the
+  pool had been on screen, and the rebound view after. 658 / 658, `sessionsHeld` 658, `imagesHeld`
+  658, not vacuous.
+- **list checks:** 124 in each theme, 0 failures: `fc63adb`'s 121, and the three layouts the recycler
+  proof now makes after a delivery.
+
 ### H2 — Predictions, then mutants
 
 **Do.** After H1, and only then, because the step list is final only once H1 has run, write
@@ -114,6 +249,26 @@ The mutants, as reasoned before H1. The predictions file restates and finalises 
 M7 was added after Phase 1: the rule it removes was decided while writing the code, and S1 exists to
 test it. M4's C-R prediction from Phase 1 is withdrawn: both of C-R's builds go through the same
 view type, so it cannot see M4.
+
+**Restated on 2026-11-02, against the fixed harness, before any mutant was built.** The table above
+stays as written, and `predictions.json` finalises it.
+
+- **M1 and R2.** Until `d11b629`, R2 failed on every build, so M1's predicted R2 failure could prove
+  nothing: a check that fails unconditionally cannot discriminate. Against the fixed R2, what M1
+  does there depends on its exact edit, and the table's "5c's release on detach restored" decides
+  it. The release 5c removed was posted, not made in the detach: `onViewDetachedFromWindow` paused
+  the row and posted `release()` to the next turn of the main loop, to run if the row was still
+  detached then (`aaf718f^`, TwitchEmoteImageLoader.kt:464-481). R2 detaches the holder and checks
+  it within one turn, and `ProofSteps` runs R3 on a later turn. So, with that edit, **R2 passes under
+  M1, `loadsLive` included**: its loads are still live and no release is reported when R2 reads
+  them. The release runs before R3, and R3 fails: the same holder comes back from the cache without
+  a bind, and without its images. The owner expected `loadsLive` to fail at R2. That holds only for
+  a release made inside the detach, which is not 5c's edit. Which edit M1 is, is the owner's to fix
+  in `predictions.json`, before it is hashed.
+- **M7 and S1.** With S1's race built, M7 fails S1 at `stillStuck`. The report with no movement
+  reaches the page's listener while the newest row has no view, `isNearBottom` answers no, and the
+  page stops following until the posted `scrollToBottom` runs. S1's later checks run after that and
+  pass.
 
 ### H3 — The clean final build, once more
 
@@ -310,6 +465,11 @@ applies only to a key equal to the one just before it, and two distinct history 
 key (`id:<message id>`, or `hist:<ms>:<user>:<text hash>`). The buddy capture's 15 s window needs a
 request in flight, and the echoes' 10 s timeout needs a sent message; a cold start has neither.
 
+*Correction, 2026-11-02:* "criterion 2 does not read it", above, was the inference of the agent that
+wrote that paragraph, not the plan's text. Nothing written before it said what `stall` qualifies or
+how it passes. Criterion 5 below says both. And the `:791` above is `ccd2c46`'s line: on `cee6695`
+and `a2e72ff` the sleep is at `:796`.
+
 **What every quantity is measured in: wall time, and the delay is a sleep.** Every time the probe
 records is `rel()`, `System.nanoTime()` less the anchor (`StartupProbe.kt:243` on the qualification
 builds): row marks, inserts, view builds, the main thread's messages, frames. It counts time a thread
@@ -357,6 +517,67 @@ owner of the measurement the same day; the second rewritten by the owner the sam
      baselines, widened by 5 ms on each side.
    - **the total, reported:** the span's rise over the baselines' median, with their spread, and the
      change in idle.
+5. **`stall` qualifies the burst end,** added on 2026-11-02 at the owner's request and derived below.
+   The burst end is one of the two quantities the measurement decides, and `stall` is the only
+   injection that reaches it. Qualified means that the detector moves to where the stall is, and
+   that nothing else moves. In the `stall` launch, all of:
+   - **the detector moves there:** the burst end `analyze5d.py` reports lies no earlier than the end
+     of the stall the probe recorded, less 1 ms, and no later than the first frame the probe recorded
+     after that end (`frames.ran`);
+   - **from somewhere else:** every baseline's burst end lies before anchor + 8000 ms, where the stall
+     is placed, so that the move is the stall's and not one the burst makes anyway;
+   - **no segment moves:** criterion 3's bound, on every per-row segment;
+   - **inside the main thread's log:** criterion 4's second clause, which already holds every
+     injection on the main thread: the stall's interval lies inside one message the log recorded,
+     within 1 ms.
+
+**Where criterion 5's bounds come from,** each step from code, none from a launch:
+
+- The stall is a message posted with `Handler.postAtTime` for anchor + 8000 ms
+  (`StartupProbe.kt:319-323` on the qualification builds). `SystemClock.uptimeMillis`, which the
+  handler reads, and `System.nanoTime`, which the anchor is, both read the monotonic clock. So the
+  stall begins at 8000 ms or later, when the main thread is next free, and sleeps 400 ms
+  (`STALL_MS`, `:796`).
+- The probe's frame callback posts itself again at every frame until the window closes
+  (`:335-353`), so a frame is always pending, and the stall delays it.
+- Choreographer logs `Skipped N frames` when a frame starts at least 30 frame intervals after its
+  vsync (`SKIPPED_FRAME_WARNING_LIMIT`, 30 unless `debug.choreographer.skipwarning` says otherwise),
+  at the start of `doFrame`, before any callback runs (Android 12's `Choreographer.java`, read from
+  its source on 2026-11-02). The pending frame's vsync comes at most one interval after the stall
+  begins, so the frame starts at least 400 ms less one interval late. That is 30 intervals or more
+  when 400 ≥ 31 intervals: at 78 Hz or more. At 90 Hz, 389 ms against 333, so the line is logged; at
+  60 Hz, 383 ms against 500, so no line at all.
+- So the line is logged after the stall's end and before the probe's own callback in the same frame,
+  which is what `frames.ran` records. logcat's monotonic times have millisecond resolution and are
+  truncated (`-v monotonic`, `run.sh:34`): hence the 1 ms.
+
+What the bounds leave out is any disagreement between logcat's monotonic clock and the anchor's
+beyond that resolution. That is deliberate: their agreement is what places every launch's burst end
+on the anchor's clock, and the `stall` launch is the one launch able to test it.
+
+**The display must be at 90 Hz, and on 2026-11-02 it is not.** Read over adb that day, before any
+launch: the active display mode is 60.000004 fps, of the phone's 60 and 90; `peak_refresh_rate` is
+60.000004 and the refresh range [0, 60]; `debug.choreographer.skipwarning` is unset. At 60 Hz the
+stall logs no line, and criterion 5 cannot pass. The refresh rate also bears on every launch's burst
+end, not only on this one: a frame becomes a `Skipped` line only after a 500 ms delay at 60 Hz,
+against 333 at 90, and the owner's reason for the burst end quotes 90 Hz. The refresh rate is not
+among what each launch records. Whether to set the phone to 90 Hz, and whether to record the rate
+with every launch, are the owner's decisions, taken before the qualification; nothing here changes
+the phone's setting.
+
+**The window criterion 5 replaces.** Until 2026-11-02 the plan said `stall` "puts the burst end
+between 8350 and 8600 ms, and moves no segment", phrased as an effect, with nothing saying a launch
+outside it fails. It was neither derived nor observed. It was written on 2026-10-30 (`5daebe6`), ten
+minutes after `ccd2c46` made the stall 400 ms, before any 400 ms stall had run; 2026-10-08's stall
+was 50 ms (`strip.py` of `experiment/startup-cost-attribution`), which Choreographer never logs.
+Against the derivation, its lower edge lies about 50 ms before the earliest the line can be logged,
+which only an unstated allowance for clock disagreement would explain. Its upper edge allowed 200 ms
+for the main thread's lateness at 8000 ms and for whatever ran between the stall and the frame, also
+unstated. The launch records both itself, so criterion 5 reads them there instead of bounding them by
+a figure. The window stays in the list below as it was written.
+
+No script evaluates criteria 1 to 5 yet: `analyze.py` reports the injection's interval (`inject_ms`,
+`inject_at`) and the burst end, and the probe's record holds `frames.ran`, which criterion 5 needs.
 
 **Why the total is reported, not held to "rises by about the delay".** Two reasons, with numbers. The
 span varied by 142 ms across 2026-10-09's three launches with the fix (2348 to 2490 ms). That was more
@@ -372,7 +593,7 @@ outside any message the log recorded, and criterion 4 fails.
 
 - `gap` moves "other messages"; `build` moves the view build inside the insert on the control and the
   bind on 5d; `app` moves `act_in` and nothing inside the span; `stall` puts the burst end between
-  8350 and 8600 ms, and moves no segment.
+  8350 and 8600 ms, and moves no segment (superseded on 2026-11-02 by criterion 5, which says why).
 
 **Decided on 2026-11-02: 200 ms, for every injection.** Until then this paragraph held the question
 open, and it stays as it was written, so the reason can be read. The owner adopted the proposal at its
