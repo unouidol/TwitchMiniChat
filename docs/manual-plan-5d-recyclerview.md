@@ -18,8 +18,8 @@ results file, or a results file without its counts is a failure of that stage.
 | H1, its runs of 2026-11-02 at 09:33 and 09:35 | `feature/5d-recyclerview-timeline` | `fc63adb` | `1d377b6e3611d337c6caffb1f2ae6bc031895246ff6d0b4653b412bcde021342` |
 | H1 from then on, H3, M, B1 | `feature/5d-recyclerview-timeline` | `d11b629` | recorded under *Recorded results* as built |
 | H2 | one mutant of `d11b629` per run | built after the predictions | each read back from the phone |
-| C, qualification, control | `experiment/startup-5d-control` | `cee6695` | `94d68eb531f0b826b263af5600123f1ce3cb83ef4875c35c5b47509c92320fcf` |
-| C, qualification, 5d | `experiment/startup-5d-treatment` | `a2e72ff` | `cb7fb26b40218f990a9a7905146eb2a1ff36da809b93f5759e02dd7b3d9b2a2a` |
+| C, qualification, control | `experiment/startup-5d-control` | `03a8775` | `a3c3ca073d3f5984d9e67dd03437f587fafaa893c07da79c4f9012a08da5cdad` |
+| C, qualification, 5d | `experiment/startup-5d-treatment` | `0fcd674` | `163fa113c9217428ca83c5522f10f835c763a972d81443b968c53f3e126a5ae4` |
 | C, measurement, control | `experiment/startup-5d-control` | `301111b` | `6fc184a88261f5ee5e9123476dedc0dc612a9ffedc5542c5ef5595ac38a547d9` |
 | C, measurement, 5d | `experiment/startup-5d-treatment` | `5851fde` | `0b23204146d875ee8e0c257668e443f07b4f9cbab8ae4e62a88f8d057920e55a` |
 
@@ -28,6 +28,14 @@ The measurement branches are never merged. `301111b` is `c8a9f99` plus the probe
 200 ms decision below; `a2e72ff` is `5851fde` plus the same two commits, the second cherry-picked, and
 the two pairs' diffs are identical. Each embeds only its own commit (read from its dex strings). After
 the round, the phone is left on the final 5d build, read back and recorded in `RELEASE-STATE.md`.
+
+Since 2026-11-02 13:45 the qualification builds are `03a8775` and `0fcd674`: `cee6695` and `a2e72ff`
+plus the stall's new duration (`a2b413a`, cherry-picked as `bcd8ecf`) and the scripts' changes of the
+same day (`03a8775`, cherry-picked as `0fcd674`), *Qualification* below; the two pairs' diffs are
+identical. `cee6695` and `a2e72ff`, sha256 `94d68eb5…` and `cb7fb26b…`, were built this morning and
+never installed: the stall's duration superseded them before any qualification launch. The
+measurement builds do not change: the stall is not in them, and every launch of the section, theirs
+included, is run and read with the scripts of `03a8775`, which run on the host.
 
 `d11b629` is `fc63adb` with the harness's instrument fixes of 2026-11-02 (*H1 on `fc63adb`,
 diagnosed*, below) and the round's documents. `git diff fc63adb d11b629 -- app/src/main gradle
@@ -53,7 +61,10 @@ order: `fc63adb` first, every one of its 42 tasks executed, then `cee6695`, `a2e
 2026-11-02 at 11:50, in the same worktree, incrementally (10 of its 42 tasks executed), after
 `gradlew --version` there printed the same Gradle, launcher and daemon lines again: sha256
 `41a9da8ba035951296d79edd039e41d3f46399eabc84e66679d17944b2cc490e`, embedding `d11b629` with no dirty
-marker, signed by `9b3a523b…5c51`. The APKs and each build's log
+marker, signed by `9b3a523b…5c51`. `03a8775` and `0fcd674` followed at 13:43 and 13:44, the same way,
+after `gradlew --version` printed the same three lines once more: incrementally, 17 and 14 of their 42
+tasks executed, each embedding its own commit and no other, signed by `9b3a523b…5c51`. The APKs and
+each build's log
 are kept outside any clone, in `C:\Users\Fede\StudioProjects\tmc-5d-round\apks`, so that no later
 build overwrites one. AGP 9.2.1 and Gradle 9.4.1, from the tree. `gradlew --version` there:
 `Launcher JVM: 21.0.10 (JetBrains s.r.o. 21.0.10+1-b1163.110)`, `Daemon JVM: Compatible with Java
@@ -268,7 +279,13 @@ stays as written, and `predictions.json` finalises it.
   them. The release runs before R3, and R3 fails: the same holder comes back from the cache without
   a bind, and without its images. The owner expected `loadsLive` to fail at R2. That holds only for
   a release made inside the detach, which is not 5c's edit. Which edit M1 is, is the owner's to fix
-  in `predictions.json`, before it is hashed.
+  in `predictions.json`, before it is hashed. **Decided by the owner on 2026-11-02:** M1 is the
+  posted edit, the one that reproduces the behaviour before 5c. The owner's expectation that
+  `loadsLive` would fail at R2 was made without checking that the release was posted, and it is
+  retracted. So of R2 and R3, M1 fails R3, the step the defect is about, and not R2. The table's
+  other entries for M1 (R4's precondition, R8, L2 to L4) are to be checked against the posted edit
+  in the same way when `predictions.json` is written, and the edit's identity goes into it before it
+  is hashed.
 - **M7 and S1.** With S1's race built, M7 fails S1 at `stillStuck`. The report with no movement
   reaches the page's listener while the newest row has no view, `isNearBottom` answers no, and the
   page stops following until the posted `scrollToBottom` runs. S1's later checks run after that and
@@ -317,6 +334,24 @@ Its baseline, handed over, verbatim: on 2026-10-09, three launches with #78's fi
 5104, 5364 ms; skipped frames 347, 327, 289. Three launches, not five. These are context; the
 comparison is with this round's own control.
 
+**The burst-end detector has never been qualified, in any round** (found on 2026-11-02, before any
+launch of this one). The first stable frame is one of the two quantities this measurement decides,
+and `stall` is the only injection that reaches it. 2026-10-08's stall was 50 ms (`strip.py` of
+`experiment/startup-cost-attribution`), and Choreographer logs a frame only once it is 30 intervals
+late, 333 ms at 90 Hz and 500 ms at 60: a 50 ms stall produces a line at no refresh rate. So the
+detector has never once been shown to move to a stall, and every burst end recorded so far,
+2026-10-08's and 2026-10-09's included, comes from an instrument that has never been tested. There
+has never been a test for a rule to govern. That is the strongest single reason the 2026-10-09
+burst-end figures are context and nothing more. This round's `stall`, 534 ms, is the detector's
+first test (criterion 5).
+
+**A corroboration that depended on an unrecorded refresh rate.** As the owner reports it, the earlier
+record read the burst's 200 skipped frames as "about two seconds at 90 Hz, almost exactly the span",
+and took the match as support for the model. That record is kept outside this repository: no branch
+of it holds the sentence. 200 frames are 2.2 s at 90 Hz and 3.3 s at 60 Hz, against a span of about
+2.4 s, so the match exists only at 90 Hz, and nobody recorded the rate of the launches it was read
+from. It supports nothing until that rate is known, and it is not used here.
+
 ### The definitions
 
 As `analyze.py` of `experiment/startup-cost-attribution` at `a091809` writes them, copied unchanged
@@ -333,6 +368,15 @@ verbatim: "At 90 Hz, 32 ms is three vsyncs, and every live message produces a fr
 the rule never settles while the chat is still receiving messages: it does not measure the end of
 start-up, it measures when the chat stops being live." The spread the 2026-10-08 capture shows for
 it, 5721 to 10964 ms against 5290 to 5969 ms for the burst end, is that mechanism's symptom.
+
+**Re-derived at the measured rate, 2026-11-02.** The reason as handed over is 90 Hz arithmetic. At
+90 Hz a vsync is 11.1 ms: 32 ms lies just under three of them, and a frame of 33.3 ms is three. At
+60 Hz, this phone's rate on 2026-11-02, a vsync is 16.7 ms: 32 ms lies just under two, and a frame of
+33.3 ms is two. A live message's frame that took three vsyncs at 90 Hz did more than two vsyncs'
+work, more than 22.2 ms and at most 33.3; at 60 Hz the same work takes two vsyncs, 33.3 ms, still
+above 32. So the conclusion holds at either rate, and at 60 Hz the rule is stricter still: any frame
+that misses a single vsync breaks it. The derivation handed over holds at 90 Hz only, and which rate
+2026-10-08's capture ran at was not recorded.
 
 ### What the span brackets, on each build
 
@@ -381,6 +425,29 @@ moved. The two together are what makes the result more than bookkeeping.
   a 5d launch with no burst passes it. The control must show the phenomenon for the instrument to be
   qualified at all, which is B1's positive control in another form. The treatment not showing it is
   the success the step is for.
+- **What "no burst" asserts, named on 2026-11-02, before any measurement.** No frame within anchor +
+  10 s started 30 or more frame intervals after its vsync, Choreographer's limit for a `Skipped`
+  line. So no single stall reached N = 30 × 1000 / R ms at the launches' refresh rate R: at 60 Hz,
+  this phone's rate, N = 500 ms (333 ms at 90 Hz). It does not assert a smooth start: a frame 499 ms
+  late at 60 Hz leaves no line. The clause stays as it was, and soundly: no burst strictly dominates
+  any burst end that can be measured. It was written without saying what "no burst" means in
+  milliseconds, and `decide.py` now names R and N from the launches' own readings.
+- **The refresh rate is held and recorded (2026-11-02, before any measurement).** `run.sh` reads the
+  display's rate, any per-app frame rate override and Choreographer's warning limit before and after
+  every launch (`refresh-rate.txt`). Every reading of the section must be the same, or the round is
+  void: the qualification's, the ten decision launches' and the overhead launches'. A burst end
+  counts frames, so both halves of the comparison must see the same rate for their burst ends to be
+  comparable, and only a per-launch reading can show that they did; the qualification also qualifies
+  the burst end at one rate. It is B1's pid scoping in another form: a quantity the rule depends on
+  that nothing was recording. `decide.py` voids on any differing reading of the launches it is
+  given: the ten, then after `--qualified` every other launch of the section, the qualification's and
+  the overhead's. `qualify5d.py` voids a build's qualification the same way. **The phone's setting is
+  not changed:** it is measured as its user runs it. Setting 90 Hz would make criterion 5 pass with
+  the old 400 ms stall, but it would make the round depend on a mode the system can leave under it,
+  on heat, battery saver or an app's request, and move the phone away from the state its user runs.
+- **These two are changes to a pre-registered rule,** made on 2026-11-02 before any measurement
+  launch and before any of its numbers exists. They are legitimate for that reason: each mends an
+  instrument defect found at qualification, which is when instrument defects are meant to be found.
 - **Skipped frames** "fell" only if every 5d launch's total is below every control launch's. "A great
   deal" cannot be tested without a number, and none is given.
 
@@ -438,8 +505,8 @@ overhead, the probe's cost inside each span, and the bias it puts on each ratio.
 On each build's qualification commit, three baselines with `full`, then one launch per injection with
 `full inject=<name>`: `mention`, `reconcile`, `buddy`, `hidden`, `beforeinsert`, `insert`, `follow`
 (on page 0's 100th history row), `build` (the 10th view build or bind), `gap` (a message of its own at
-history post 200), `app` (in `Application.onCreate`) and `stall` (400 ms at anchor + 8000 ms, with
-`arg=8000`).
+history post 200), `app` (in `Application.onCreate`) and `stall` (534 ms at anchor + 8000 ms, with
+`arg=8000`; 400 ms until 2026-11-02, *The stall's duration* below).
 
 **Each injection runs once per launch, never once per row.** The probe runs a delay at most once in a
 launch - after the first, its `injected` returns at once - and each call site fires at one place
@@ -472,7 +539,8 @@ request in flight, and the echoes' 10 s timeout needs a sent message; a cold sta
 *Correction, 2026-11-02:* "criterion 2 does not read it", above, was the inference of the agent that
 wrote that paragraph, not the plan's text. Nothing written before it said what `stall` qualifies or
 how it passes. Criterion 5 below says both. And the `:791` above is `ccd2c46`'s line: on `cee6695`
-and `a2e72ff` the sleep is at `:796`.
+and `a2e72ff` the sleep is at `:796`, on `03a8775` and `0fcd674` at `:804`. "Keeps its 400 ms" held
+until 2026-11-02, when the stall became 534 ms (*The stall's duration*, below).
 
 **What every quantity is measured in: wall time, and the delay is a sleep.** Every time the probe
 records is `rel()`, `System.nanoTime()` less the anchor (`StartupProbe.kt:243` on the qualification
@@ -489,7 +557,8 @@ they are reported as unqualified context.
 Decided before they run (the first three proposed on 2026-10-30 and approved; the fourth added by the
 owner of the measurement the same day; the second rewritten by the owner the same day, below):
 
-1. **the injection ran:** the probe recorded it, for at least 200 ms (400 for `stall`);
+1. **the injection ran:** the probe recorded it, for at least 200 ms (534 for `stall`, 400 until
+   2026-11-02);
 2. **the delay reached the output:** the reported value of the target phase rises over the
    baselines' median by at least half the delay, 100 ms. A pipeline check, and only that: it fails if
    the number `analyze5d.py` reports did not take the delay in, which criterion 4, reading timestamps,
@@ -540,38 +609,57 @@ owner of the measurement the same day; the second rewritten by the owner the sam
 - The stall is a message posted with `Handler.postAtTime` for anchor + 8000 ms
   (`StartupProbe.kt:319-323` on the qualification builds). `SystemClock.uptimeMillis`, which the
   handler reads, and `System.nanoTime`, which the anchor is, both read the monotonic clock. So the
-  stall begins at 8000 ms or later, when the main thread is next free, and sleeps 400 ms
-  (`STALL_MS`, `:796`).
+  stall begins at 8000 ms or later, when the main thread is next free, and sleeps 534 ms
+  (`STALL_MS`, `:778`, slept at `:804`, on `03a8775` and `0fcd674`).
 - The probe's frame callback posts itself again at every frame until the window closes
   (`:335-353`), so a frame is always pending, and the stall delays it.
 - Choreographer logs `Skipped N frames` when a frame starts at least 30 frame intervals after its
   vsync (`SKIPPED_FRAME_WARNING_LIMIT`, 30 unless `debug.choreographer.skipwarning` says otherwise),
   at the start of `doFrame`, before any callback runs (Android 12's `Choreographer.java`, read from
   its source on 2026-11-02). The pending frame's vsync comes at most one interval after the stall
-  begins, so the frame starts at least 400 ms less one interval late. That is 30 intervals or more
-  when 400 ≥ 31 intervals: at 78 Hz or more. At 90 Hz, 389 ms against 333, so the line is logged; at
-  60 Hz, 383 ms against 500, so no line at all.
+  begins, so the frame starts at least the stall less one interval late, which is 30 intervals or
+  more when the stall is at least 31 intervals. At 534 ms: 517 ms late against 500 at 60 Hz, and
+  523 against 333 at 90, so the line is logged at either of the phone's rates. The 400 ms stall
+  logged at 90 Hz (389 against 333) and not at 60 (383 against 500).
 - So the line is logged after the stall's end and before the probe's own callback in the same frame,
   which is what `frames.ran` records. logcat's monotonic times have millisecond resolution and are
-  truncated (`-v monotonic`, `run.sh:34`): hence the 1 ms.
+  truncated (`-v monotonic`, `run.sh:52` on `03a8775` and `0fcd674`): hence the 1 ms.
 
 What the bounds leave out is any disagreement between logcat's monotonic clock and the anchor's
 beyond that resolution. That is deliberate: their agreement is what places every launch's burst end
 on the anchor's clock, and the `stall` launch is the one launch able to test it.
 
-**The display must be at 90 Hz, and on 2026-11-02 it is not.** Read over adb that day, before any
-launch: the active display mode is 60.000004 fps, of the phone's 60 and 90; `peak_refresh_rate` is
-60.000004 and the refresh range [0, 60]; `debug.choreographer.skipwarning` is unset. At 60 Hz the
-stall logs no line, and criterion 5 cannot pass. The refresh rate also bears on every launch's burst
-end, not only on this one: a frame becomes a `Skipped` line only after a 500 ms delay at 60 Hz,
-against 333 at 90, and the owner's reason for the burst end quotes 90 Hz. The refresh rate is not
-among what each launch records. Whether to set the phone to 90 Hz, and whether to record the rate
-with every launch, are the owner's decisions, taken before the qualification; nothing here changes
-the phone's setting.
+**The display, as found on 2026-11-02, and what was decided.** Read over adb that day, before any
+launch: the active display mode is 60.000004 fps, of the phone's two, 60 and 90;
+`peak_refresh_rate` is 60.000004 and the refresh range [0, 60]; `debug.choreographer.skipwarning` is
+unset. At 60 Hz the 400 ms stall logged no line, and criterion 5 could not have passed. Decided by the
+owner the same day: the phone's setting stays as it is; the stall is lengthened instead of the rate
+raised; and the rate is read at every launch, the round void if it changes (*The rule*). An earlier
+version of this paragraph, the same day, said the launch needed the display at 90 Hz; that was
+before the decision, and it is superseded.
+
+**The stall's duration, 534 ms, derived on 2026-11-02.** The line needs the frame 30 intervals late,
+and the pending vsync may come one interval after the stall begins, so the least stall that logs is
+31 intervals. Taken at the slower of the phone's two rates, 60 Hz, where an interval is 16.667 ms, it
+logs at the faster one too: 516.7 ms. One interval more is the margin. It is larger, by a factor of
+eight or more, than any offset the display declares between a vsync and its event (1 ms at 60 Hz,
+2 ms at 90, `dumpsys display`), and than any error in a vsync's timestamp smaller than a frame. An
+error of a frame or more would mean the model of how vsyncs arrive is wrong, and the stall would then
+log no line and fail criterion 5 loudly rather than pass wrongly. So 32 intervals at 60 Hz, 533.3 ms,
+rounded up to a whole millisecond: 534. At 500 ms, often named as the 60 Hz threshold, the stall
+would fall short in the worst case: with the vsync one interval in, the frame is 483 ms late, under
+500. Lengthening the stall rather than raising the rate has the right asymmetry: the qualification
+then survives a change of display mode in the middle of the round, which the measurement does not,
+since one voids it.
+
+One more piece of 90 Hz arithmetic stays in the probe, in the measurement builds too, and is not
+changed: `LONG_FRAME_NS`, 330 ms, "30 frames at 90 Hz", which decides when the probe takes a CPU
+snapshot after a long frame. Nothing in the decision or the breakdown reads those snapshots, and the
+CPU figures are unqualified context already (*What every quantity is measured in*).
 
 **The window criterion 5 replaces.** Until 2026-11-02 the plan said `stall` "puts the burst end
 between 8350 and 8600 ms, and moves no segment", phrased as an effect, with nothing saying a launch
-outside it fails. It was neither derived nor observed. It was written on 2026-10-30 (`5daebe6`), ten
+outside it fails. It was never derived and never observed. It was written on 2026-10-30 (`5daebe6`), ten
 minutes after `ccd2c46` made the stall 400 ms, before any 400 ms stall had run; 2026-10-08's stall
 was 50 ms (`strip.py` of `experiment/startup-cost-attribution`), which Choreographer never logs.
 Against the derivation, its lower edge lies about 50 ms before the earliest the line can be logged,
@@ -580,8 +668,31 @@ for the main thread's lateness at 8000 ms and for whatever ran between the stall
 unstated. The launch records both itself, so criterion 5 reads them there instead of bounding them by
 a figure. The window stays in the list below as it was written.
 
-No script evaluates criteria 1 to 5 yet: `analyze.py` reports the injection's interval (`inject_ms`,
-`inject_at`) and the burst end, and the probe's record holds `frames.ran`, which criterion 5 needs.
+**The qualification's verdict is computed, not judged (2026-11-02).** Until then no script
+evaluated criteria 1 to 5, so the verdict would have been a reading of recorded values by whoever was
+there: what pre-registration exists to remove, and what `decide.py` removes for ρ by fixing it in
+code. `qualify5d.py` (from `03a8775` and `0fcd674`) now computes, for one build, criteria 1 to 5, the
+rows-in-span rule and the display reading from the run directories, and prints every value it
+compares beside each verdict: `python -I qualify5d.py <control|5d> <3 baselines> -- <the 11 injected
+launches>`. A script rather than a hand, because criterion 4 alone compares each target row's
+segments with three baselines in 22 injected launches, which is where a hand slips, and because a
+computed verdict can be rerun by anyone who was not there.
+
+The choices the plan's words leave open are made in its docstring, and they are the owner's to
+review before the qualification runs. The main ones:
+
+- a phase's value is the one `analyze5d.py` reports;
+- `build`'s phase is the view build inside the insert on the control, and the binds on 5d;
+- a segment that contains the injected phase moves with it and is not held to criterion 3;
+- "inside one message" is read against the message that overlaps the delay most.
+
+`qualify5d_test.py` runs it on hand-made launches: criterion 2's three scaled cases, a delay leaking
+into another segment, a delay outside its segment, criterion 5 inside and outside its bounds, a
+display reading that changes and rows that differ. All 13 cases came out as expected, run on this
+machine on 2026-11-02. What has not run is its reading of a real run directory (`facts`), since no
+qualification launch exists: before the first verdict is read, the first baseline's printed facts
+are checked by hand against its `probe.json`. Every run directory is kept, so that the verdict can be
+rechecked.
 
 **Why the total is reported, not held to "rises by about the delay".** Two reasons, with numbers. The
 span varied by 142 ms across 2026-10-09's three launches with the fix (2348 to 2490 ms). That was more
@@ -628,7 +739,8 @@ Stay-awake setting and the battery's temperature; the JDK and the AGP and Gradle
 was made with (for this round, one machine's, under *Every APK of the round comes from one
 machine*); both pages' channels as reported, with the probe's channel fingerprint; the history cap;
 the APK's commit and hash; the probe's flag; the rows inserted in each span; the launch method and
-time.
+time; and since 2026-11-02, before and after each launch, the display's refresh rate, any per-app
+frame rate override and Choreographer's warning limit (`refresh-rate.txt`, *The rule*).
 
 **The account.** The method is 2026-10-09's: an intent launch with `new_account_id`, two chat pages
 on different channels, a channel at the history cap of 400. Which account that round's intent named
