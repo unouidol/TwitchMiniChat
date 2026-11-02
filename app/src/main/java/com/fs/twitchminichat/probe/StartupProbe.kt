@@ -783,17 +783,40 @@ object StartupProbe {
     private const val INJECT_MS = 200L
     const val GAP_POST = 200
 
-    /** Page 0's history ordinal of the row being recorded, or -1. */
-    fun historyOrdinalOfCurrentRow(): Int =
-        if (mode == MODE_FULL && currentRow >= 0 && rowSource[currentRow] == SRC_HISTORY && rowPage[currentRow] == 0) rowOrdinal[currentRow] else -1
-
     /** The view builds and binds so far, creates without a bind left out. */
     fun bindOrdinal(): Int = bindOrdinal
 
-    /** Runs an [INJECT_MS] delay once, if [name] is this run's injection, on page 0, at [ordinal] when it has one. */
-    fun inject(name: String, slot: Int = 0, ordinal: Int = -1, target: Int = 100) {
+    /*
+     * Three entry points, one per kind of call site, so that no value has to stand for "this site
+     * has no ordinal". Until 2026-11-02 there was one, inject(name, slot, ordinal = -1), and the row
+     * sites passed it page 0's history ordinal of the current row, which was -1 for any other row:
+     * the first live row to reach the site before page 0's 100th history row took the delay. It did
+     * on 2026-11-02, in the control's buddy and hidden and 5d's insert, and criterion 4 caught it.
+     */
+
+    /** Runs an [INJECT_MS] delay once, if [name] is this run's injection, at a site with no row or ordinal. */
+    fun inject(name: String, slot: Int = 0) {
         if (mode != MODE_FULL || inject != name || slot != 0) return
-        if (ordinal >= 0 && ordinal.toLong() != (if (injectArg > 0) injectArg else target.toLong())) return
+        injected(INJECT_MS)
+    }
+
+    /**
+     * Runs an [INJECT_MS] delay once, if [name] is this run's injection, inside page 0's history row
+     * of ordinal [target], or of the flag's arg. Only for a call site inside a row: a live row, a
+     * row of page 1 or a row of another kind returns without the delay.
+     */
+    fun injectAtHistoryRow(name: String, slot: Int, target: Int = 100) {
+        if (mode != MODE_FULL || inject != name || slot != 0) return
+        val row = currentRow
+        if (row < 0 || rowSource[row] != SRC_HISTORY || rowPage[row] != 0) return
+        if (rowOrdinal[row].toLong() != (if (injectArg > 0) injectArg else target.toLong())) return
+        injected(INJECT_MS)
+    }
+
+    /** Runs an [INJECT_MS] delay once, if [name] is this run's injection, when [ordinal] is [target], or the flag's arg. */
+    fun injectAtOrdinal(name: String, slot: Int, ordinal: Int, target: Int) {
+        if (mode != MODE_FULL || inject != name || slot != 0) return
+        if (ordinal.toLong() != (if (injectArg > 0) injectArg else target.toLong())) return
         injected(INJECT_MS)
     }
 
