@@ -20,7 +20,8 @@ import org.json.JSONObject
  * - S3: scrolled up, a row arrives that sorts above the first visible row, as history can: the first
  *   visible row keeps its place on screen. This is a behaviour 5d changes on purpose, reasoned from
  *   LinearLayoutManager's anchoring - the ScrollView moved every row below an insert down - and this is
- *   where it is seen.
+ *   where it is seen. Its adapter position rising by one is what shows the row went above it: a row
+ *   landing below would leave it in place too.
  */
 internal class ScrollProof(
     private val root: FrameLayout,
@@ -134,11 +135,13 @@ internal class ScrollProof(
         steps.add("S3 scrolled up: a row sorting above the first visible one leaves it in place") { r ->
             var firstRow: Any? = null
             var firstTop = 0
+            var firstPosition = -1
             listOf(
                 {
                     r.pre("notStuck", !page.stickToBottom)
                     val first = list.getChildAt(0)
                     val position = list.getChildViewHolder(first).bindingAdapterPosition
+                    firstPosition = position
                     firstRow = first.tag
                     firstTop = first.top
                     /* Just before the first visible row: history arriving after it, as it can. */
@@ -150,6 +153,10 @@ internal class ScrollProof(
                     r.check("firstVisibleRowStillAttached", kept != null)
                     r.check("firstVisibleRowKeptItsPlace", kept?.top == firstTop)
                     r.observe("firstVisibleRowTopBeforeAndAfter", "$firstTop/${kept?.top}")
+                    /* Only a row inserted above it moves its position by one: a row landing below would leave both checks above passing. */
+                    val keptPosition = kept?.let { child -> list.getChildViewHolder(child).bindingAdapterPosition }
+                    r.check("oneRowWentAboveIt", keptPosition == firstPosition + 1)
+                    r.observe("firstVisibleRowPositionBeforeAndAfter", "$firstPosition/$keptPosition")
                     r.check("twoUnseenRows", page.unseenMessages == 2)
                 }
             )
