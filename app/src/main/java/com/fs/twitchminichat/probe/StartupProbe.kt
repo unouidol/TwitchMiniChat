@@ -767,7 +767,15 @@ object StartupProbe {
     private var injectEndNs = -1L
     private var injectTid = 0
     private var bindOrdinal = 0
-    private const val STALL_MS = 400L
+    /**
+     * The stall's delay, long enough for Choreographer to log it at either of the phone's rates.
+     * Choreographer logs a frame that starts 30 intervals after its vsync, and the pending frame's
+     * vsync may come one interval after the stall begins: 31 intervals log it at worst, 517 ms at
+     * 60 Hz, the slower rate. One interval more is the margin, larger than any timestamp offset the
+     * display declares (1 ms at 60 Hz, 2 ms at 90): 32 intervals at 60 Hz, 533.3 ms, rounded up.
+     * It was 400 until 2026-11-02, which logs nothing at 60 Hz.
+     */
+    private const val STALL_MS = 534L
     /**
      * Every phase injection's delay, `app` included; `stall` keeps [STALL_MS]. 200 and not 50: half
      * of it, criterion 2's floor, lies outside every phase range 2026-10-08 measured.
