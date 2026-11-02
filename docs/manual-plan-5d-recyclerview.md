@@ -49,7 +49,11 @@ no single stage may be split.
 `C:\Users\Fede\StudioProjects\TwitchMiniChat-wt-5d`, from a tree where `git status --porcelain`
 printed nothing before and after the build, with `:app:assembleDevDebug`, in one tree, in this
 order: `fc63adb` first, every one of its 42 tasks executed, then `cee6695`, `a2e72ff`, `301111b` and
-`5851fde`, each incrementally on the one before, as Gradle reported. The APKs and each build's log
+`5851fde`, each incrementally on the one before, as Gradle reported. `d11b629` followed on
+2026-11-02 at 11:50, in the same worktree, incrementally (10 of its 42 tasks executed), after
+`gradlew --version` there printed the same Gradle, launcher and daemon lines again: sha256
+`41a9da8ba035951296d79edd039e41d3f46399eabc84e66679d17944b2cc490e`, embedding `d11b629` with no dirty
+marker, signed by `9b3a523b…5c51`. The APKs and each build's log
 are kept outside any clone, in `C:\Users\Fede\StudioProjects\tmc-5d-round\apks`, so that no later
 build overwrites one. AGP 9.2.1 and Gradle 9.4.1, from the tree. `gradlew --version` there:
 `Launcher JVM: 21.0.10 (JetBrains s.r.o. 21.0.10+1-b1163.110)`, `Daemon JVM: Compatible with Java
@@ -652,9 +656,22 @@ Fill in each row when its case runs; add a run rather than overwriting one.
 `8519b894…`, last updated 2026-10-23 09:23, as `RELEASE-STATE.md` records it, read from the APK pulled
 off the phone.
 
+**The display, read on 2026-11-02 before 11:50:** active mode 60.000004 fps, of the two the phone has
+(60 and 90); `peak_refresh_rate` 60.000004; refresh range [0, 60]; `debug.choreographer.skipwarning`
+unset, so 30. What it means for criterion 5 and for the burst end is under *Qualification*.
+
 **Harness stages,** every pass with 0 input events unless the row says otherwise:
 
 | Stage | Commit | Dev APK sha256 | Day and night, each | Time |
 |---|---|---|---|---|
 | H1, first run | `fc63adb` | `1d377b6e…` | the same counts as the next row, in both themes; void: its day pass recorded 46 input events, the phone was in use | 09:33 |
 | H1 | `fc63adb` | `1d377b6e…` | parity 34 / 34, `rowsBeforeHiding` 1 / 1; controls behaved; emote layer 2 / 2, with a 404 2 / 2, its controls behaved; pairs 658 / 658, `sessionsHeld` 658, `imagesHeld` 658, not vacuous; C-R 34 / 34, no declared exception; preconditions 5 / 5; lifecycle 16 / 16; list checks 121, 0 failures. **Not as predicted:** direct bind pixels 9 / 9, **state 0 / 9, declared exceptions met 0**: every echo's message view has 4 spans against the reference's 3, and `echo.unconfirmed-confirmed` has the declared text difference as well; **recycler 4 / 8**: R1, R5 and R7 fail only `pixelsEqualTheReference`, R2 only `noPoolRecycle` (scrolled 201 px); **scroll 2 / 3**: S1 fails only `theLayoutReportedAStillScrollWhileTheNewestRowHadNoView` (`stillReports` 1). Day and night failed the same checks. The round stops here until this is understood; H2 has not started | 09:35–09:36 |
+| H1, first run | `d11b629` | `41a9da8b…` | **night:** every count of *Proves it*, and every value pre-registered in `84397ba`, as the next row gives them. **Day void:** 786 input events over about four and a half minutes, the phone in use, and it wrote no result | 11:51–11:58 |
+| H1, day again | `d11b629` | `41a9da8b…` | the day pass alone, at the owner's instruction, on the same install, its hash read back and not reinstalled: parity 34 / 34, `rowsBeforeHiding` 1 / 1; controls behaved; emote layer 2 / 2, with a 404 2 / 2, its controls behaved; pairs 658 / 658, `sessionsHeld` 658, `imagesHeld` 658, not vacuous; C-R 34 / 34, no declared exception; direct bind pixels 9 / 9, state 8 / 9, the declared exception met exactly (`/children[1]/text`), `layoutsAddedOnlyTheWatcher` 9; preconditions 5 / 5; lifecycle 16 / 16; recycler 8 / 8, R2 `positionsSentToThePool` [0] at 201 px, R1, R5 and R7 `rowLayoutPendingAfterDelivery` true, heights 52 then 68, both bitmaps 1022 × 68, R3's the same; scroll 3 / 3, `stillReports` 1 with the newest row viewless (`["none"]`); list checks 124, 0 failures; no pass aborted and no step recorded an error, so `Settled` refused nothing. **As predicted, in both themes** | 12:00 |
+
+**H1 on `d11b629` holds, as pre-registered.** Day and night agree on every value. R7's heights, the one
+value left unpredicted, are 52 and then 68. The stage's two passes come from two runs of it, about
+two minutes apart on one install (night done at 11:58:22, day at 12:00:31): the night pass of the
+first and the day pass of the second. The 09:33 void had both themes re-run; this one re-ran the day
+alone, as the owner instructed. H2 has
+not started.
