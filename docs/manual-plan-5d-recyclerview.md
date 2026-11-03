@@ -1504,3 +1504,24 @@ phone's reading of 20:22.
   `recent_channels_57f6e8bc…` and `recent_channels_0d3d33b8…`. These are the two accounts that the
   launch of 2026-11-02 identified, each matching on its eight characters, with full ids of the
   standard 36-character form.
+- **Battery saver off, read at 08:52:57**: `low_power` 0, `Battery Saver is currently: OFF`. The
+  display then read 60.000004 Hz until 08:53:20 and 90.0 Hz from 08:53:25, with SurfaceFlinger's range
+  going from [0, 60] to [0, 90]. It read 90.0 on all 14 readings from 08:53:25 to 08:54:47. **The
+  section is held at 90.0 Hz.**
+- **The excluded launch, `X-excluded-channel-check`, 08:57, excluded from every count.**
+  - **How it ran:** `run.sh` from `%USERPROFILE%\tmc-5d-round\C`, extracted from `92fbb4a` and
+    checked file by file against it, with `APK` set to `nbpromec1`'s `cc4c0cf` and the flag `full`.
+    The account's id was read from the key names by the command that launched it.
+  - **Before it:** the phone had shown input in four 20 s windows running, 238 to 1040 events each,
+    and the launch waited for one with none.
+  - **The install, read back:** `8b57a634…` on the phone, `lastUpdateTime` 2026-11-03 08:57:25. So
+    `nbpromec1`'s builds replaced `DESKTOP-BCT68L9`'s from this launch on.
+  - **What was read from its record**, and nothing else, no timing: the probe's commit, `cc4c0cf`;
+    each page's channel fingerprint and history count; battery saver 0 and USB power, before and
+    after; 90.0 Hz before and after; and 111 input events during the launch, so the phone was in
+    use while it ran.
+  - **Page 0:** `c8cb0e91`, 400 history rows. **Page 1:** `6341cf72`, **0 history rows**.
+  - **Page 1 does not read 400, so the sitting does not start**, as *One excluded launch before any
+    counted launch* requires. Page 1 is not on `c8cb0e91`, as it was on 2026-11-02, but on another
+    channel. These reads cannot say whether its 0 means no cached history or a history not delivered
+    in the window.
