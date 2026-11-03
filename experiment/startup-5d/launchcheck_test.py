@@ -1,7 +1,8 @@
 """launchcheck.py's readings on hand-made lines, before any real launch: python -I launchcheck_test.py
 
 The process-start window and whose a process is, from `Start proc` lines shaped as this phone's logcat
-writes them (2026-11-02); and the battery's readings, whose level and temperature are not held.
+writes them (2026-11-02); the battery's readings, whose level and temperature are not held; and the
+probe's recorded waits, where a missing field is unknown rather than none (2026-11-03).
 """
 import importlib.util
 import os
@@ -40,4 +41,16 @@ assert lc.battery_state(reading) == lc.battery_state(moved)
 assert lc.battery_state(reading) != lc.battery_state(dict(reading, saver="1"))
 assert lc.battery_state(reading) != lc.battery_state(dict(reading, usb="false"))
 print("ok battery saver and the power source are held; the level and the temperature are not")
+
+no_wait = {"waitRows": {"n": 0, "slot": [], "ordinal": [], "at": [], "gapNs": []}}
+one_wait = {"waitRows": {"n": 1, "slot": [0], "ordinal": [224], "at": [2_674_200_000], "gapNs": [921_829_000]}}
+assert lc.recorded_waits(no_wait) == []
+assert lc.recorded_waits(one_wait) == [(0, 224, 921.8)], lc.recorded_waits(one_wait)
+print("ok a recorded wait is read as slot, row and ms; a record with none reads as none")
+assert lc.recorded_waits({}) is None
+assert lc.recorded_waits({"waitRows": None}) is None
+assert lc.recorded_waits({"waitRows": {"slot": []}}) is None
+print("ok a record without waitRows reads as unknown, not as no wait, which launchcheck voids")
+assert not hasattr(lc, "FRAMES_IN_SPAN_MAX")
+print("ok no frame threshold is left to decide anything")
 print("all cases as expected")
