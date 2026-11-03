@@ -2036,3 +2036,53 @@ second table of *Which build each step applies to*.
   running throughout, since 07:54:25.
 - **The diagnostic launch did not run.** At about 14:40 `adb devices -l` listed no device, and
   Windows listed no Android device present on USB.
+
+**The diagnostic launch on the rebuilt control build, 2026-11-03 14:50** (the owner of the
+measurement's STEP C, after the phone was reconnected). It is diagnostic only: not counted, not part
+of the qualification, and not part of a sitting.
+- **The build, read back.** `2e72e42` was installed by `run.sh` (`lastUpdateTime` 14:50:53).
+  - Its sha256 was read from the phone twice: by `run.sh`, and afterwards with `adb shell
+    sha256sum`.
+  - Both readings gave `d9970f27…`, the value recorded for `2e72e42` above.
+- **The launch:** `D-diagnostic-after-fix`, mode `full`, run from `%USERPROFILE%\tmc-5d-round\C`.
+  - The `run.sh` there is the same blob at `92fbb4a` and at `2e72e42`.
+  - It was checked with `launchcheck.py` at `2e72e42` (blob `5d7c704`), run from outside the run
+    directory. Its output is the run's `launchcheck.json`.
+- **The verdict, run: no void, and no recorded wait** (`waitRows` n = 0).
+  - The span ran from 1558.7 to 4232.7 ms after the anchor, with 1 frame drawn inside it.
+  - It recorded 0 input events.
+  - The only process start was the app's own; none was foreign.
+  - The refresh rate read 90.0 Hz before and after.
+  - Battery saver was off (0), on USB power, charging, level 74, before and after.
+  - Both pages were on `c8cb0e91`, with 400 history rows each.
+  - Earlier today the phone read battery saver on and 60 Hz. Neither setting was changed by this
+    agent.
+- **The expired spawns were there.** Logcat holds two spawn ingestions, both `source=irc
+  outcome=ignored_expired`.
+  - There is one on each page's history worker, threads 19935 and 19944.
+  - They came 1444.7 and 1808.7 ms after the anchor, 50 and 18 ms after each worker's `History
+    loaded`.
+  - No wait followed either of them.
+- **The comparison.** Before the fix, every one of the 13 launches whose spawn row was
+  `IGNORED_EXPIRED` recorded a wait on that row. The largest such wait per launch was 1190.4 to
+  1516.1 ms. After the fix, one launch with an expired spawn on each page recorded none.
+- **Beside the verdict, computed by this agent from the probe's rows (these are not the probe's own
+  waits):**
+  - **The largest gap between consecutive history-row begins.**
+    - It was 248.5 ms on page 0, before row 349 (from 2823.8 to 3072.4 ms), and 3.5 ms on page 1.
+    - The same computation gives 922.1 ms at `-2` and 1389.0 ms at `-3`, where the probe recorded
+      921.8 and 1388.8.
+    - 248.5 ms is below the 300 ms floor and above 2026-11-02's on-time maximum of 212 ms.
+    - The gap starts 5 ms after Choreographer logged 119 skipped frames: the main thread drawing its
+      first frame after 1330 ms. That the gap is that frame is inferred from the timing, not shown.
+      The gap falls more than a second after both ingestions.
+  - **Page 1's rows began at 3246.8 ms,** after page 0's last row at 3226.1 ms, although page 1's
+    history was loaded at 1790.7 ms. At `-2` the two pages' rows interleaved.
+    - This is recorded, not explained.
+    - A delay before a page's first row is the case the wait rule cannot catch (*What it cannot
+      catch*, *Decided on 2026-11-03*).
+- **Against the owner's two outcomes, this is the first:** no long wait on an `IGNORED_EXPIRED` row.
+  - By the owner's rule, the attribution is established by intervention, and the qualification can
+    be run.
+  - The "after" side rests on one launch.
+- **Not started:** the qualification.
