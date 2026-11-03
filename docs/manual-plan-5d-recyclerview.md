@@ -177,8 +177,29 @@ Firebase reads came before the first build; the scripts' checks ran while it bui
   `%LOCALAPPDATA%\Android\Sdk`.
 - **The host scripts' tools.** `PYTHON=py`, Python 3.10.0; `DESKTOP-BCT68L9` used 3.14.0, and a bare
   `python` on `nbpromec1` is 3.7.0. Every script of `92fbb4a` parses under 3.10, and
-  `launchcheck_test.py` (4 cases) and `qualify5d_test.py` (5 cases) pass under it. Also git
-  2.45.1.windows.1 and adb 37.0.1. `run.sh`'s install read-back, `adb shell sha256sum` on the
+  `launchcheck_test.py` (4 cases) and `qualify5d_test.py` (5 cases) pass under it.
+
+  *Withdrawn on 2026-11-03:* "5 cases" was wrong. It counted the lines left after the output had
+  been cut to its last six, not the suite. Re-run in full, both suites pass with the same counts on
+  both of `nbpromec1`'s Pythons:
+
+  | Suite (blob at `92fbb4a` and `1ae4b42`) | Python 3.10.0 | Python 3.7.0 | `DESKTOP-BCT68L9`, Python 3.14.0, as the owner reports it |
+  |---|---|---|---|
+  | `launchcheck_test.py` (`c32aabf`) | 4 of 4 | 4 of 4 | 4 of 4 |
+  | `qualify5d_test.py` (`fff69a6`) | 22 of 22 | 22 of 22 | 22 of 22 |
+
+  Each suite is straight-line code that prints one `ok` per case and stops at the first failed
+  assertion. It has no skip and no version check, so a printed count can only equal the declared
+  count or stop short of it. `qualify5d_test.py` declares 22: 11 `check(...)` calls and 11 direct
+  prints.
+
+  **The Python version is part of the instrument,** since `qualify5d.py`, `launchcheck.py` and
+  `decide.py` compute the verdicts. It is recorded beside the JDK, AGP and Gradle (*Order of the
+  launches, and what each records*). The evidence that the difference between 3.14.0 and 3.10.0 does
+  not reach the verdict is the same suites passing with the same counts on both. Had a count
+  differed, the sitting would have waited.
+
+  Also git 2.45.1.windows.1 and adb 37.0.1. `run.sh`'s install read-back, `adb shell sha256sum` on the
   `/data/app/~~…==/base.apk` path, reached the phone unconverted from this Git Bash, with and without
   `MSYS_NO_PATHCONV=1`.
 - **The builds,** each `:app:assembleDevDebug` from a detached checkout of its commit, with `git
@@ -203,6 +224,9 @@ Firebase reads came before the first build; the scripts' checks ran while it bui
     sequence of commits in its tree before this one.
   - This was not checked for the other three commits, because no build of theirs from
     `DESKTOP-BCT68L9` is on `nbpromec1`.
+  - **So one commit is COMPARED and three are INFERRED, not four verified.** For `cc4c0cf` the
+    sameness of the code was compared file by file. For `5b09932`, `888489a` and `1198c79` it is
+    inferred from the same verified toolchain.
 
 ## H. The harness
 
@@ -1055,8 +1079,10 @@ A qualification that fails stops the round before the measurement.
 
 Recorded with every launch: the device model, serial, API and build; density and font scale; the
 Stay-awake setting and the battery's temperature; the JDK and the AGP and Gradle versions each build
-was made with (for this round, one machine's, under *Every APK of the round comes from one
-machine*); both pages' channels as reported, with the probe's channel fingerprint; the history cap;
+was made with (for this round, one toolchain's, under *Every APK of the round comes from one
+machine* as refined on 2026-11-03); since 2026-11-03, the Python version the host scripts ran with,
+which computes the verdicts and so is part of the instrument; both pages' channels as reported, with
+the probe's channel fingerprint; the history cap;
 the APK's commit and hash; the probe's flag; the rows inserted in each span; the launch method and
 time; and since 2026-11-02, before and after each launch, the display's refresh rate, any per-app
 frame rate override and Choreographer's warning limit (`refresh-rate.txt`, *The rule*).
@@ -1238,10 +1264,25 @@ should prevent, then shows in the record instead of hiding in the spread.
 - **What the scripts at `92fbb4a` and `1ae4b42` print, read from them and not yet run:**
   `launchcheck.py`'s `live_rows_by_page`, each page's live rows over the probe's whole record, the same
   14 s window from the anchor in both arms.
-- **Not printed by any script:** the live rows inside the span. That count depends on the arm by
-  construction, because the span's length is the outcome. On 2026-11-02 the span was about 2.3 s on
-  the control and 0.8 s on 5d, so a difference between arms in that count would not by itself show a
-  confound. Whether to add it is the owner's decision.
+- **Not counted, by the owner's decision of 2026-11-03: the live rows inside the span.** This is a
+  decision, not an omission. **An in-span count is confounded with the outcome.** The arm with the
+  longer span sees more live messages inside it, so comparing in-span counts between the arms would
+  partly measure the span itself. On 2026-11-02 the span was about 2.3 s on the control and 0.8 s on
+  5d. The fixed 14 s window is the same in both arms, and it is the correct denominator.
+
+**A general note, from that decision.** A quantity that looks more precise because it is scoped to the
+thing being measured can be worse, because the scope is the outcome. Before narrowing a count to the
+span, the window or the phase under test, ask whether the narrowing itself depends on the result.
+
+**Battery saver and the display rate.** Battery saver is Federico's to turn off, and he is being
+asked. Once it is off, the refresh rate is read again, and whatever it then reads is held for the
+whole section. Yesterday's section ran at 90 Hz, but it is being redone, so there is no comparability
+with it to preserve, only constancy within this section.
+
+**The account** is `0d3d33b8…`, as on 2026-11-02. Its full id is read from the phone, from the key
+names in `shared_prefs/channel_history.xml`, by the command that uses it. It is never copied by hand
+between machines. That error class has bitten this project before: a full SHA typed from memory
+passed a check only because its seven-character prefix matched.
 
 **One excluded launch before any counted launch.** It is excluded from every count, and it reports
 only each page's channel fingerprint and history row count. Both pages must read 400, giving 800 in
@@ -1291,6 +1332,14 @@ not started.
   control's qualification build with `full` and no account extra (`C-identify-accounts`, 14:37) was
   run to learn them. Only these were read from its record: the account ids, and each page's channel
   fingerprint, history count and current flag. Not one timing was read.
+
+  *Withdrawn on 2026-11-03:* "held only in the encrypted account store" was wrong. The ids are also
+  the names of the `recent_channels_<id>` keys in `shared_prefs/channel_history.xml`
+  (`ChannelHistoryStore`), and that is the owner's documented route to them. No file of this
+  repository states the route; the code does use that key. `no_backup/accounts_v1` is encrypted with
+  a Keystore key, holds access tokens, and is never read. The dev build is debuggable, so `run-as`
+  reaches the file without a launch. So no identifying launch was needed, and the round of
+  2026-11-03 used none (*Recorded results*, 2026-11-03).
   - There are two accounts, `0d3d33b8…` and `57f6e8bc…`.
   - One page created its view in the window: `0d3d33b8…`'s, channel `c8cb0e91`, 400 history rows,
     the cap. The second slot stayed empty, so the method's "two chat pages" did not appear at a cold
@@ -1447,4 +1496,11 @@ phone's reading of 20:22.
   the APK pulled off the phone and from `adb shell sha256sum` on it. Its `lastUpdateTime` is
   2026-11-02 21:30:50. The record above has the phone on `0fcd674` from 14:55:16, and the install of
   21:30 is recorded nowhere: what made it, and whether a launch followed, is not known on this
-  machine.
+  machine. `nbpromec1`'s builds replace it from the first install of the sitting. `run.sh` with
+  `APK` set installs before every launch, so no separate step is needed.
+- **The accounts, read at about 08:50 from the key names of `shared_prefs/channel_history.xml`**,
+  through `run-as`, with no launch. Only the key names were printed; the values, the recent
+  channels, were not. The file was last written 2026-11-02 16:06. It holds two keys,
+  `recent_channels_57f6e8bc…` and `recent_channels_0d3d33b8…`. These are the two accounts that the
+  launch of 2026-11-02 identified, each matching on its eight characters, with full ids of the
+  standard 36-character form.
