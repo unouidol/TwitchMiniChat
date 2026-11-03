@@ -739,6 +739,8 @@ moved. The two together are what makes the result more than bookkeeping.
   licence. No threshold is needed for it, because no decision hangs on it. Two instrument
   differences from 2026-10-09 are known and stated with it: the viewport walk is off (it cost 4 to
   13 ms inside the span on 2026-10-08), and each row has two more marks.
+  *Where its four numbers come from, and the limitation that follows, recorded on 2026-11-03
+  before the sitting:* *The provenance of ρ*, below.
 - **All 25 pairings** of a 5d launch with a control launch give a ratio, 5d over control. Every
   ratio below the threshold: **HOLDS**. Every ratio above it: **FAILS**. Ratios on both sides:
   **INCONCLUSIVE**, and the round stops.
@@ -1381,6 +1383,100 @@ with its retraction beside it (*Decided on 2026-11-02, after the qualification*)
 - *Brought into the scripts on 2026-11-03:* `3cf6ff7` on `experiment/startup-5d-control` and
   `bad5699` on `experiment/startup-5d-treatment` (*The wait rule, brought into the scripts*, at the
   end of *Recorded results*). The sentence above stays as it was true when written.
+
+### The provenance of ρ, recorded on 2026-11-03 before the sitting
+
+Asked by the owner of the measurement, and committed before any launch of the qualification sitting.
+ρ does not change, and the thresholds stay 0.708 and 0.825. This records an asymmetry; it does not
+adjust the rule.
+
+**Where `decide.py` fixes it.**
+- `RHO = {"span": 1.0 / 2.4, "burst_end": 2.6 / 4.0}` is line 32 of `decide.py` as `301111b`
+  introduced it on 2026-10-30. It is line 77 on today's branch tips, `2e72e42` and `550b414`, which
+  share blob `3f69c6a`.
+- Line 8 says ρ is not re-derived from the control.
+- The four numbers come from *The prediction, handed over, verbatim*, recorded in this plan by
+  `5daebe6` on 2026-10-30. The 1.4 s of view building beside it was added by `5bdd999` the same
+  day.
+- The prediction and its numbers were made on 2026-10-09, outside the repository, and handed over.
+
+| Number | Measured or target | From |
+|---|---|---|
+| 2.4 s | measured, rounded | the span of three launches of 2026-10-09 "with #78's fix, same probe": 2490, 2348 and 2397 ms, mean 2412, median 2397 |
+| 4.0 s | measured, rounded | the burst end of the same three launches: 4245, 3991 and 3939 ms, mean 4058, median 3991, from a detector never qualified |
+| 1.0 s | target | the prediction for 5d's span: 2.4 s less about 1.4 s of view building, for 800 views of which about 15 are visible, as handed over |
+| 2.6 s | target | the prediction for 5d's burst end; 4.0 − 2.6 is the same 1.4 s, so a derivation like 1.0 s's is inferred from the arithmetic, not stated in what was handed over |
+
+**The build behind the two measured numbers.**
+- This plan names it only as "#78's fix, same probe".
+- `a091809`, on `experiment/startup-cost-after-mention-fix`, is the probe on `488cac5`, #78's commit
+  before its squash.
+- That it is the build of 2026-10-09 is inferred from the branch and from this plan's citations of
+  `a091809`. It is not recorded beside the numbers.
+
+**Did the span or the burst end contain the catalogue parse?**
+- **The code path was in that build, read on the commits.**
+  - In `a091809`, and in `ccbdab2`, the same session's pre-fix control,
+    `SmartCatchSpawnCoordinator.kt`, `SmartCatchSpawnIngestion.kt` and `PokemonTypeDex.kt` are the
+    same blobs as in this round's unfixed control, `c8a9f99`.
+  - `resolvePokemon` is at line 215, with no window gate before it.
+  - Both catalogue assets are the same blobs.
+  - The history thread calls `ingestHistorySpawn` for each message (`ChatFragment.kt`, lines 2951
+    and 2988).
+- **Whether the parse ran inside those spans is not recorded.**
+  - That probe kept no history pauses and no spawn outcomes.
+  - The three launches' records are not in this repository.
+  - Nothing records whether their cached history held a spawn row.
+  - So for 2.4 s and 4.0 s the answer is: possible, not known.
+- **Even had the parse run, it need not have lengthened the span.** This is inferred, and not shown
+  for 2026-10-09.
+  - Before 5d a history row cost the main thread a median of 3.4 to 3.8 ms (2026-10-08's
+    `capture-table.md`), so rows queued behind it.
+  - A worker paused for a second can leave a queue that keeps the main thread busy. At `-2`,
+    page 1's rows did exactly that through page 0's pause.
+- **What 2026-10-08's capture shows.** In the attribution's five launches (`capture-table.md`, the
+  same file on both startup-cost branches), main-thread idle inside the span was 56 to 156 ms.
+  - So no second-long pause left the main thread empty in those five.
+  - Whether a pause occurred and was absorbed cannot be read from the table.
+- **1.0 s and 2.6 s are targets,** so the parse question does not apply to them as measurements.
+  But each is its baseline less 1.4 s of view building, so whatever the baseline held, the parse
+  included, the target holds too.
+
+**The direction, if 2.4 s and 4.0 s did hold the parse.**
+- **As first stated, the inequality was the wrong way round.** The owner's instruction stated
+  (t − k)/(c − k) > t/c for 0 < t < c and 0 < k < t. The inequality runs the other way:
+  t/c − (t − k)/(c − k) = k(c − t) / (c(c − k)), which is positive for those values.
+  - Removing a shared constant from both sides lowers a ratio below 1.
+  - With k = 0.35 s, for example, 0.65 / 2.05 = 0.317, against 1.0 / 2.4 = 0.417.
+- **k comes out of both sides in this sitting.**
+  - Both qualification builds carry the gate (*The fix on the four branches, rebuilt*).
+  - A launch in which the parse still runs and pauses a page for 300 ms or more is void under the
+    wait rule.
+  - So if the baseline of 2026-10-09 held k, the model's own expected ratio for these builds is
+    below ρ. The same absolute saving V is also a larger share of a smaller control:
+    (c − k − V)/(c − k) < (c − V)/c.
+- **So the thresholds would be easier to pass than intended, not harder.**
+  - A **HOLDS** verdict then carries the named confound: ρ's baseline held a cost that these builds
+    no longer pay.
+  - A **FAILS** verdict stays interpretable, since it was reached against a threshold the confound
+    made easier.
+  - An **INCONCLUSIVE** verdict reads the same either way.
+- If 2.4 s and 4.0 s held no parse, there is no asymmetry. Which of the two is true is not known
+  (above), so this stands as a conditional limitation.
+
+**The diagnostic launch's control span, 2674 ms without the parse, against the predicted control of
+2.4 s.** This reading does not explain it.
+- **The size expected.** If 2.4 s had held a pause of the size this round has seen on the control,
+  0.35 to 1.2 s of extra span on 2026-11-02, a control without it would be expected well below
+  2.4 s, all else equal. 2674 ms is above it.
+- **The control's on-time baselines of 2026-11-02 were also near 2.4 s.** They had no history pause
+  above 212 ms, so no parse pause inside the span. `Qc-base-1` ran 2210.1 ms, and the three spread
+  over 135 ms (`qualification-2026-11-02/`).
+- **What that supports.** It is consistent with 2.4 s having held no parse pause, but cannot show
+  it: #86, #89 and the instrument have moved the bracket since 2026-10-09, unmeasured (*The rule*).
+- **What it leaves open.** It does not explain the 464 ms between 2674 ms and `Qc-base-1`'s
+  2210 ms. One difference was seen: in the diagnostic launch, page 1's rows ran after page 0's
+  instead of interleaving with them. Whether that is the difference was not examined.
 
 ## Backlog
 
