@@ -1171,6 +1171,14 @@ It was pre-registered by the owner of the measurement before any decision launch
 stay as they were written. Frames drawn inside the span no longer void a launch. A launch whose
 history is delivered late is still void, under *A launch with a recorded wait is void* (*Decided on
 2026-11-03*), which replaces this rule.
+- **The launch that justifies it, `-2`,** read by running both scripts over the 15 excluded records
+  on 2026-11-03:
+  - it is the first launch the new rule catches and the old one missed, and of the 15 records the
+    only one;
+  - under the old script it was void for the display reading alone;
+  - under the new script it is void also for a recorded wait of 921.8 ms before row 224 of page 0;
+  - it drew 3 frames inside its span, within the on-time range of 1 to 3;
+  - the other 14 drew 10 to 107 frames, and both scripts voided each of them for late delivery.
 - **Why it was wrong:** frames drawn inside the span stand in for a pause in a page's history, and on
   2026-11-03 the stand-in failed. At `-2`, page 0's history paused for 922 ms before a
   spawn-classified row, and the main thread drew 3 frames inside the span. That is within the on-time
@@ -1351,6 +1359,42 @@ with its retraction beside it (*Decided on 2026-11-02, after the qualification*)
 - *Brought into the scripts on 2026-11-03:* `3cf6ff7` on `experiment/startup-5d-control` and
   `bad5699` on `experiment/startup-5d-treatment` (*The wait rule, brought into the scripts*, at the
   end of *Recorded results*). The sentence above stays as it was true when written.
+
+## Backlog
+
+Started on 2026-11-03: this plan had no backlog before the entry below. An entry here is recorded,
+not classified. Nothing here is fixed, and nothing is called a defect, until what the entry names
+has been read.
+
+- **`CurrentSpawnStore.load` returns a future-dated stored spawn with no skew limit.** At
+  `CurrentSpawnStore.kt:77` a negative age returns the snapshot, while `decide` rejects an incoming
+  spawn dated more than 5 s ahead.
+  - **Recorded by the instruction of the owner of the measurement, 2026-11-03:** before classifying
+    it, list every caller and say which one trusts the snapshot without re-testing the window. Do
+    not fix it now.
+  - **The callers.** These are every reference to `CurrentSpawnStore.load` on `main-v5` at
+    `ed41de1`, read in the code and not run:
+    1. **`SmartCatchSpawnIngestion.kt:67`, the coordinator's `loadCurrentSpawn`: it re-tests.**
+       - The snapshot reaches `decide` only as an identity and a time.
+       - Before comparing, `decide` drops a stored time that is more than 5 s ahead or more than
+         90 s old (`SmartCatchSpawnCoordinator.kt`, lines 103 to 107). It then stores the incoming
+         spawn as if nothing were stored.
+    2. **`ChatFragment.kt:3971`, `currentSpawnSnapshot()`: it trusts the snapshot without
+       re-testing.**
+       - It is called when the Quick Catch menu opens (line 3762) and when the menu refreshes (line
+         3941).
+       - The expiry was tested in `load`. The skew is tested nowhere on this path.
+       - `QuickCatchMenuModelFactory.build` hands the snapshot to three readers, and none of them
+         tests the skew:
+         - `CatchBallRecommender.spawnAgeSec` (lines 8 to 13) returns 0 for a negative age. The
+           spawn therefore counts as just seen, and falls in the Quick Ball window of 0 to 15 s.
+         - `currentSpawnRemainingSec` (`QuickCatchPanelModel.kt`, lines 108 to 115) coerces the age
+           to at least 0, so the header shows 90 s remaining.
+         - `QuickCatchProfileSpawnContextProvider.load` reads no time.
+  - **Beside it: reasoning, not a classification, and not tested.**
+    - The only writer is `CurrentSpawnStore.save`, called from `SmartCatchSpawnIngestion.kt:73`.
+    - It stores the time `decide` clamped to the wall clock at the write (`coerceAtMost(nowMs)`).
+    - So a stored time ahead of now needs the wall clock to have moved back since the write.
 
 ## Recorded results
 
@@ -1877,6 +1921,20 @@ waits were: the records do not show that, and the launch after the rebuild is wh
   `IGNORED_NOT_SPAWN`. Such a name keeps today's path, so no outcome changes for any input.
 - **Its tests:** run on the unfixed code first, the two "never resolved" cases failed and the two
   others passed; the counts with the fix are in the pull request.
+  - *The blank-identity test,* `nameWithoutIdentityOfItsOwnIsStillResolvedBeforeTheWindowVerdict`,
+    pins the narrower gate. The raw name `???` normalizes blank and arrives on the Firebase path
+    100,001 ms after its spawn. It skips the window gate and still goes through the resolution, once,
+    whatever the resolver returns.
+  - *How a name gets there: reasoning about reachability, not proof.*
+    - On the IRC path the raw name comes from an announcement that is already parsed. The sender
+      must be the PCG account (`SmartCatchSpawnCoordinator.kt:163`), and the text must match
+      `A wild (.+?) appears` (`SpawnMessageParser`).
+    - So reaching the blank case there needs a name with no Latin letter, no digit, and no ♀ or ♂
+      once accents are stripped.
+    - The owner's instruction says punctuation-only. The normalizer's rule is wider: a name written
+      wholly in another script, or in symbols, also normalizes blank (`PcgPokemonNameNormalizer`).
+    - On the Firebase path the name is the payload's `pokemon` field. What the backend can send
+      there was not read.
 - **IT INVALIDATES THE FOUR BUILT APKs AND THEIR RECORDED SHA256 VALUES.** Step 0 and the
   qualification are redone on rebuilt binaries. No measurement APK was built in this step.
 - **Expected after the rebuild, written down before it** (the owner's): most launches clean, not
