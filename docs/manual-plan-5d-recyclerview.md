@@ -1525,3 +1525,52 @@ phone's reading of 20:22.
     counted launch* requires. Page 1 is not on `c8cb0e91`, as it was on 2026-11-02, but on another
     channel. These reads cannot say whether its 0 means no cached history or a history not delivered
     in the window.
+- **The excluded launch, rerun after Federico put page 1 back on `c8cb0e91`: fourteen launches,
+  09:47 to 10:05, every one void.**
+  - **How they ran:** the same driver and build as the first, `nbpromec1`'s `cc4c0cf`, each install
+    read back as `8b57a634…`. Each was read through `launchcheck.py`, which was also run on the first
+    launch.
+  - **In every one of the fourteen:** both pages `c8cb0e91` with 400 history rows; 0 input events;
+    battery saver 0 and USB power before and after.
+  - **The voids:**
+    - `-2`, 09:47: the display, 60.000004 Hz before and 90.0 after. Its frames, 3, passed. Why the
+      reading was 60 is not known. Two minutes of readings with the app in front gave 90.0
+      throughout, and `-3` read 90.0 before and after with the same app in front before its install.
+    - `-3` to `-15`, 09:50 to 10:05: late delivery, 53 to 107 frames drawn inside the span; `-12`
+      drew 10. `-10` also caught a foreign process start, `com.google.ar.core` at 2579.2 ms.
+
+  | Launch | Frames in span | Waits caught: slot, row before which it waited, ms |
+  |---|---|---|
+  | first, 08:57 | 100 | 0, 96, 1198 |
+  | `-2`, 09:47 | 3 | 0, 224, 922 |
+  | `-3`, 09:50 | 57 | 0, 137, 1389; 1, 137, 1018 |
+  | `-4`, 09:52 | 60 | 0, 110, 1409; 1, 110, 885; 1, 199, 302 |
+  | `-5`, 09:53 | 71 | 1, 104, 969; 0, 104, 1493 |
+  | `-6`, 09:54 | 63 | 1, 99, 756; 0, 99, 1190 |
+  | `-7`, 09:56 | 74 | 1, 84, 946; 0, 84, 1214 |
+  | `-8`, 09:57 | 77 | 1, 72, 893; 0, 72, 1296 |
+  | `-9`, 09:58 | 90 | 1, 58, 1041; 0, 58, 1316; 0, 342, 394 |
+  | `-10`, 09:59 | 107 | 0, 34, 1381; 1, 34, 1040; 1, 169, 381 |
+  | `-11`, 10:00 | 104 | 1, 21, 994; 0, 21, 1265; 1, 22, 330 |
+  | `-12`, 10:01 | 10 | 0, 223, 1065; 1, 222, 397 |
+  | `-13`, 10:03 | 53 | 1, 141, 871; 0, 141, 1516 |
+  | `-14`, 10:04 | 64 | 0, 122, 1382; 1, 122, 1061 |
+  | `-15`, 10:05 | 84 | 1, 89, 1003; 0, 90, 1373; 1, 266, 386 |
+
+  - **Established from the records:** all 28 waits of 397 ms or more came before rows of one shape.
+    Each had id, emotes and timestamp present, 2 emotes and 101 UTF-16 units, and was classified by
+    the spawn ingestion with source `IRC`: `IGNORED_EXPIRED`, or `UNCHANGED` at `-2` and `-12`, the
+    row's first sightings near the top of the window.
+  - **The other 5 waits,** 302 to 394 ms, came before rows with no emotes, `IGNORED_NOT_SPAWN`, of
+    other lengths and at other positions.
+  - **The rows recur.** One stood at row 96 at 08:57. One stood at row 224 at 09:47 and slid out of
+    the window after 10:00, at 6 to 24 rows a minute. The next already stood at row 223 at 10:01. Since
+    09:50 a spawn-classified row has been inside the 400-row window at every launch. So the late
+    delivery is not the passing block of 2026-11-02 today, and launches waiting for a gap may find
+    none.
+  - **Inferred, not established:** the frames rule catches a wait when both pages wait together,
+    which they do when they share a channel. At `-2` page 0 waited 922 ms while page 1 was still
+    delivering, 74 rows begun against page 0's 223, and the main thread drew 3 frames. The rule did
+    not fire.
+  - **Not done:** stopped after fourteen reruns rather than waiting for a gap. Whether to wait, and
+    for how long, or to move the pages, is the owner's decision. The qualification has not started.
