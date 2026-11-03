@@ -19,13 +19,28 @@ results file, or a results file without its counts is a failure of that stage.
 | H1 from then on | `feature/5d-recyclerview-timeline` | `d11b629` | recorded under *Recorded results* as built |
 | H1 with S3's landing check, H3, M, B1 | `feature/5d-recyclerview-timeline` | `b954eba` | recorded under *Recorded results* as built |
 | H2 | one mutant of `b954eba` per run | built after the predictions | each read back from the phone |
-| C, qualification, control | `experiment/startup-5d-control` | `cc4c0cf` | `5cc84bb39e493453298bdd6ba1ed931bc019492c90ea9ebf1e4bc12a91cf2449` |
-| C, qualification, 5d | `experiment/startup-5d-treatment` | `1198c79` | `2e298b5c84f2a6f82719376ec32092c7e370136d7d5f6113766510b93d75b24f` |
-| C, measurement, control | `experiment/startup-5d-control-measurement` | `5b09932` | `5b5333f7480c5899068f913dd53b1b0dbd29ff4631198bd4e729ad60e2e220cc` |
-| C, measurement, 5d | `experiment/startup-5d-treatment-measurement` | `888489a` | `b7000916196cb85e8f259a66a5f016c5f6b5d11c630f484c67b3a2bde834b5e1` |
+| C, qualification, control, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-control` | `cc4c0cf` | `5cc84bb39e493453298bdd6ba1ed931bc019492c90ea9ebf1e4bc12a91cf2449` |
+| C, qualification, 5d, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-treatment` | `1198c79` | `2e298b5c84f2a6f82719376ec32092c7e370136d7d5f6113766510b93d75b24f` |
+| C, measurement, control, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-control-measurement` | `5b09932` | `5b5333f7480c5899068f913dd53b1b0dbd29ff4631198bd4e729ad60e2e220cc` |
+| C, measurement, 5d, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-treatment-measurement` | `888489a` | `b7000916196cb85e8f259a66a5f016c5f6b5d11c630f484c67b3a2bde834b5e1` |
 
-**Since 2026-11-02 21:19 the four builds are the ones above**, built by the owner's decisions after the
-first qualification (*Decided on 2026-11-02, after the qualification*, below).
+**Since 2026-11-03 08:22 the four builds of section C are these**, rebuilt from the same commits on
+`nbpromec1` under *one toolchain, not one machine* (below), because the sitting runs from that machine.
+Each supersedes the row above with the same commit. No counted launch ran on those four, in the owner's
+account of 2026-11-03. The phone holds `5cc84bb3…`, installed at 2026-11-02 21:30:50. Whether any of
+the other three was installed before it cannot be read from the phone, which keeps only its last
+install (*Recorded results*, 2026-11-03).
+
+| Step | Commit | APK (dev, arm64) sha256, `nbpromec1` | Supersedes, `DESKTOP-BCT68L9` |
+|---|---|---|---|
+| C, measurement, control | `5b09932` | `6fb676a375db14d09a474e8dff54cb650f1a27afa490c25419f34178986c9e6c` | `5b5333f7…` |
+| C, measurement, 5d | `888489a` | `8f731306f38ae35db345f0fa1a4ffcd8e99ed19bddcb6022451f34ae0747c58e` | `b7000916…` |
+| C, qualification, control | `cc4c0cf` | `8b57a63488048ff3824f69304668cbd6b78cc3e6661ae0a84e46cc694d883646` | `5cc84bb3…` |
+| C, qualification, 5d | `1198c79` | `ecc3e2a43494ae8e7732acbec5769acb75c9aead602f09ca4a2eb86bd1d9feb2` | `2e298b5c…` |
+
+**From 2026-11-02 21:19 to 2026-11-03 08:22 the four builds were the `DESKTOP-BCT68L9` rows above**,
+built by the owner's decisions after the first qualification (*Decided on 2026-11-02, after the
+qualification*, below).
 
 - **The qualification builds** are `03a8775` and `0fcd674` plus three commits:
   - the injection fix, `253373a` and `500248e`;
@@ -79,6 +94,22 @@ split across sittings, the measurement section, the qualification and the twenty
 is one sitting on one machine. A harness stage may fall in a different sitting from the next one, but
 no single stage may be split.
 
+**Refined on 2026-11-03, by the owner of the measurement: one toolchain, not one machine.** The rule
+above says one machine. Its reason is the JDK, which no commit records, so the machine was a proxy for
+the toolchain it carries. The rule is now this. Every APK of the round, and every launch of the
+measurement section, comes from one toolchain: the same JDK, read as the binary the Gradle daemon
+runs, and the same Android Gradle Plugin (AGP) and Gradle. A second machine meets the rule when all
+three read the same there, read on that machine and not assumed from its name or from a note. Its
+signing certificate and its Firebase configuration must also match the phone's, or an install cannot
+replace the dev app in place.
+
+Do not restore the literal form without this reason. Read literally, the rule forbids a rebuild that
+its reason allows, and it protects nothing that the reason does not. What stays binding, in the
+owner's words:
+
+> The four builds and all twenty decision launches come from ONE toolchain, and the ten decision
+> launches are contiguous and alternating in ONE sitting with ONE phone state.
+
 **The machine, read on 2026-11-02:** `DESKTOP-BCT68L9`. Each APK built from the worktree
 `C:\Users\Fede\StudioProjects\TwitchMiniChat-wt-5d`, from a tree where `git status --porcelain`
 printed nothing before and after the build, with `:app:assembleDevDebug`, in one tree, in this
@@ -108,6 +139,70 @@ The hashes this table carried before 2026-11-02 were built in another clone, for
 qualification commits `ccd2c46` and `878f7de`, `301111b` and `5851fde`. None is used. None was
 installed on the phone either: its dev app was last updated on 2026-10-23 09:23, before any of
 those commits existed.
+
+**The second machine, read on 2026-11-03 from nothing, under the refinement above:** `nbpromec1`.
+Every item was read there, and none was taken from this section. The JDK, AGP, Gradle, signing and
+Firebase reads came before the first build; the scripts' checks ran while it built.
+
+- **The clone and its worktree.** The clone's `git status --porcelain --untracked-files=all` printed
+  nothing. The builds ran in a worktree created for them, detached, beside the clone:
+  `%USERPROFILE%\Documents\doc_vari\AndroidProjects\TwitchMiniChat-wt-5d`. Its three git-ignored
+  inputs were placed by hand, each read back:
+  - `local.properties`, holding only the clone's `sdk.dir` line. The four release-signing keys are
+    read by the build only for a release, so they were not copied;
+  - `gradle/gradle-daemon-jvm.properties`, byte-identical to the clone's;
+  - `app/src/dev/google-services.json`, byte-identical to the clone's.
+- **AGP 9.2.1 and Gradle 9.4.1**, from the tree, as on `DESKTOP-BCT68L9`.
+- **The JDK matches.**
+  - `gradlew --version` printed the same `Launcher JVM` and `Daemon JVM` lines as above, character
+    for character.
+  - `gradle/gradle-daemon-jvm.properties` exists, git-ignored, with `toolchainVendor=JETBRAINS`,
+    `toolchainVersion=21` and foojay URLs.
+  - All four builds ran in one Gradle daemon. After them it was the only Gradle daemon running,
+    started at 07:55, a minute after Android Studio and before any command of this sitting; that the
+    builds ran in it is read from those two facts, since no build log names its daemon. It runs
+    `%USERPROFILE%\.gradle\jdks\jetbrains_s_r_o_-21-amd64-windows.2\bin\java.exe`, which reports
+    `OpenJDK Runtime Environment JBR-21.0.10+1-1163.110-jcef (build 21.0.10+1-b1163.110)`; its
+    `release` file gives `JAVA_RUNTIME_VERSION="21.0.10+1-b1163.110"`. The Kotlin daemon runs the same
+    binary.
+  - The build declares no `jvmToolchain`, so no second JDK compiles anything.
+- **The signing certificate matches.** The build signs debug with `~/.android/debug.keystore`. That
+  keystore holds one entry, `androiddebugkey`, with certificate SHA-256 `9b3a523b…5c51`. It was
+  compared in full with the signer of the dev app on the phone, read from the APK pulled off it, and
+  is the same. So an install from `nbpromec1` replaces the dev app in place, with its accounts.
+- **The Firebase configuration matches.** The dev flavour's `google-services.json` has the same
+  project id, project number and dev application id as the resources of the dev APK on the phone.
+- **Not matched, because no record exists for `DESKTOP-BCT68L9`:** the Android SDK's revisions. On
+  `nbpromec1` they are android-36 revision 2 and build-tools 35.0.0, 36.0.0 and 36.1.0, in
+  `%LOCALAPPDATA%\Android\Sdk`.
+- **The host scripts' tools.** `PYTHON=py`, Python 3.10.0; `DESKTOP-BCT68L9` used 3.14.0, and a bare
+  `python` on `nbpromec1` is 3.7.0. Every script of `92fbb4a` parses under 3.10, and
+  `launchcheck_test.py` (4 cases) and `qualify5d_test.py` (5 cases) pass under it. Also git
+  2.45.1.windows.1 and adb 37.0.1. `run.sh`'s install read-back, `adb shell sha256sum` on the
+  `/data/app/~~…==/base.apk` path, reached the phone unconverted from this Git Bash, with and without
+  `MSYS_NO_PATHCONV=1`.
+- **The builds,** each `:app:assembleDevDebug` from a detached checkout of its commit, with `git
+  status --porcelain --untracked-files=all` empty before and after:
+  - in order, `5b09932` (all 42 of 42 tasks executed), then `888489a`, `cc4c0cf` and `1198c79`
+    incrementally (14 of 42 executed each, 28 up-to-date);
+  - each embeds its own commit and none of the other three, with no dirty marker, read from its dex
+    strings;
+  - each is signed by `9b3a523b…5c51`, package `com.fs.twitchminichat.dev`, versionCode 8,
+    versionName `5.5.1-dev`;
+  - the APKs and each build's log are kept outside any clone, in `%USERPROFILE%\tmc-5d-round\apks`.
+- **What the two toolchains produced for the one commit both builds of are on `nbpromec1`,
+  `cc4c0cf`.** The APK hashes differ: `5cc84bb3…` was pulled off the phone, where `DESKTOP-BCT68L9`
+  installed it, and `8b57a634…` was built here.
+  - The 13 dex files are the same 13 files, byte for byte, numbered differently.
+    `DESKTOP-BCT68L9`'s `classes13.dex` is `nbpromec1`'s `classes8.dex`, and its `classes8` to
+    `classes12` are `nbpromec1`'s `classes9` to `classes13`.
+  - Every other entry has the same name, CRC and size; only the zip's entry order differs.
+  - So the code the phone runs is the same from either machine. The difference lies in the
+    numbering of the dex files and the order of the zip.
+  - Why the numbering differs was not examined. Each machine had incrementally built a different
+    sequence of commits in its tree before this one.
+  - This was not checked for the other three commits, because no build of theirs from
+    `DESKTOP-BCT68L9` is on `nbpromec1`.
 
 ## H. The harness
 
@@ -1118,6 +1213,41 @@ says about them.
   extension of decision 5 by decision 2's principle: the qualification qualifies the instrument under
   the conditions it measures in. It is for the owner to confirm.
 
+### Decided on 2026-11-03, before the second qualification
+
+**The builds come from `nbpromec1`**, under *one toolchain, not one machine* (*Every APK of the round
+comes from one machine*). The four builds are the `nbpromec1` rows of the table at the top.
+
+**The channel: both pages on one cached, full channel** (the owner of the measurement's). Federico
+has no cached channel with an offline stream. So both accounts go on the same cached channel at the
+400-row cap: `c8cb0e91` if it is still at the cap, otherwise whichever cached full channel he has put
+them on. That is the configuration the qualification of 2026-11-02 ran on.
+
+**A declared deviation.** The method of 2026-10-08 specifies two pages on different channels. Both
+pages are on one.
+- **The consequence:** every live message is handled twice inside the span, which inflates both arms.
+- **Why the comparison survives it:** alternation makes that overhead common to the two arms, so it
+  cancels in the ratio. What it costs is variance, and so a higher chance of INCONCLUSIVE. It is a
+  loss of statistical power, not of validity.
+- **Why it is declared:** the method named the requirement, so departing from it silently would hide
+  a condition every result depends on.
+
+**The live-message count is recorded with every launch.** That makes the confounder a measured
+quantity rather than one argued away. A systematic difference between the arms, which alternation
+should prevent, then shows in the record instead of hiding in the spread.
+- **What the scripts at `92fbb4a` and `1ae4b42` print, read from them and not yet run:**
+  `launchcheck.py`'s `live_rows_by_page`, each page's live rows over the probe's whole record, the same
+  14 s window from the anchor in both arms.
+- **Not printed by any script:** the live rows inside the span. That count depends on the arm by
+  construction, because the span's length is the outcome. On 2026-11-02 the span was about 2.3 s on
+  the control and 0.8 s on 5d, so a difference between arms in that count would not by itself show a
+  confound. Whether to add it is the owner's decision.
+
+**One excluded launch before any counted launch.** It is excluded from every count, and it reports
+only each page's channel fingerprint and history row count. Both pages must read 400, giving 800 in
+every span. If either reads anything else, the sitting does not start, and the reading is reported.
+A count that differs between launches would void the sitting partway through, wasting the whole run.
+
 ## Recorded results
 
 Fill in each row when its case runs; add a run rather than overwriting one.
@@ -1296,3 +1426,25 @@ phone's reading of 20:22.
     1250 to 2250 ms. Two of its bins, 339 and 371, are above every other launch's.
   - **5d's `mention`, `reconcile` and `buddy`,** about 20% faster than its baselines at the same age:
     105–160 µs, against 137–210.
+
+**The second sitting, 2026-11-03, on `nbpromec1`, read before any launch.**
+
+- **The device:** `adb devices -l` gave `57ebfa06 device product:Nord_EEA model:AC2003 device:Nord
+  transport_id:1`, already authorised for `nbpromec1`. The same phone: OnePlus AC2003, Android 12,
+  API 31, build `AC2003_11_F.24`. `wm density` 382 (physical 450), `wm size` 1080 × 2400, system font
+  scale 1.15, `stay_on_while_plugged_in` 7, `debug.choreographer.skipwarning` unset. These are the
+  values of 2026-11-02.
+- **The power source:** USB, charging (status 2), level 58, 25.5 °C, read at about 08:04.
+- **Battery saver: ON.** The plan requires it off before the decision launches, and one state held
+  across the section, qualification included (*The battery*). It reads `low_power` 1,
+  `mSettingBatterySaverEnabled=true` with `mSettingAutomaticBatterySaver=0`, so it was not turned on
+  by the level trigger. It is sticky, with auto-disable off, so charging will not turn it off. Not
+  changed by this sitting: it is the owner's setting.
+- **The display: 60.000004 Hz**, mode 1 of the two (60 and 90), with `peak_refresh_rate` 60.000004
+  and SurfaceFlinger's range [0, 60]. The section of 2026-11-02 was held at 90.0 Hz. That battery
+  saver caps the rate is an inference, not checked.
+- **The dev app on the phone:** sha256 `5cc84bb3…`, `cc4c0cf` built on `DESKTOP-BCT68L9`, read from
+  the APK pulled off the phone and from `adb shell sha256sum` on it. Its `lastUpdateTime` is
+  2026-11-02 21:30:50. The record above has the phone on `0fcd674` from 14:55:16, and the install of
+  21:30 is recorded nowhere: what made it, and whether a launch followed, is not known on this
+  machine.
