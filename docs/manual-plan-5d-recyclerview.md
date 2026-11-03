@@ -24,8 +24,30 @@ results file, or a results file without its counts is a failure of that stage.
 | C, measurement, control, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-control-measurement` | `5b09932` | `5b5333f7480c5899068f913dd53b1b0dbd29ff4631198bd4e729ad60e2e220cc` |
 | C, measurement, 5d, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-treatment-measurement` | `888489a` | `b7000916196cb85e8f259a66a5f016c5f6b5d11c630f484c67b3a2bde834b5e1` |
 
-**Since 2026-11-03 08:22 the four builds of section C are these**, rebuilt from the same commits on
-`nbpromec1` under *one toolchain, not one machine* (below), because the sitting runs from that machine.
+**Since 2026-11-03 14:39 the four builds of section C are these.** Each is its branch's tip merged
+with `main-v5` at `ed41de1` (#94, *The window decided before the name is resolved*). Each is built
+on `nbpromec1` under the same toolchain; the details are in *The fix on the four branches,
+rebuilt*, at the end of *Recorded results*.
+
+| Step | Branch | Commit | Replaces | APK (dev, arm64) sha256, `nbpromec1` |
+|---|---|---|---|---|
+| C, measurement, control | `experiment/startup-5d-control-measurement` | `dea38cc` | `5b09932` | `d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402` |
+| C, measurement, 5d | `experiment/startup-5d-treatment-measurement` | `a2f12f1` | `888489a` | `ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d` |
+| C, qualification, control | `experiment/startup-5d-control` | `2e72e42` | `cc4c0cf` | `d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8` |
+| C, qualification, 5d | `experiment/startup-5d-treatment` | `550b414` | `1198c79` | `e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23` |
+
+**Every build of `5b09932`, `888489a`, `cc4c0cf` and `1198c79` is SUPERSEDED since 2026-11-03
+14:39,** with its sha256, whichever machine built it.
+- This covers the `DESKTOP-BCT68L9` rows of the first table and the `nbpromec1` rows of the table
+  below.
+- **The reason, in the owner's words:** "the catalogue parse was removed from the launch path". That
+  holds for a spawn outside the active window. A spawn inside the window is still resolved.
+- The records stay. The four commits stay reachable on their branches, as first parents of the
+  merges.
+
+**From 2026-11-03 08:22 to 14:39 the four builds of section C were these**, rebuilt from the same
+commits on `nbpromec1` under *one toolchain, not one machine* (below), because the sitting runs from
+that machine.
 Each supersedes the row above with the same commit. No counted launch ran on those four, in the owner's
 account of 2026-11-03. The phone holds `5cc84bb3…`, installed at 2026-11-02 21:30:50. Whether any of
 the other three was installed before it cannot be read from the phone, which keeps only its last
@@ -33,10 +55,10 @@ install (*Recorded results*, 2026-11-03).
 
 | Step | Commit | APK (dev, arm64) sha256, `nbpromec1` | Supersedes, `DESKTOP-BCT68L9` |
 |---|---|---|---|
-| C, measurement, control | `5b09932` | `6fb676a375db14d09a474e8dff54cb650f1a27afa490c25419f34178986c9e6c` | `5b5333f7…` |
-| C, measurement, 5d | `888489a` | `8f731306f38ae35db345f0fa1a4ffcd8e99ed19bddcb6022451f34ae0747c58e` | `b7000916…` |
-| C, qualification, control | `cc4c0cf` | `8b57a63488048ff3824f69304668cbd6b78cc3e6661ae0a84e46cc694d883646` | `5cc84bb3…` |
-| C, qualification, 5d | `1198c79` | `ecc3e2a43494ae8e7732acbec5769acb75c9aead602f09ca4a2eb86bd1d9feb2` | `2e298b5c…` |
+| SUPERSEDED: C, measurement, control | `5b09932` | `6fb676a375db14d09a474e8dff54cb650f1a27afa490c25419f34178986c9e6c` | `5b5333f7…` |
+| SUPERSEDED: C, measurement, 5d | `888489a` | `8f731306f38ae35db345f0fa1a4ffcd8e99ed19bddcb6022451f34ae0747c58e` | `b7000916…` |
+| SUPERSEDED: C, qualification, control | `cc4c0cf` | `8b57a63488048ff3824f69304668cbd6b78cc3e6661ae0a84e46cc694d883646` | `5cc84bb3…` |
+| SUPERSEDED: C, qualification, 5d | `1198c79` | `ecc3e2a43494ae8e7732acbec5769acb75c9aead602f09ca4a2eb86bd1d9feb2` | `2e298b5c…` |
 
 **From 2026-11-02 21:19 to 2026-11-03 08:22 the four builds were the `DESKTOP-BCT68L9` rows above**,
 built by the owner's decisions after the first qualification (*Decided on 2026-11-02, after the
@@ -1953,3 +1975,64 @@ same change is on both script branches: `3cf6ff7` on `experiment/startup-5d-cont
   `-2` adds late delivery, its 922 ms wait, to its display reading.
 - The run directory `%USERPROFILE%\tmc-5d-round\C` still holds the copy from `92fbb4a`; the next
   sitting takes its scripts from the new commits.
+
+**The fix on the four branches, rebuilt, 2026-11-03** (the owner of the measurement's instruction,
+after #94 merged as `ed41de1` at 13:20 UTC). The new commits and their sha256 values are in the
+second table of *Which build each step applies to*.
+- **A merge, not a rebase.**
+  - Each new commit is its branch's tip merged with `ed41de1`. It has two parents, the tip and
+    `ed41de1`, and it was pushed as a fast-forward.
+  - A merge keeps the recorded build commits as ancestors. The superseded records therefore stay
+    rebuildable from their branches, and no force push is needed.
+  - A rebase would have rewritten those commits and orphaned the ids this plan records.
+  - On the two qualification branches the tip was the wait rule's script commit (`3cf6ff7`,
+    `bad5699`). Each build commit therefore now carries those scripts, which change nothing outside
+    `experiment/`.
+- **What changed, read on the commits with `git diff`:**
+  - From each old build commit to its new one, outside `experiment/`, exactly three files change:
+    `SmartCatchSpawnCoordinator.kt`, its test, and `RELEASE-STATE.md` (from #92). Each is the same
+    blob as on `ed41de1`.
+  - Inside `experiment/`, nothing changes on the measurement branches. On the qualification branches
+    7 script files change, the same 7 that changed from the old build commit to the tip (`3cf6ff7`,
+    `bad5699`). The merge adds nothing to them.
+  - The toolchain files are identical to `1198c79`'s: `gradle/`, `gradlew`, `gradlew.bat`, the
+    build scripts and `gradle.properties`.
+- **The gate comes before the resolution. This was read in the file, not inferred from ancestry.**
+  - It was read in each new commit with `git show`, and again on disk in the worktree after each
+    checkout.
+  - In each, `ingestPokemon` calls `SmartCatchSpawnMergePolicy.outcomeOutsideWindow` at line 245
+    and `resolvePokemon` at line 256.
+  - In `cc4c0cf`, `resolvePokemon` is at line 215, with no gate before it.
+- **The builds, executed.** Each was `:app:assembleDevDebug`, run from a detached checkout of its
+  commit in `%USERPROFILE%\Documents\doc_vari\AndroidProjects\TwitchMiniChat-wt-5d`, the worktree of
+  step 0.
+  - They ran in step 0's order: `dea38cc`, `a2f12f1`, `2e72e42`, `550b414`. Each was incremental on
+    the one before: 14 of 42 tasks executed and 28 up-to-date, with `compileDevDebugKotlin` among
+    the executed.
+  - `git status --porcelain --untracked-files=all` was empty before and after each build.
+  - The three git-ignored inputs were checked again before the first build. `local.properties`
+    holds one key, `sdk.dir`. The other two files are byte-identical to the clone's.
+- **The toolchain, read.**
+  - Before each build, `gradlew --version` printed Gradle 9.4.1 and the same `Launcher JVM` and
+    `Daemon JVM` lines as step 0.
+  - One Gradle daemon was running. It started at 12:52:11, so it is not step 0's daemon of 07:55. It
+    runs the same binary,
+    `%USERPROFILE%\.gradle\jdks\jetbrains_s_r_o_-21-amd64-windows.2\bin\java.exe`, whose `release`
+    file gives `JAVA_RUNTIME_VERSION="21.0.10+1-b1163.110"`.
+  - That the builds ran in that daemon is inferred: it was the only one, and no build log names its
+    daemon.
+- **Each APK, read.**
+  - Each is signed by `9b3a523b…5c51`, with package `com.fs.twitchminichat.dev`, versionCode 8 and
+    versionName `5.5.1-dev`.
+  - Each embeds its own commit, three times in its dex, and none of the other ten commits looked
+    for: the four old ones, the three other new ones, `3cf6ff7`, `bad5699` and `ed41de1`. None
+    carries a dirty marker.
+  - `outcomeOutsideWindow` is in each new APK's dex, and it is absent from the old `cc4c0cf` build's
+    dex.
+  - The APKs and each build's log are kept in `%USERPROFILE%\tmc-5d-round\apks`, beside the old
+    ones, which were not deleted.
+- **Not done: "Android Studio resynced after cleaning the tree".** It is a step in the Android
+  Studio window, and this agent works from the command line, so it was not done. Android Studio was
+  running throughout, since 07:54:25.
+- **The diagnostic launch did not run.** At about 14:40 `adb devices -l` listed no device, and
+  Windows listed no Android device present on USB.
