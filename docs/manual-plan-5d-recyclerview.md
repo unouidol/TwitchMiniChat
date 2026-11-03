@@ -1390,6 +1390,9 @@ Asked by the owner of the measurement, and committed before any launch of the qu
 ρ does not change, and the thresholds stay 0.708 and 0.825. This records an asymmetry; it does not
 adjust the rule.
 
+*Its scope, corrected on 2026-11-03 by the owner:* binding before the closing measurement, not
+before the qualification (*The qualification sitting of 2026-11-03*, below).
+
 **Where `decide.py` fixes it.**
 - `RHO = {"span": 1.0 / 2.4, "burst_end": 2.6 / 4.0}` is line 32 of `decide.py` as `301111b`
   introduced it on 2026-10-30. It is line 77 on today's branch tips, `2e72e42` and `550b414`, which
@@ -1477,6 +1480,96 @@ adjust the rule.
 - **What it leaves open.** It does not explain the 464 ms between 2674 ms and `Qc-base-1`'s
   2210 ms. One difference was seen: in the diagnostic launch, page 1's rows ran after page 0's
   instead of interleaving with them. Whether that is the difference was not examined.
+
+### The qualification sitting of 2026-11-03: two corrections and its procedure, before its first launch
+
+**Correction 1, the owner's: the launch design first asked for was the closing measurement's.** The
+owner's instruction for this sitting first asked for C T C T C T C T C T, five launches per arm, every
+launch uniformly first-after-install, and asked that design to produce the qualification's output,
+criteria 1 to 5 and two verdicts. In the owner's words, those are two different sittings:
+- the alternation and the uniform first-after-install exist so that the closing measurement's 25
+  pairings are symmetric;
+- the qualification is per build and per phase. Each build is qualified against its own baselines,
+  with no comparison across the arms. So "control, then 5d" (*Order of the launches*, item 1) is the
+  plan's design, and alternation has no role in it;
+- asked together as written, the sitting would have produced ten launches and no computable verdict.
+
+The agent raised the conflict before any launch, and the owner chose the plan's qualification.
+
+**Correction 2, the owner's: the scope of *The provenance of ρ*.** The instruction that no launch run
+until ρ's provenance was written down was wrong as sequencing.
+- ρ lives only in `decide.py` and governs the closing measurement.
+- The qualification is scored by `qualify5d.py`. It loads `decide.py` for two helpers only,
+  `display_readings` and `refresh_rate` (lines 210 and 423), and reads neither `RHO` nor
+  `THRESHOLD`. This was read in the script.
+- So *The provenance of ρ* stays binding before the closing measurement, not before the
+  qualification. It was committed before this sitting anyway (`1e13f54`). Its first sentence stays as
+  it was written.
+
+**The sitting, as it will run.** The phone was disconnected when this was written, so no launch has
+run.
+- **The order:**
+  - one excluded launch, which reports only each page's channel fingerprint and history row count.
+    Both pages must read `c8cb0e91` and 400, or the sitting does not start (*Decided on
+    2026-11-03*);
+  - then the control, `2e72e42`: three baselines with `full`, then one launch per injection.
+    The injections are `mention`, `reconcile`, `buddy`, `hidden`, `beforeinsert`, `insert`,
+    `follow`, `build`, `gap`, `app`, and `stall` with `arg=8000` (*Qualification*);
+  - then 5d, `550b414`, in the same way. That makes 28 counted launches.
+- **The uniformity rule within each build:** every launch, baselines and injections alike, is a first
+  launch after an install of its build, read back from the phone.
+  - It is decision 5's rule (*Full alternation, an install before every launch, control first*,
+    under *Decided on 2026-11-02, after the qualification*). *Order of the launches*, item 1, has
+    applied it to the qualification since 2026-11-02 21:19.
+  - `run.sh` with `APK` installs and reads back immediately before each launch, and `launchcheck.py`
+    voids a launch without a matching read-back.
+  - So each injected launch meets its baselines in the same state.
+- **The read-back before each launch, against STEP B's sha256:**
+  - `run.sh` reads the installed APK back but compares nothing.
+  - So before calling it, the driver installs the same APK, reads it back, and stops the sitting on a
+    mismatch, before the launch.
+  - After the launch, it holds `run.sh`'s own read-back to the same value.
+  - Each launch is therefore preceded by two installs of the same file. The one immediately before
+    the launch is `run.sh`'s, as in every earlier launch of the round.
+- **Voids:** a void launch is re-run in its place, after it has been read (*A launch with a recorded
+  wait is void and is re-run*). `qualify5d.py` stops a verdict that contains a void launch. The driver
+  stops at each void, so no re-run happens unread.
+- **A recorded wait on an `IGNORED_EXPIRED` row** stops the sitting. By the owner's instruction, it is
+  reported as a contradiction of the diagnostic launch and not discarded as a void.
+- **The scripts:**
+  - The run directory `%USERPROFILE%\tmc-5d-round\C` now holds `2e72e42`'s scripts, which are the same
+    blobs as `550b414`'s. All ten files were checked and read the same.
+  - `launchcheck.py` and `launchcheck_test.py` there were the copies from `92fbb4a`. They were copied
+    aside byte for byte before being replaced.
+  - `qualify5d.py` loads `launchcheck.py` from its own directory. Without the replacement, its
+    verdicts would have applied the retracted frames rule.
+  - Run there on Python 3.10: `launchcheck_test.py` passes 7 of 7, and `qualify5d_test.py` 22 of 22.
+
+**The three quantities the owner added, per launch, both builds, voiding nothing.** They are computed
+by `sitting_extra.py`, outside the repository, from each launch's `probe.json` and `logcat.txt`.
+- **a. The largest gap below 300 ms between consecutive history rows, per page, with the row it
+  precedes.**
+  - The method takes one page's history rows, sorted by `begin`, and differences successive begins.
+  - It was qualified against the probe's own recorded waits. In the 15 excluded records it gives a
+    gap before the same row of the same page for all 33 recorded waits, within 0.3 ms of the probe's
+    value.
+- **b. Page 1's start offset from page 0's first row, and whether the pages' rows interleaved or ran
+  sequentially.** The rows interleave when the two pages' ranges of begins overlap.
+  - In the 14 excluded records with both pages, the pages interleaved every time, with page 1
+    starting 252 to 1100 ms after page 0.
+  - In the diagnostic launch they ran sequentially, with page 1 starting 1688 ms after page 0.
+  - This is recorded, not interpreted.
+- **c. Every spawn ingestion,** with four fields:
+  - its time after the anchor, on logcat's monotonic clock;
+  - its outcome;
+  - its page, found by matching the logging thread against each page's `historyTid`;
+  - whether a recorded wait of that page holds its time, from `at − gapNs` to `at`, within 2 ms.
+
+  What the 16 existing records give:
+  - in the 15 excluded records, all 25 `ignored_expired` history ingestions lie inside a recorded
+    wait of their page;
+  - 3 of the 4 `unchanged` ones do too. The fourth is `-2`'s page 1, whose largest gap was 224 ms;
+  - in the diagnostic launch, neither ingestion does.
 
 ## Backlog
 
