@@ -3,12 +3,14 @@
 Usage: python -I launchcheck.py <run dir>...   prints each launch's record; exit status 1 if any is void.
 
 The conditions, each decided before the launches it applies to (docs/manual-plan-5d-recyclerview.md,
-*Decided on 2026-11-02, after the qualification*). A void launch is kept under its own name and run
-again; it is never scored.
+*Decided on 2026-11-02, after the qualification*, and *Decided on 2026-11-03*). A void launch is kept
+under its own name and run again; it is never scored.
 
-- More than FRAMES_IN_SPAN_MAX frames drawn inside the span: late delivery. The span is analyze.py's,
-  from the earliest begin of a history row to the latest insertOut of one, both ends included, and a
-  frame is one the probe recorded as run (frames.ran).
+- Any recorded wait: late delivery (decided 2026-11-03). A wait is a row of the probe's waitRows, a
+  pause of HISTORY_WAIT_FLOOR_MS or more between two history rows of one page; the probe keeps no
+  shorter one, so any row it keeps voids. A record without waitRows is void too: it cannot say there
+  was no wait. This replaces "more than 5 frames drawn inside the span", retracted on 2026-11-03.
+- No span: no history row both began and was inserted.
 - A process start other than the app's own between the launch and the end of the span. The launch is
   the app's own `ActivityManager: Start proc` line; a process is the app's own when it is named after
   the app's package, or started for a component of it.
@@ -21,9 +23,10 @@ again; it is never scored.
 - The display reading changing between before and after; the callers hold one reading across a
   whole section.
 
-Recorded beside them, deciding nothing: each page's channel fingerprint and history count, whether
-both reached the cap, the live rows, the compile state, the JIT thread's CPU across the span, the
-history rows' cost by process age, and anything the history-wait reads caught.
+Recorded beside them, deciding nothing: the frames drawn inside the span, each page's channel
+fingerprint and history count, whether both reached the cap, the live rows, the compile state, the
+JIT thread's CPU across the span, the history rows' cost by process age, and anything the
+history-wait reads caught.
 """
 import json
 import os
@@ -32,7 +35,7 @@ import statistics
 import sys
 
 PKG = "com.fs.twitchminichat.dev"
-FRAMES_IN_SPAN_MAX = 5
+HISTORY_WAIT_FLOOR_MS = 300.0  # StartupProbe.HISTORY_WAIT_NS: the probe keeps no shorter wait
 HISTORY_CAP = 400
 SRC_HISTORY, SRC_LIVE = 1, 2
 REASON_HISTORY_WAIT = 1 << 61
@@ -190,6 +193,17 @@ def waits_caught(d):
     return {"snapshots": snaps, "rows_after_a_wait": after}
 
 
+def recorded_waits(d):
+    """The probe's waits as (slot, row, ms), or None when the record has no waitRows to read.
+
+    None is not an empty list: a record without the field cannot say there was no wait.
+    """
+    rows = d.get("waitRows")
+    if not isinstance(rows, dict) or not isinstance(rows.get("n"), int):
+        return None
+    return [(rows["slot"][i], rows["ordinal"][i], round(ms(rows["gapNs"][i]), 1)) for i in range(rows["n"])]
+
+
 def check(run):
     """The launch's record and its voids. Nothing here decides a measurement; it decides whether one counts."""
     void = []
@@ -197,10 +211,15 @@ def check(run):
         d = json.load(f)
     lo, hi = span_of(d)
     frames = frames_in_span(d, lo, hi)
-    if frames is None:
+    if lo is None:
         void.append("no span")
-    elif frames > FRAMES_IN_SPAN_MAX:
-        void.append("late delivery: %d frames drawn inside the span, more than %d" % (frames, FRAMES_IN_SPAN_MAX))
+    waits = recorded_waits(d)
+    if waits is None:
+        void.append("no waitRows in the record: whether history was delivered late cannot be checked")
+    elif waits:
+        void.append("late delivery: %d recorded wait%s of %d ms or more (slot, row, ms): %s" % (
+            len(waits), "" if len(waits) == 1 else "s", HISTORY_WAIT_FLOOR_MS,
+            "; ".join("%d, %d, %.1f" % w for w in waits)))
 
     starts = process_starts(read_lines(run, "logcat.txt"), d["anchorNs"])
     foreign = foreign_starts(starts, hi)
@@ -241,6 +260,7 @@ def check(run):
         "run": os.path.basename(os.path.normpath(run)),
         "commit": d.get("commit"),
         "void": void,
+        "recorded_waits": waits,
         "frames_in_span": frames,
         "span_ms": None if lo is None else [round(lo, 1), round(hi, 1)],
         "foreign_process_starts": foreign,
