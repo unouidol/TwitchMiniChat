@@ -49,6 +49,38 @@ internal object SmartCatchSpawnMergePolicy {
 
     private const val MAX_FUTURE_CLOCK_SKEW_MS = 5_000L
 
+    /**
+     * The verdict [decide] reaches from the timestamps alone: IGNORED_FUTURE for an
+     * observation dated beyond the allowed clock skew, IGNORED_EXPIRED for one older
+     * than the active window, null for one inside it.
+     *
+     * The only definition of "outside the window". [decide] applies it after its
+     * identity check, and [SmartCatchSpawnCoordinator] applies it before resolving the
+     * Pokémon name, so the two cannot disagree.
+     */
+    fun outcomeOutsideWindow(
+        nowMs: Long,
+        incomingSeenAtMs: Long
+    ): SmartCatchSpawnIngestionOutcome? {
+        if (incomingSeenAtMs > nowMs + MAX_FUTURE_CLOCK_SKEW_MS) {
+            return SmartCatchSpawnIngestionOutcome.IGNORED_FUTURE
+        }
+
+        if (nowMs - normalizedSeenAtMs(nowMs, incomingSeenAtMs) > ACTIVE_WINDOW_MS) {
+            return SmartCatchSpawnIngestionOutcome.IGNORED_EXPIRED
+        }
+
+        return null
+    }
+
+    /** A missing or non-positive timestamp counts as now; one ahead of now is clamped to it. */
+    private fun normalizedSeenAtMs(nowMs: Long, seenAtMs: Long): Long {
+        return seenAtMs
+            .takeIf { it > 0L }
+            ?.coerceAtMost(nowMs)
+            ?: nowMs
+    }
+
     fun decide(
         nowMs: Long,
         incomingIdentity: String,
@@ -62,22 +94,11 @@ internal object SmartCatchSpawnMergePolicy {
             )
         }
 
-        if (incomingSeenAtMs > nowMs + MAX_FUTURE_CLOCK_SKEW_MS) {
-            return SmartCatchSpawnMergeDecision(
-                SmartCatchSpawnIngestionOutcome.IGNORED_FUTURE
-            )
+        outcomeOutsideWindow(nowMs, incomingSeenAtMs)?.let { outcome ->
+            return SmartCatchSpawnMergeDecision(outcome)
         }
 
-        val normalizedIncomingSeenAtMs = incomingSeenAtMs
-            .takeIf { it > 0L }
-            ?.coerceAtMost(nowMs)
-            ?: nowMs
-
-        if (nowMs - normalizedIncomingSeenAtMs > ACTIVE_WINDOW_MS) {
-            return SmartCatchSpawnMergeDecision(
-                SmartCatchSpawnIngestionOutcome.IGNORED_EXPIRED
-            )
-        }
+        val normalizedIncomingSeenAtMs = normalizedSeenAtMs(nowMs, incomingSeenAtMs)
 
         val normalizedExistingSeenAtMs = existingSeenAtMs
             ?.takeIf { it > 0L }
@@ -212,6 +233,26 @@ internal class SmartCatchSpawnCoordinator(
         seenAtMs: Long,
         currentTimeMs: Long
     ): SmartCatchSpawnIngestionResult {
+        /*
+         * Outside the window the timestamps alone decide the outcome, so the name is not
+         * resolved: the first resolution in a process parses the bundled catalogue only to
+         * compute an identity that would be discarded. This applies only when the raw name
+         * gives an identity of its own. decide checks for a blank identity before the window,
+         * and a name that normalizes blank may still resolve to a catalogue key, so for such
+         * a name only the resolution can say which outcome applies.
+         */
+        if (canonicalIdentity(rawName = rawName, dexKey = null).isNotBlank()) {
+            SmartCatchSpawnMergePolicy.outcomeOutsideWindow(
+                nowMs = currentTimeMs,
+                incomingSeenAtMs = seenAtMs
+            )?.let { outcome ->
+                return SmartCatchSpawnIngestionResult(
+                    source = source,
+                    outcome = outcome
+                )
+            }
+        }
+
         val dexEntry = resolvePokemon(rawName)
         val incomingIdentity = canonicalIdentity(
             rawName = rawName,
