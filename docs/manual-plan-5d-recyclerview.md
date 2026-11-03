@@ -1167,6 +1167,24 @@ It was pre-registered by the owner of the measurement before any decision launch
   delivery shows on 5d as cheaper rows and on the control as a longer span.
 - **It voids qualification launches too,** because criterion 3's band cannot hold otherwise.
 
+*Retracted on 2026-11-03: the criterion, not the voiding.* The rule quoted above and its derivation
+stay as they were written. Frames drawn inside the span no longer void a launch. A launch whose
+history is delivered late is still void, under *A launch with a recorded wait is void* (*Decided on
+2026-11-03*), which replaces this rule.
+- **Why it was wrong:** frames drawn inside the span stand in for a pause in a page's history, and on
+  2026-11-03 the stand-in failed. At `-2`, page 0's history paused for 922 ms before a
+  spawn-classified row, and the main thread drew 3 frames inside the span. That is within the on-time
+  range of 1 to 3, so the rule passed the launch. Only the display reading voided `-2`.
+- **Why its derivation could not show it:** on 2026-11-02 the two classes, 1 to 3 frames and 14 to
+  118, separated perfectly. The probe's wait floor was set from the same 28 launches: on-time pauses
+  of at most 212 ms, late ones of at least 902 ms. So on those launches pauses and frame counts agreed
+  (inferred from the two derivations, not recomputed). At `-2` they did not. Page 1's rows kept
+  beginning on the main thread throughout page 0's pause: 223 of them, the last 218 ms before it
+  ended. A frame count separates late launches from on-time ones only while nothing else keeps the
+  main thread busy.
+- **The frames count stays recorded:** `launchcheck.py` prints it for every launch, and it decides
+  nothing.
+
 **Five clean launches per arm** (decision 4). The all-25-pairings rule stands as written. Ten per arm
 would make it all-100-below, stricter than the rule that does not change: a silent tightening. If the
 result is INCONCLUSIVE on variance, that is the rule working, and the pre-decided path is that the
@@ -1288,6 +1306,48 @@ passed a check only because its seven-character prefix matched.
 only each page's channel fingerprint and history row count. Both pages must read 400, giving 800 in
 every span. If either reads anything else, the sitting does not start, and the reading is reported.
 A count that differs between launches would void the sitting partway through, wasting the whole run.
+
+**A launch with a recorded wait is void and is re-run,** in the qualification as in the decision.
+The owner of the measurement decided to rule on the waits themselves. The threshold and how it was
+chosen are the agent's, given below. It replaces the frames rule of 2026-11-02, which stays in place
+with its retraction beside it (*Decided on 2026-11-02, after the qualification*).
+- **The rule:** a launch is void when its probe record holds one or more wait rows. That is a
+  `waitRows.n` of 1 or more, in either page, before any row, whatever the row's outcome.
+- **A record without the field is void, not clean.** A missing field does not mean zero waits: the
+  probe writes wait rows only in `full` mode (`StartupProbe.historyPostRunBegin` returns otherwise).
+  The qualification and decision launches are `full`.
+- **What a wait row is,** read from `StartupProbe.kt` at `cc4c0cf`, whose recording lines are the
+  same on `5b09932`, `888489a` and `1198c79`. When a page's posted history row starts on the main
+  thread, the probe takes the time since that page's previous history row began, and keeps it when it
+  is 300 ms or more (`HISTORY_WAIT_NS`). It keeps the slot, the row's ordinal, the instant and the
+  length (`gapNs`), with the row's shape. A wait runs between two history rows of one page, so by
+  construction it lies inside the span. At most 4 are kept (`WAIT_ROW_CAP`); the rule needs only one.
+- **The threshold is 300 ms, the probe's own floor.** How it was chosen:
+  - *Set from 2026-11-02:* no on-time launch paused a page's history rows for more than 212 ms,
+    including the injected 200 ms delays, and every late launch paused a page for 902 ms or more.
+    These figures are read from the probe's KDoc at `cc4c0cf` (lines 79 to 83), not recomputed. The 28
+    launches' records are on `DESKTOP-BCT68L9`, and the summaries committed at `92fbb4a` hold no row
+    times. 300 ms is 88 ms above the on-time maximum, so an injected 200 ms delay does not void a
+    qualification launch. It is 602 ms below the late minimum.
+  - *Checked against 2026-11-03:* the 15 excluded launches recorded 33 waits. 28 of them, 397 to
+    1516 ms, came before spawn-classified rows; 5, 302 to 394 ms, came before ordinary rows. Every
+    launch has at least one wait of 397 ms or more, so every threshold from 300 to 921 ms voids the
+    same 15. These data do not choose a value within that range.
+  - *Not lower:* the record holds nothing under 300 ms, so a lower threshold cannot be read from it.
+    Lowering the floor is a probe change, which means rebuilding the four APKs.
+  - *Not higher:* no on-time launch of 2026-11-02 showed a pause like the five waits of 302 to
+    394 ms, and their cause is unknown. A higher threshold would count launches with a pause the
+    reference never had.
+- **What it cannot catch,** inferred from the probe's code, not observed as a missed launch:
+  - a page whose history worker is held while rows it has already posted keep the main thread
+    supplied. At `-2`, page 1's worker logged its spawn ingestion in the same millisecond as page
+    0's, so it was held too, yet page 1's largest gap was 224 ms. That launch is caught by page 0's
+    922 ms wait;
+  - a delay before a page's first history row, since there is no earlier row to measure from.
+- **Not yet in the scripts.** `launchcheck.py` at `92fbb4a` (`experiment/startup-5d-control`) still
+  voids on frames (`FRAMES_IN_SPAN_MAX = 5`) and not on waits. Until it changes, its void list is not
+  this rule. `launchcheck_test.py` has 4 cases, and read through, none is on frames. Changing the
+  script is not part of this step.
 
 ## Recorded results
 
@@ -1574,3 +1634,202 @@ phone's reading of 20:22.
     not fire.
   - **Not done:** stopped after fourteen reruns rather than waiting for a gap. Whether to wait, and
     for how long, or to move the pages, is the owner's decision. The qualification has not started.
+
+**The catalogue-parse mechanism, tested against the fifteen records, 2026-11-03.** The mechanism
+was proposed by the owner of the measurement. Everything was read from files on `nbpromec1` with the
+phone disconnected: no build, no install, no launch.
+- **The proposal, checked clause by clause against the code at `cc4c0cf` and `1198c79` (read):**
+  - `SmartCatchSpawnIngestion.kt:61` calls `PokemonTypeDex.findByPokemonName` from the
+    coordinator's `resolvePokemon`. That is reached only through `ingestPokemon`
+    (`SmartCatchSpawnCoordinator.kt:208`, at line 215). An IRC message reaches it only when it comes
+    from the PCG bot and `SpawnMessageParser` matches (lines 142 to 147). This holds.
+  - `ensureLoaded` (`PokemonTypeDex.kt:18` to `26`) returns the `@Volatile` catalogue if it is set.
+    Otherwise it parses under `synchronized(this)`, on the calling thread. The paragraph's 18 to 25
+    ends where the `synchronized` block ends. "Once per process" holds for a parse that succeeds. One
+    that throws leaves nothing set, and the next caller parses again.
+  - The assets: `pcg_catalog/pcg_pokemon_catalog_v1.json` is 533,491 bytes in git and 556,196 in the
+    CRLF checkout and in both APKs; `pokemon_type_dex.json` is 548,770 and 573,586. For the first
+    file, the paragraph gave only its size in git.
+  - No preload. The only callers are `SmartCatchSpawnIngestion.kt:61` and the buddy capture in
+    `ChatFragment.kt`, which is at line 3604 on this branch's head, 3653 at `cc4c0cf` and 3668 at
+    `1198c79`. This holds.
+  - No clause is wrong. Two are inexact, as noted.
+- **How it was read:** from each launch's `probe.json` and `logcat.txt`.
+  - A wait runs from `at` − `gapNs` to `at`, each plus `anchorNs`. That is `CLOCK_MONOTONIC`, the clock
+    of logcat's `-v monotonic`.
+  - The clock check compares each page's "History loaded" line with its `pN_history` boundary. The
+    same worker writes both, on consecutive statements (`ChatFragment.kt:2958` and `2965` at
+    `cc4c0cf`). Over 30 checks they differ by −0.8 to +3.7 ms.
+  - The ingestion lines are `SMART_CATCH_SPAWN: Spawn ingestion source=… outcome=…`
+    (`SmartCatchSpawnIngestion.kt:119` to `123`). Each is assigned to a page by its history worker's
+    thread id (`pages[].historyTid`).
+
+  The table's instants are in seconds since boot. The outcome is `ignored_expired` except where named.
+
+  | Launch | Long wait: slot, row, start–end, ms | Short wait: slot, row, start–end, ms | Starts, ends apart, ms | Ingestion lines | Long end − first line, ms |
+  |---|---|---|---|---|---|
+  | first | 0, 96, 8000.605–8001.803, 1197.9 | none: page 1 had no history | – | 8001.802 page 0; 8013.720 another thread | +1.2 |
+  | `-2` | 0, 224, 10996.322–10997.244, 921.8 | none recorded: page 1's largest gap 224.3 | – | 10997.118 pages 0 and 1, `unchanged` | +126.1 |
+  | `-3` | 0, 137, 11186.073–11187.462, 1388.8 | 1, 137, 11186.622–11187.640, 1017.8 | +548.8, +177.8 | 11187.461 both | +1.3 |
+  | `-4` | 0, 110, 11309.742–11311.151, 1409.0 | 1, 110, 11310.278–11311.163, 884.6 | +536.5, +12.1 | 11311.139 both | +11.7 |
+  | `-5` | 0, 104, 11374.317–11375.809, 1492.6 | 1, 104, 11374.837–11375.806, 969.3 | +519.9, −3.4 | 11375.796 both | +13.4 |
+  | `-6` | 0, 99, 11439.019–11440.209, 1190.4 | 1, 99, 11439.450–11440.206, 756.0 | +431.0, −3.4 | 11440.204 both | +5.1 |
+  | `-7` | 0, 84, 11504.634–11505.848, 1214.1 | 1, 84, 11504.898–11505.843, 945.5 | +264.1, −4.5 | 11505.832 both | +15.8 |
+  | `-8` | 0, 72, 11568.985–11570.281, 1295.8 | 1, 72, 11569.383–11570.276, 892.7 | +398.5, −4.6 | 11570.274 both | +6.5 |
+  | `-9` | 0, 58, 11634.102–11635.417, 1315.6 | 1, 58, 11634.371–11635.412, 1041.4 | +269.3, −4.9 | 11635.404 page 0, .405 page 1 | +13.4 |
+  | `-10` | 0, 34, 11698.564–11699.945, 1381.5 | 1, 34, 11698.923–11699.963, 1040.5 | +359.5, +18.4 | 11699.938 both | +7.1 |
+  | `-11` | 0, 21, 11761.572–11762.838, 1265.3 | 1, 21, 11761.834–11762.828, 994.4 | +261.7, −9.2 | 11762.827 both | +10.5 |
+  | `-12` | 0, 223, 11851.410–11852.475, 1065.0 | 1, 222, 11852.226–11852.623, 396.7 | +815.7, +147.5 | 11852.468 both, `unchanged`; 11852.731 and .793 another thread, `fcm_reminder`, `unchanged` | +7.0 |
+  | `-13` | 0, 141, 11931.542–11933.058, 1516.1 | 1, 141, 11932.183–11933.054, 871.2 | +641.3, −3.6 | 11933.053 both | +5.1 |
+  | `-14` | 0, 122, 11998.217–11999.600, 1382.3 | 1, 122, 11998.686–11999.747, 1061.2 | +468.7, +147.6 | 11999.591 page 0, .592 page 1 | +8.7 |
+  | `-15` | 0, 90, 12063.796–12065.169, 1373.2 | 1, 89, 12064.162–12065.165, 1002.8 | +365.8, −4.6 | 12065.155 both | +14.1 |
+
+- **a, once per process: refuted as worded, consistent with the mechanism.**
+  - As worded, "no later one, in either page", it fails. The later page's spawn-shaped row also
+    waited, 396.7 to 1061.2 ms, in all 13 launches where both pages held one (`waitRows`). The claim
+    falls.
+  - What the mechanism predicts for that row is b: its worker is held while the first one parses,
+    then does only its own work. That work is short. In 11 of the 13 pairs the two workers'
+    ingestion lines fall in the same millisecond; in 2 (`-9`, `-14`) they are 1 ms apart, at
+    logcat's 1 ms resolution. At `-2` the two lines also share a millisecond.
+  - There were later calls in the same process. At `-12`, two `fcm_reminder` lines came 263 and
+    325 ms after the workers' lines, on a thread that is neither worker. In the first launch a second
+    line came 11.9 s later. No recorded wait followed any of them. Their own cost cannot be tested,
+    because the probe does not time those threads.
+- **b, serialised on one monitor: consistent.**
+  - In all 13 pairs the shorter wait started later, by 261.7 to 815.7 ms (`waitRows`). The two
+    workers finished within 1 ms of each other (above).
+  - The waits are measured where they end, on the main thread. In 10 pairs the two ends were −9.2 to
+    +18.4 ms apart. In the other 3 (`-3`, `-12`, `-14`) they were +177.8, +147.5 and +147.6 ms apart.
+    Between the two ends, page 0 began 68, 75 and 65 history rows and page 1 began none, so page 1's
+    row was queued behind page 0's on the main thread (`rows.begin`).
+  - The probe took 52 snapshots inside spawn waits (`snaps`, reason bit `1 << 61`). In all 52, page
+    0's worker was `R`, and page 1's was `S` or absent, with page 1's CPU unchanged within each
+    launch. Between a launch's first and last snapshot, page 0's worker gained 0.83 to 0.97 ms of CPU
+    per ms of wall time (in ticks of 10 ms).
+  - The record does not say which monitor, since no stack was taken. By the code, the later worker
+    waits on the coordinator's monitor (`@Synchronized ingestPokemon`), which it enters before
+    `PokemonTypeDex`'s. Nothing contends for `PokemonTypeDex`'s own lock in these launches.
+- **c, the long wait's end lines up with the first ingestion line: consistent in 14 of 15, not in
+  `-2`.**
+  - In 14 launches the line comes 1.2 to 15.8 ms before the end. That follows the worker's order: it
+    logs the line inside the ingestion, then posts the row, and the main thread starting that row ends
+    the wait.
+  - At `-2` the line comes 126.1 ms before the end. In between, no history row of either page began
+    and 1 frame ran. The main thread was inside messages for 113.9 ms of the 126.1, one of them
+    98.3 ms long (`msgs`). The record does not say what that work was.
+  - c does not discriminate: any work inside the ingestion would line up the same way.
+- **The time is attributed to the catalogue by the code, not by the record.** On the spawn path,
+  only the catalogue does once-per-process work on half-megabyte inputs: two assets of 556,196 and
+  573,586 bytes as packaged. The record shows one thread computing for 921.8 to 1516.1 ms, in state
+  `R` with CPU close to wall time, while the other is held. It does not show what that thread was
+  computing.
+- **Verdict: not refuted.** a falls as worded, b and c are consistent, and the attribution is still
+  read from the code, not recorded.
+
+**A change that would take the parse off the launch's critical path: designed, not implemented**
+(the owner's request of 2026-11-03). No code is changed and no pull request is opened. Everything
+below is read from the code, not tried.
+- **The change:** a `PokemonTypeDex.preload(context)` that starts one thread, which calls the
+  existing `ensureLoaded`. It is called once, from `MainActivity.onCreate` (`MainActivity.kt:63`),
+  after `CrashReporting.applyStoredPreference`.
+- **Where, and on which thread:** a new thread, `thread(name = "tmc-dex-preload")` from
+  `kotlin.concurrent`, at default priority. That is how `AuthCallbackActivity.kt:41` and the
+  uploader start their threads. `MainActivity.onCreate` is the earliest production code on the
+  launch path, because `main-v5` has no `Application` subclass (`ProbeApplication` exists only on the
+  probe commits). An `Application` would start the thread 36 to 47 ms earlier on these records
+  (`app_in` against `act_in`), but it needs a manifest change, so it is not the smallest change.
+- **The head start, estimated from the records:**
+  - From `act_in` to the start of the first spawn wait: 1252.6 to 2411.7 ms across the 15 launches.
+  - The first wait itself, which is the parse's wall time as it ran: 921.8 to 1516.1 ms.
+  - If the parse took the same wall time when started at `act_in`, it would end before the spawn row
+    in 13 of 15 launches. In `-11` and `-10` it would end 12.7 and 41.1 ms after it.
+  - That assumes the parse costs the same when it overlaps inflation, view creation and the history
+    requests instead of following them. This is not measured, and the startup work it overlaps may
+    also slow down.
+- **A spawn arriving before the parse ends:**
+  - Its thread calls `findByPokemonName` and finds no catalogue. It waits on `PokemonTypeDex`'s lock,
+    which the preload holds, until the parse ends. Then it reads the same catalogue and goes on.
+  - Nothing is dropped and nothing is retried. The message is ingested as it is today, only later,
+    by whatever remains of the parse.
+  - Those threads are:
+    - the history worker (`ChatFragment.kt:2991` at `cc4c0cf`, and 2950 for history from a closed
+      connection);
+    - the IRC reader (`TwitchChatClient.kt:54`, its `onMessage` at 185, ingesting at
+      `ChatFragment.kt:2250` at `cc4c0cf`);
+    - Firebase's message thread (`MyFirebaseMessagingService.kt:101`).
+
+    None of them is the main thread.
+- **The main thread:**
+  - Its one caller is the buddy capture (`ChatFragment.kt:3604` on this branch's head, 3653 at
+    `cc4c0cf`), inside `appendChatLine`. It runs only for the PCG bot's reply within 15 s of a
+    `!pokebuddy` the user sent (`requestBuddyInfo`).
+  - Today, if it is the first caller in a process, it parses on the main thread. With the preload it
+    waits only for what remains of a parse already in progress, and not at all once that parse is
+    done.
+  - So the change adds no wait on the main thread; it shortens one that already exists.
+- **One shared instance:** yes.
+  - The catalogue stays the `@Volatile` field of the `PokemonTypeDex` object, set once under its lock.
+    The preload goes through the same `ensureLoaded`, so whichever thread enters first parses, and
+    every other thread gets that instance.
+  - A recreated activity calls `preload` again. It returns at once if the catalogue is loaded;
+    otherwise its thread waits on the lock and returns.
+  - `PcgMostWantedActivity.kt:48` and `PcgMostWantedStore.kt:20` keep their own parses of the
+    PCG catalogue through `PcgPokemonCatalogRepository`. Sharing those is a different change.
+- **A failed parse:**
+  - Today an exception from `loadCatalog` reaches the caller's `safely`
+    (`SmartCatchSpawnIngestion.kt:85` to `102`) and becomes `FAILED`.
+  - A bare thread has no such guard, and an uncaught exception on any thread ends an Android process.
+    That is the platform's documented default, not observed here.
+  - So the preload catches the exception and logs only its type, as `safely` does
+    (`DiagnosticError.typeOf`). It leaves the catalogue unset, and the next caller parses as today.
+- **Locks:**
+  - The preload takes only `PokemonTypeDex`'s lock.
+  - The spawn path takes `SmartCatchSpawnIngestion`'s briefly in `coordinator()` and releases it
+    before ingesting. It then takes the coordinator's lock, then `PokemonTypeDex`'s.
+  - The buddy capture takes only `PokemonTypeDex`'s.
+
+  No path takes them in the other order, so the preload adds no deadlock.
+- **What depends on the parse being synchronous:**
+  - The coordinator. `ingestPokemon` resolves the name (line 215) before it stores the spawn, and it
+    stores what it resolved. The design keeps the call synchronous for its caller, so this still
+    holds. A variant that answered `null` while the parse ran would store a spawn without its
+    catalogue fields, the case `unknownCatalogEntryStillKeepsNameAndTimerAvailable` covers. Whether
+    a later sighting would fill them in was not read. That is why the design waits instead of
+    answering early.
+  - The history worker's order. It ingests each message before posting it (`ChatFragment.kt:2984`
+    to `3001` at `cc4c0cf`), so the order of the rows does not depend on when the parse ends.
+  - The buddy capture, described above.
+
+  Nothing else calls `PokemonTypeDex` (`git grep` at the head, at `cc4c0cf` and at `1198c79`).
+- **The existing tests:**
+  - Three suites touch this path, with 22 cases between them:
+    - `PokemonTypeDexCatalogTest`, 8 cases, builds `PokemonTypeDexCatalog` from the asset files
+      through the parsers, and never uses the `PokemonTypeDex` object;
+    - `SmartCatchSpawnCoordinatorTest`, 11 cases, injects its own `resolvePokemon`;
+    - `SmartCatchSpawnIntegrationSourceTest`, 3 cases, checks the order of the source in
+      `ChatFragment`'s IRC callback and in `MyFirebaseMessagingService`.
+  - None of them would change, as long as the call goes in `MainActivity` and not in that callback.
+  - No test covers the `PokemonTypeDex` object, its single load or its lock. It needs a `Context`,
+    and the unit tests have only JUnit and `org.json` (`app/build.gradle.kts:215` to `216`).
+- **The tests it would add:** the single load moves into a small holder that takes the loader as a
+  function, so it can be tested on the JVM. Three characterization cases:
+  - a preload and a concurrent lookup load once and share one instance;
+  - a lookup that arrives during the preload's load waits for it and does not load again;
+  - a preload whose load throws does not throw out of its thread, leaves nothing loaded, and the next
+    lookup loads.
+- **Gameplay:** the preload reads a bundled catalogue and sends nothing. It does not touch the
+  Pokemon Community Game rules.
+- **What it costs:**
+  - The parse's CPU, about 0.8 to 1.5 s on these builds, moves to the start of every launch through
+    `MainActivity`. That figure is inferred: the CPU rate between snapshots applied to the long waits.
+    It includes launches that never see a spawn-shaped message and today never parse.
+  - The catalogue is in memory from launch onwards. Its size in memory is not measured.
+  - A process that Firebase starts without `MainActivity` keeps today's behaviour.
+- **IT INVALIDATES THE FOUR BUILT APKs AND THEIR RECORDED SHA256 VALUES.**
+  - The change touches code that all four builds contain: `PokemonTypeDex.kt` and `MainActivity.kt`.
+  - A build that carries it is none of `5b09932`, `888489a`, `cc4c0cf` or `1198c79` as built on
+    `nbpromec1` and recorded at the top.
+  - So step 0's builds, their hashes and the qualification would all be redone, from commits that
+    carry the change. It would be applied identically to all four, so that it makes no difference
+    between the arms.
