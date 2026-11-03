@@ -1348,6 +1348,9 @@ with its retraction beside it (*Decided on 2026-11-02, after the qualification*)
   voids on frames (`FRAMES_IN_SPAN_MAX = 5`) and not on waits. Until it changes, its void list is not
   this rule. `launchcheck_test.py` has 4 cases, and read through, none is on frames. Changing the
   script is not part of this step.
+- *Brought into the scripts on 2026-11-03:* `3cf6ff7` on `experiment/startup-5d-control` and
+  `bad5699` on `experiment/startup-5d-treatment` (*The wait rule, brought into the scripts*, at the
+  end of *Recorded results*). The sentence above stays as it was true when written.
 
 ## Recorded results
 
@@ -1727,9 +1730,21 @@ phone disconnected: no build, no install, no launch.
 - **Verdict: not refuted.** a falls as worded, b and c are consistent, and the attribution is still
   read from the code, not recorded.
 
+*Retracted on 2026-11-03, by the owner of the measurement:* "the two pages serialise on
+`synchronized(this)` in `PokemonTypeDex.ensureLoaded`". They serialise on `@Synchronized` on
+`SmartCatchSpawnCoordinator.ingestPokemon` (`SmartCatchSpawnCoordinator.kt:208`). The dex's lock is
+taken inside that one, so it is not the lock the second worker blocks on. The owner's reason: the
+agent read it in the code, and the owner had recalled it.
+
 **A change that would take the parse off the launch's critical path: designed, not implemented**
 (the owner's request of 2026-11-03). No code is changed and no pull request is opened. Everything
 below is read from the code, not tried.
+
+*Rejected on 2026-11-03 by the owner of the measurement: considered, kept here, not implemented.*
+The reason: about 0.8 to 1.5 s of CPU on every launch, the design's own estimate below, would be spent
+inside the phase being measured, to serve a path that at launch discards the result. The change taken
+instead is *The window decided before the name is resolved* (end of *Recorded results*).
+
 - **The change:** a `PokemonTypeDex.preload(context)` that starts one thread, which calls the
   existing `ensureLoaded`. It is called once, from `MainActivity.onCreate` (`MainActivity.kt:63`),
   after `CrashReporting.applyStoredPreference`.
@@ -1833,3 +1848,50 @@ below is read from the code, not tried.
   - So step 0's builds, their hashes and the qualification would all be redone, from commits that
     carry the change. It would be applied identically to all four, so that it makes no difference
     between the arms.
+
+**The window decided before the name is resolved, 2026-11-03** (the owner of the measurement's
+instruction). One change, in pull request #94 into `main-v5`, not merged. It is justified on its
+own terms, as work computed and then discarded. It does not rest on the catalogue being what the
+waits were: the records do not show that, and the launch after the rebuild is what tests it.
+- **The premise, read on `origin/main-v5` (`SmartCatchSpawnCoordinator.kt`), before the fix was
+  written:**
+  - the `IGNORED_EXPIRED` branch (lines 71 to 80) reads only `nowMs` and `incomingSeenAtMs`;
+  - the `IGNORED_FUTURE` branch (lines 65 to 69) reads only those two;
+  - the only branch above them that reads the identity is the `isBlank` check giving
+    `IGNORED_NOT_SPAWN` (lines 59 to 63);
+  - `ACTIVE_WINDOW_MS` is `90_000L` (line 47) and `MAX_FUTURE_CLOCK_SKEW_MS` is `5_000L` (line 50);
+  - in the 15 records the spawn-shaped row's outcome was `IGNORED_EXPIRED` in 13 and `UNCHANGED` in
+    2, `-2` and `-12` (`waitRows.spawnOutcome`).
+- **The defect:** `ingestPokemon` resolved the name first. The first resolution in a process parses
+  1,129,782 bytes of JSON across two assets, to compute an identity that `decide` discards when the
+  message is outside the window, which a history message older than 90 s is by construction. It is
+  pre-existing: the coordinator, `PokemonTypeDex` and the ingestion are the same blobs on
+  `origin/main-v5`, this branch and `007ee55`.
+- **The change:** `SmartCatchSpawnMergePolicy.outcomeOutsideWindow` holds the window and skew test
+  in one place. `decide` calls it after its identity check, and `ingestPokemon` calls it before
+  resolving and returns its outcome without resolving. Inside the window nothing changes.
+- **Narrower than asked, and why:** the gate applies only when the raw name gives a non-blank
+  identity of its own. For a name that normalizes blank only the resolution can say whether the
+  outcome is `IGNORED_NOT_SPAWN` or a window outcome, and the difference reaches the user: the
+  Firebase service suppresses the spawn notification on `IGNORED_EXPIRED` and not on
+  `IGNORED_NOT_SPAWN`. Such a name keeps today's path, so no outcome changes for any input.
+- **Its tests:** run on the unfixed code first, the two "never resolved" cases failed and the two
+  others passed; the counts with the fix are in the pull request.
+- **IT INVALIDATES THE FOUR BUILT APKs AND THEIR RECORDED SHA256 VALUES.** Step 0 and the
+  qualification are redone on rebuilt binaries. No measurement APK was built in this step.
+- **Expected after the rebuild, written down before it** (the owner's): most launches clean, not
+  all. `-2` and `-12` carried a spawn inside the window and would still resolve, so a remaining wait
+  on a recent spawn row is not a failure of the change. If the long waits persist on
+  `IGNORED_EXPIRED` rows, the attribution to the catalogue is wrong, and the next instrument is a
+  thread stack taken inside the wait, not another design.
+
+**The wait rule, brought into the scripts, 2026-11-03.** `launchcheck.py` voids on any recorded wait
+and on a record without `waitRows`; the frame count stays in its record and decides nothing. The
+same change is on both script branches: `3cf6ff7` on `experiment/startup-5d-control` (from
+`92fbb4a`) and `bad5699` on `experiment/startup-5d-treatment` (from `1ae4b42`).
+- **Its suites, run:** `launchcheck_test.py` 7 of 7, 4 before, and `qualify5d_test.py` 22 of 22 beside
+  it, on Python 3.10 and 3.7.
+- **Over the 15 excluded records, run:** 15 of 15 void, as before. Every launch keeps its reasons, and
+  `-2` adds late delivery, its 922 ms wait, to its display reading.
+- The run directory `%USERPROFILE%\tmc-5d-round\C` still holds the copy from `92fbb4a`; the next
+  sitting takes its scripts from the new commits.
