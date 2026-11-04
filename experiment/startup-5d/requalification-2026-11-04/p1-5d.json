@@ -1,0 +1,113 @@
+{
+ "build": "5d",
+ "phase": "dedup_backfill_mention, page 1's in-span history rows",
+ "launches": [
+  {
+   "position": 1,
+   "label": "R5-base-1",
+   "inject": "",
+   "value_ms": 59.3,
+   "rank": 7.0
+  },
+  {
+   "position": 2,
+   "label": "R5-mention",
+   "inject": "mention",
+   "value_ms": 26.4,
+   "rank": 2.0
+  },
+  {
+   "position": 3,
+   "label": "R5-reconcile",
+   "inject": "reconcile",
+   "value_ms": 64.4,
+   "rank": 9.0
+  },
+  {
+   "position": 4,
+   "label": "R5-buddy",
+   "inject": "buddy",
+   "value_ms": 58.7,
+   "rank": 6.0
+  },
+  {
+   "position": 5,
+   "label": "R5-hidden",
+   "inject": "hidden",
+   "value_ms": 61.6,
+   "rank": 8.0
+  },
+  {
+   "position": 6,
+   "label": "R5-beforeinsert",
+   "inject": "beforeinsert",
+   "value_ms": 80.1,
+   "rank": 14.0
+  },
+  {
+   "position": 7,
+   "label": "R5-insert",
+   "inject": "insert",
+   "value_ms": 73.9,
+   "rank": 12.0
+  },
+  {
+   "position": 8,
+   "label": "R5-base-2-r1",
+   "inject": "",
+   "value_ms": 48.4,
+   "rank": 5.0
+  },
+  {
+   "position": 9,
+   "label": "R5-follow",
+   "inject": "follow",
+   "value_ms": 67.9,
+   "rank": 10.0
+  },
+  {
+   "position": 10,
+   "label": "R5-build",
+   "inject": "build",
+   "value_ms": 28.2,
+   "rank": 3.0
+  },
+  {
+   "position": 11,
+   "label": "R5-gap",
+   "inject": "gap",
+   "value_ms": 45.2,
+   "rank": 4.0
+  },
+  {
+   "position": 12,
+   "label": "R5-app",
+   "inject": "app",
+   "value_ms": 20.6,
+   "rank": 1.0
+  },
+  {
+   "position": 13,
+   "label": "R5-stall",
+   "inject": "stall",
+   "value_ms": 79.2,
+   "rank": 13.0
+  },
+  {
+   "position": 14,
+   "label": "R5-base-3",
+   "inject": "",
+   "value_ms": 69.9,
+   "rank": 11.0
+  }
+ ],
+ "baselines_positions": [
+  1,
+  8,
+  14
+ ],
+ "baselines_rank_sum": 23.0,
+ "exact_p_baselines_rank_this_high": 0.5,
+ "P1_holds": true,
+ "P2_first_baseline_highest": false
+}

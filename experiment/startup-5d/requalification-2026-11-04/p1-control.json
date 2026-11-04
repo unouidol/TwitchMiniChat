@@ -1,0 +1,113 @@
+{
+ "build": "control",
+ "phase": "timeline_insert, page 1's in-span history rows",
+ "launches": [
+  {
+   "position": 1,
+   "label": "Rc-base-1",
+   "inject": "",
+   "value_ms": 622.8,
+   "rank": 5.0
+  },
+  {
+   "position": 2,
+   "label": "Rc-mention-r1",
+   "inject": "mention",
+   "value_ms": 613.0,
+   "rank": 2.0
+  },
+  {
+   "position": 3,
+   "label": "Rc-reconcile",
+   "inject": "reconcile",
+   "value_ms": 630.4,
+   "rank": 10.0
+  },
+  {
+   "position": 4,
+   "label": "Rc-buddy",
+   "inject": "buddy",
+   "value_ms": 645.5,
+   "rank": 14.0
+  },
+  {
+   "position": 5,
+   "label": "Rc-hidden",
+   "inject": "hidden",
+   "value_ms": 618.1,
+   "rank": 3.0
+  },
+  {
+   "position": 6,
+   "label": "Rc-beforeinsert",
+   "inject": "beforeinsert",
+   "value_ms": 622.6,
+   "rank": 4.0
+  },
+  {
+   "position": 7,
+   "label": "Rc-insert",
+   "inject": "insert",
+   "value_ms": 632.6,
+   "rank": 11.0
+  },
+  {
+   "position": 8,
+   "label": "Rc-base-2",
+   "inject": "",
+   "value_ms": 629.6,
+   "rank": 9.0
+  },
+  {
+   "position": 9,
+   "label": "Rc-follow",
+   "inject": "follow",
+   "value_ms": 626.2,
+   "rank": 7.0
+  },
+  {
+   "position": 10,
+   "label": "Rc-build",
+   "inject": "build",
+   "value_ms": 625.9,
+   "rank": 6.0
+  },
+  {
+   "position": 11,
+   "label": "Rc-gap",
+   "inject": "gap",
+   "value_ms": 594.1,
+   "rank": 1.0
+  },
+  {
+   "position": 12,
+   "label": "Rc-app-r1",
+   "inject": "app",
+   "value_ms": 644.3,
+   "rank": 13.0
+  },
+  {
+   "position": 13,
+   "label": "Rc-stall",
+   "inject": "stall",
+   "value_ms": 634.5,
+   "rank": 12.0
+  },
+  {
+   "position": 14,
+   "label": "Rc-base-3",
+   "inject": "",
+   "value_ms": 626.4,
+   "rank": 8.0
+  }
+ ],
+ "baselines_positions": [
+  1,
+  8,
+  14
+ ],
+ "baselines_rank_sum": 22.0,
+ "exact_p_baselines_rank_this_high": 0.5577,
+ "P1_holds": true,
+ "P2_first_baseline_highest": false
+}
