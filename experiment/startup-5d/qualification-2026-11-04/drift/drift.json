@@ -1,0 +1,1858 @@
+{
+ "control": {
+  "launches": [
+   "Sc-base-1",
+   "Sc-base-2-r1",
+   "Sc-base-3",
+   "Sc-mention",
+   "Sc-reconcile",
+   "Sc-buddy",
+   "Sc-hidden",
+   "Sc-beforeinsert",
+   "Sc-insert",
+   "Sc-follow",
+   "Sc-build",
+   "Sc-gap-r2",
+   "Sc-app",
+   "Sc-stall"
+  ],
+  "series": {
+   "P1:timeline_insert": {
+    "values": [
+     717.2,
+     747.7,
+     685.4,
+     669.9,
+     656.3,
+     671.2,
+     657.6,
+     690.7,
+     649.5,
+     659.4,
+     672.0,
+     668.3,
+     676.3,
+     637.3
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 7,
+    "steps": 13,
+    "spearman_vs_position": -0.508,
+    "spearman_p_two_sided_perm": 0.06653,
+    "baselines": [
+     717.2,
+     747.7,
+     685.4
+    ],
+    "injections": [
+     669.9,
+     656.3,
+     671.2,
+     657.6,
+     690.7,
+     649.5,
+     659.4,
+     672.0,
+     668.3,
+     676.3,
+     637.3
+    ],
+    "baselines_median": 717.2,
+    "injections_median": 668.3,
+    "gap_medians": 48.9,
+    "gap_lowest_baseline_minus_highest_injection": -5.4,
+    "injections_above_lowest_baseline": 1,
+    "baselines_rank_sum": 38.0,
+    "baselines_higher_exact_p": 0.0055
+   },
+   "P1:timeline_insert_of_which_view_build": {
+    "values": [
+     667.7,
+     696.9,
+     638.1,
+     622.6,
+     609.9,
+     624.7,
+     611.5,
+     642.8,
+     603.7,
+     613.8,
+     625.8,
+     621.7,
+     629.6,
+     591.8
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 7,
+    "steps": 13,
+    "spearman_vs_position": -0.508,
+    "spearman_p_two_sided_perm": 0.06653,
+    "baselines": [
+     667.7,
+     696.9,
+     638.1
+    ],
+    "injections": [
+     622.6,
+     609.9,
+     624.7,
+     611.5,
+     642.8,
+     603.7,
+     613.8,
+     625.8,
+     621.7,
+     629.6,
+     591.8
+    ],
+    "baselines_median": 667.7,
+    "injections_median": 621.7,
+    "gap_medians": 46.0,
+    "gap_lowest_baseline_minus_highest_injection": -4.7,
+    "injections_above_lowest_baseline": 1,
+    "baselines_rank_sum": 38.0,
+    "baselines_higher_exact_p": 0.0055
+   },
+   "P1:follow_or_count_composer_restore": {
+    "values": [
+     71.5,
+     80.8,
+     65.5,
+     64.9,
+     56.5,
+     64.8,
+     56.4,
+     68.4,
+     56.1,
+     63.5,
+     64.0,
+     63.6,
+     59.2,
+     52.6
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 8,
+    "steps": 13,
+    "spearman_vs_position": -0.675,
+    "spearman_p_two_sided_perm": 0.01001,
+    "baselines": [
+     71.5,
+     80.8,
+     65.5
+    ],
+    "injections": [
+     64.9,
+     56.5,
+     64.8,
+     56.4,
+     68.4,
+     56.1,
+     63.5,
+     64.0,
+     63.6,
+     59.2,
+     52.6
+    ],
+    "baselines_median": 71.5,
+    "injections_median": 63.5,
+    "gap_medians": 8.0,
+    "gap_lowest_baseline_minus_highest_injection": -2.9,
+    "injections_above_lowest_baseline": 1,
+    "baselines_rank_sum": 38.0,
+    "baselines_higher_exact_p": 0.0055
+   },
+   "P1:whole_row_sum": {
+    "values": [
+     869.0,
+     909.2,
+     825.3,
+     809.3,
+     788.5,
+     811.0,
+     789.3,
+     835.5,
+     780.2,
+     797.9,
+     812.3,
+     808.1,
+     812.0,
+     763.6
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 7,
+    "steps": 13,
+    "spearman_vs_position": -0.516,
+    "spearman_p_two_sided_perm": 0.06123,
+    "baselines": [
+     869.0,
+     909.2,
+     825.3
+    ],
+    "injections": [
+     809.3,
+     788.5,
+     811.0,
+     789.3,
+     835.5,
+     780.2,
+     797.9,
+     812.3,
+     808.1,
+     812.0,
+     763.6
+    ],
+    "baselines_median": 869.0,
+    "injections_median": 808.1,
+    "gap_medians": 60.9,
+    "gap_lowest_baseline_minus_highest_injection": -10.2,
+    "injections_above_lowest_baseline": 1,
+    "baselines_rank_sum": 38.0,
+    "baselines_higher_exact_p": 0.0055
+   },
+   "P0early:timeline_insert": {
+    "values": [
+     231.5,
+     203.4,
+     229.6,
+     224.9,
+     204.4,
+     204.2,
+     189.4,
+     225.6,
+     183.7,
+     231.2,
+     198.7,
+     191.3,
+     193.8,
+     199.9
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 8,
+    "steps": 13,
+    "spearman_vs_position": -0.538,
+    "spearman_p_two_sided_perm": 0.05006,
+    "baselines": [
+     231.5,
+     203.4,
+     229.6
+    ],
+    "injections": [
+     224.9,
+     204.4,
+     204.2,
+     189.4,
+     225.6,
+     183.7,
+     231.2,
+     198.7,
+     191.3,
+     193.8,
+     199.9
+    ],
+    "baselines_median": 229.6,
+    "injections_median": 199.9,
+    "gap_medians": 29.7,
+    "gap_lowest_baseline_minus_highest_injection": -27.9,
+    "injections_above_lowest_baseline": 5,
+    "baselines_rank_sum": 33.0,
+    "baselines_higher_exact_p": 0.0632
+   },
+   "P0early:timeline_insert_of_which_view_build": {
+    "values": [
+     216.4,
+     188.1,
+     215.0,
+     209.7,
+     189.3,
+     189.0,
+     175.4,
+     210.4,
+     169.4,
+     216.3,
+     185.6,
+     176.8,
+     178.9,
+     185.7
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 8,
+    "steps": 13,
+    "spearman_vs_position": -0.538,
+    "spearman_p_two_sided_perm": 0.05006,
+    "baselines": [
+     216.4,
+     188.1,
+     215.0
+    ],
+    "injections": [
+     209.7,
+     189.3,
+     189.0,
+     175.4,
+     210.4,
+     169.4,
+     216.3,
+     185.6,
+     176.8,
+     178.9,
+     185.7
+    ],
+    "baselines_median": 215.0,
+    "injections_median": 185.7,
+    "gap_medians": 29.3,
+    "gap_lowest_baseline_minus_highest_injection": -28.2,
+    "injections_above_lowest_baseline": 5,
+    "baselines_rank_sum": 33.0,
+    "baselines_higher_exact_p": 0.0632
+   },
+   "P0early:follow_or_count_composer_restore": {
+    "values": [
+     6.0,
+     7.0,
+     6.9,
+     6.8,
+     6.6,
+     6.9,
+     6.0,
+     7.8,
+     6.3,
+     8.2,
+     7.9,
+     8.3,
+     6.5,
+     6.1
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 8,
+    "steps": 13,
+    "spearman_vs_position": 0.196,
+    "spearman_p_two_sided_perm": 0.50057,
+    "baselines": [
+     6.0,
+     7.0,
+     6.9
+    ],
+    "injections": [
+     6.8,
+     6.6,
+     6.9,
+     6.0,
+     7.8,
+     6.3,
+     8.2,
+     7.9,
+     8.3,
+     6.5,
+     6.1
+    ],
+    "baselines_median": 6.9,
+    "injections_median": 6.8,
+    "gap_medians": 0.0,
+    "gap_lowest_baseline_minus_highest_injection": -2.3,
+    "injections_above_lowest_baseline": 11,
+    "baselines_rank_sum": 19.0,
+    "baselines_higher_exact_p": 0.7225
+   },
+   "P0early:whole_row_sum": {
+    "values": [
+     269.2,
+     239.5,
+     264.0,
+     261.5,
+     242.5,
+     242.1,
+     223.0,
+     262.4,
+     218.6,
+     266.1,
+     232.5,
+     231.6,
+     233.0,
+     234.9
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 8,
+    "steps": 13,
+    "spearman_vs_position": -0.53,
+    "spearman_p_two_sided_perm": 0.054945,
+    "baselines": [
+     269.2,
+     239.5,
+     264.0
+    ],
+    "injections": [
+     261.5,
+     242.5,
+     242.1,
+     223.0,
+     262.4,
+     218.6,
+     266.1,
+     232.5,
+     231.6,
+     233.0,
+     234.9
+    ],
+    "baselines_median": 264.0,
+    "injections_median": 234.9,
+    "gap_medians": 29.1,
+    "gap_lowest_baseline_minus_highest_injection": -26.6,
+    "injections_above_lowest_baseline": 5,
+    "baselines_rank_sum": 33.0,
+    "baselines_higher_exact_p": 0.0632
+   }
+  },
+  "rows_and_ages": {
+   "Sc-base-1": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3317.0512485,
+     "age_first_last_ms": [
+      2852.794843,
+      3786.356769
+     ],
+     "whole_row_median_us": 2128.4114999999997
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1628.552187,
+     "age_first_last_ms": [
+      1480.031718,
+      1764.912812
+     ],
+     "whole_row_median_us": 2847.3959999999997
+    }
+   },
+   "Sc-base-2-r1": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3416.4581239999998,
+     "age_first_last_ms": [
+      2942.452812,
+      4106.243853
+     ],
+     "whole_row_median_us": 2229.5315
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1879.749635,
+     "age_first_last_ms": [
+      1746.158645,
+      2085.410677
+     ],
+     "whole_row_median_us": 2648.542
+    }
+   },
+   "Sc-base-3": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3258.233879,
+     "age_first_last_ms": [
+      2829.456093,
+      3716.357499
+     ],
+     "whole_row_median_us": 2005.2865
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1767.371145,
+     "age_first_last_ms": [
+      1619.156301,
+      1896.372135
+     ],
+     "whole_row_median_us": 2850.4170000000004
+    }
+   },
+   "Sc-mention": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3430.7963005,
+     "age_first_last_ms": [
+      3006.221405,
+      3878.216613
+     ],
+     "whole_row_median_us": 1986.0935
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1667.596301,
+     "age_first_last_ms": [
+      1526.529531,
+      1802.267499
+     ],
+     "whole_row_median_us": 2827.8120000000004
+    }
+   },
+   "Sc-reconcile": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3292.6776025,
+     "age_first_last_ms": [
+      2882.257811,
+      3727.961717
+     ],
+     "whole_row_median_us": 1922.8385
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1588.505416,
+     "age_first_last_ms": [
+      1456.599895,
+      1713.284635
+     ],
+     "whole_row_median_us": 2603.438
+    }
+   },
+   "Sc-buddy": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3332.608124,
+     "age_first_last_ms": [
+      2914.161874,
+      3784.695519
+     ],
+     "whole_row_median_us": 1970.2865000000002
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1662.746041,
+     "age_first_last_ms": [
+      1475.250624,
+      1784.624895
+     ],
+     "whole_row_median_us": 2583.23
+    }
+   },
+   "Sc-hidden": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3342.1856755,
+     "age_first_last_ms": [
+      2925.726457,
+      3774.374217
+     ],
+     "whole_row_median_us": 1926.771
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1644.083645,
+     "age_first_last_ms": [
+      1518.999895,
+      1755.101614
+     ],
+     "whole_row_median_us": 2389.218
+    }
+   },
+   "Sc-beforeinsert": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3456.6273170000004,
+     "age_first_last_ms": [
+      2996.610155,
+      3890.666561
+     ],
+     "whole_row_median_us": 2051.5365
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1781.922448,
+     "age_first_last_ms": [
+      1639.536406,
+      1996.231875
+     ],
+     "whole_row_median_us": 2782.552
+    }
+   },
+   "Sc-insert": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3276.6941134999997,
+     "age_first_last_ms": [
+      2861.156978,
+      3696.708384
+     ],
+     "whole_row_median_us": 1900.807
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1634.728281,
+     "age_first_last_ms": [
+      1512.06427,
+      1743.887135
+     ],
+     "whole_row_median_us": 2342.8650000000002
+    }
+   },
+   "Sc-follow": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3358.437317,
+     "age_first_last_ms": [
+      2696.207812,
+      3797.513905
+     ],
+     "whole_row_median_us": 1936.0420000000001
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1862.361041,
+     "age_first_last_ms": [
+      1648.135937,
+      1991.160989
+     ],
+     "whole_row_median_us": 2724.583
+    }
+   },
+   "Sc-build": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3246.5268210000004,
+     "age_first_last_ms": [
+      2809.247759,
+      3678.545363
+     ],
+     "whole_row_median_us": 1990.625
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1802.141353,
+     "age_first_last_ms": [
+      1678.138645,
+      1923.94604
+     ],
+     "whole_row_median_us": 2412.031
+    }
+   },
+   "Sc-gap-r2": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3452.871639,
+     "age_first_last_ms": [
+      2889.508384,
+      3884.924165
+     ],
+     "whole_row_median_us": 1970.1309999999999
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1806.003176,
+     "age_first_last_ms": [
+      1628.054114,
+      1923.25302
+     ],
+     "whole_row_median_us": 2494.2709999999997
+    }
+   },
+   "Sc-app": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3110.136144,
+     "age_first_last_ms": [
+      2662.865207,
+      3720.517134
+     ],
+     "whole_row_median_us": 1969.193
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1702.129686,
+     "age_first_last_ms": [
+      1577.01552,
+      1900.399009
+     ],
+     "whole_row_median_us": 2529.0099999999998
+    }
+   },
+   "Sc-stall": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 3249.6470045,
+     "age_first_last_ms": [
+      2828.852343,
+      3658.864322
+     ],
+     "whole_row_median_us": 1836.5365
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1729.375,
+     "age_first_last_ms": [
+      1598.877344,
+      1848.697448
+     ],
+     "whole_row_median_us": 2475.52
+    }
+   }
+  },
+  "all_segments": {
+   "Sc-base-1": {
+    "P1": {
+     "dedup_backfill_mention": 42.5,
+     "timestamp_echo_reconcile": 17.3,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 17.7,
+     "composer_snapshot_follow_decision": 1.7,
+     "timeline_insert": 717.2,
+     "follow_or_count_composer_restore": 71.5,
+     "timeline_insert_of_which_view_build": 667.7,
+     "timeline_insert_without_view_build": 49.4
+    },
+    "P0early": {
+     "dedup_backfill_mention": 17.5,
+     "timestamp_echo_reconcile": 7.8,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.4,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 231.5,
+     "follow_or_count_composer_restore": 6.0,
+     "timeline_insert_of_which_view_build": 216.4,
+     "timeline_insert_without_view_build": 15.1
+    }
+   },
+   "Sc-base-2-r1": {
+    "P1": {
+     "dedup_backfill_mention": 41.9,
+     "timestamp_echo_reconcile": 17.9,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 17.9,
+     "composer_snapshot_follow_decision": 1.7,
+     "timeline_insert": 747.7,
+     "follow_or_count_composer_restore": 80.8,
+     "timeline_insert_of_which_view_build": 696.9,
+     "timeline_insert_without_view_build": 50.8
+    },
+    "P0early": {
+     "dedup_backfill_mention": 14.5,
+     "timestamp_echo_reconcile": 8.2,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.4,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 203.4,
+     "follow_or_count_composer_restore": 7.0,
+     "timeline_insert_of_which_view_build": 188.1,
+     "timeline_insert_without_view_build": 15.3
+    }
+   },
+   "Sc-base-3": {
+    "P1": {
+     "dedup_backfill_mention": 38.3,
+     "timestamp_echo_reconcile": 16.9,
+     "buddy_capture": 1.2,
+     "hidden_user_check": 16.5,
+     "composer_snapshot_follow_decision": 1.6,
+     "timeline_insert": 685.4,
+     "follow_or_count_composer_restore": 65.5,
+     "timeline_insert_of_which_view_build": 638.1,
+     "timeline_insert_without_view_build": 47.3
+    },
+    "P0early": {
+     "dedup_backfill_mention": 13.6,
+     "timestamp_echo_reconcile": 7.6,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.3,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 229.6,
+     "follow_or_count_composer_restore": 6.9,
+     "timeline_insert_of_which_view_build": 215.0,
+     "timeline_insert_without_view_build": 14.6
+    }
+   },
+   "Sc-mention": {
+    "P1": {
+     "dedup_backfill_mention": 38.8,
+     "timestamp_echo_reconcile": 16.4,
+     "buddy_capture": 1.2,
+     "hidden_user_check": 16.2,
+     "composer_snapshot_follow_decision": 1.7,
+     "timeline_insert": 669.9,
+     "follow_or_count_composer_restore": 64.9,
+     "timeline_insert_of_which_view_build": 622.6,
+     "timeline_insert_without_view_build": 47.3
+    },
+    "P0early": {
+     "dedup_backfill_mention": 15.3,
+     "timestamp_echo_reconcile": 8.1,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.3,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 224.9,
+     "follow_or_count_composer_restore": 6.8,
+     "timeline_insert_of_which_view_build": 209.7,
+     "timeline_insert_without_view_build": 15.2
+    }
+   },
+   "Sc-reconcile": {
+    "P1": {
+     "dedup_backfill_mention": 39.6,
+     "timestamp_echo_reconcile": 16.7,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 16.5,
+     "composer_snapshot_follow_decision": 1.7,
+     "timeline_insert": 656.3,
+     "follow_or_count_composer_restore": 56.5,
+     "timeline_insert_of_which_view_build": 609.9,
+     "timeline_insert_without_view_build": 46.4
+    },
+    "P0early": {
+     "dedup_backfill_mention": 15.7,
+     "timestamp_echo_reconcile": 9.0,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.8,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 204.4,
+     "follow_or_count_composer_restore": 6.6,
+     "timeline_insert_of_which_view_build": 189.3,
+     "timeline_insert_without_view_build": 15.1
+    }
+   },
+   "Sc-buddy": {
+    "P1": {
+     "dedup_backfill_mention": 38.9,
+     "timestamp_echo_reconcile": 16.8,
+     "buddy_capture": 1.4,
+     "hidden_user_check": 16.3,
+     "composer_snapshot_follow_decision": 1.7,
+     "timeline_insert": 671.2,
+     "follow_or_count_composer_restore": 64.8,
+     "timeline_insert_of_which_view_build": 624.7,
+     "timeline_insert_without_view_build": 46.5
+    },
+    "P0early": {
+     "dedup_backfill_mention": 15.4,
+     "timestamp_echo_reconcile": 8.4,
+     "buddy_capture": 0.9,
+     "hidden_user_check": 5.7,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 204.2,
+     "follow_or_count_composer_restore": 6.9,
+     "timeline_insert_of_which_view_build": 189.0,
+     "timeline_insert_without_view_build": 15.1
+    }
+   },
+   "Sc-hidden": {
+    "P1": {
+     "dedup_backfill_mention": 39.2,
+     "timestamp_echo_reconcile": 17.0,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 16.4,
+     "composer_snapshot_follow_decision": 1.6,
+     "timeline_insert": 657.6,
+     "follow_or_count_composer_restore": 56.4,
+     "timeline_insert_of_which_view_build": 611.5,
+     "timeline_insert_without_view_build": 46.1
+    },
+    "P0early": {
+     "dedup_backfill_mention": 13.6,
+     "timestamp_echo_reconcile": 7.5,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.5,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 189.4,
+     "follow_or_count_composer_restore": 6.0,
+     "timeline_insert_of_which_view_build": 175.4,
+     "timeline_insert_without_view_build": 14.0
+    }
+   },
+   "Sc-beforeinsert": {
+    "P1": {
+     "dedup_backfill_mention": 40.0,
+     "timestamp_echo_reconcile": 16.8,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 16.7,
+     "composer_snapshot_follow_decision": 1.8,
+     "timeline_insert": 690.7,
+     "follow_or_count_composer_restore": 68.4,
+     "timeline_insert_of_which_view_build": 642.8,
+     "timeline_insert_without_view_build": 47.9
+    },
+    "P0early": {
+     "dedup_backfill_mention": 13.9,
+     "timestamp_echo_reconcile": 7.8,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.7,
+     "composer_snapshot_follow_decision": 1.2,
+     "timeline_insert": 225.6,
+     "follow_or_count_composer_restore": 7.8,
+     "timeline_insert_of_which_view_build": 210.4,
+     "timeline_insert_without_view_build": 15.2
+    }
+   },
+   "Sc-insert": {
+    "P1": {
+     "dedup_backfill_mention": 38.8,
+     "timestamp_echo_reconcile": 16.4,
+     "buddy_capture": 1.2,
+     "hidden_user_check": 16.4,
+     "composer_snapshot_follow_decision": 1.7,
+     "timeline_insert": 649.5,
+     "follow_or_count_composer_restore": 56.1,
+     "timeline_insert_of_which_view_build": 603.7,
+     "timeline_insert_without_view_build": 45.8
+    },
+    "P0early": {
+     "dedup_backfill_mention": 13.9,
+     "timestamp_echo_reconcile": 8.3,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.5,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 183.7,
+     "follow_or_count_composer_restore": 6.3,
+     "timeline_insert_of_which_view_build": 169.4,
+     "timeline_insert_without_view_build": 14.2
+    }
+   },
+   "Sc-follow": {
+    "P1": {
+     "dedup_backfill_mention": 38.9,
+     "timestamp_echo_reconcile": 17.1,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 16.1,
+     "composer_snapshot_follow_decision": 1.7,
+     "timeline_insert": 659.4,
+     "follow_or_count_composer_restore": 63.5,
+     "timeline_insert_of_which_view_build": 613.8,
+     "timeline_insert_without_view_build": 45.6
+    },
+    "P0early": {
+     "dedup_backfill_mention": 13.0,
+     "timestamp_echo_reconcile": 7.5,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.2,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 231.2,
+     "follow_or_count_composer_restore": 8.2,
+     "timeline_insert_of_which_view_build": 216.3,
+     "timeline_insert_without_view_build": 15.0
+    }
+   },
+   "Sc-build": {
+    "P1": {
+     "dedup_backfill_mention": 40.1,
+     "timestamp_echo_reconcile": 17.1,
+     "buddy_capture": 1.2,
+     "hidden_user_check": 16.4,
+     "composer_snapshot_follow_decision": 1.6,
+     "timeline_insert": 672.0,
+     "follow_or_count_composer_restore": 64.0,
+     "timeline_insert_of_which_view_build": 625.8,
+     "timeline_insert_without_view_build": 46.2
+    },
+    "P0early": {
+     "dedup_backfill_mention": 12.7,
+     "timestamp_echo_reconcile": 7.2,
+     "buddy_capture": 0.5,
+     "hidden_user_check": 5.0,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 198.7,
+     "follow_or_count_composer_restore": 7.9,
+     "timeline_insert_of_which_view_build": 185.6,
+     "timeline_insert_without_view_build": 13.0
+    }
+   },
+   "Sc-gap-r2": {
+    "P1": {
+     "dedup_backfill_mention": 40.0,
+     "timestamp_echo_reconcile": 16.8,
+     "buddy_capture": 1.2,
+     "hidden_user_check": 16.7,
+     "composer_snapshot_follow_decision": 1.6,
+     "timeline_insert": 668.3,
+     "follow_or_count_composer_restore": 63.6,
+     "timeline_insert_of_which_view_build": 621.7,
+     "timeline_insert_without_view_build": 46.6
+    },
+    "P0early": {
+     "dedup_backfill_mention": 16.7,
+     "timestamp_echo_reconcile": 8.8,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.6,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 191.3,
+     "follow_or_count_composer_restore": 8.3,
+     "timeline_insert_of_which_view_build": 176.8,
+     "timeline_insert_without_view_build": 14.5
+    }
+   },
+   "Sc-app": {
+    "P1": {
+     "dedup_backfill_mention": 40.5,
+     "timestamp_echo_reconcile": 16.5,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 16.7,
+     "composer_snapshot_follow_decision": 1.8,
+     "timeline_insert": 676.3,
+     "follow_or_count_composer_restore": 59.2,
+     "timeline_insert_of_which_view_build": 629.6,
+     "timeline_insert_without_view_build": 46.7
+    },
+    "P0early": {
+     "dedup_backfill_mention": 17.2,
+     "timestamp_echo_reconcile": 8.6,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 5.8,
+     "composer_snapshot_follow_decision": 0.7,
+     "timeline_insert": 193.8,
+     "follow_or_count_composer_restore": 6.5,
+     "timeline_insert_of_which_view_build": 178.9,
+     "timeline_insert_without_view_build": 15.0
+    }
+   },
+   "Sc-stall": {
+    "P1": {
+     "dedup_backfill_mention": 38.8,
+     "timestamp_echo_reconcile": 16.7,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 15.3,
+     "composer_snapshot_follow_decision": 1.8,
+     "timeline_insert": 637.3,
+     "follow_or_count_composer_restore": 52.6,
+     "timeline_insert_of_which_view_build": 591.8,
+     "timeline_insert_without_view_build": 45.5
+    },
+    "P0early": {
+     "dedup_backfill_mention": 14.8,
+     "timestamp_echo_reconcile": 7.8,
+     "buddy_capture": 0.5,
+     "hidden_user_check": 5.3,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 199.9,
+     "follow_or_count_composer_restore": 6.1,
+     "timeline_insert_of_which_view_build": 185.7,
+     "timeline_insert_without_view_build": 14.3
+    }
+   }
+  }
+ },
+ "5d": {
+  "launches": [
+   "S5-base-1",
+   "S5-base-2",
+   "S5-base-3",
+   "S5-mention",
+   "S5-reconcile",
+   "S5-buddy-r2",
+   "S5-hidden",
+   "S5-beforeinsert",
+   "S5-insert",
+   "S5-follow",
+   "S5-build",
+   "S5-gap",
+   "S5-app",
+   "S5-stall-r1"
+  ],
+  "series": {
+   "P1:dedup_backfill_mention": {
+    "values": [
+     90.7,
+     95.8,
+     79.0,
+     93.4,
+     67.7,
+     69.7,
+     71.9,
+     26.6,
+     76.0,
+     46.9,
+     44.9,
+     83.8,
+     84.4,
+     67.1
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 6,
+    "steps": 13,
+    "spearman_vs_position": -0.473,
+    "spearman_p_two_sided_perm": 0.089935,
+    "baselines": [
+     90.7,
+     95.8,
+     79.0
+    ],
+    "injections": [
+     93.4,
+     67.7,
+     69.7,
+     71.9,
+     26.6,
+     76.0,
+     46.9,
+     44.9,
+     83.8,
+     84.4,
+     67.1
+    ],
+    "baselines_median": 90.7,
+    "injections_median": 69.7,
+    "gap_medians": 21.0,
+    "gap_lowest_baseline_minus_highest_injection": -14.4,
+    "injections_above_lowest_baseline": 3,
+    "baselines_rank_sum": 35.0,
+    "baselines_higher_exact_p": 0.0302
+   },
+   "P1:whole_row_sum": {
+    "values": [
+     160.3,
+     163.0,
+     139.3,
+     167.3,
+     125.7,
+     141.5,
+     146.1,
+     73.7,
+     156.0,
+     102.1,
+     101.8,
+     154.5,
+     157.5,
+     131.9
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 6,
+    "steps": 13,
+    "spearman_vs_position": -0.38,
+    "spearman_p_two_sided_perm": 0.181215,
+    "baselines": [
+     160.3,
+     163.0,
+     139.3
+    ],
+    "injections": [
+     167.3,
+     125.7,
+     141.5,
+     146.1,
+     73.7,
+     156.0,
+     102.1,
+     101.8,
+     154.5,
+     157.5,
+     131.9
+    ],
+    "baselines_median": 160.3,
+    "injections_median": 141.5,
+    "gap_medians": 18.8,
+    "gap_lowest_baseline_minus_highest_injection": -28.0,
+    "injections_above_lowest_baseline": 6,
+    "baselines_rank_sum": 31.0,
+    "baselines_higher_exact_p": 0.1126
+   },
+   "P0early:dedup_backfill_mention": {
+    "values": [
+     11.4,
+     14.6,
+     16.4,
+     14.0,
+     15.7,
+     10.4,
+     9.6,
+     12.6,
+     12.6,
+     12.2,
+     15.7,
+     12.6,
+     12.0,
+     11.0
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 7,
+    "steps": 13,
+    "spearman_vs_position": -0.27,
+    "spearman_p_two_sided_perm": 0.34899,
+    "baselines": [
+     11.4,
+     14.6,
+     16.4
+    ],
+    "injections": [
+     14.0,
+     15.7,
+     10.4,
+     9.6,
+     12.6,
+     12.6,
+     12.2,
+     15.7,
+     12.6,
+     12.0,
+     11.0
+    ],
+    "baselines_median": 14.6,
+    "injections_median": 12.6,
+    "gap_medians": 2.1,
+    "gap_lowest_baseline_minus_highest_injection": -4.3,
+    "injections_above_lowest_baseline": 8,
+    "baselines_rank_sum": 29.0,
+    "baselines_higher_exact_p": 0.1841
+   },
+   "P0early:whole_row_sum": {
+    "values": [
+     28.5,
+     32.3,
+     36.5,
+     31.5,
+     32.6,
+     28.3,
+     26.6,
+     32.3,
+     35.2,
+     31.2,
+     33.6,
+     28.5,
+     28.3,
+     28.3
+    ],
+    "falls_monotonically": false,
+    "decreasing_steps": 6,
+    "steps": 13,
+    "spearman_vs_position": -0.314,
+    "spearman_p_two_sided_perm": 0.27164,
+    "baselines": [
+     28.5,
+     32.3,
+     36.5
+    ],
+    "injections": [
+     31.5,
+     32.6,
+     28.3,
+     26.6,
+     32.3,
+     35.2,
+     31.2,
+     33.6,
+     28.5,
+     28.3,
+     28.3
+    ],
+    "baselines_median": 32.3,
+    "injections_median": 31.2,
+    "gap_medians": 1.1,
+    "gap_lowest_baseline_minus_highest_injection": -6.8,
+    "injections_above_lowest_baseline": 7,
+    "baselines_rank_sum": 29.0,
+    "baselines_higher_exact_p": 0.1841
+   }
+  },
+  "rows_and_ages": {
+   "S5-base-1": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2127.5199475,
+     "age_first_last_ms": [
+      1925.172187,
+      2251.379114
+     ],
+     "whole_row_median_us": 402.1355
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1733.667812,
+     "age_first_last_ms": [
+      1620.458802,
+      1752.710833
+     ],
+     "whole_row_median_us": 306.406
+    }
+   },
+   "S5-base-2": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2139.722525,
+     "age_first_last_ms": [
+      2050.298436,
+      2258.515363
+     ],
+     "whole_row_median_us": 384.86949999999996
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1612.990989,
+     "age_first_last_ms": [
+      1591.803072,
+      1634.718228
+     ],
+     "whole_row_median_us": 340.208
+    }
+   },
+   "S5-base-3": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2130.8021605000004,
+     "age_first_last_ms": [
+      2047.658072,
+      2228.327447
+     ],
+     "whole_row_median_us": 354.6355
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1583.888801,
+     "age_first_last_ms": [
+      1421.795989,
+      1615.019062
+     ],
+     "whole_row_median_us": 391.197
+    }
+   },
+   "S5-mention": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2053.8909885000003,
+     "age_first_last_ms": [
+      1953.043176,
+      2167.384791
+     ],
+     "whole_row_median_us": 419.6875
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1453.564843,
+     "age_first_last_ms": [
+      1434.356718,
+      1476.767603
+     ],
+     "whole_row_median_us": 347.76
+    }
+   },
+   "S5-reconcile": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2277.5471079999998,
+     "age_first_last_ms": [
+      2181.447291,
+      2361.395207
+     ],
+     "whole_row_median_us": 318.9585
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1574.387916,
+     "age_first_last_ms": [
+      1552.902343,
+      1716.007551
+     ],
+     "whole_row_median_us": 361.875
+    }
+   },
+   "S5-buddy-r2": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2047.28091,
+     "age_first_last_ms": [
+      1961.188176,
+      2146.573228
+     ],
+     "whole_row_median_us": 359.2185
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1457.27927,
+     "age_first_last_ms": [
+      1427.504687,
+      1477.102655
+     ],
+     "whole_row_median_us": 305.31199999999995
+    }
+   },
+   "S5-hidden": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 1988.7692705,
+     "age_first_last_ms": [
+      1899.721458,
+      2089.784114
+     ],
+     "whole_row_median_us": 369.47950000000003
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1424.111823,
+     "age_first_last_ms": [
+      1405.166771,
+      1442.257969
+     ],
+     "whole_row_median_us": 277.91700000000003
+    }
+   },
+   "S5-beforeinsert": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2244.076484,
+     "age_first_last_ms": [
+      2180.775468,
+      2292.310885
+     ],
+     "whole_row_median_us": 175.938
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1586.233385,
+     "age_first_last_ms": [
+      1562.73875,
+      1703.485833
+     ],
+     "whole_row_median_us": 350.05199999999996
+    }
+   },
+   "S5-insert": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2102.027421,
+     "age_first_last_ms": [
+      2012.836614,
+      2218.533645
+     ],
+     "whole_row_median_us": 399.896
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1452.690051,
+     "age_first_last_ms": [
+      1426.431145,
+      1474.482499
+     ],
+     "whole_row_median_us": 373.594
+    }
+   },
+   "S5-follow": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2266.47677,
+     "age_first_last_ms": [
+      1922.690416,
+      2350.900312
+     ],
+     "whole_row_median_us": 267.44800000000004
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1698.57651,
+     "age_first_last_ms": [
+      1584.406666,
+      1719.744479
+     ],
+     "whole_row_median_us": 330.104
+    }
+   },
+   "S5-build": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2260.808723,
+     "age_first_last_ms": [
+      2154.132655,
+      2482.164686
+     ],
+     "whole_row_median_us": 260.70300000000003
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1645.562916,
+     "age_first_last_ms": [
+      1624.57677,
+      1668.480207
+     ],
+     "whole_row_median_us": 365.468
+    }
+   },
+   "S5-gap": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2011.3086195,
+     "age_first_last_ms": [
+      1660.144322,
+      2485.637551
+     ],
+     "whole_row_median_us": 368.75
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 2018.383645,
+     "age_first_last_ms": [
+      1983.368749,
+      2042.867968
+     ],
+     "whole_row_median_us": 322.864
+    }
+   },
+   "S5-app": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2229.77052,
+     "age_first_last_ms": [
+      2123.106354,
+      2327.164583
+     ],
+     "whole_row_median_us": 379.0365
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1651.494583,
+     "age_first_last_ms": [
+      1632.240937,
+      1670.043541
+     ],
+     "whole_row_median_us": 298.59400000000005
+    }
+   },
+   "S5-stall-r1": {
+    "P1": {
+     "rows": 400,
+     "age_median_ms": 2001.8947645,
+     "age_first_last_ms": [
+      1919.66854,
+      2122.343801
+     ],
+     "whole_row_median_us": 310.651
+    },
+    "P0early": {
+     "rows": 89,
+     "age_median_ms": 1416.42828,
+     "age_first_last_ms": [
+      1397.715624,
+      1569.521822
+     ],
+     "whole_row_median_us": 302.55199999999996
+    }
+   }
+  },
+  "all_segments": {
+   "S5-base-1": {
+    "P1": {
+     "dedup_backfill_mention": 90.7,
+     "timestamp_echo_reconcile": 20.5,
+     "buddy_capture": 1.4,
+     "hidden_user_check": 14.1,
+     "composer_snapshot_follow_decision": 2.0,
+     "timeline_insert": 19.3,
+     "follow_or_count_composer_restore": 12.3,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 19.3
+    },
+    "P0early": {
+     "dedup_backfill_mention": 11.4,
+     "timestamp_echo_reconcile": 4.9,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.8,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 4.9,
+     "follow_or_count_composer_restore": 2.8,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 4.9
+    }
+   },
+   "S5-base-2": {
+    "P1": {
+     "dedup_backfill_mention": 95.8,
+     "timestamp_echo_reconcile": 20.5,
+     "buddy_capture": 1.4,
+     "hidden_user_check": 13.6,
+     "composer_snapshot_follow_decision": 2.1,
+     "timeline_insert": 18.6,
+     "follow_or_count_composer_restore": 11.0,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 18.6
+    },
+    "P0early": {
+     "dedup_backfill_mention": 14.6,
+     "timestamp_echo_reconcile": 5.9,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.4,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 5.8,
+     "follow_or_count_composer_restore": 1.8,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 5.8
+    }
+   },
+   "S5-base-3": {
+    "P1": {
+     "dedup_backfill_mention": 79.0,
+     "timestamp_echo_reconcile": 17.8,
+     "buddy_capture": 1.2,
+     "hidden_user_check": 12.6,
+     "composer_snapshot_follow_decision": 1.8,
+     "timeline_insert": 17.1,
+     "follow_or_count_composer_restore": 9.8,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 17.1
+    },
+    "P0early": {
+     "dedup_backfill_mention": 16.4,
+     "timestamp_echo_reconcile": 6.3,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 4.5,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 6.3,
+     "follow_or_count_composer_restore": 2.1,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 6.3
+    }
+   },
+   "S5-mention": {
+    "P1": {
+     "dedup_backfill_mention": 93.4,
+     "timestamp_echo_reconcile": 21.3,
+     "buddy_capture": 1.4,
+     "hidden_user_check": 15.5,
+     "composer_snapshot_follow_decision": 2.2,
+     "timeline_insert": 21.0,
+     "follow_or_count_composer_restore": 12.5,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 21.0
+    },
+    "P0early": {
+     "dedup_backfill_mention": 14.0,
+     "timestamp_echo_reconcile": 5.1,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.9,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 5.1,
+     "follow_or_count_composer_restore": 2.5,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 5.1
+    }
+   },
+   "S5-reconcile": {
+    "P1": {
+     "dedup_backfill_mention": 67.7,
+     "timestamp_echo_reconcile": 16.7,
+     "buddy_capture": 1.3,
+     "hidden_user_check": 11.5,
+     "composer_snapshot_follow_decision": 1.8,
+     "timeline_insert": 16.4,
+     "follow_or_count_composer_restore": 10.4,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 16.4
+    },
+    "P0early": {
+     "dedup_backfill_mention": 15.7,
+     "timestamp_echo_reconcile": 6.5,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.3,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 4.7,
+     "follow_or_count_composer_restore": 1.6,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 4.7
+    }
+   },
+   "S5-buddy-r2": {
+    "P1": {
+     "dedup_backfill_mention": 69.7,
+     "timestamp_echo_reconcile": 20.3,
+     "buddy_capture": 2.2,
+     "hidden_user_check": 14.7,
+     "composer_snapshot_follow_decision": 2.0,
+     "timeline_insert": 19.7,
+     "follow_or_count_composer_restore": 13.0,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 19.7
+    },
+    "P0early": {
+     "dedup_backfill_mention": 10.4,
+     "timestamp_echo_reconcile": 5.8,
+     "buddy_capture": 0.7,
+     "hidden_user_check": 3.8,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 4.9,
+     "follow_or_count_composer_restore": 2.2,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 4.9
+    }
+   },
+   "S5-hidden": {
+    "P1": {
+     "dedup_backfill_mention": 71.9,
+     "timestamp_echo_reconcile": 22.7,
+     "buddy_capture": 1.3,
+     "hidden_user_check": 16.1,
+     "composer_snapshot_follow_decision": 2.0,
+     "timeline_insert": 19.8,
+     "follow_or_count_composer_restore": 12.4,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 19.8
+    },
+    "P0early": {
+     "dedup_backfill_mention": 9.6,
+     "timestamp_echo_reconcile": 5.1,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.8,
+     "composer_snapshot_follow_decision": 0.4,
+     "timeline_insert": 4.9,
+     "follow_or_count_composer_restore": 2.5,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 4.9
+    }
+   },
+   "S5-beforeinsert": {
+    "P1": {
+     "dedup_backfill_mention": 26.6,
+     "timestamp_echo_reconcile": 11.4,
+     "buddy_capture": 1.0,
+     "hidden_user_check": 8.9,
+     "composer_snapshot_follow_decision": 2.1,
+     "timeline_insert": 13.9,
+     "follow_or_count_composer_restore": 9.9,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 13.9
+    },
+    "P0early": {
+     "dedup_backfill_mention": 12.6,
+     "timestamp_echo_reconcile": 6.4,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.9,
+     "composer_snapshot_follow_decision": 1.4,
+     "timeline_insert": 5.5,
+     "follow_or_count_composer_restore": 2.1,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 5.5
+    }
+   },
+   "S5-insert": {
+    "P1": {
+     "dedup_backfill_mention": 76.0,
+     "timestamp_echo_reconcile": 22.3,
+     "buddy_capture": 1.3,
+     "hidden_user_check": 15.9,
+     "composer_snapshot_follow_decision": 2.1,
+     "timeline_insert": 22.1,
+     "follow_or_count_composer_restore": 16.3,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 22.1
+    },
+    "P0early": {
+     "dedup_backfill_mention": 12.6,
+     "timestamp_echo_reconcile": 6.5,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 4.8,
+     "composer_snapshot_follow_decision": 0.6,
+     "timeline_insert": 6.9,
+     "follow_or_count_composer_restore": 3.5,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 6.9
+    }
+   },
+   "S5-follow": {
+    "P1": {
+     "dedup_backfill_mention": 46.9,
+     "timestamp_echo_reconcile": 15.0,
+     "buddy_capture": 1.1,
+     "hidden_user_check": 10.8,
+     "composer_snapshot_follow_decision": 1.6,
+     "timeline_insert": 15.7,
+     "follow_or_count_composer_restore": 11.0,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 15.7
+    },
+    "P0early": {
+     "dedup_backfill_mention": 12.2,
+     "timestamp_echo_reconcile": 6.1,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 3.8,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 5.2,
+     "follow_or_count_composer_restore": 2.9,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 5.2
+    }
+   },
+   "S5-build": {
+    "P1": {
+     "dedup_backfill_mention": 44.9,
+     "timestamp_echo_reconcile": 14.9,
+     "buddy_capture": 1.6,
+     "hidden_user_check": 11.5,
+     "composer_snapshot_follow_decision": 1.6,
+     "timeline_insert": 16.9,
+     "follow_or_count_composer_restore": 10.3,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 16.9
+    },
+    "P0early": {
+     "dedup_backfill_mention": 15.7,
+     "timestamp_echo_reconcile": 6.3,
+     "buddy_capture": 0.5,
+     "hidden_user_check": 3.6,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 5.0,
+     "follow_or_count_composer_restore": 1.9,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 5.0
+    }
+   },
+   "S5-gap": {
+    "P1": {
+     "dedup_backfill_mention": 83.8,
+     "timestamp_echo_reconcile": 21.5,
+     "buddy_capture": 1.4,
+     "hidden_user_check": 14.1,
+     "composer_snapshot_follow_decision": 2.1,
+     "timeline_insert": 20.4,
+     "follow_or_count_composer_restore": 11.2,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 20.4
+    },
+    "P0early": {
+     "dedup_backfill_mention": 12.6,
+     "timestamp_echo_reconcile": 5.3,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.0,
+     "composer_snapshot_follow_decision": 0.4,
+     "timeline_insert": 4.4,
+     "follow_or_count_composer_restore": 2.5,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 4.4
+    }
+   },
+   "S5-app": {
+    "P1": {
+     "dedup_backfill_mention": 84.4,
+     "timestamp_echo_reconcile": 22.9,
+     "buddy_capture": 1.3,
+     "hidden_user_check": 15.4,
+     "composer_snapshot_follow_decision": 2.0,
+     "timeline_insert": 21.0,
+     "follow_or_count_composer_restore": 10.4,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 21.0
+    },
+    "P0early": {
+     "dedup_backfill_mention": 12.0,
+     "timestamp_echo_reconcile": 5.2,
+     "buddy_capture": 0.3,
+     "hidden_user_check": 3.6,
+     "composer_snapshot_follow_decision": 0.4,
+     "timeline_insert": 4.8,
+     "follow_or_count_composer_restore": 2.0,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 4.8
+    }
+   },
+   "S5-stall-r1": {
+    "P1": {
+     "dedup_backfill_mention": 67.1,
+     "timestamp_echo_reconcile": 21.0,
+     "buddy_capture": 1.5,
+     "hidden_user_check": 13.3,
+     "composer_snapshot_follow_decision": 1.8,
+     "timeline_insert": 18.1,
+     "follow_or_count_composer_restore": 9.2,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 18.1
+    },
+    "P0early": {
+     "dedup_backfill_mention": 11.0,
+     "timestamp_echo_reconcile": 5.8,
+     "buddy_capture": 0.4,
+     "hidden_user_check": 3.6,
+     "composer_snapshot_follow_decision": 0.5,
+     "timeline_insert": 4.8,
+     "follow_or_count_composer_restore": 2.2,
+     "timeline_insert_of_which_view_build": 0.0,
+     "timeline_insert_without_view_build": 4.8
+    }
+   }
+  }
+ }
+}

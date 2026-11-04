@@ -1,0 +1,132 @@
+cache vs qualify5d.py's printed criterion 3 values: 162 compared, largest difference 0.000000 ms
+
+===== control
+-- timeline_insert
+  P1 (page 1)                base [717.2, 747.7, 685.4] | inj median 668.3 [637.3..690.7] | gap of medians +48.9 | rho(inj only, pos 4-14) -0.036 | age median base [3317, 3416, 3258] inj 3333 [3110..3457]
+  P0early (page 0, 11-99)    base [231.5, 203.4, 229.6] | inj median 199.9 [183.7..231.2] | gap of medians +29.7 | rho(inj only, pos 4-14) -0.327 | age median base [1629, 1880, 1767] inj 1702 [1589..1862]
+  P0late (page 0, 101-399)   base [669.9, 648.4, 635.5] | inj median 601.8 [565.5..653.0] | gap of medians +46.6 | rho(inj only, pos 4-14) -0.764 | age median base [2396, 2523, 2435] inj 2422 [2278..2616]
+  P0head (page 0, 0-10)      base [32.6, 36.1, 31.7] | inj median 32.1 [24.7..43.0] | gap of medians +0.5 | rho(inj only, pos 4-14) +0.155 | age median base [1461, 1728, 1600] inj 1510 [1440..1627]
+  all 800 rows               base [1653.5, 1637.5, 1584.1] | inj median 1496.7 | gap of medians +140.8  (whole span, target row included, = criterion 3's value)
+-- timeline_insert_of_which_view_build
+  P1 (page 1)                base [667.7, 696.9, 638.1] | inj median 621.7 [591.8..642.8] | gap of medians +46.0 | rho(inj only, pos 4-14) -0.036 | age median base [3317, 3416, 3258] inj 3333 [3110..3457]
+  P0early (page 0, 11-99)    base [216.4, 188.1, 215.0] | inj median 185.7 [169.4..216.3] | gap of medians +29.3 | rho(inj only, pos 4-14) -0.327 | age median base [1629, 1880, 1767] inj 1702 [1589..1862]
+  P0late (page 0, 101-399)   base [626.0, 605.5, 593.3] | inj median 562.9 [527.7..610.3] | gap of medians +42.6 | rho(inj only, pos 4-14) -0.764 | age median base [2396, 2523, 2435] inj 2422 [2278..2616]
+  P0head (page 0, 0-10)      base [30.1, 33.9, 29.1] | inj median 29.7 [22.5..40.6] | gap of medians +0.5 | rho(inj only, pos 4-14) +0.155 | age median base [1461, 1728, 1600] inj 1510 [1440..1627]
+  all 800 rows               base [1542.4, 1526.1, 1477.3] | inj median 1392.4 | gap of medians +133.6  (whole span, target row included, = criterion 3's value)
+-- follow_or_count_composer_restore
+  P1 (page 1)                base [71.5, 80.8, 65.5] | inj median 63.5 [52.6..68.4] | gap of medians +8.0 | rho(inj only, pos 4-14) -0.382 | age median base [3317, 3416, 3258] inj 3333 [3110..3457]
+  P0early (page 0, 11-99)    base [6.0, 7.0, 6.9] | inj median 6.8 [6.0..8.3] | gap of medians +0.0 | rho(inj only, pos 4-14) +0.055 | age median base [1629, 1880, 1767] inj 1702 [1589..1862]
+  P0late (page 0, 101-399)   base [40.1, 38.7, 37.5] | inj median 35.9 [31.2..40.7] | gap of medians +2.8 | rho(inj only, pos 4-14) -0.755 | age median base [2396, 2523, 2435] inj 2422 [2278..2616]
+  P0head (page 0, 0-10)      base [0.6, 0.5, 0.5] | inj median 0.6 [0.4..0.7] | gap of medians -0.2 | rho(inj only, pos 4-14) -0.191 | age median base [1461, 1728, 1600] inj 1510 [1440..1627]
+  all 800 rows               base [118.3, 127.0, 110.3] | inj median 107.1 | gap of medians +11.1  (whole span, target row included, = criterion 3's value)
+-- whole
+  P1 (page 1)                base [869.0, 909.2, 825.3] | inj median 808.1 [763.6..835.5] | gap of medians +60.9 | rho(inj only, pos 4-14) -0.055 | age median base [3317, 3416, 3258] inj 3333 [3110..3457]
+  P0early (page 0, 11-99)    base [269.2, 239.5, 264.0] | inj median 234.9 [218.6..266.1] | gap of medians +29.1 | rho(inj only, pos 4-14) -0.309 | age median base [1629, 1880, 1767] inj 1702 [1589..1862]
+  P0late (page 0, 101-399)   base [823.1, 784.8, 765.8] | inj median 726.3 [686.9..789.5] | gap of medians +58.6 | rho(inj only, pos 4-14) -0.418 | age median base [2396, 2523, 2435] inj 2422 [2278..2616]
+  P0head (page 0, 0-10)      base [36.7, 40.0, 36.2] | inj median 36.0 [28.6..46.9] | gap of medians +0.7 | rho(inj only, pos 4-14) +0.155 | age median base [1461, 1728, 1600] inj 1510 [1440..1627]
+  all 800 rows               base [2000.7, 1975.8, 1893.7] | inj median 1993.0 | gap of medians -17.2  (whole span, target row included, = criterion 3's value)
+-- matched process age: per-row median (us) by 100 ms bin of begin, every row but the target row; bins with >= 10 rows in a launch
+    timeline_insert
+      1600 ms: baselines 2, median 2423.3 | injections 10, median 2178.2 | gap +245.1 | injections below the lowest baseline 6/10
+      1700 ms: baselines 3, median 2529.2 | injections 10, median 2043.3 | gap +485.8 | injections below the lowest baseline 7/10
+      1800 ms: baselines 3, median 2238.7 | injections 4, median 2008.2 | gap +230.5 | injections below the lowest baseline 2/4
+      2000 ms: baselines 2, median 2057.1 | injections 9, median 2011.5 | gap +45.7 | injections below the lowest baseline 5/9
+      2100 ms: baselines 2, median 2162.5 | injections 9, median 1999.8 | gap +162.7 | injections below the lowest baseline 9/9
+      2200 ms: baselines 3, median 2140.8 | injections 10, median 2034.7 | gap +106.1 | injections below the lowest baseline 8/10
+      2300 ms: baselines 3, median 2098.5 | injections 10, median 1795.4 | gap +303.0 | injections below the lowest baseline 9/10
+      2400 ms: baselines 3, median 2022.5 | injections 11, median 1713.3 | gap +309.2 | injections below the lowest baseline 7/11
+      2500 ms: baselines 3, median 2021.4 | injections 11, median 1997.2 | gap +24.2 | injections below the lowest baseline 6/11
+      2600 ms: baselines 3, median 2096.4 | injections 11, median 2040.2 | gap +56.2 | injections below the lowest baseline 5/11
+      2700 ms: baselines 3, median 1900.5 | injections 9, median 1891.1 | gap +9.5 | injections below the lowest baseline 5/9
+      2800 ms: baselines 3, median 1685.1 | injections 8, median 1814.5 | gap -129.4 | injections below the lowest baseline 2/8
+      2900 ms: baselines 3, median 1712.4 | injections 9, median 1524.3 | gap +188.0 | injections below the lowest baseline 6/9
+      3000 ms: baselines 3, median 1753.3 | injections 11, median 1619.6 | gap +133.6 | injections below the lowest baseline 4/11
+      3100 ms: baselines 3, median 1710.0 | injections 11, median 1612.2 | gap +97.8 | injections below the lowest baseline 4/11
+      3200 ms: baselines 3, median 1762.3 | injections 11, median 1543.3 | gap +219.1 | injections below the lowest baseline 9/11
+      3300 ms: baselines 3, median 1742.8 | injections 11, median 1603.0 | gap +139.8 | injections below the lowest baseline 1/11
+      3400 ms: baselines 3, median 1848.6 | injections 10, median 1611.3 | gap +237.3 | injections below the lowest baseline 3/10
+      3500 ms: baselines 2, median 1796.1 | injections 11, median 1630.1 | gap +166.1 | injections below the lowest baseline 11/11
+      3600 ms: baselines 3, median 1870.6 | injections 11, median 1649.5 | gap +221.0 | injections below the lowest baseline 9/11
+      3700 ms: baselines 2, median 1845.0 | injections 7, median 1609.3 | gap +235.6 | injections below the lowest baseline 6/7
+      bins with baselines higher: 20, lower or equal: 1
+    follow_or_count_composer_restore
+      1600 ms: baselines 2, median 56.7 | injections 10, median 64.9 | gap -8.2 | injections below the lowest baseline 0/10
+      1700 ms: baselines 3, median 54.1 | injections 10, median 79.7 | gap -25.6 | injections below the lowest baseline 0/10
+      1800 ms: baselines 3, median 91.1 | injections 4, median 90.7 | gap +0.4 | injections below the lowest baseline 1/4
+      2000 ms: baselines 2, median 98.0 | injections 9, median 102.1 | gap -4.1 | injections below the lowest baseline 0/9
+      2100 ms: baselines 2, median 109.3 | injections 9, median 107.8 | gap +1.5 | injections below the lowest baseline 2/9
+      2200 ms: baselines 3, median 110.9 | injections 10, median 110.4 | gap +0.5 | injections below the lowest baseline 2/10
+      2300 ms: baselines 3, median 113.9 | injections 10, median 100.3 | gap +13.6 | injections below the lowest baseline 8/10
+      2400 ms: baselines 3, median 117.2 | injections 11, median 95.9 | gap +21.3 | injections below the lowest baseline 7/11
+      2500 ms: baselines 3, median 148.2 | injections 11, median 145.9 | gap +2.3 | injections below the lowest baseline 4/11
+      2600 ms: baselines 3, median 157.2 | injections 11, median 161.5 | gap -4.3 | injections below the lowest baseline 3/11
+      2700 ms: baselines 3, median 154.5 | injections 9, median 160.3 | gap -5.7 | injections below the lowest baseline 3/9
+      2800 ms: baselines 3, median 130.6 | injections 8, median 149.8 | gap -19.3 | injections below the lowest baseline 3/8
+      2900 ms: baselines 3, median 145.8 | injections 9, median 116.6 | gap +29.2 | injections below the lowest baseline 7/9
+      3000 ms: baselines 3, median 164.2 | injections 11, median 141.6 | gap +22.5 | injections below the lowest baseline 4/11
+      3100 ms: baselines 3, median 166.9 | injections 11, median 145.3 | gap +21.6 | injections below the lowest baseline 7/11
+      3200 ms: baselines 3, median 177.3 | injections 11, median 135.1 | gap +42.3 | injections below the lowest baseline 10/11
+      3300 ms: baselines 3, median 175.5 | injections 11, median 147.1 | gap +28.4 | injections below the lowest baseline 1/11
+      3400 ms: baselines 3, median 202.2 | injections 10, median 151.8 | gap +50.4 | injections below the lowest baseline 6/10
+      3500 ms: baselines 2, median 204.3 | injections 11, median 160.4 | gap +43.9 | injections below the lowest baseline 11/11
+      3600 ms: baselines 3, median 212.9 | injections 11, median 175.1 | gap +37.8 | injections below the lowest baseline 9/11
+      3700 ms: baselines 2, median 221.7 | injections 7, median 174.1 | gap +47.6 | injections below the lowest baseline 7/7
+      bins with baselines higher: 15, lower or equal: 6
+    whole
+      1600 ms: baselines 2, median 2829.5 | injections 10, median 2590.1 | gap +239.4 | injections below the lowest baseline 8/10
+      1700 ms: baselines 3, median 2899.8 | injections 10, median 2441.5 | gap +458.3 | injections below the lowest baseline 7/10
+      1800 ms: baselines 3, median 2600.6 | injections 4, median 2425.1 | gap +175.4 | injections below the lowest baseline 3/4
+      2000 ms: baselines 2, median 2478.7 | injections 9, median 2470.5 | gap +8.2 | injections below the lowest baseline 4/9
+      2100 ms: baselines 2, median 2649.2 | injections 9, median 2467.0 | gap +182.2 | injections below the lowest baseline 9/9
+      2200 ms: baselines 3, median 2602.1 | injections 10, median 2477.7 | gap +124.4 | injections below the lowest baseline 8/10
+      2300 ms: baselines 3, median 2703.3 | injections 10, median 2201.2 | gap +502.1 | injections below the lowest baseline 9/10
+      2400 ms: baselines 3, median 2482.5 | injections 11, median 2050.8 | gap +431.8 | injections below the lowest baseline 8/11
+      2500 ms: baselines 3, median 2458.4 | injections 11, median 2433.8 | gap +24.6 | injections below the lowest baseline 5/11
+      2600 ms: baselines 3, median 2546.0 | injections 11, median 2493.9 | gap +52.2 | injections below the lowest baseline 4/11
+      2700 ms: baselines 3, median 2324.2 | injections 9, median 2314.9 | gap +9.3 | injections below the lowest baseline 4/9
+      2800 ms: baselines 3, median 2061.4 | injections 8, median 2150.0 | gap -88.6 | injections below the lowest baseline 3/8
+      2900 ms: baselines 3, median 2054.5 | injections 9, median 1804.1 | gap +250.4 | injections below the lowest baseline 6/9
+      3000 ms: baselines 3, median 2123.6 | injections 11, median 1931.5 | gap +192.1 | injections below the lowest baseline 3/11
+      3100 ms: baselines 3, median 2071.7 | injections 11, median 1916.4 | gap +155.3 | injections below the lowest baseline 6/11
+      3200 ms: baselines 3, median 2158.4 | injections 11, median 1883.3 | gap +275.2 | injections below the lowest baseline 10/11
+      3300 ms: baselines 3, median 2127.7 | injections 11, median 1943.5 | gap +184.2 | injections below the lowest baseline 1/11
+      3400 ms: baselines 3, median 2263.6 | injections 10, median 1959.1 | gap +304.5 | injections below the lowest baseline 4/10
+      3500 ms: baselines 2, median 2223.9 | injections 11, median 1998.8 | gap +225.2 | injections below the lowest baseline 11/11
+      3600 ms: baselines 3, median 2302.8 | injections 11, median 2027.7 | gap +275.1 | injections below the lowest baseline 11/11
+      3700 ms: baselines 2, median 2269.1 | injections 7, median 1986.9 | gap +282.2 | injections below the lowest baseline 7/7
+      bins with baselines higher: 20, lower or equal: 1
+
+===== 5d
+-- dedup_backfill_mention
+  P1 (page 1)                base [90.7, 95.8, 79.0] | inj median 69.7 [26.6..93.4] | gap of medians +21.0 | rho(inj only, pos 4-14) -0.127 | age median base [2128, 2140, 2131] inj 2102 [1989..2278]
+  P0early (page 0, 11-99)    base [11.4, 14.6, 16.4] | inj median 12.6 [9.6..15.7] | gap of medians +2.1 | rho(inj only, pos 4-14) -0.218 | age median base [1734, 1613, 1584] inj 1574 [1416..2018]
+  P0late (page 0, 101-399)   base [77.5, 81.4, 81.9] | inj median 64.3 [36.6..71.5] | gap of medians +17.1 | rho(inj only, pos 4-14) +0.355 | age median base [1963, 1839, 1837] inj 1911 [1645..2352]
+  P0head (page 0, 0-10)      base [1.3, 1.3, 1.2] | inj median 1.3 [1.1..1.5] | gap of medians +0.1 | rho(inj only, pos 4-14) +0.445 | age median base [1618, 1589, 1419] inj 1544 [1395..1976]
+  all 800 rows               base [181.1, 193.4, 178.6] | inj median 148.8 | gap of medians +32.4  (whole span, target row included, = criterion 3's value)
+-- whole
+  P1 (page 1)                base [160.3, 163.0, 139.3] | inj median 141.5 [73.7..167.3] | gap of medians +18.8 | rho(inj only, pos 4-14) -0.073 | age median base [2128, 2140, 2131] inj 2102 [1989..2278]
+  P0early (page 0, 11-99)    base [28.5, 32.3, 36.5] | inj median 31.2 [26.6..35.2] | gap of medians +1.1 | rho(inj only, pos 4-14) -0.264 | age median base [1734, 1613, 1584] inj 1574 [1416..2018]
+  P0late (page 0, 101-399)   base [131.7, 137.4, 140.0] | inj median 112.9 [77.3..139.2] | gap of medians +24.6 | rho(inj only, pos 4-14) +0.336 | age median base [1963, 1839, 1837] inj 1911 [1645..2352]
+  P0head (page 0, 0-10)      base [4.1, 4.0, 4.0] | inj median 4.3 [3.1..4.9] | gap of medians -0.2 | rho(inj only, pos 4-14) +0.191 | age median base [1618, 1589, 1419] inj 1544 [1395..1976]
+  all 800 rows               base [324.9, 337.1, 320.2] | inj median 423.5 | gap of medians -98.6  (whole span, target row included, = criterion 3's value)
+-- matched process age: per-row median (us) by 100 ms bin of begin, every row but the target row; bins with >= 10 rows in a launch
+    dedup_backfill_mention
+      1500 ms: baselines 2, median 148.7 | injections 4, median 141.9 | gap +6.8 | injections below the lowest baseline 0/4
+      1600 ms: baselines 3, median 173.1 | injections 10, median 137.9 | gap +35.3 | injections below the lowest baseline 2/10
+      1700 ms: baselines 3, median 234.1 | injections 7, median 209.0 | gap +25.2 | injections below the lowest baseline 1/7
+      1800 ms: baselines 3, median 273.9 | injections 5, median 196.9 | gap +77.0 | injections below the lowest baseline 3/5
+      1900 ms: baselines 3, median 281.6 | injections 9, median 151.2 | gap +130.3 | injections below the lowest baseline 8/9
+      2000 ms: baselines 3, median 132.2 | injections 10, median 212.3 | gap -80.1 | injections below the lowest baseline 1/10
+      2100 ms: baselines 3, median 246.6 | injections 9, median 212.0 | gap +34.6 | injections below the lowest baseline 5/9
+      2200 ms: baselines 3, median 252.3 | injections 6, median 175.5 | gap +76.8 | injections below the lowest baseline 5/6
+      bins with baselines higher: 7, lower or equal: 1
+    whole
+      1500 ms: baselines 2, median 354.8 | injections 4, median 355.7 | gap -0.8 | injections below the lowest baseline 0/4
+      1600 ms: baselines 3, median 346.8 | injections 10, median 334.6 | gap +12.2 | injections below the lowest baseline 6/10
+      1700 ms: baselines 3, median 420.3 | injections 7, median 353.6 | gap +66.6 | injections below the lowest baseline 0/7
+      1800 ms: baselines 3, median 444.8 | injections 5, median 401.8 | gap +43.0 | injections below the lowest baseline 2/5
+      1900 ms: baselines 3, median 453.6 | injections 9, median 331.9 | gap +121.7 | injections below the lowest baseline 8/9
+      2000 ms: baselines 3, median 293.7 | injections 10, median 373.4 | gap -79.7 | injections below the lowest baseline 0/10
+      2100 ms: baselines 3, median 402.9 | injections 9, median 391.5 | gap +11.5 | injections below the lowest baseline 3/9
+      2200 ms: baselines 3, median 428.8 | injections 6, median 318.9 | gap +109.9 | injections below the lowest baseline 5/6
+      bins with baselines higher: 6, lower or equal: 2
