@@ -1,0 +1,72 @@
+== X-sitting-excluded
+void=[] waits=[] span=[1485.9, 3829.0] frames=2 input=0 foreign=0 battery=[saver=1 ac=false usb=true wireless=false] display=["refreshRate=60.000004 frameRateOverride=[] skipwarning=[]", "refreshRate=60.000004 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 112.9, "before_row": 61, "from_ms": 1692.0, "to_ms": 1804.9}, "1": {"ms": 4.1, "before_row": 358, "from_ms": 3728.3, "to_ms": 3732.4}} b={"page1_start_offset_ms": 1494.2, "pages": "sequential", "page0_first_last_ms": [1485.9, 2812.9], "page1_first_last_ms": [2980.1, 3827.0]} c=[[1392.5, "ignored_expired", 0, false], [1769.5, "ignored_expired", 1, false]]
+RESULT EXCLUDED_OK
+== Sc-base-1
+void=[] waits=[] span=[1441.5, 3788.4] frames=1 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 182.1, "before_row": 154, "from_ms": 1919.1, "to_ms": 2101.2}, "1": {"ms": 3.4, "before_row": 109, "from_ms": 3099.5, "to_ms": 3102.9}} b={"page1_start_offset_ms": 1411.3, "pages": "sequential", "page0_first_last_ms": [1441.5, 2826.1], "page1_first_last_ms": [2852.8, 3786.4]} c=[]
+RESULT CLEAN
+== Sc-base-2
+void=["late delivery: 2 recorded waits of 300 ms or more (slot, row, ms): 1, 219, 433.9; 0, 219, 1495.4"] waits=[{'slot': 1, 'row': 219, 'ms': 433.9, 'spawnOutcome': 'UNCHANGED'}, {'slot': 0, 'row': 219, 'ms': 1495.4, 'spawnOutcome': 'UNCHANGED'}] span=[1588.8, 4734.3] frames=28 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 42.2, "before_row": 19, "from_ms": 1648.3, "to_ms": 1690.5}, "1": {"ms": 281.2, "before_row": 220, "from_ms": 3890.4, "to_ms": 4171.6}} b={"page1_start_offset_ms": 1187.2, "pages": "interleaved", "page0_first_last_ms": [1588.8, 4273.5], "page1_first_last_ms": [2776.1, 4732.2]} c=[[3889.2, "unchanged", 0, true], [3889.2, "unchanged", 1, true]]
+RESULT VOID
+== Sc-base-2-r1
+void=[] waits=[] span=[1703.9, 4108.9] frames=2 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 87.3, "before_row": 59, "from_ms": 1888.0, "to_ms": 1975.3}, "1": {"ms": 191.1, "before_row": 204, "from_ms": 3423.2, "to_ms": 3614.3}} b={"page1_start_offset_ms": 1238.5, "pages": "sequential", "page0_first_last_ms": [1703.9, 2932.9], "page1_first_last_ms": [2942.5, 4106.2]} c=[[1730.2, "ignored_expired", 0, false], [1881.2, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-base-3
+void=[] waits=[] span=[1563.3, 3718.6] frames=2 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 104.4, "before_row": 176, "from_ms": 2111.3, "to_ms": 2215.7}, "1": {"ms": 4.3, "before_row": 150, "from_ms": 3144.0, "to_ms": 3148.3}} b={"page1_start_offset_ms": 1266.2, "pages": "sequential", "page0_first_last_ms": [1563.3, 2825.5], "page1_first_last_ms": [2829.5, 3716.4]} c=[[1572.2, "ignored_expired", 0, false], [1700.2, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-mention
+void=[] waits=[] span=[1488.8, 3880.4] frames=1 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 203.4, "before_row": 101, "from_ms": 1805.1, "to_ms": 2008.5}, "1": {"ms": 3.1, "before_row": 293, "from_ms": 3629.8, "to_ms": 3632.9}} b={"page1_start_offset_ms": 1517.4, "pages": "sequential", "page0_first_last_ms": [1488.8, 2850.3], "page1_first_last_ms": [3006.2, 3878.2]} c=[[1401.8, "ignored_expired", 0, false], [1633.8, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-reconcile
+void=[] waits=[] span=[1423.2, 3729.7] frames=1 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 204.3, "before_row": 101, "from_ms": 1715.9, "to_ms": 1920.2}, "1": {"ms": 3.3, "before_row": 140, "from_ms": 3168.9, "to_ms": 3172.2}} b={"page1_start_offset_ms": 1459.1, "pages": "sequential", "page0_first_last_ms": [1423.2, 2702.7], "page1_first_last_ms": [2882.3, 3728.0]} c=[[1298.6, "ignored_expired", 0, false], [1717.6, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-buddy
+void=[] waits=[] span=[1426.5, 3787.1] frames=2 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 203.4, "before_row": 101, "from_ms": 1787.3, "to_ms": 1990.7}, "1": {"ms": 3.4, "before_row": 295, "from_ms": 3537.4, "to_ms": 3540.8}} b={"page1_start_offset_ms": 1487.6, "pages": "sequential", "page0_first_last_ms": [1426.5, 2767.6], "page1_first_last_ms": [2914.2, 3784.7]} c=[[1368.9, "ignored_expired", 0, false], [1621.9, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-hidden
+void=[] waits=[] span=[1479.5, 3776.2] frames=1 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 203.5, "before_row": 101, "from_ms": 1757.5, "to_ms": 1961.0}, "1": {"ms": 3.4, "before_row": 308, "from_ms": 3569.0, "to_ms": 3572.5}} b={"page1_start_offset_ms": 1446.2, "pages": "sequential", "page0_first_last_ms": [1479.5, 2732.7], "page1_first_last_ms": [2925.7, 3774.4]} c=[[1395.9, "ignored_expired", 0, false], [1907.9, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-beforeinsert
+void=[] waits=[] span=[1601.3, 3892.5] frames=2 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 206.2, "before_row": 101, "from_ms": 2001.1, "to_ms": 2207.3}, "1": {"ms": 3.4, "before_row": 42, "from_ms": 3087.7, "to_ms": 3091.1}} b={"page1_start_offset_ms": 1395.4, "pages": "sequential", "page0_first_last_ms": [1601.3, 2990.8], "page1_first_last_ms": [2996.6, 3890.7]} c=[[1620.1, "ignored_expired", 0, false], [1680.1, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-insert
+void=[] waits=[] span=[1479.3, 3698.9] frames=1 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 202.6, "before_row": 101, "from_ms": 1746.2, "to_ms": 1948.9}, "1": {"ms": 3.4, "before_row": 95, "from_ms": 3051.5, "to_ms": 3054.9}} b={"page1_start_offset_ms": 1381.9, "pages": "sequential", "page0_first_last_ms": [1479.3, 2829.1], "page1_first_last_ms": [2861.2, 3696.7]} c=[[1361.9, "ignored_expired", 0, false], [1888.9, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-follow
+void=[] waits=[] span=[1607.3, 3799.7] frames=1 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 202.6, "before_row": 101, "from_ms": 1993.8, "to_ms": 2196.4}, "1": {"ms": 35.9, "before_row": 18, "from_ms": 2775.1, "to_ms": 2811.1}} b={"page1_start_offset_ms": 1088.9, "pages": "interleaved", "page0_first_last_ms": [1607.3, 3184.5], "page1_first_last_ms": [2696.2, 3797.5]} c=[[1622.3, "ignored_expired", 0, false], [1660.3, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-build
+void=[] waits=[] span=[1440.9, 3681.3] frames=1 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 203.8, "before_row": 11, "from_ms": 1474.3, "to_ms": 1678.1}, "1": {"ms": 3.5, "before_row": 19, "from_ms": 2852.5, "to_ms": 2856.0}} b={"page1_start_offset_ms": 1368.3, "pages": "sequential", "page0_first_last_ms": [1440.9, 2796.9], "page1_first_last_ms": [2809.2, 3678.5]} c=[[1315.7, "ignored_expired", 0, false], [1580.7, "ignored_expired", 1, false], [15961.7, "stored", null, false], [15962.7, "unchanged", null, false]]
+RESULT CLEAN
+== Sc-gap
+void=["late delivery: 1 recorded wait of 300 ms or more (slot, row, ms): 0, 224, 852.1"] waits=[{'slot': 0, 'row': 224, 'ms': 852.1, 'spawnOutcome': 'UNCHANGED'}] span=[1443.5, 3983.5] frames=3 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 203.1, "before_row": 200, "from_ms": 2158.0, "to_ms": 2361.1}, "1": {"ms": 232.5, "before_row": 223, "from_ms": 3117.3, "to_ms": 3349.9}} b={"page1_start_offset_ms": 1126.1, "pages": "interleaved", "page0_first_last_ms": [1443.5, 3770.5], "page1_first_last_ms": [2569.6, 3981.1]} c=[[3033.6, "unchanged", 0, true], [3034.6, "unchanged", 1, false]]
+RESULT VOID
+== Sc-gap-r1
+void=["a process other than the app's own started between the launch and the end of the span: .adservices at 2061.2 ms"] waits=[] span=[1536.4, 3932.2] frames=2 input=0 foreign=1 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 205.6, "before_row": 200, "from_ms": 2231.7, "to_ms": 2437.3}, "1": {"ms": 3.3, "before_row": 147, "from_ms": 3381.4, "to_ms": 3384.7}} b={"page1_start_offset_ms": 1529.6, "pages": "sequential", "page0_first_last_ms": [1536.4, 2913.2], "page1_first_last_ms": [3066.1, 3930.5]} c=[[1584.2, "ignored_expired", 0, false], [1901.2, "ignored_expired", 1, false]]
+RESULT VOID
+== Sc-gap-r2
+void=[] waits=[] span=[1580.3, 3887.0] frames=3 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 205.5, "before_row": 200, "from_ms": 2212.1, "to_ms": 2417.7}, "1": {"ms": 128.7, "before_row": 4, "from_ms": 2894.2, "to_ms": 3022.9}} b={"page1_start_offset_ms": 1309.2, "pages": "sequential", "page0_first_last_ms": [1580.3, 2882.5], "page1_first_last_ms": [2889.5, 3884.9]} c=[[1606.2, "ignored_expired", 0, false], [1737.2, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-app
+void=[] waits=[] span=[1539.5, 3722.9] frames=2 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 79.0, "before_row": 94, "from_ms": 1805.5, "to_ms": 1884.5}, "1": {"ms": 190.4, "before_row": 315, "from_ms": 3347.8, "to_ms": 3538.1}} b={"page1_start_offset_ms": 1123.4, "pages": "sequential", "page0_first_last_ms": [1539.5, 2638.7], "page1_first_last_ms": [2662.9, 3720.5]} c=[[1533.7, "ignored_expired", 0, false], [1781.7, "ignored_expired", 1, false]]
+RESULT CLEAN
+== Sc-stall
+void=[] waits=[] span=[1543.1, 3660.8] frames=2 input=0 foreign=0 battery=[saver=0 ac=false usb=true wireless=false] display=["refreshRate=90.0 frameRateOverride=[] skipwarning=[]", "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"] pages=[('c8cb0e91', 400), ('c8cb0e91', 400)] rb=d9970f27
+a={"0": {"ms": 19.1, "before_row": 3, "from_ms": 1550.2, "to_ms": 1569.3}, "1": {"ms": 7.2, "before_row": 263, "from_ms": 3375.7, "to_ms": 3382.9}} b={"page1_start_offset_ms": 1285.8, "pages": "sequential", "page0_first_last_ms": [1543.1, 2639.3], "page1_first_last_ms": [2828.9, 3658.9]} c=[[1449.0, "ignored_expired", 0, false], [1794.0, "ignored_expired", 1, false]]
+RESULT CLEAN
