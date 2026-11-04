@@ -1,0 +1,26 @@
+timeline_insert; baselines Rc-base-1, Rc-base-2, Rc-base-3
+row set                         baselines  highest  Rc-mention-r1               Rc-buddy                  
+page 1                622.8, 629.6, 626.4    629.6     613.0 ( -16.6 vs highest)     645.5 ( +15.9 vs highest)
+p0 0-10                  38.5, 40.2, 33.2     40.2      34.4 (  -5.7 vs highest)      40.5 (  +0.3 vs highest)
+p0 11-99              196.2, 237.8, 214.6    237.8     267.9 ( +30.2 vs highest)     245.8 (  +8.1 vs highest)
+p0 100                      1.9, 4.4, 2.0      4.4       3.8 (  -0.5 vs highest)       3.5 (  -0.8 vs highest)
+p0 101-399            611.3, 628.6, 621.1    628.6     693.0 ( +64.4 vs highest)     641.3 ( +12.7 vs highest)
+total              1470.7, 1540.5, 1497.2   1540.5    1612.2 ( +71.7 vs highest)    1576.7 ( +36.2 vs highest)
+
+timeline_insert_of_which_view_build; baselines Rc-base-1, Rc-base-2, Rc-base-3
+row set                         baselines  highest  Rc-mention-r1               Rc-buddy                  
+page 1                578.0, 584.6, 581.4    584.6     569.4 ( -15.2 vs highest)     599.3 ( +14.8 vs highest)
+p0 0-10                  36.4, 37.7, 30.2     37.7      30.7 (  -7.0 vs highest)      37.1 (  -0.6 vs highest)
+p0 11-99              182.3, 221.1, 199.2    221.1     246.3 ( +25.2 vs highest)     226.3 (  +5.2 vs highest)
+p0 100                      1.8, 4.2, 1.8      4.2       3.6 (  -0.6 vs highest)       3.4 (  -0.8 vs highest)
+p0 101-399            570.4, 587.0, 579.0    587.0     648.7 ( +61.7 vs highest)     598.7 ( +11.7 vs highest)
+total              1368.9, 1434.5, 1391.7   1434.5    1498.7 ( +64.1 vs highest)    1464.8 ( +30.3 vs highest)
+
+follow_or_count_composer_restore; baselines R5-base-1, R5-base-2-r1, R5-base-3
+row set                         baselines  highest  R5-insert                 
+page 1                    11.7, 10.2, 9.5     11.7      19.4 (  +7.7 vs highest)
+p0 0-10                     0.2, 0.2, 0.2      0.2       0.4 (  +0.1 vs highest)
+p0 11-99                    1.7, 1.5, 1.8      1.8       2.5 (  +0.7 vs highest)
+p0 100                      0.0, 0.0, 0.0      0.0       0.1 (  +0.1 vs highest)
+p0 101-399                  8.2, 8.6, 8.7      8.7      14.8 (  +6.1 vs highest)
+total                    21.8, 20.5, 20.3     21.8      37.2 ( +15.4 vs highest)
