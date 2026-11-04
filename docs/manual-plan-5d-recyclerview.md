@@ -1408,6 +1408,8 @@ the thresholds do not change (*Decided on 2026-11-04*, item 3).
 - The four numbers come from *The prediction, handed over, verbatim*, recorded in this plan by
   `5daebe6` on 2026-10-30. The 1.4 s of view building beside it was added by `5bdd999` the same
   day.
+  - *Corrected on 2026-11-04:* `5daebe6` wrote the 1.4 s as well, not `5bdd999` (*After the
+    re-qualification, 2026-11-04*, item 2). The sentence above stays as it was written.
 - The prediction and its numbers were made on 2026-10-09, outside the repository, and handed over.
 
 | Number | Measured or target | From |
@@ -1827,6 +1829,183 @@ corrected for.
   to the arm.
 
 **Next:** one re-qualification sitting under this design, on the phone. Nothing else runs before it.
+
+### After the re-qualification, 2026-11-04: the negative control's pre-registration, ρ's provenance re-read, five findings
+
+Asked by the owner of the measurement after *The re-qualification sitting, 2026-11-04* (in *Recorded
+results*).
+- Item 1 was written and hashed before any launch of the negative control.
+- Items 2 and 3 were written after it ran, from the records and commits they cite. They decide
+  nothing.
+
+**What stands, in the owner's words:** "NOT QUALIFIED stands. Criterion 3 is NOT adjusted — not its
+bound, not its margin, not its baseline count." Neither sitting of 2026-11-04 is re-scored.
+
+**1. The negative control on criterion 3, pre-registered.**
+- **The file:** `experiment/startup-5d/negative-control-prereg-2026-11-04.md`, sha256
+  `52e96461b0d1f9d461a07cdfb16552d0668a7ade9f1f45d46338e1c7ffb15165`.
+  - Written on 2026-11-04 at 11:57:59 +0100, and hashed at 11:58:20, before any launch of the
+    negative control.
+  - Committed in `4b7fa55` on `experiment/startup-5d-control` and `467607d` on
+    `experiment/startup-5d-treatment`. Both were read back from the remote at 12:01:28. The
+    excluded launch began at 12:05:47.
+  - Beside it are its scorer `negctl.py` (blob `0100391`) and `negctl_test.py` (`72bbd6f`, 28 of
+    28 checks, on synthetic inputs only).
+- **The question:** does criterion 3 fail on launches where no injected delay exists anywhere?
+- **The launches:** 14 plain launches per build, with `full` and no injection. The excluded launch
+  ran first, and the procedure is the re-qualification's.
+- **The band: every band of three, not leave-one-out.**
+  - Leave-one-out changes the baseline count: to 13, or to 2. At 2 a value exceeds the highest
+    baseline with probability 1/3, not 1/4.
+  - Criterion 3's count stays three, so the base rate carried is 1/4 per value, before the margin.
+- **The phases: all of them.** The decisive statistic holds each plain launch the way each of the
+  ten injections criterion 3 applied to was held, 7 to 9 segments, like for like.
+- **The decisive statistic, P_null.**
+  - It is the probability that a sitting shaped like the re-qualification shows at least 3 failing
+    launches. Such a sitting scores ten launches per build.
+  - 3 is the re-qualification's own count, 15% per launch.
+  - It is taken over all 364 bands and every assignment of the ten held sets, with the two builds
+    convolved.
+- **The rule, with its figures:**
+  - **P_null ≥ 0.05: CONSISTENT WITH NOISE.** Criterion 3 cannot discriminate leakage from noise at
+    three baselines.
+  - **P_null < 0.05: TIED TO THE INJECTION.** The three failures are taken as real leakage, and the
+    next step is to diagnose them, not to measure anything.
+  - **A section that does not hold: VOID.**
+  - **For orientation only, outside the rule:** for independent launches, 0.05 corresponds to a
+    per-launch false-failure probability of about 4.2%. P(Bin(20, 0.042) ≥ 3) = 0.0495.
+- **Why the before-margin rate does not decide:** averaged over every band, it is 1/4 identically.
+  - The re-qualification's 21% and 18% are that quantity, and show no excess.
+  - They cannot show whether the 10 ms margin keeps noise out.
+- **The prediction it committed to:** CONSISTENT WITH NOISE.
+- Its result is in *Recorded results*, under *The negative control, 2026-11-04*.
+
+**2. ρ's provenance, re-read on 2026-11-04.**
+- **Where it already stood:**
+  - The owner's instruction gave it as still outstanding from the previous step.
+  - It had been recorded in *The provenance of ρ* (`1e13f54`), and labelled a pre-registered
+    limitation by `3c3bb98` (*Decided on 2026-11-04*, item 3).
+  - It was re-read today against its sources. Everything below was read in the commits; nothing was
+    run.
+- **The line in `decide.py`:**
+  - `RHO = {"span": 1.0 / 2.4, "burst_end": 2.6 / 4.0}` is line 77 of blob `3f69c6a`, which
+    `2e72e42` and `550b414` both carry.
+  - Line 8 says ρ "is not re-derived from what the control gives".
+  - In `301111b` (2026-10-30 11:41), blob `f2eb343`, it is line 32.
+- **The source of the four numbers:** *The prediction, handed over, verbatim*, written by `5daebe6`
+  on 2026-10-30 at 11:52.
+  - The prediction is its first paragraph.
+  - The measured baseline is its second.
+- **One correction.**
+  - *The provenance of ρ* says that the 1.4 s of view building "was added by `5bdd999` the same day".
+  - `git blame` gives the lines that state it to `5daebe6`: "about 1.0 s came from removing about
+    1.4 s spent building 800 views of which about 15 are visible".
+  - `5bdd999`'s diff changes no line that holds 1.4 s.
+  - So the 1.4 s came in with the prediction, in the same commit. No other statement of that section
+    rests on which commit it was.
+- **The build behind the measured numbers, re-read.**
+  - `a091809` is six probe commits on `488cac5`, the head of #78, which merged as `4804609`.
+  - `a091809` is dated 2026-10-08, and the launches 2026-10-09.
+  - That those launches ran it stays inferred.
+- **The parse path in that build, re-read.**
+  - `SmartCatchSpawnCoordinator.kt`, `SmartCatchSpawnIngestion.kt` and `PokemonTypeDex.kt` are blobs
+    `7b90263`, `fc4ed60` and `6fdff03` in `a091809`, in `ccbdab2` and in `c8a9f99`.
+  - `resolvePokemon` is called at the coordinator's line 215.
+  - In `a091809`, `ChatFragment.kt` calls `ingestHistorySpawn` at lines 2951 and 2988.
+
+| Number | Measured or target | From | Held the catalogue parse? |
+|---|---|---|---|
+| 2.4 s | measured, rounded | the span of three launches of 2026-10-09 with #78's fix, 2490, 2348 and 2397 ms; their build is `a091809`, by inference | possible, not known: the path was in the build, and nothing records whether it ran inside those spans |
+| 4.0 s | measured, rounded | the burst end of the same three launches, 4245, 3991 and 3939 ms, from a detector never qualified | possible, not known, as for 2.4 s |
+| 1.0 s | target | the prediction for 5d's span: 2.4 s less about 1.4 s of view building | not a measurement; it is 2.4 s less a constant, so it holds whatever 2.4 s held |
+| 2.6 s | target | the prediction for 5d's burst end; that it is 4.0 s less the same 1.4 s is inferred from the arithmetic | not a measurement; it holds whatever 4.0 s held |
+
+**The pre-registered limitation of the closing measurement, binding before it.** ρ does not change,
+and the thresholds stay 0.708 and 0.825.
+- **L1.** The two measured numbers behind ρ, 2.4 s and 4.0 s, may have contained the catalogue
+  parse. Whether they did is not known, and nothing in this repository can settle it.
+- **L2. If they did, the thresholds are easier to pass than intended, never harder.**
+  - Both builds of the closing measurement carry the gate.
+  - A launch in which the parse pauses a page for 300 ms or more is void.
+  - If 2.4 s and 4.0 s held a parse cost k, the ratio the prediction's own model expects for these
+    builds is below ρ: t/c − (t − k)/(c − k) = k(c − t)/(c(c − k)), which is positive.
+- **L3. What the closing measurement's report carries beside its verdict:**
+  - **HOLDS:** that it was reached against thresholds which may be easier than intended, because
+    ρ's baseline may have held a parse cost these builds no longer pay;
+  - **FAILS:** nothing further. It was reached against thresholds the confound could only have made
+    easier;
+  - **INCONCLUSIVE:** nothing further. It reads the same either way.
+- **L4.** If 2.4 s and 4.0 s held no parse, there is no asymmetry. The report claims neither case.
+
+**3. Five findings, recorded as the owner of the measurement gave them, deciding nothing.**
+- **What they were checked against:** the re-qualification's `qualify-R-control.txt`,
+  `qualify-R-5d.txt` and `location.txt`. These are published in
+  `experiment/startup-5d/requalification-2026-11-04/` as `control.json`, `5d.json` and
+  `location.txt`.
+- Where the instruction's wording and the records differ, the records are given.
+
+**a. Criteria 1, 2, 4 and 5 passed wherever they apply, on both builds.**
+- **Criterion 1 passed on all 11 launches of each build.**
+  - The ten 200 ms delays were recorded at 200.11 to 200.18 ms on the control, and at 200.10 to
+    200.15 ms on 5d.
+  - `stall`'s were 534.59 and 535.03 ms.
+- **Criterion 2 passed on the 10 launches of each build that carry it.** `stall` has no criterion 2.
+  - Every injected phase rose by at least 100 ms.
+  - The rises were 129.8 to 213.0 ms on the control, and 140.7 to 211.0 ms on 5d.
+- **Criterion 4 passed on all 11 launches of each build.**
+  - The delay lay inside its phase on the ten launches with that clause. `stall` has none.
+  - It lay inside one main-thread message (`inside_the_main_threads_log`) on the ten launches with
+    that clause. `app` has none by construction: `qualify5d.py` applies it only `if name != "app"`.
+  - So both clauses held together on 9 of 11 per build, and `app` and `stall` carried one each.
+- **Criterion 5, which only `stall` carries, passed: the burst ended inside its window.**
+  - Control: at 8536.93 ms, in [8534.67, 8538.18].
+  - 5d: at 8536.45 ms, in [8535.41, 8537.44].
+- **The gap the pre-registration named did not occur.** The control's `insert` rose 213.0 ms and its
+  `build` 129.8 ms, both at or above 100 ms.
+
+**b. The failing magnitudes, against a 200 ms delay.**
+- **Five values lay above their bound, on three launches:**
+  - control `mention-r1`: +61.7 ms on `timeline_insert`, and +54.1 on its view build;
+  - control `buddy`: +26.2 and +20.3, on the same two;
+  - 5d `insert`: +5.4, on `follow_or_count_composer_restore`.
+- Two of the five are nested: the view build is part of `timeline_insert`.
+- **The 5d phase:**
+  - It measured 21.8, 20.5 and 20.3 ms in the baselines, and 37.2 ms in `insert`.
+  - 31.8 ms is its bound, the highest baseline plus 10, not the phase.
+  - The excess is 5.4 ms over the bound, and 15.4 ms over the highest baseline.
+- **Recorded, as the owner put it:**
+  - No mechanism has been named by which a 200 ms sleep appears in another phase as a 5.4 ms excess
+    over the bound of a phase of about 21 ms, or as the control's 20.3 to 61.7 ms.
+  - Naming one is the burden of anybody claiming leakage.
+  - It is not asserted to be impossible.
+
+**c. The time-order exclusion on `mention-r1`.**
+- **What it rests on:**
+  - Of its `timeline_insert` excess over the highest baseline, +30.2 ms lies in page 0's rows 11 to
+    99 (`location.txt`).
+  - Those rows ran before row 100, where the delay is.
+  - A delay cannot lengthen work that ended before it began, so that part is not the delay's leakage.
+- **It is reasoning, not a test:** nothing measured it.
+- **It covers that part only.** The +64.4 ms on rows 101 to 399 came after the delay, and the
+  exclusion says nothing about it.
+- **The owner's assessment, recorded:** it is a stronger form of leakage test than a band, because
+  it is logical rather than statistical.
+- It is not promoted to a criterion in this step.
+
+**d. The pages' order did not differ between the arms in the re-qualification.**
+- They ran one after the other in 14 of 14 counted launches of each build. This was read again in
+  that sitting's `three-quantities.jsonl`.
+- All three of its void launches interleaved.
+- So the confound declared in item 5 of *Decided on 2026-11-04* did not appear on that sitting.
+- On the negative control's launches, the order did differ between the arms (*The negative control,
+  2026-11-04*).
+
+**e. The owner's bound, in the owner's words:** "this negative control is the last instrument sitting
+before the release decision. If the qualification does not close after it, the measurement is
+recorded as NOT TAKEN, #84's deferral stays unsatisfied and is written as such, and 5d is judged on
+its correctness gates alone."
+- It is recorded, not applied.
+- Whether the qualification closes is not decided in this step.
 
 ## Backlog
 
@@ -2879,3 +3058,130 @@ above its bound.**
 - The closing measurement was not run.
 - The phone keeps `550b414`'s build. It was installed at 11:11:59 for `R5-base-3`, and read back from
   the phone at 11:16. It is recorded in `RELEASE-STATE.md` after the round, as decided, not now.
+
+**The negative control, 2026-11-04, 12:05 to 12:59: CONSISTENT WITH NOISE, P_null 0.6003.**
+- It ran under its pre-registration: sha256 `52e96461…`, item 1 of *After the re-qualification,
+  2026-11-04*.
+- It is scored by the rule written there. Nothing else is read from it here.
+
+- **Read before the first launch, 12:01:40 to 12:05:34.**
+  - Battery saver was off: `low_power` 0 and `mSettingBatterySaverEnabled=false`. The phone was on
+    USB power.
+  - The battery read level 100, status full (5), and 32.4 °C.
+  - **The display did not read one rate at first.**
+    - It read 60.000004 Hz on 5 readings from 12:01:40 to 12:01:56, then 90.0 on 3, then 60.000004
+      on 10 from 12:02:27 to 12:03:05.
+    - At 12:03 the display's votes held three app requests capped at 60.000004 Hz. Thermal status
+      was 0, and battery saver was off.
+    - Another app had been in use on the phone, and its window was listed. By 12:04:57 its task was
+      not visible.
+  - **From 12:04:32 the display read 90.0 Hz** on all 9 readings to 12:05:34, and on every reading
+    after. This is recorded as a parameter. The section holds the rate the launches read, and every
+    one of them read 90.0.
+- **The excluded launch, `X-N-excluded`, at 12:05:47:** `EXCLUDED_OK`. Both pages read `c8cb0e91`
+  with 400 history rows.
+- **The launches: 28 counted, 14 per build, in the pre-registered order.**
+  - The control ran from 12:07:36 to 12:38:57, and 5d from 12:39:06 to 12:59:06.
+  - With the excluded launch and four voids, that makes 33 launches.
+  - Each was preceded by the driver's install and read-back, then by `run.sh`'s. Every reading gave
+    STEP B's sha256: `d9970f27…` for `2e72e42`, and `e881d0ab…` for `550b414`.
+  - **All 28 counted launches read the same:**
+    - 0 input events and 0 foreign process starts;
+    - 90.0 Hz before and after;
+    - battery saver 0, on USB power;
+    - 800 history rows in the span, both pages on `c8cb0e91` at 400;
+    - compile state `run-from-apk`;
+    - first after install.
+  - **Recorded, not held:**
+    - the level stayed at 100, and the status at full (5);
+    - the temperature ran from 30.8 to 32.6 °C over the control, and from 32.0 to 32.7 °C over 5d.
+- **Four launches were void, on three slots, each a late delivery.** The driver re-ran each in its
+  place.
+  - `Nc-plain-5`: page 0, row 251, 1233.2 ms, `UNCHANGED`. `-r1` was clean.
+  - `Nc-plain-11`: page 0, row 399, 1252.9 ms, `STORED`.
+    - `-r1` was void too: page 1, row 206, 936.4 ms, `UNCHANGED`.
+    - `-r2` was clean.
+    - This was the first slot that needed a second re-run.
+  - `N5-plain-7`: page 1, row 261, 1016.5 ms, and page 0, row 261, 1502.3 ms, both `UNCHANGED`.
+    `-r1` was clean.
+  - The driver stopped nowhere.
+- **No contradiction of the diagnostic launch.** In none of the 33 launches was a wait recorded on an
+  `IGNORED_EXPIRED` row.
+  - 54 history ingestions were `ignored_expired`, 52 of them in counted launches.
+  - None was followed by a wait.
+- **The phone was touched between launches, not inside them.**
+  - Before `Nc-plain-9`, the driver's idle wait saw 81 and then 657 input events in two 20 s
+    windows, from 12:27 to 12:28. It launched after a window with none.
+  - For the first four counted launches, the driver's idle lines were filtered out of what the agent
+    displayed, and were not saved. So whether it waited for input there is not recorded.
+  - At 12:16:22, a 20 s read saw 0 input events.
+  - Every counted launch recorded 0 input events inside its own record.
+- **Read after the last launch, 12:59:23 to 12:59:29.**
+  - Battery saver was off: `low_power` 0 and `mSettingBatterySaverEnabled=false`. The phone was on
+    USB power (`mPlugType=2`).
+  - The battery read level 100, status full (5), and 32.6 °C.
+  - The display read 90.0 Hz on all 6 readings.
+  - The installed build read back from the phone as `e881d0ab…`, which is `550b414`'s.
+  - The last launch of each build read both pages on `c8cb0e91` at 400.
+
+**The verdict,** from `negctl.py` `0100391`, run in the run directory from 13:00:21 to 13:00:46 on
+Python 3.10.0, against `qualify5d.py` `19d110c`. Both blobs, and the run directory's other five, were
+re-read immediately before.
+- `CONSISTENT WITH NOISE: P_null 0.6003 >= 0.05. Criterion 3 cannot discriminate leakage from noise at three baselines.`
+- **The section held on both builds:**
+  - one display reading and one battery state, within each build and across both;
+  - no void launch scored;
+  - 800 rows in every span;
+  - no launch carrying an injection.
+- **The prediction, CONSISTENT WITH NOISE, held.**
+- **The distribution behind it:**
+  - Of twenty, combined: P(0) 0.2250, P(1) 0.1440, P(2) 0.0307, and P(≥ 3) 0.6003.
+  - Of ten, per build:
+    - control: P(0) 0.3357, expecting 2.33 failing launches;
+    - 5d: P(0) 0.6703, expecting 1.23.
+
+**Beside the verdict, deciding nothing.**
+- **The fixed replica, band at positions 1, 8 and 14, all nine segments held.**
+  - **The control fails on 6 of its 11 scored launches, with 13 failing values of 99:**
+    - `Nc-plain-2`: `timeline_insert` +80.5, `follow_or_count_composer_restore` +5.0, view build
+      +76.7;
+    - `Nc-plain-3`: +88.6, +3.1, +84.5, on the same three;
+    - `Nc-plain-7`: `follow_or_count_composer_restore` +8.4;
+    - `Nc-plain-9`: `dedup_backfill_mention` +0.2;
+    - `Nc-plain-12`: `timeline_insert` +14.1, view build +11.6;
+    - `Nc-plain-13`: `dedup_backfill_mention` +3.5, `timeline_insert` +93.3, view build +84.5.
+  - **5d fails on 4 of its 11, with 4 values of 99.** All are on `dedup_backfill_mention`, at +10.7,
+    +11.4, +10.4 and +6.9, in `N5-plain-3` to `-6`.
+- **The before-margin fraction in the fixed replica.**
+  - Control: 52 of 99 (52.5%). 5d: 28 of 99 (28.3%). Both against 1/4.
+  - The pre-registration reports it "only as a check that the launches are exchangeable". By that
+    check, the control's band at positions 1, 8 and 14 was not exchangeable with its other eleven
+    launches.
+  - It decides nothing, and the decisive statistic uses every band.
+- **Per launch, over every band, with all nine segments held:** the control fails at a rate of
+  0.2495, and 5d at 0.1371.
+- **The pages' order, recorded, not interpreted.**
+  - The control's counted launches ran one after the other in 11 of 14, and interleaved in
+    `Nc-plain-1`, `-7` and `-10`.
+  - 5d's ran one after the other in 14 of 14.
+  - All four void launches interleaved. The excluded launch ran its pages one after the other.
+
+**Published** in `experiment/startup-5d/negative-control-2026-11-04/` on both experiment branches:
+`02381b4` on `experiment/startup-5d-control`, and `0795e53` on `experiment/startup-5d-treatment`.
+Both were read back from the remote at 13:04:05.
+- **The files:**
+  - `negctl.json`, the scorer's output;
+  - `launches-control.txt` and `launches-5d.txt`, every launch's sitting line in sitting order,
+    voids and re-runs included, with `X-N-excluded` first;
+  - `three-quantities.jsonl`, every launch's `sitting_extra.py` record.
+- **One edit, as before:** each launch record's local APK path writes its user directory as
+  `%USERPROFILE%`. That is 28 lines; nothing else differs. Line endings are LF, as in the earlier
+  publications.
+- **Scanned before the push.** The added lines hold no user name, no account id, no token, no
+  authorization text and no chat text. The channel appears only as the fingerprint `c8cb0e91`.
+
+**Not done.**
+- No failure was diagnosed, no criterion was adjusted, and neither sitting was re-scored.
+- The closing measurement was not run, and the release was not decided.
+- The phone keeps `550b414`'s build, read back at 12:59. It is recorded in `RELEASE-STATE.md` after
+  the round, as decided, not now.
