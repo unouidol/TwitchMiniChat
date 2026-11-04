@@ -1,0 +1,3550 @@
+{
+  "build": "5d",
+  "phase_locations": {
+    "mention": "inside page 0's 100th history row, inside the span",
+    "reconcile": "inside page 0's 100th history row, inside the span",
+    "buddy": "inside page 0's 100th history row, inside the span",
+    "hidden": "inside page 0's 100th history row, inside the span",
+    "beforeinsert": "inside page 0's 100th history row, inside the span",
+    "insert": "inside page 0's 100th history row, inside the span",
+    "follow": "inside page 0's 100th history row, inside the span",
+    "gap": "a main-thread message of its own between the span's rows, holding no row",
+    "app": "Application.onCreate, before the span",
+    "stall": "anchor + 8000 ms, after the span: the burst end, criterion 5",
+    "build": "outside every row: a bind at the list's layout, wherever that layout falls in time; 5d builds a view only for a row laid out"
+  },
+  "phase_locations_note": "Qualification is per build: each phase is read against this build's own baselines. `build` sits inside the span on the control and outside every row on 5d, so its values are not comparable across the two builds.",
+  "baselines": [
+    "S5-base-1",
+    "S5-base-2",
+    "S5-base-3"
+  ],
+  "display": {
+    "readings": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+    ],
+    "unread": [],
+    "one_reading": true
+  },
+  "battery": {
+    "states": [
+      "saver=0 ac=false usb=true wireless=false"
+    ],
+    "unread": [],
+    "levels_and_temperatures": {
+      "S5-base-1": [
+        [
+          "58",
+          "316"
+        ],
+        [
+          "58",
+          "318"
+        ]
+      ],
+      "S5-base-2": [
+        [
+          "58",
+          "318"
+        ],
+        [
+          "59",
+          "319"
+        ]
+      ],
+      "S5-base-3": [
+        [
+          "59",
+          "319"
+        ],
+        [
+          "59",
+          "320"
+        ]
+      ],
+      "S5-mention": [
+        [
+          "60",
+          "320"
+        ],
+        [
+          "60",
+          "321"
+        ]
+      ],
+      "S5-reconcile": [
+        [
+          "61",
+          "320"
+        ],
+        [
+          "61",
+          "320"
+        ]
+      ],
+      "S5-buddy-r2": [
+        [
+          "64",
+          "318"
+        ],
+        [
+          "65",
+          "319"
+        ]
+      ],
+      "S5-hidden": [
+        [
+          "65",
+          "319"
+        ],
+        [
+          "65",
+          "320"
+        ]
+      ],
+      "S5-beforeinsert": [
+        [
+          "66",
+          "319"
+        ],
+        [
+          "66",
+          "320"
+        ]
+      ],
+      "S5-insert": [
+        [
+          "67",
+          "320"
+        ],
+        [
+          "67",
+          "321"
+        ]
+      ],
+      "S5-follow": [
+        [
+          "69",
+          "318"
+        ],
+        [
+          "69",
+          "319"
+        ]
+      ],
+      "S5-build": [
+        [
+          "70",
+          "319"
+        ],
+        [
+          "70",
+          "321"
+        ]
+      ],
+      "S5-gap": [
+        [
+          "71",
+          "321"
+        ],
+        [
+          "71",
+          "321"
+        ]
+      ],
+      "S5-app": [
+        [
+          "71",
+          "322"
+        ],
+        [
+          "72",
+          "324"
+        ]
+      ],
+      "S5-stall-r1": [
+        [
+          "73",
+          "326"
+        ],
+        [
+          "74",
+          "326"
+        ]
+      ]
+    },
+    "one_state": true
+  },
+  "void_launches": {},
+  "launch_records": [
+    {
+      "run": "S5-base-1",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1614.9,
+        2251.9
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777142.800613000",
+        "installed": "Success",
+        "install_ended": "1793777150.813064700",
+        "phone_path": "/data/app/~~0YjHxLBl3zf9zdV6xFIb8w==/com.fs.twitchminichat.dev-RuEWdCeGwbfejlJX8oEPQA==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:25:49"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "58",
+          "temperature": "316",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "58",
+          "temperature": "318",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 600.0,
+        "bracket_ms": [
+          1608.4,
+          2252.0
+        ],
+        "span_ms": 637.0
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 93,
+          "dedup_us": 124.4,
+          "row_us": 306.4
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 256,
+          "dedup_us": 230.6,
+          "row_us": 417.1
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 449,
+          "dedup_us": 258.4,
+          "row_us": 432.2
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 2,
+          "dedup_us": 290.3,
+          "row_us": 513.4
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-base-2",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 3,
+      "span_ms": [
+        1562.5,
+        2258.9
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777215.954421500",
+        "installed": "Success",
+        "install_ended": "1793777224.120638400",
+        "phone_path": "/data/app/~~CoDOIfzxOkDtu2gNDNVpGA==/com.fs.twitchminichat.dev-ysbUF1usP34swT2W6p3gxw==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:27:03"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "58",
+          "temperature": "318",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "59",
+          "temperature": "319",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 0,
+        "1": 0
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 640.0,
+        "bracket_ms": [
+          1551.6,
+          2259.0
+        ],
+        "span_ms": 696.4
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 115,
+          "dedup_us": 170.7,
+          "row_us": 346.1
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 285,
+          "dedup_us": 273.1,
+          "row_us": 445.9
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 382,
+          "dedup_us": 233.3,
+          "row_us": 387.0
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 18,
+          "dedup_us": 237.9,
+          "row_us": 372.9
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-base-3",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 3,
+      "span_ms": [
+        1416.4,
+        2228.7
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777290.069853600",
+        "installed": "Success",
+        "install_ended": "1793777298.232104700",
+        "phone_path": "/data/app/~~wmSu_YjCCteeBMMN8J5_Fw==/com.fs.twitchminichat.dev-gviprKihGJfJct7W3a2oqQ==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:28:17"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "59",
+          "temperature": "319",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "59",
+          "temperature": "320",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 790.0,
+        "bracket_ms": [
+          1361.3,
+          2228.8
+        ],
+        "span_ms": 812.3
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 42,
+          "dedup_us": 134.5,
+          "row_us": 356.5
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 66,
+          "dedup_us": 205.3,
+          "row_us": 412.6
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 292,
+          "dedup_us": 271.1,
+          "row_us": 454.5
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 400,
+          "dedup_us": 215.3,
+          "row_us": 354.6
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-mention",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1407.7,
+        2167.8
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777365.212315700",
+        "installed": "Success",
+        "install_ended": "1793777373.245554100",
+        "phone_path": "/data/app/~~teF44osEt_Rh9bVHvleb8w==/com.fs.twitchminichat.dev-gs37I4TRW2dzlMGm8tZsxg==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:29:32"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "60",
+          "temperature": "320",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "60",
+          "temperature": "321",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 820.0,
+        "bracket_ms": [
+          1275.4,
+          2167.9
+        ],
+        "span_ms": 760.1
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 100,
+          "dedup_us": 145.0,
+          "row_us": 348.7
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 152,
+          "dedup_us": 212.4,
+          "row_us": 361.0
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 251,
+          "dedup_us": 220.1,
+          "row_us": 366.1
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 297,
+          "dedup_us": 256.0,
+          "row_us": 443.0
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-reconcile",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 3,
+      "span_ms": [
+        1529.5,
+        2361.6
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777448.604478000",
+        "installed": "Success",
+        "install_ended": "1793777456.678663300",
+        "phone_path": "/data/app/~~bS4MYe9_oZicb_t1E2356w==/com.fs.twitchminichat.dev-p68BnGxkpuDAlY91a_li2w==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:30:55"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "61",
+          "temperature": "320",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "61",
+          "temperature": "320",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 4,
+        "1": 4
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 800.0,
+        "bracket_ms": [
+          1520.1,
+          2361.8
+        ],
+        "span_ms": 832.2
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 100,
+          "dedup_us": 171.8,
+          "row_us": 359.0
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 129,
+          "dedup_us": 200.4,
+          "row_us": 361.5
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 309,
+          "dedup_us": 209.4,
+          "row_us": 362.7
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 262,
+          "dedup_us": 183.6,
+          "row_us": 321.5
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-buddy-r2",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1422.4,
+        2147.0
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777735.989759700",
+        "installed": "Success",
+        "install_ended": "1793777744.018262600",
+        "phone_path": "/data/app/~~wA5SxwvdWiV38RGSIP3eOQ==/com.fs.twitchminichat.dev-lCVoSzbIbh3uEOa8RR9Efg==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:35:43"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "64",
+          "temperature": "318",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "65",
+          "temperature": "319",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 2,
+        "1": 2
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 780.0,
+        "bracket_ms": [
+          1294.4,
+          2147.1
+        ],
+        "span_ms": 724.6
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 100,
+          "dedup_us": 109.6,
+          "row_us": 309.3
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 24,
+          "dedup_us": 89.8,
+          "row_us": 232.8
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 371,
+          "dedup_us": 166.6,
+          "row_us": 340.3
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 305,
+          "dedup_us": 198.1,
+          "row_us": 369.6
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-hidden",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1399.3,
+        2090.2
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777813.283569700",
+        "installed": "Success",
+        "install_ended": "1793777821.314721400",
+        "phone_path": "/data/app/~~nKkvlH4Fp3aFnMtVJHaVXQ==/com.fs.twitchminichat.dev-fPNZ66Ug20I6D2RF6-23DQ==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:37:00"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "65",
+          "temperature": "319",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "65",
+          "temperature": "320",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 2,
+        "1": 2
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 760.0,
+        "bracket_ms": [
+          1275.5,
+          2090.5
+        ],
+        "span_ms": 690.9
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 100,
+          "dedup_us": 104.2,
+          "row_us": 282.0
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 263,
+          "dedup_us": 167.4,
+          "row_us": 315.0
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 260,
+          "dedup_us": 141.2,
+          "row_us": 339.6
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 177,
+          "dedup_us": 227.7,
+          "row_us": 389.0
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-beforeinsert",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 3,
+      "span_ms": [
+        1524.2,
+        2292.5
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777886.239396000",
+        "installed": "Success",
+        "install_ended": "1793777894.265833000",
+        "phone_path": "/data/app/~~-cdhqwUJrShmR6id_TJN5Q==/com.fs.twitchminichat.dev-MbyOlqS5WXIrINytDXA6rw==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:38:13"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "66",
+          "temperature": "319",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "66",
+          "temperature": "320",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 2,
+        "1": 2
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 690.0,
+        "bracket_ms": [
+          1514.1,
+          2292.5
+        ],
+        "span_ms": 768.2
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 100,
+          "dedup_us": 134.1,
+          "row_us": 350.2
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 183,
+          "dedup_us": 156.2,
+          "row_us": 334.6
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 340,
+          "dedup_us": 81.0,
+          "row_us": 222.5
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 177,
+          "dedup_us": 50.1,
+          "row_us": 147.9
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-insert",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1420.2,
+        2219.0
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793777960.652127300",
+        "installed": "Success",
+        "install_ended": "1793777970.821448000",
+        "phone_path": "/data/app/~~X4E3cgRNuHYa1pzxizYe2g==/com.fs.twitchminichat.dev-k9H0D8O9w9RgxJkUodvvDQ==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:39:29"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "67",
+          "temperature": "320",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "67",
+          "temperature": "321",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 760.0,
+        "bracket_ms": [
+          1328.9,
+          2219.1
+        ],
+        "span_ms": 798.8
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 100,
+          "dedup_us": 128.5,
+          "row_us": 376.6
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 31,
+          "dedup_us": 138.9,
+          "row_us": 320.6
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 249,
+          "dedup_us": 244.8,
+          "row_us": 476.9
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 420,
+          "dedup_us": 204.7,
+          "row_us": 405.4
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-follow",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 3,
+      "span_ms": [
+        1540.9,
+        2383.9
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793778120.875720600",
+        "installed": "Success",
+        "install_ended": "1793778129.331049800",
+        "phone_path": "/data/app/~~YSOt5Hjnw_M_NIFOER-Adg==/com.fs.twitchminichat.dev-zaRzRBLQSTk56j3PLB3-sg==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:42:08"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "69",
+          "temperature": "318",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "69",
+          "temperature": "319",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 7,
+        "1": 7
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 760.0,
+        "bracket_ms": [
+          1524.7,
+          2384.0
+        ],
+        "span_ms": 843.1
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 100,
+          "dedup_us": 136.0,
+          "row_us": 337.8
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 171,
+          "dedup_us": 151.2,
+          "row_us": 309.7
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 108,
+          "dedup_us": 143.9,
+          "row_us": 294.3
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 421,
+          "dedup_us": 71.0,
+          "row_us": 176.0
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-build",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 3,
+      "span_ms": [
+        1599.5,
+        2482.3
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793778219.660259700",
+        "installed": "Success",
+        "install_ended": "1793778227.530150600",
+        "phone_path": "/data/app/~~u-G3LGcUWtzI__WuFJSNhw==/com.fs.twitchminichat.dev-SntJ2T-LTe16Hpk6S6f-Tg==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:43:46"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "70",
+          "temperature": "319",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "70",
+          "temperature": "321",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 1,
+        "1": 1
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 700.0,
+        "bracket_ms": [
+          1583.5,
+          2482.4
+        ],
+        "span_ms": 882.8
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 155,
+          "dedup_us": 195.7,
+          "row_us": 383.2
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 6,
+          "dedup_us": 188.9,
+          "row_us": 348.9
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 417,
+          "dedup_us": 218.4,
+          "row_us": 381.6
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 222,
+          "dedup_us": 53.2,
+          "row_us": 165.4
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-gap",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1660.1,
+        2486.1
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793778310.157738400",
+        "installed": "Success",
+        "install_ended": "1793778318.607300300",
+        "phone_path": "/data/app/~~IeCq-PBA3YHRWN8dPQGglw==/com.fs.twitchminichat.dev-0-GmXccg8-IlhMzF44aAcw==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:45:17"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "71",
+          "temperature": "321",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "71",
+          "temperature": "321",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 0,
+        "1": 0
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 770.0,
+        "bracket_ms": [
+          1650.5,
+          2496.6
+        ],
+        "span_ms": 826.0
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 20,
+          "dedup_us": 136.8,
+          "row_us": 341.9
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 195,
+          "dedup_us": 179.0,
+          "row_us": 364.4
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 216,
+          "dedup_us": 183.0,
+          "row_us": 357.3
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 369,
+          "dedup_us": 210.6,
+          "row_us": 356.2
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-app",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1625.9,
+        2327.6
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793778385.926919000",
+        "installed": "Success",
+        "install_ended": "1793778393.713789200",
+        "phone_path": "/data/app/~~ohAV3uGQ80R68FkYj33lQw==/com.fs.twitchminichat.dev-ovw-U9fJ3RCU1mEqlQCaMA==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:46:32"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "71",
+          "temperature": "322",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "72",
+          "temperature": "324",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 24,
+        "1": 24
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 690.0,
+        "bracket_ms": [
+          1518.4,
+          2327.7
+        ],
+        "span_ms": 701.7
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 253,
+          "dedup_us": 190.1,
+          "row_us": 376.6
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 147,
+          "dedup_us": 242.2,
+          "row_us": 409.7
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 242,
+          "dedup_us": 201.1,
+          "row_us": 382.6
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 158,
+          "dedup_us": 229.6,
+          "row_us": 377.2
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "S5-stall-r1",
+      "commit": "550b414",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1392.2,
+        2122.8
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+        "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "install_started": "1793778563.999104500",
+        "installed": "Success",
+        "install_ended": "1793778571.914507700",
+        "phone_path": "/data/app/~~O-B4oDabUJXO-ootqR4FjQ==/com.fs.twitchminichat.dev-2I-QKKj7cFHTQ9YIiU7ozw==/base.apk",
+        "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+        "last_update_time": "lastUpdateTime=2026-11-04 08:49:31"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "73",
+          "temperature": "326",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "2",
+          "level": "74",
+          "temperature": "326",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 820.0,
+        "bracket_ms": [
+          1264.2,
+          2122.8
+        ],
+        "span_ms": 730.6
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 64,
+          "dedup_us": 109.4,
+          "row_us": 298.0
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 336,
+          "dedup_us": 217.2,
+          "row_us": 417.8
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 195,
+          "dedup_us": 111.9,
+          "row_us": 269.7
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 205,
+          "dedup_us": 228.5,
+          "row_us": 387.7
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    }
+  ],
+  "rows_in_span": {
+    "each": {
+      "S5-base-1": 800,
+      "S5-base-2": 800,
+      "S5-base-3": 800,
+      "S5-mention": 800,
+      "S5-reconcile": 800,
+      "S5-buddy-r2": 800,
+      "S5-hidden": 800,
+      "S5-beforeinsert": 800,
+      "S5-insert": 800,
+      "S5-follow": 800,
+      "S5-build": 800,
+      "S5-gap": 800,
+      "S5-app": 800,
+      "S5-stall-r1": 800
+    },
+    "baselines_equal": true,
+    "injected_differing": []
+  },
+  "baselines_injected_nothing": true,
+  "injections": {
+    "each_once": true,
+    "ran": [
+      "mention",
+      "reconcile",
+      "buddy",
+      "hidden",
+      "beforeinsert",
+      "insert",
+      "follow",
+      "build",
+      "gap",
+      "app",
+      "stall"
+    ]
+  },
+  "launches": [
+    {
+      "run": "S5-mention",
+      "inject": "mention",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.10609399999998,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 374.5856180000004,
+          "baselines": [
+            181.1336849999999,
+            193.3526340000002,
+            178.635573
+          ],
+          "baselines_median": 181.1336849999999,
+          "rise": 193.4519330000005,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "timestamp_echo_reconcile": {
+              "value": 41.356938000000014,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.6028670000000034,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 29.634008999999978,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.071826999999997,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 40.935883999999945,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 23.361653,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 40.935883999999945,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1477.315989,
+                1677.626041
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1477.275781,
+                1678.101093
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "timestamp_echo_reconcile": {
+                  "value": 0.13677099999995335,
+                  "range": [
+                    -4.949947999999949,
+                    5.068853999999874
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.005000000000109139,
+                  "range": [
+                    -4.99697900000001,
+                    5.004636000000119
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.07229099999995015,
+                  "range": [
+                    -4.968801999999869,
+                    5.046196999999893
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.006980000000112341,
+                  "range": [
+                    -4.995103999999856,
+                    5.005989
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.08572899999990113,
+                  "range": [
+                    -4.955208999999968,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.06671800000003714,
+                  "range": [
+                    -4.979010000000017,
+                    5.029271000000108
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.5774470000001202,
+                  "range": [
+                    -4.6850520000000415,
+                    5.414166999999907
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 63.67369699999949,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": -0.9162819999960448
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": true
+    },
+    {
+      "run": "S5-reconcile",
+      "inject": "reconcile",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.12677099999996,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 240.37703299999998,
+          "baselines": [
+            42.474825,
+            44.846997999999964,
+            42.573178000000006
+          ],
+          "baselines_median": 42.573178000000006,
+          "rise": 197.80385499999997,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 149.09245600000017,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "buddy_capture": {
+              "value": 2.561353000000005,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 25.721877999999997,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 3.726978000000001,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 35.74932600000001,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 20.381143000000016,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 35.74932600000001,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1717.470885,
+                1917.671301
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1717.213905,
+                1918.082447
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.21749999999997272,
+                  "range": [
+                    -4.849427000000105,
+                    5.21192700000006
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.014843999999811786,
+                  "range": [
+                    -4.99697900000001,
+                    5.004636000000119
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.1171870000000581,
+                  "range": [
+                    -4.968801999999869,
+                    5.046196999999893
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.007812999999941894,
+                  "range": [
+                    -4.995103999999856,
+                    5.005989
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.09427100000016253,
+                  "range": [
+                    -4.955208999999968,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.08182299999998577,
+                  "range": [
+                    -4.979010000000017,
+                    5.029271000000108
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.6070830000001024,
+                  "range": [
+                    -4.6850520000000415,
+                    5.414166999999907
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 135.73223899999994,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": 0.2992220000078305
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-buddy-r2",
+      "inject": "buddy",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.13177100000007,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 204.88140899999968,
+          "baselines": [
+            2.689626000000001,
+            2.7311780000000025,
+            2.6779020000000093
+          ],
+          "baselines_median": 2.689626000000001,
+          "rise": 202.19178299999967,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 136.775052,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 41.44827499999993,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 29.163178999999985,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 3.8112469999999967,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 39.103601000000026,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 24.204013000000007,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 39.103601000000026,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1477.628801,
+                1677.774999
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1477.437499,
+                1678.228593
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.10734400000001187,
+                  "range": [
+                    -4.849427000000105,
+                    5.21192700000006
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.05072900000004665,
+                  "range": [
+                    -4.949947999999949,
+                    5.068853999999874
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.19020799999998417,
+                  "range": [
+                    -4.968801999999869,
+                    5.046196999999893
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.008176999999932377,
+                  "range": [
+                    -4.995103999999856,
+                    5.005989
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.09062500000004547,
+                  "range": [
+                    -4.955208999999968,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.07296900000005735,
+                  "range": [
+                    -4.979010000000017,
+                    5.029271000000108
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.5344789999999193,
+                  "range": [
+                    -4.6850520000000415,
+                    5.414166999999907
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 28.16687499999989,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": -3.068002999991222
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-hidden",
+      "inject": "hidden",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.12468799999988,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 230.11135000000027,
+          "baselines": [
+            29.55436399999997,
+            29.169603000000023,
+            29.39162299999997
+          ],
+          "baselines_median": 29.39162299999997,
+          "rise": 200.7197270000003,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 134.81327399999986,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 42.239515999999945,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.4416670000000056,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 3.7905929999999968,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 37.943630000000034,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 21.95005599999998,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 37.943630000000034,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1442.917292,
+                1643.107344
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1442.659896,
+                1643.410312
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.15906199999994897,
+                  "range": [
+                    -4.849427000000105,
+                    5.21192700000006
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.058958999999958905,
+                  "range": [
+                    -4.949947999999949,
+                    5.068853999999874
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.0029690000001210137,
+                  "range": [
+                    -4.99697900000001,
+                    5.004636000000119
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.013020000000096843,
+                  "range": [
+                    -4.995103999999856,
+                    5.005989
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.11765699999978096,
+                  "range": [
+                    -4.955208999999968,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.07208300000002055,
+                  "range": [
+                    -4.979010000000017,
+                    5.029271000000108
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.4891139999999723,
+                  "range": [
+                    -4.6850520000000415,
+                    5.414166999999907
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": -5.571407000000363,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": -3.267853999998806
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-beforeinsert",
+      "inject": "beforeinsert",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.1526570000001,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 206.95239100000015,
+          "baselines": [
+            4.114908999999998,
+            4.204888999999994,
+            4.0542250000000015
+          ],
+          "baselines_median": 4.114908999999998,
+          "rise": 202.83748200000014,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 97.88826600000002,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 33.15782300000001,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.353446999999995,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 25.093890000000023,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 35.20499800000003,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 22.829291000000005,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 35.20499800000003,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1704.223125,
+                1904.400208
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1703.906093,
+                1904.743281
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.17317700000012337,
+                  "range": [
+                    -4.849427000000105,
+                    5.21192700000006
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.06104200000004312,
+                  "range": [
+                    -4.949947999999949,
+                    5.068853999999874
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.0033849999999802094,
+                  "range": [
+                    -4.99697900000001,
+                    5.004636000000119
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.04072999999993954,
+                  "range": [
+                    -4.968801999999869,
+                    5.046196999999893
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.13984400000003916,
+                  "range": [
+                    -4.955208999999968,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.08973900000000867,
+                  "range": [
+                    -4.979010000000017,
+                    5.029271000000108
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.5323430000000826,
+                  "range": [
+                    -4.6850520000000415,
+                    5.414166999999907
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 71.8023439999995,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": -1.0524999999879583
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-insert",
+      "inject": "insert",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.12640599999986,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 249.5255669999999,
+          "baselines": [
+            40.301923999999985,
+            41.174384999999965,
+            40.81938099999995
+          ],
+          "baselines_median": 40.81938099999995,
+          "rise": 208.70618599999995,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 160.87858899999995,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 47.80984499999997,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.7990500000000047,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 35.50887599999997,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.432962999999996,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 34.574161999999966,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1475.222135,
+                1675.426874
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1474.92526,
+                1675.637864
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.13828100000000632,
+                  "range": [
+                    -4.849427000000105,
+                    5.21192700000006
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.06067699999994147,
+                  "range": [
+                    -4.949947999999949,
+                    5.068853999999874
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.0033860000000913715,
+                  "range": [
+                    -4.99697900000001,
+                    5.004636000000119
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.0469789999999648,
+                  "range": [
+                    -4.968801999999869,
+                    5.046196999999893
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.00546899999994821,
+                  "range": [
+                    -4.995103999999856,
+                    5.005989
+                  ],
+                  "pass": true
+                },
+                "follow_or_count_composer_restore": {
+                  "value": 0.1049479999999221,
+                  "range": [
+                    -4.979010000000017,
+                    5.029271000000108
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.43807300000003124,
+                  "range": [
+                    -4.6850520000000415,
+                    5.414166999999907
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 102.35520799999995,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": 1.6271130000059202
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-follow",
+      "inject": "follow",
+      "phase_location": "inside page 0's 100th history row, inside the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.1033339999999,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 222.79418799999968,
+          "baselines": [
+            24.623742000000007,
+            21.620933999999977,
+            22.003317000000003
+          ],
+          "baselines_median": 22.003317000000003,
+          "rise": 200.79087099999967,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 97.37384600000009,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 32.694747,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.366829999999998,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 23.302478000000004,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 3.3407299999999953,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 34.033683999999994,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 34.033683999999994,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "row_ordinal": 100,
+              "phase": [
+                1720.424271,
+                1920.60052
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1720.124791,
+                1920.729531
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_rows_other_work_unchanged": {
+              "row_ordinal": 100,
+              "segments": {
+                "dedup_backfill_mention": {
+                  "value": 0.14385399999991932,
+                  "range": [
+                    -4.849427000000105,
+                    5.21192700000006
+                  ],
+                  "pass": true
+                },
+                "timestamp_echo_reconcile": {
+                  "value": 0.043646000000080676,
+                  "range": [
+                    -4.949947999999949,
+                    5.068853999999874
+                  ],
+                  "pass": true
+                },
+                "buddy_capture": {
+                  "value": 0.002863999999817679,
+                  "range": [
+                    -4.99697900000001,
+                    5.004636000000119
+                  ],
+                  "pass": true
+                },
+                "hidden_user_check": {
+                  "value": 0.029115000000047075,
+                  "range": [
+                    -4.968801999999869,
+                    5.046196999999893
+                  ],
+                  "pass": true
+                },
+                "composer_snapshot_follow_decision": {
+                  "value": 0.004061999999976251,
+                  "range": [
+                    -4.995103999999856,
+                    5.005989
+                  ],
+                  "pass": true
+                },
+                "timeline_insert": {
+                  "value": 0.04073000000016691,
+                  "range": [
+                    -4.955208999999968,
+                    5.05630199999996
+                  ],
+                  "pass": true
+                },
+                "total": {
+                  "value": 0.33718599999997423,
+                  "range": [
+                    -4.6850520000000415,
+                    5.414166999999907
+                  ],
+                  "pass": true
+                }
+              },
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 146.6421349999996,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": -6.630201999987321
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-build",
+      "inject": "build",
+      "phase_location": "outside every row: a bind at the list's layout, wherever that layout falls in time; 5d builds a view only for a row laid out",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.12166700000012,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 298.4883930000012,
+          "baselines": [
+            155.4585890000003,
+            129.4098469999983,
+            172.18505000000096
+          ],
+          "baselines_median": 155.4585890000003,
+          "rise": 143.02980400000092,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 133.43992000000028,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 37.508560000000024,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 3.6349509999999983,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 26.392382000000016,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 3.7689659999999954,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 37.51973800000001,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 21.196871000000016,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 37.51973800000001,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "build": [
+                1726.474739,
+                1933.258489
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                1697.906249,
+                1995.539634
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 186.41333299999974,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": 6.020276000011108
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-gap",
+      "inject": "gap",
+      "phase_location": "a main-thread message of its own between the span's rows, holding no row",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.10317699999996,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 209.76275599999894,
+          "baselines": [
+            13.12978900000121,
+            32.898436999999376,
+            32.83516200000031
+          ],
+          "baselines_median": 32.83516200000031,
+          "rise": 176.92759399999863,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 161.1985,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 41.612599000000024,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.74864100000001,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 27.073848999999974,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.031938999999999,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 38.702756000000086,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 22.809269999999973,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 38.702756000000086,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "message": [
+                2108.182604,
+                2308.440937
+              ],
+              "holds_a_row": false,
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "inside_the_main_threads_log": {
+              "message": [
+                2108.182604,
+                2308.440937
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 129.56984399999965,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": -4.868385000002263
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-app",
+      "inject": "app",
+      "phase_location": "Application.onCreate, before the span",
+      "criteria": {
+        "1": {
+          "recorded_ms": 200.121979,
+          "at_least_ms": 200.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "2": {
+          "value": 446.755417,
+          "baselines": [
+            228.023594,
+            229.105885,
+            220.457916
+          ],
+          "baselines_median": 228.023594,
+          "rise": 218.73182300000002,
+          "at_least": 100.0,
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "segments": {
+            "dedup_backfill_mention": {
+              "value": 167.02923800000002,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ],
+              "pass": false
+            },
+            "timestamp_echo_reconcile": {
+              "value": 46.379796000000034,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ],
+              "pass": true
+            },
+            "buddy_capture": {
+              "value": 2.6318220000000077,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ],
+              "pass": true
+            },
+            "hidden_user_check": {
+              "value": 31.526663000000028,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ],
+              "pass": true
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 4.0161029999999975,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ],
+              "pass": true
+            },
+            "timeline_insert": {
+              "value": 42.60603900000002,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            },
+            "follow_or_count_composer_restore": {
+              "value": 20.140831000000023,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ],
+              "pass": true
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ],
+              "pass": true
+            },
+            "timeline_insert_without_view_build": {
+              "value": 42.60603900000002,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ],
+              "pass": true
+            }
+          },
+          "pass": false,
+          "status": "FAIL"
+        },
+        "4": {
+          "clauses": {
+            "inside_its_phase": {
+              "phase": [
+                206.114896,
+                406.430521
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 5.235467999999855,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": 7.919868000014503
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": false
+    },
+    {
+      "run": "S5-stall-r1",
+      "inject": "stall",
+      "phase_location": "anchor + 8000 ms, after the span: the burst end, criterion 5",
+      "criteria": {
+        "1": {
+          "recorded_ms": 534.7768229999992,
+          "at_least_ms": 534.0,
+          "rule": "at least the delay asked for; no tolerance below, no bound above",
+          "pass": true,
+          "status": "PASS"
+        },
+        "3": {
+          "status": "NOT APPLICABLE",
+          "why": "the stall begins after the span's last row, so no row's segment can contain it: this check could fail only through the launch's own variation, never through the stall",
+          "segments_for_the_record": {
+            "dedup_backfill_mention": {
+              "value": 148.7708359999999,
+              "range": [
+                168.635573,
+                203.3526340000002
+              ]
+            },
+            "timestamp_echo_reconcile": {
+              "value": 47.35329499999992,
+              "range": [
+                32.474825,
+                54.846997999999964
+              ]
+            },
+            "buddy_capture": {
+              "value": 3.4294170000000035,
+              "range": [
+                -7.322097999999991,
+                12.731178000000003
+              ]
+            },
+            "hidden_user_check": {
+              "value": 29.246198999999955,
+              "range": [
+                19.169603000000023,
+                39.55436399999997
+              ]
+            },
+            "composer_snapshot_follow_decision": {
+              "value": 3.912866000000001,
+              "range": [
+                -5.9457749999999985,
+                14.204888999999994
+              ]
+            },
+            "timeline_insert": {
+              "value": 40.21233499999993,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ]
+            },
+            "follow_or_count_composer_restore": {
+              "value": 19.094957000000047,
+              "range": [
+                11.620933999999977,
+                34.62374200000001
+              ]
+            },
+            "timeline_insert_of_which_view_build": {
+              "value": 0,
+              "range": [
+                -10.0,
+                10.0
+              ]
+            },
+            "timeline_insert_without_view_build": {
+              "value": 40.21233499999993,
+              "range": [
+                30.301923999999985,
+                51.174384999999965
+              ]
+            }
+          }
+        },
+        "4": {
+          "clauses": {
+            "inside_the_main_threads_log": {
+              "message": [
+                8000.354215,
+                8536.359059
+              ],
+              "outside_ms": 0.0,
+              "pass": true
+            },
+            "the_total_reported": {
+              "span_rise_over_the_baselines_median": 34.12640599999986,
+              "baselines_span_spread": 175.29833300000018,
+              "idle_change": 6.049129000013181
+            }
+          },
+          "pass": true,
+          "status": "PASS"
+        },
+        "5": {
+          "burst_end": 8536.34664800018,
+          "stall_end": 8535.312965,
+          "first_frame_after": 8538.001038,
+          "bounds": [
+            8534.312965,
+            8538.001038
+          ],
+          "stall_placed_at": 8000,
+          "stall_began": 8000.536142,
+          "span_end": 2122.771509,
+          "baselines_burst_end": {
+            "S5-base-1": 2279.4101170003414,
+            "S5-base-2": 2324.589883999899,
+            "S5-base-3": 2292.5247560003772
+          },
+          "baselines_whose_burst_ended_before_the_stall": [
+            "S5-base-1",
+            "S5-base-2",
+            "S5-base-3"
+          ],
+          "baselines_with_no_burst": [],
+          "after_the_span": true,
+          "the_detector_moves_there": true,
+          "from_somewhere_else": true,
+          "pass": true,
+          "status": "PASS"
+        }
+      },
+      "pass": true
+    }
+  ],
+  "verdict": "NOT QUALIFIED: reconcile (criteria 3), buddy (criteria 3), hidden (criteria 3), beforeinsert (criteria 3), insert (criteria 3), follow (criteria 3), build (criteria 3), gap (criteria 3), app (criteria 3)"
+}
