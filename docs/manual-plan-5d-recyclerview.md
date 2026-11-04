@@ -2007,6 +2007,82 @@ its correctness gates alone."
 - It is recorded, not applied.
 - Whether the qualification closes is not decided in this step.
 
+### Before the closing measurement, 2026-11-04: its pre-registration, the idle record, the 60 Hz readings
+
+By the instruction of the owner of the measurement, after the negative control. The owner's decision
+of this step: "The instrument qualifies for the closing measurement's two quantities and NOT for
+per-phase attribution." ρ does not change, the thresholds stay 0.708 and 0.825, and the decision
+rule stays as `decide.py` has it.
+
+**1. The pre-registration of the closing measurement, before any of its launches.**
+- **The file:** `experiment/startup-5d/closing-measurement-prereg-2026-11-04.md`, sha256
+  `0dbec9044ea7531fd7bfe26af688037c9b89b3332143d1cede0d85673925b88f`, blob `b6d2e81`.
+  - Written on 2026-11-04 at 13:59:24 +0100, and hashed at 13:59:47, before any launch of the
+    closing measurement.
+  - Committed in `72dedf8` on `experiment/startup-5d-control` and `1f13d5f` on
+    `experiment/startup-5d-treatment`.
+  - Both were read back from the remote at 14:00:28. The file fetched from the remote gave the same
+    sha256.
+- **What it fixes:**
+  - **The scope:** qualified for the span and the burst end, on criteria 1, 2, 4 and 5.
+    - Criterion 3 is UNINFORMATIVE by measurement (P_null 0.6003).
+    - Per-phase attribution is NOT QUALIFIED and out of scope for this round.
+    - This is a narrowing, not a loosening. Criterion 3 neither blocks nor clears, and the leakage
+      question is unanswered.
+  - **The direction, corrected:** (t − k) / (c − k) < t / c. So HOLDS is the weak verdict, and
+    FAILS would be the strong one.
+    - The owner's retraction of the opposite direction is recorded with its reason, in the owner's
+      words: "a direction asserted from algebra that had not been carried out".
+  - **The confounds, live:**
+    - JIT, with the control flattered;
+    - `run-from-apk` in every launch;
+    - L1 to L4 on ρ's provenance;
+    - the pages' order.
+  - **The rule** as `decide.py` `3f69c6a` applies it, with its stopping rule.
+  - **The agent's prediction:** HOLDS on the span and HOLDS on the burst end. It rests on the
+    negative control's plain launches, on the qualification builds:
+    - span ratios ran from 0.243 to 0.394, against 0.708;
+    - burst-end ratios ran from 0.243 to 0.740, against 0.825.
+  - **The procedure:**
+    - the measurement builds `dea38cc` (`d005e901…`) and `a2f12f1` (`ece097ac…`), run with the run
+      directory's host scripts;
+    - one excluded launch, then C T C T C T C T C T, with an install before every launch;
+    - `--qualified` names the 84 counted launches of 2026-11-04's three sittings.
+  - **The driver's sha256.**
+
+**2. The idle wait is now shown and saved on every launch.** This is the owner's fix, made before
+the pre-registration was hashed.
+- **What was missing:**
+  - In the negative control, the first four launches' idle lines were neither shown nor saved. So
+    whether the driver waited for input there is not known.
+  - "Untouched" is a void condition, and a wait that was not recorded cannot be verified.
+- **What changed:**
+  - `idle-wait.sh` prints every line of the wait and appends it to a record, with the driver's display
+    reading.
+  - `launch-one.sh` copies that record into the run, as `idle-wait.txt`.
+  - `sitting.sh` stops if a launch saved none, and prints the record from the saved file.
+- **Tested without a launch:** against a stand-in `adb`, what was shown was byte for byte what was
+  saved, in both branches. The sha256 values and the test are in the pre-registration, section 6.
+
+**3. The 60 Hz readings: a mechanism observed later, which plausibly explains an older open item.**
+- **Observed before the negative control, 2026-11-04, 12:01 to 12:05.**
+  - The display read 60.000004 Hz while another app had requested that rate.
+  - At 12:03 the display's votes held three app requests capped at 60.000004 Hz. Thermal status was
+    0, and battery saver was off.
+  - The other app's window was listed. By 12:04:57 its task was not visible.
+  - From 12:04:32 the display read 90.0 Hz.
+- **The older item.** On 2026-11-03, the excluded launch's re-run `-2` read 60.000004 Hz before and
+  90.0 after, and its cause was recorded as unknown (*Recorded results*, 2026-11-03).
+- **What the later mechanism offers it.** Another app's request for 60 Hz, lifted once that app left
+  the screen, would give exactly that reading, a lower rate before the launch and 90.0 after.
+- **It is a plausible explanation, not proof about `-2`.**
+  - At `-2` neither the display's votes nor the app in front before the launch were read.
+  - So the mechanism was observed on 2026-11-04, and its presence at `-2` is inferred.
+- **It is not the 60 Hz of 2026-11-03 08:52.** That reading moved to 90.0 when battery saver was
+  turned off, and the inference there was battery saver's cap.
+- **From the closing measurement on,** `section-read.sh` reads the display's app-request votes beside
+  the refresh rate, before the first launch and after the last.
+
 ## Backlog
 
 Started on 2026-11-03: this plan had no backlog before the entry below. An entry here is recorded,
@@ -2308,6 +2384,9 @@ phone's reading of 20:22.
     - `-2`, 09:47: the display, 60.000004 Hz before and 90.0 after. Its frames, 3, passed. Why the
       reading was 60 is not known. Two minutes of readings with the app in front gave 90.0
       throughout, and `-3` read 90.0 before and after with the same app in front before its install.
+      *Added on 2026-11-04:* a mechanism observed later plausibly explains it, another app's
+      request for 60 Hz. It is not proof about `-2` (*Before the closing measurement, 2026-11-04*,
+      item 3). The sentence above stays as it was written.
     - `-3` to `-15`, 09:50 to 10:05: late delivery, 53 to 107 frames drawn inside the span; `-12`
       drew 10. `-10` also caught a foreign process start, `com.google.ar.core` at 2579.2 ms.
 
