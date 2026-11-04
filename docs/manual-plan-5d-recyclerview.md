@@ -2741,3 +2741,141 @@ on both experiment branches:
 - The closing measurement was not run.
 - The phone keeps `550b414`'s build, installed at 08:49:31 for `S5-stall-r1`. It is recorded in
   `RELEASE-STATE.md` after the round, as the plan says, not now.
+
+**The re-qualification sitting, 2026-11-04, 10:27 to 11:13: both builds NOT QUALIFIED, on criterion 3
+above its bound.**
+- It ran as *Decided on 2026-11-04, after the qualification and before the re-qualification* sets
+  out, under its pre-registration (sha256 `36ce1935…`), once the phone was reconnected.
+- That pre-registration says a failed qualification stops the round before the measurement, so the
+  round stops here. The closing measurement was not run.
+
+- **Read before the first launch, 10:27 to 10:28.**
+  - The driver's four files read the sha256 the pre-registration gives. The run directory's eight
+    scripts read their blobs, `qualify5d.py` `19d110c` among them. No `R` label existed.
+  - Battery saver was off: `low_power` 0 and `mSettingBatterySaverEnabled=false`. The phone was on
+    USB power.
+  - The display read 90.0 Hz on all 6 readings from 10:27:53 to 10:28:18. So the section is held at
+    90.0 Hz, as in the morning's sitting.
+  - The battery read level 100 and status full (5); in the morning it was charging. The scripts
+    hold battery saver and the power source, not the level or the status.
+- **The excluded launch, `X-R-excluded`, at 10:28:59.** Both pages read `c8cb0e91` with 400 history
+  rows, so the sitting started. It was void for a foreign process start
+  (`com.amazon.clouddrive.photos`, at 2755.1 ms). That reason does not bear on what the launch is
+  for.
+- **The launches: 28 counted, 14 per build, in the pre-registered order,** with the baselines at
+  positions 1, 8 and 14. The control ran from 10:30:36 to 10:52:15, and 5d from 10:52:30 to
+  11:12:35.
+  - With the excluded launch and three voids, that makes 32 launches.
+  - Each was preceded by the driver's install and read-back, then by `run.sh`'s. Every reading gave
+    STEP B's sha256: `d9970f27…` for `2e72e42`, and `e881d0ab…` for `550b414`.
+  - All 28 counted launches read the same:
+    - 0 input events and 0 foreign process starts;
+    - 90.0 Hz before and after;
+    - battery saver 0, on USB power;
+    - 800 history rows in the span, both pages on `c8cb0e91` at 400;
+    - compile state `run-from-apk`;
+    - first after install.
+  - Recorded, not held: the level stayed at 100. The temperature ran from 29.2 to 31.0 °C over the
+    control, and from 30.7 to 31.1 °C over 5d.
+- **Three launches were void, each a late delivery on a spawn still inside its window.** The driver
+  re-ran each in its place. This was the first time its re-run loop ran on the phone.
+  - `Rc-mention`: page 0, row 258, 1114.5 ms, `UNCHANGED`. `-r1` was clean.
+  - `Rc-app`: page 0, row 308, 917.0 ms, `STORED`, and page 1, row 307, 304.8 ms, `UNCHANGED`.
+    `-r1` was clean.
+  - `R5-base-2`: page 1, row 235, 890.9 ms, and page 0, row 235, 1249.8 ms, both `UNCHANGED`.
+    `-r1` was clean.
+  - No launch needed a second re-run, and the driver stopped nowhere.
+- **No contradiction of the diagnostic launch.** In none of the 32 launches was a wait recorded on
+  an `IGNORED_EXPIRED` row.
+  - 42 history ingestions were `ignored_expired`, 40 of them in counted launches.
+  - None was followed by a wait.
+
+**The two verdicts.** They come from `qualify5d.py` `19d110c`, run in the run directory on Python
+3.10.0.
+- control: `NOT QUALIFIED: mention (criteria 3), buddy (criteria 3)`
+- 5d: `NOT QUALIFIED: insert (criteria 3)`
+- What held on both builds:
+  - one display reading and one battery state;
+  - 800 rows in every span;
+  - no void launch scored;
+  - three baselines, which injected nothing, and each injection once.
+
+**The criteria.**
+- **Criterion 1** passes on all 11 of each build.
+  - Control: 200.11 to 200.18 ms, and 534.59 ms for `stall`.
+  - 5d: 200.10 to 200.15 ms, and 535.03 ms for `stall`.
+- **Criterion 2** passes on all 10 of each build.
+  - Control: rises of 129.8 to 213.0 ms. `insert` rose 213.0 ms and `build` 129.8.
+  - 5d: rises of 140.7 to 211.0 ms.
+- **Criterion 3, one-sided,** is NOT APPLICABLE to `stall` on both builds.
+  - **The control fails on 2, and passes on 8:**
+    - `mention-r1`: `timeline_insert` 1612.2 ms against an upper bound of 1550.5 (+61.7), and its
+      view build 1498.7 against 1444.5 (+54.1);
+    - `buddy`: 1576.7 against 1550.5 (+26.2), and 1464.8 against 1444.5 (+20.3).
+  - **5d fails on 1, and passes on 9:** `insert`'s `follow_or_count_composer_restore`, 37.2 ms against
+    31.8 (+5.4). In the morning's sitting the same value lay 0.0 ms below its bound.
+  - **Below the lower reference, deciding nothing:**
+    - on the control, `timeline_insert` and its view build in 6 launches (`reconcile`, `hidden`,
+      `beforeinsert`, `follow`, `gap` and `app-r1`), and dedup in `app-r1`;
+    - on 5d, dedup and `timestamp_echo_reconcile` in `app`.
+- **Criterion 4** passes on all 11 of each build. The reported span rise ran from −114.8 to 309.7 ms
+  on the control, against a spread of 46.3 ms across the baselines. On 5d it ran from −123.4 to
+  214.0, against 78.2.
+- **Criterion 5** passes on both builds.
+  - Control: the burst ended at 8536.93 ms, inside [8534.67, 8538.18]. The baselines' bursts ended
+    before the stall, at 3542.4 to 4059.4 ms.
+  - 5d: it ended at 8536.45 ms, inside [8535.41, 8537.44]. The baselines' bursts ended at 1983.3 to
+    2251.7 ms.
+
+**The predictions.** `requal_p1.py` was run in the run directory, on the labels in sitting order.
+- **P1 holds on both builds.**
+  - Control: the exact p is 0.558, with the baselines ranking 5, 9 and 8 of 14.
+  - 5d: it is 0.500, with ranks 7, 5 and 11.
+- **P2 does not hold on either build.** It decides nothing.
+- **P3 fails on both builds,** on the three values above.
+- **P4 holds:** criterion 2 passes on all 10 of each build, the control's `insert` and `build`
+  included. The instrument gap the pre-registration named in advance did not occur.
+- **P5 holds.**
+- **The expected verdict, both builds QUALIFIED, was not reached.** No criterion is adjusted.
+
+**Beside the verdicts, deciding nothing.**
+- **Where the failing excess sits** (`location.txt`). Each value is broken down by row set and
+  compared with the highest baseline's same rows. This locates the excess; it explains nothing.
+  - **`mention-r1`'s `timeline_insert`:** +30.2 ms on page 0's rows 11 to 99, and +64.4 on rows 101
+    to 399. Page 1 reads −16.6, and row 100 −0.5.
+    - Rows 11 to 99 ran before its delay began, since the delay is in row 100.
+    - So by time order, their part is not the delay's leakage. That is reasoning, not tested.
+  - **`buddy`'s:** +15.9 on page 1, +8.1 on rows 11 to 99, and +12.7 on rows 101 to 399.
+  - **5d `insert`'s `follow_or_count_composer_restore`:** +7.7 on page 1, +6.1 on rows 101 to 399,
+    and +0.1 on row 100.
+- **How often a held value lies above the highest baseline,** before the 10 ms margin.
+  - It does for 17 of the control's 80 held values (21%), and for 15 of 5d's 82 (18%).
+  - `mention-r1` does on 7 of its 9 held segments.
+  - A launch drawn from the same distribution as three baselines lies above all three with
+    probability 1/4. That is arithmetic about order statistics, not a measurement, and it changes
+    no verdict.
+- **The morning's step did not recur.**
+  - Page 1's `timeline_insert` read 622.8, 629.6 and 626.4 ms in the control's baselines, and 594.1
+    to 645.5 in its injections.
+  - In the morning it read 717.2, 747.7 and 685.4, against 637.3 to 690.7.
+  - This is recorded, not interpreted.
+- **The pages' order did not differ between the arms on this sitting.** This is recorded, not
+  interpreted, beside the confound declared in item 5 of *Decided on 2026-11-04*.
+  - The pages ran one after the other in all 14 counted launches of each build. Page 1 started
+    1167.9 to 1625.8 ms after page 0 on the control, and 456.9 to 749.1 ms after on 5d.
+  - All three void launches interleaved. The excluded launch ran its pages one after the other.
+
+**Published** in `experiment/startup-5d/requalification-2026-11-04/` on both experiment branches:
+`0131ce5` on `experiment/startup-5d-control`, and `9c19749` on `experiment/startup-5d-treatment`.
+- The files are the morning's set, plus `p1-control.json`, `p1-5d.json`, `location.py` and
+  `location.txt`.
+- **One edit, as in the morning:** each launch record's local APK path writes its user directory as
+  `%USERPROFILE%`. That is 14 lines per file; nothing else differs.
+- **Scanned before the push.** The added lines hold no account id beyond its prefix, no user name, no
+  token and no chat text.
+
+**Not done.**
+- The failures were not diagnosed, and no criterion was adjusted.
+- The closing measurement was not run.
+- The phone keeps `550b414`'s build. It was installed at 11:11:59 for `R5-base-3`, and read back from
+  the phone at 11:16. It is recorded in `RELEASE-STATE.md` after the round, as decided, not now.
