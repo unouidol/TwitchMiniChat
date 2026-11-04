@@ -83,6 +83,20 @@ check("120 of 200 elsewhere: rise 80, criterion 2 fails",
 leaked = injected("mention", 1000.5, 200, landed=80)
 leaked["segments"]["buddy_capture"] += 120
 check("... and the 120 ms in another segment: criterion 3 fails", run_one(leaked), False, "3")
+# Criterion 3 is one-sided since 2026-11-04: a segment below the baselines passes, printed as below.
+lowered = injected("mention", 1000.5, 200)
+lowered["segments"]["buddy_capture"] -= 120
+out = run_one(lowered)
+low_three = out["launches"][0]["criteria"]["3"]
+assert low_three["pass"] and low_three["segments"]["buddy_capture"]["below_lower_reference"], low_three
+assert low_three["rule"].startswith("one-sided"), low_three
+print("ok a segment 120 ms below the baselines: criterion 3 passes, printed as below its lower reference")
+at_bound = injected("mention", 1000.5, 200)
+at_bound["segments"]["buddy_capture"] = max(b["segments"]["buddy_capture"] for b in BASELINES) + q.CRITERION_3_MS
+check("a segment exactly at the baselines' highest plus 10 ms: criterion 3 passes", run_one(at_bound), True, "3")
+over = injected("mention", 1000.5, 200)
+over["segments"]["buddy_capture"] = max(b["segments"]["buddy_capture"] for b in BASELINES) + q.CRITERION_3_MS + 0.5
+check("0.5 ms above it: criterion 3 fails", run_one(over), False, "3")
 dropped = injected("mention", 1000.5, 200, landed=0)
 check("analyze5d.py drops the delay: criterion 2 fails", run_one(dropped), False, "2")
 check("... where criterion 4 alone would pass", run_one(dropped), True, "4")
