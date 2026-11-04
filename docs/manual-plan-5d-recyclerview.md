@@ -901,7 +901,10 @@ owner of the measurement the same day; the second rewritten by the owner the sam
 3. **the others did not:** every other per-row segment of the breakdown lies within the baselines'
    range widened by 10 ms on each side. The between-row parts are too noisy for this and are not held
    to it; the span total is not either, its launch-to-launch spread (142 ms on 2026-10-09) being far
-   wider than that margin;
+   wider than that margin.
+   *One-sided since 2026-11-04,* after that sitting's failures were seen: only a value above the
+   baselines' highest plus 10 ms fails. Their lowest less 10 ms is printed and decides nothing
+   (*Decided on 2026-11-04, after the qualification and before the re-qualification*);
 4. **the injection is accounted for,** whatever any phase's width. Criteria 2 and 3 compare a launch
    with other launches, and a phase whose range across launches is wider than the delay can hide the
    delay's leakage, all 200 ms of it, without failing either. This one is read inside the injected
@@ -1393,6 +1396,10 @@ adjust the rule.
 *Its scope, corrected on 2026-11-03 by the owner:* binding before the closing measurement, not
 before the qualification (*The qualification sitting of 2026-11-03*, below).
 
+*Its status, set on 2026-11-04 by the owner:* this section is a **pre-registered limitation** of the
+closing measurement. It is binding before that measurement, not before the re-qualification. ρ and
+the thresholds do not change (*Decided on 2026-11-04*, item 3).
+
 **Where `decide.py` fixes it.**
 - `RHO = {"span": 1.0 / 2.4, "burst_end": 2.6 / 4.0}` is line 32 of `decide.py` as `301111b`
   introduced it on 2026-10-30. It is line 77 on today's branch tips, `2e72e42` and `550b414`, which
@@ -1571,6 +1578,256 @@ by `sitting_extra.py`, outside the repository, from each launch's `probe.json` a
   - 3 of the 4 `unchanged` ones do too. The fourth is `-2`'s page 1, whose largest gap was 224 ms;
   - in the diagnostic launch, neither ingestion does.
 
+### Decided on 2026-11-04, after the qualification and before the re-qualification
+
+Asked by the owner of the measurement after the qualification sitting of 2026-11-04 (*Recorded
+results*). No launch ran for any of it. Everything below was computed from that sitting's recorded
+launches, or read in code, and each item says which.
+- Both builds stay **NOT QUALIFIED**, as recorded.
+- `qualify5d.py` was not run over the 2026-11-04 data under the changed rule, and will not be. The
+  new rule is tested on a new sitting.
+
+**1. The drift across launches, measured before anything changed.** Computed on Python 3.10.0. The
+scripts and outputs are in `experiment/startup-5d/qualification-2026-11-04/drift/`, on both
+experiment branches: `b808a60` on `experiment/startup-5d-control`, and `53f02e4` on
+`experiment/startup-5d-treatment`.
+- **The rows used are the ones no injection lands in, in any of a build's 14 launches:** page 1's
+  history rows, and page 0's rows 11 to 99.
+  - The row injections land in page 0's row 100, and the control's `build` in page 0's row 10.
+  - 5d's `build` is a bind outside every row, `gap` holds no row, `app` is before the span, and
+    `stall` is after it.
+  - The extract reproduces every criterion 3 value `qualify5d.py` printed for the sitting: 162
+    values, largest difference 0.000000 ms.
+- **Page 1's history rows, summed per launch, in ms, in sitting order.** The labels are the counted
+  launches: the control's `base-2` is `-r1` and its `gap` `-r2`; 5d's `buddy` is `-r2` and its
+  `stall` `-r1`.
+
+  | Position | Launch | Control `timeline_insert` | Control whole row | 5d `dedup_backfill_mention` | 5d whole row |
+  |---|---|---|---|---|---|
+  | 1 | `base-1` | 717.2 | 869.0 | 90.7 | 160.3 |
+  | 2 | `base-2` | 747.7 | 909.2 | 95.8 | 163.0 |
+  | 3 | `base-3` | 685.4 | 825.3 | 79.0 | 139.3 |
+  | 4 | `mention` | 669.9 | 809.3 | 93.4 | 167.3 |
+  | 5 | `reconcile` | 656.3 | 788.5 | 67.7 | 125.7 |
+  | 6 | `buddy` | 671.2 | 811.0 | 69.7 | 141.5 |
+  | 7 | `hidden` | 657.6 | 789.3 | 71.9 | 146.1 |
+  | 8 | `beforeinsert` | 690.7 | 835.5 | 26.6 | 73.7 |
+  | 9 | `insert` | 649.5 | 780.2 | 76.0 | 156.0 |
+  | 10 | `follow` | 659.4 | 797.9 | 46.9 | 102.1 |
+  | 11 | `build` | 672.0 | 812.3 | 44.9 | 101.8 |
+  | 12 | `gap` | 668.3 | 808.1 | 83.8 | 154.5 |
+  | 13 | `app` | 676.3 | 812.0 | 84.4 | 157.5 |
+  | 14 | `stall` | 637.3 | 763.6 | 67.1 | 131.9 |
+
+  - **No series falls monotonically.** Of the 13 steps, 7 fall on the control's two series, and 6
+    on 5d's.
+  - **Spearman against position, all 14 launches, with a permutation p:**
+    - control: `timeline_insert` −0.508 (p 0.067), the whole row −0.516 (0.061), and
+      `follow_or_count_composer_restore` −0.675 (0.010);
+    - 5d: dedup −0.473 (0.090), and the whole row −0.380 (0.181).
+  - **Among the eleven injections alone,** positions 4 to 14, it is −0.036 and −0.055 on the control,
+    and −0.127 and −0.073 on 5d.
+- **Why a rank correlation over the 14 is the wrong summary.** In this design, positions 1 to 3 and
+  "baseline" are the same three launches.
+  - So a correlation with position cannot tell a drift with launch order from a difference between
+    the baselines and the injections.
+  - Its value here comes from where the baselines sit: among the injections it is near zero.
+  - What the band depends on is whether the three baselines sit apart from the eleven. The right
+    summary has three parts:
+    - the exact probability that three launches drawn at random from the 14 rank as high as the
+      baselines, over all 364 draws;
+    - the gap of medians;
+    - the same comparison at matched process age.
+- **The direct answer: yes, the baselines sit higher on rows no injection touched.** It holds on the
+  control's page 1 and on 5d's page 1, and not on 5d's page 0.
+  - **Control, page 1, `timeline_insert`.**
+    - The baselines read 717.2, 747.7 and 685.4. The injections read 637.3 to 690.7, median 668.3.
+    - The gap of medians is +48.9 ms, with an exact p of 0.0055.
+    - The baselines rank 1, 2 and 4 of 14. One injection, `beforeinsert` at 690.7, lies above
+      `base-3`.
+    - The view build gives +46.0, `follow_or_count_composer_restore` +8.0, and the whole row
+      +60.9, each with p 0.0055.
+  - **Control, page 0's rows 11 to 99, `timeline_insert`.**
+    - The baselines read 231.5, 203.4 and 229.6. The injections read 183.7 to 231.2, median 199.9.
+    - That is +29.7, with p 0.063, so not below 0.05. Five injections lie above the lowest baseline.
+  - **5d, page 1, dedup.**
+    - The baselines read 90.7, 95.8 and 79.0. The injections read 26.6 to 93.4, median 69.7.
+    - That is +21.0, with p 0.030.
+    - The baselines rank 1, 3 and 6. Three injections lie above the lowest baseline: `mention` 93.4,
+      `gap` 83.8 and `app` 84.4.
+    - The whole row gives +18.8, with p 0.113.
+  - **5d, page 0's rows 11 to 99: no gap.** Dedup gives +2.1 (p 0.184), and the whole row +1.1.
+  - **At matched process age.** Every row but the target row was binned by 100 ms of its begin.
+    - On the control the baselines' median per row is higher in 20 of 21 bins, for `timeline_insert`
+      and for the whole row alike, and in 15 of 21 for `follow_or_count_composer_restore`.
+    - On 5d it is higher in 7 of 8 bins for dedup, and 6 of 8 for the whole row.
+  - **Over the whole span**, criterion 3's value, the gap of medians was +140.8 ms for the control's
+    `timeline_insert`, and +32.4 ms for 5d's dedup. Gaps of medians do not add, so the row sets'
+    gaps are not parts of these.
+- **It is not the within-launch process-age effect.** That effect is real.
+  - On the control, the median whole row cost 2343 to 2850 µs on page 0's rows 11 to 99, at age
+    medians of 1589 to 1880 ms. On page 1 it cost 1837 to 2230 µs, at 3110 to 3457 ms.
+  - That effect compares rows inside one launch. The drift compares launches at the same age:
+    - on page 1 the ages match, 3258 to 3416 ms in the baselines and 3110 to 3457 in the injections,
+      and the gap holds;
+    - it also holds in 20 of 21 matched bins.
+- **By a static reading of `StartupProbe.kt`, it is not the `inject=` flag.**
+  - The flag only sets `inject`.
+  - Each site returns at once when `inject` is not its name, and `injected()` sleeps 200 ms once.
+  - So before its delay, an injected launch differs from a baseline only by those comparisons. They
+    add cost and cannot remove it.
+  - This was read, not tested. P1 (below) is the test.
+- **Its shape is a step at the baselines, not a trend with order.**
+  - The pre-registration says "the first three launches of each build's block sit above the rest".
+    That overstates both builds. On the control one injection lies above the lowest baseline, and on
+    5d three do.
+  - The pre-registration is hashed and is not edited. The numbers above are the record.
+- **Its cause is not identified.** Within a build's block, position, clock time, battery level and
+  temperature all move together. The level went from 42 to 56 on the control and from 58 to 74 on
+  5d; the temperature from 29.3 to 32.1 °C and from 31.6 to 32.6 °C.
+
+**2. The re-registration.** It is made after the failures of 2026-11-04 were seen, and it is written
+down as such, as the owner required.
+- **The pre-registration** is `experiment/startup-5d/requalification-prereg-2026-11-04.md`. It was
+  added by `67d0fdc` on `experiment/startup-5d-control` and `43294a8` on
+  `experiment/startup-5d-treatment`.
+  - Its sha256 is `36ce1935e44c5812bfc786831d1826d5958792f493032294d3cf63bf3a3c24a4`, git blob
+    `810b8be`.
+  - It was written by 09:36:53 +01:00 on 2026-11-04 (the file's time) and hashed at 09:37:02.
+  - It was committed at 09:37:25 and 09:37:56, then pushed. Both branches read back on the remote
+    at those commits before 09:52, by this machine's clock.
+  - No launch of the re-qualification has run.
+- **(a) Criterion 3 becomes one-sided.**
+  - **The rule:** a held segment passes when it is at most the baselines' highest plus 10 ms. Their
+    lowest less 10 ms is printed beside it and decides nothing.
+  - **The reason:** a delay that leaks into another phase raises that phase. A value below the band
+    is not what the band exists to catch.
+  - **Not a claim that a low value cannot be leakage.** A different scheduling can lower a phase, so
+    "cannot be leakage" would be too strong. What rules the low values in as something else here is
+    item 1's drift.
+  - **It rescues no upward failure,** and none of the 28 launches of 2026-11-04 had one: all 28
+    failing values, 19 on the control and 9 on 5d, lay below their bands. The nearest to its upper
+    bound was 5d `insert`'s `follow_or_count_composer_restore`, 0.0 ms below it.
+  - **Its cost:** the bound is set by the highest baseline. A launch run after a step can therefore
+    carry an upward leak smaller than the step without failing.
+  - **The implementation** is `qualify5d.py` blob `19d110c`: `e3ac8ab` on the control's branch and
+    `01eaf61` on the treatment's.
+    - Only criterion 3's comparison and its printed fields change. This was read in the diff.
+    - Criterion 4's same-row clause stays two-sided, at 5 ms.
+    - Criterion 5's "no segment moves" is held through criterion 3's exemption after the span, not
+      by a comparison of its own (read in the scorer). So the change reaches it only as text.
+    - `qualify5d_test.py` blob `0f1063f` passes 25 of 25 on both branches and in the run directory
+      (executed). Three of its cases are new: a value 120 ms below the baselines passes and is
+      printed below its lower reference; a value exactly at the bound passes; a value 0.5 ms above it
+      fails.
+- **(b) The three baselines are interleaved through each build's block,** so that criterion 3's band
+  and criterion 2's median span the step.
+  - The order: `base-1`, `mention`, `reconcile`, `buddy`, `hidden`, `beforeinsert`, `insert`,
+    `base-2`, `follow`, `build`, `gap`, `app`, `stall` with `arg=8000`, then `base-3`.
+  - The baselines sit at positions 1, 8 and 14.
+  - The excluded launch comes first, then the control's 14, then 5d's 14.
+- **Criterion 2 under (b).** The rule does not change: a rise of at least 100 ms over the baselines'
+  median, now the median of positions 1, 8 and 14.
+  - On 2026-11-04 the control's `insert` rose 32.4 ms and `build` 73.4 ms, over three baselines that
+    all lay inside the step.
+  - **Stated in advance:** if `insert`'s `timeline_insert`, or `build`'s view build, still rises less
+    than 100 ms against the interleaved median, that is a real gap in the instrument for the
+    control's two longest phases, and not a criterion to loosen. The control then stays NOT
+    QUALIFIED on criterion 2, and the result is reported as that gap.
+- **Unchanged.**
+  - The builds, `2e72e42` and `550b414`, with their sha256.
+  - Every other script blob, and criteria 1, 4 and 5.
+  - The uniformity rule (decision 5, applied by *Order of the launches*, item 1).
+  - Battery saver off, on USB power, with one refresh rate held.
+  - The excluded launch's pages on `c8cb0e91` with 400 rows.
+  - The stop on a recorded wait on an `IGNORED_EXPIRED` row.
+- **The predictions it commits to.**
+  - **P1, decisive, and the one (a) rests on.** On page 1's history rows the interleaved baselines are
+    not systematically the highest. It holds when the exact p, as `requal_p1.py` blob `916b1ee`
+    computes it, exceeds 0.05 on `timeline_insert` (control) and on dedup (5d).
+    - A step tied to place in the order is expected to pass P1 under (b), since only `base-1` would
+      lie inside it.
+    - A difference tied to being a baseline fails it, whether from the flag or from anything else
+      only the baselines share.
+    - If P1 fails on a build, (a)'s justification falls for that build. That build is reported NOT
+      QUALIFIED, whatever `qualify5d.py` computes.
+    - Run on the 2026-11-04 launches, the script gives p 0.0055 and 0.0302, the same as item 1 (a
+      check of the script, executed; it computes no criterion).
+  - **P2, recorded, deciding nothing.** The first baseline is the highest of the three. On
+    2026-11-04 it was not, on either build: `base-2` was.
+  - **P3.** One-sided criterion 3 passes on every injection of both builds.
+  - **P4.** Criterion 2 passes on all ten injections it applies to, on both builds, the control's
+    `insert` and `build` included.
+  - **P5.** Criteria 1, 4 and 5 pass on both builds.
+  - **The expected verdict:** both builds QUALIFIED.
+    - Any failure is reported with its numbers, and no criterion is adjusted.
+    - A failed qualification stops the round before the measurement.
+- **The run directory is ready, and no launch has run.**
+  - `%USERPROFILE%\tmc-5d-round\C` holds `qualify5d.py` `19d110c`, `qualify5d_test.py` `0f1063f` and
+    `requal_p1.py` `916b1ee`, each checked by blob.
+  - The replaced two were copied aside first, as `qualify5d.py.41ac728` and
+    `qualify5d_test.py.fff69a6`.
+
+**3. ρ's provenance** was recorded before the 2026-11-04 sitting, in *The provenance of ρ* (`1e13f54`,
+with its scope corrected in `b1a3371`). It is labelled there now as a pre-registered limitation,
+binding before the closing measurement, not before the re-qualification. ρ does not change, and the
+thresholds stay 0.708 and 0.825.
+- **2.4 s and 4.0 s were measured.** They are the span and the burst end of three launches of
+  2026-10-09 with #78's fix: 2490, 2348 and 2397 ms, and 4245, 3991 and 3939 ms.
+  - The burst end came from a detector never qualified.
+  - Their build is `a091809` by inference.
+  - The parse's code path was in that build. Whether the parse ran inside those spans is not known.
+- **1.0 s and 2.6 s are targets:** each is its baseline less about 1.4 s of view building. So
+  whatever the baseline held, the target holds too.
+- **The limitation:** if 2.4 s and 4.0 s held the parse, the thresholds are easier to pass than
+  intended, and a HOLDS verdict carries that confound. A FAILS verdict stays interpretable. If they
+  held none, there is no asymmetry.
+
+**4. Three small things.**
+- **a. The last row of the JIT CPU table was the spans, in ms of wall time, not JIT CPU.** The row is
+  "Span range 2117.7–2405.0 / 637.0–882.8", in the agent's report of the sitting.
+  - The JIT thread's CPU was 750 to 1090 ms on the control and 600 to 820 ms on 5d.
+  - This plan's own text (*Beside the verdicts*) names those ranges as spans.
+  - The published `tables.md` has no such row. Its tables end with `Sc-stall` (JIT 1070.0 ms, span
+    2117.7 ms) and `S5-stall-r1` (820.0 and 730.6).
+- **b. 5d's `follow`: recorded as an open item, not diagnosed** (*Backlog*).
+- **c. The driver now reads `launchcheck.py`'s exit status 1 as "void", and re-runs a curable void in
+  place.**
+  - During the sitting the fix had accepted exit statuses 0 and 1, but the driver still stopped at
+    every void, so a sitting could not run unattended.
+  - Now a void launch whose every reason a re-run can cure is re-run in its place, as `-r1`, `-r2`
+    and `-r3`. Those reasons are a late delivery whose waits are on no `IGNORED_EXPIRED` row, a
+    foreign process start, and input events. A fourth void stops the sitting.
+  - Any other void reason stops it, as do a page off `c8cb0e91` or 400 rows, and a recorded wait on
+    an `IGNORED_EXPIRED` row, which is reported as a contradiction.
+  - The driver is outside the repository, on nbpromec1. Its labels are `Rc-*`, `R5-*` and
+    `X-R-excluded`. `sitting.sh` has sha256 `c771e1b7…` and `sitting_line.py` `82276b62…`; all four
+    files' full values are in the pre-registration.
+  - **Executed:** `sitting_line.py` gave the expected result on 12 recorded launches of this round,
+    including a contradiction.
+  - **Not executed:** the re-run loop itself has not run, since that needs the phone.
+  - The report helper reads the new criterion 3 fields and the sitting's labels. With the old labels
+    it reproduced 2026-11-04's published `tables.md` line for line, 201 lines (executed).
+
+**5. A declared confound for the closing measurement: the pages' order.** It is named here, not
+corrected for.
+- **The owner's statement:** the pages ran sequentially in 13 of the control's 14 counted launches
+  and in 10 of 5d's 14, and interleaved in 1 and 4. Before the fix they interleaved in 14 of 14.
+- **A correction to the "before",** read in the records and recomputed: all 14 two-page records
+  before the fix ran one build, `cc4c0cf`, the pre-fix control (APK `8b57a634…`), and every one
+  recorded 1 to 3 waits.
+  - So the "before" holds no 5d launch at all.
+  - On the control it is confounded with the waits: whether the fix changed the order, or the waits
+    did, cannot be read from them.
+  - After the fix, all four late deliveries of 2026-11-04 interleaved as well.
+  - The first record before the fix holds one page, so there are 15 in all.
+- **Why it is a confound, as reasoning, not shown.** The pages' order decides at what process age
+  each row runs, and a row's cost falls with process age (item 1). An order that differs between the
+  arms is therefore a cost that differs between them, which the closing measurement would attribute
+  to the arm.
+
+**Next:** one re-qualification sitting under this design, on the phone. Nothing else runs before it.
+
 ## Backlog
 
 Started on 2026-11-03: this plan had no backlog before the entry below. An entry here is recorded,
@@ -1606,6 +1863,24 @@ has been read.
     - The only writer is `CurrentSpawnStore.save`, called from `SmartCatchSpawnIngestion.kt:73`.
     - It stores the time `decide` clamped to the wall clock at the write (`coerceAtMost(nowMs)`).
     - So a stored time ahead of now needs the wall clock to have moved back since the write.
+- **5d's `follow` on 2026-11-04: its largest gap below 300 ms is not where its delay was, and its
+  dedup is among the three lowest.**
+  - **Recorded by the instruction of the owner of the measurement, 2026-11-04:** record it as an open
+    item, and do not diagnose it now.
+  - **The delay** was 200.1 ms, at 1720.4 to 1920.6 ms after the anchor. It lay inside page 0's row
+    100, in its `follow_or_count_composer_restore`, and inside one main-thread message, 1720.1 to
+    1920.7 ms. Criterion 4 passed.
+  - **The largest gaps below 300 ms between consecutive history rows:**
+    - page 0: 217.5 ms, before row 208 (2021.2 to 2238.7 ms);
+    - page 1: 206.4 ms, before row 146 (2033.0 to 2239.5 ms).
+    - The pages interleaved, page 1 starting 381.8 ms after page 0.
+  - **Its dedup is the lowest of the 14.** Over the span it was 97.4 ms. The next two were
+    `beforeinsert`, 97.9, and `build`, 133.4, then `hidden`, 134.8. `mention`'s dedup holds its
+    own delay.
+    - On page 1 alone the same three are the lowest: 26.6 (`beforeinsert`), 44.9 (`build`) and 46.9
+      (`follow`).
+  - These were read from the published outputs and recomputed from the run's records. Nothing here
+    is interpreted.
 
 ## Recorded results
 
@@ -2394,6 +2669,9 @@ Python 3.10.0. Before the first launch, the run directory's scripts were read to
 - **Criterion 3's failures follow launch order again.** On both builds the baselines ran first, and
   every failing segment is lower in the later launches. This is recorded, not diagnosed, as on
   2026-11-02.
+  - *Measured afterwards, on rows no injection touches* (*Decided on 2026-11-04*, item 1): it is a
+    step at the baselines, not a trend with order. Among the eleven injections, Spearman against
+    position is −0.04 to −0.13.
   - On the control, `insert`'s and `build`'s criterion 2 values sit in segments that fall the same
     way. That this took their rises below 100 ms is inferred from those values; it is not shown.
 - **The JIT thread's CPU across the span:**
@@ -2422,8 +2700,9 @@ Python 3.10.0. Before the first launch, the run directory's scripts were read to
     - In the baselines it is 87.3 to 182.1 ms on the control's page 0, and 3.4 to 191.1 ms on its
       page 1. On 5d it is 106.6 to 130.8 ms on page 0, and 1.1 to 42.4 ms on page 1.
     - The largest in any counted launch is 298.4 ms, in 5d's `build`, on page 0 before row 156. 5d's
-      `build` puts its delay in a bind, outside every row. Whether this gap holds it was not
-      checked.
+      `build` puts its delay in a bind, outside every row. The gap holds it, as checked after the
+      sitting from the published output: the delay ran at 1726.5 to 1926.6 ms, inside the build's
+      main-thread message, 1697.9 to 1995.5 ms, which lies inside the gap, 1697.4 to 1995.8 ms.
   - **b. The pages' order.**
     - The pages ran one after the other in 13 of the control's 14 counted launches, with page 1
       starting 1088.9 to 1517.4 ms after page 0. Only in `follow` did they interleave.
@@ -2432,6 +2711,8 @@ Python 3.10.0. Before the first launch, the run directory's scripts were read to
     - The excluded launch ran them one after the other. All four late deliveries interleaved.
     - In the 14 two-page excluded records before this sitting, they interleaved every time. This is
       recorded, not interpreted.
+      - All 14 ran `cc4c0cf`, the pre-fix control, and each recorded 1 to 3 waits (*Decided on
+        2026-11-04*, item 5, where the difference is declared a confound).
   - **c. The spawn ingestions.**
     - The history ingestions are counted above.
     - Two launches ingested a spawn live, outside the history:
