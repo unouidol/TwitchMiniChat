@@ -2082,6 +2082,10 @@ the pre-registration was hashed.
   turned off, and the inference there was battery saver's cap.
 - **From the closing measurement on,** `section-read.sh` reads the display's app-request votes beside
   the refresh rate, before the first launch and after the last.
+- *Withdrawn on 2026-11-04, at about 14:02, before the closing measurement's first launch:* the votes
+  this item rests on were on displays 2 to 4, not on the phone's screen. So it does not show an app
+  capping the screen at 60 Hz, and `-2`'s cause stays unknown (*The closing measurement,
+  2026-11-04*). The item above stays as it was written.
 
 ## Backlog
 
@@ -2387,6 +2391,8 @@ phone's reading of 20:22.
       *Added on 2026-11-04:* a mechanism observed later plausibly explains it, another app's
       request for 60 Hz. It is not proof about `-2` (*Before the closing measurement, 2026-11-04*,
       item 3). The sentence above stays as it was written.
+      *Withdrawn the same day:* the votes that note rested on were on other displays, and the cause
+      stays unknown (*The closing measurement, 2026-11-04*).
     - `-3` to `-15`, 09:50 to 10:05: late delivery, 53 to 107 frames drawn inside the span; `-12`
       drew 10. `-10` also caught a foreign process start, `com.google.ar.core` at 2579.2 ms.
 
@@ -3152,6 +3158,9 @@ above its bound.**
       on 10 from 12:02:27 to 12:03:05.
     - At 12:03 the display's votes held three app requests capped at 60.000004 Hz. Thermal status
       was 0, and battery saver was off.
+      *Corrected on 2026-11-04:* those three votes were on displays 2 to 4, not on the phone's
+      screen, so they do not show what the sentence implies (*The closing measurement, 2026-11-04*).
+      The sentence above stays as it was written.
     - Another app had been in use on the phone, and its window was listed. By 12:04:57 its task was
       not visible.
   - **From 12:04:32 the display read 90.0 Hz** on all 9 readings to 12:05:34, and on every reading
@@ -3264,3 +3273,162 @@ Both were read back from the remote at 13:04:05.
 - The closing measurement was not run, and the release was not decided.
 - The phone keeps `550b414`'s build, read back at 12:59. It is recorded in `RELEASE-STATE.md` after
   the round, as decided, not now.
+
+**The closing measurement, 2026-11-04, 14:03 to 14:23: span HOLDS, burst end HOLDS.**
+- It ran under its pre-registration: sha256 `0dbec904…`, item 1 of *Before the closing measurement,
+  2026-11-04*. That was read back from the remote at 14:00:28, before the first launch at 14:03:03.
+- The verdicts are `decide.py`'s. Nothing is decided from them here.
+
+- **Read before the first launch, 14:02:05 to 14:02:12** (`section-read.sh`, `section-M-before.txt`).
+  - Battery saver was off: `low_power` 0 and `mSettingBatterySaverEnabled=false`. The phone was on
+    USB power (`mPlugType=2`).
+  - The battery read level 100, status full (5), and 29.2 °C.
+  - Thermal status was 0.
+  - The display read 90.0 Hz on all 6 readings.
+  - The installed build was `e881d0ab…`, `550b414`'s, from the negative control.
+  - The driver's seven files and the run directory's five scripts were re-read at 14:02, and matched
+    the pre-registration.
+- **The excluded launch, `X-M-excluded`, at 14:03:03 on `dea38cc`:** `EXCLUDED_OK`. Both pages read
+  `c8cb0e91` with 400 history rows.
+- **The ten, from 14:04:32 to 14:23:17, C T C T C T C T C T:** `Mc-1`, `M5-1`, … `Mc-5`, `M5-5`.
+  - Each was preceded by the driver's install and read-back, then by `run.sh`'s. Every reading gave
+    STEP B's sha256: `d005e901…` for `dea38cc`, and `ece097ac…` for `a2f12f1`.
+  - **All ten were clean on their first run.** No launch was void, and none was re-run.
+  - **All ten read the same:**
+    - 0 input events and 0 foreign process starts;
+    - 90.0 Hz before and after;
+    - battery saver 0, on USB power;
+    - 800 history rows in the span, both pages on `c8cb0e91` at 400;
+    - compile state `run-from-apk`;
+    - first after install;
+    - no recorded wait.
+  - **Every idle wait,** the excluded launch's included, read 0 input events in its first 20 s
+    window. Each was shown and saved, and the app in front before `run.sh` was the launcher.
+  - **Recorded, not held:** the level stayed at 100 and the status at full (5). The temperature ran
+    from 29.5 to 30.0 °C.
+  - **`decide.py` read:** the order `CTCTCTCTCT`, and one display reading and one battery state,
+    across the ten and the 84 launches named under `--qualified`.
+- **No contradiction of the clean ingestions.**
+  - 18 history ingestions were `ignored_expired` in the ten, and 20 with the excluded launch.
+  - None was followed by a wait.
+  - `Mc-4` recorded no spawn ingestion.
+- **Read after the last launch, 14:23:33 to 14:23:45** (`section-M-after.txt`).
+  - Battery saver was off, on USB power.
+  - The battery read level 100, status full (5), and 29.7 °C. Thermal status was 0.
+  - The display read 90.0 Hz on all 6 readings.
+  - The installed build was `ece097ac…`, which is `a2f12f1`'s.
+
+**The verdicts,** from `decide.py` `3f69c6a`, run in the run directory from 14:24:05 to 14:24:09 on
+Python 3.10.0.
+- **Span: HOLDS.** First stable frame (burst end): **HOLDS.** Skipped frames: **FELL**. "'a great
+  deal' cannot be tested without a number, and none was given".
+- `better_than_control` was true on both quantities, and `not_better_on_either` false.
+
+| | Control `dea38cc`: `Mc-1` to `Mc-5` | 5d `a2f12f1`: `M5-1` to `M5-5` |
+|---|---|---|
+| span, ms | 2394.5, 2223.1, 2409.0, 2269.4, 2257.5 | 781.2, 786.3, 749.4, 684.1, 682.9 |
+| burst end, ms | 3892.1, 4273.3, 4389.5, 3806.1, 3769.7 | 2037.0, 2370.4, 2155.0, 2126.8, 2127.5 |
+| skipped frames | 287, 276, 315, 268, 248 | 91, 95, 87, 100, 87 |
+
+- **The 25 span ratios, 5d over control,** ran from 0.2835 to 0.3537, against 0.7083. All 25 are
+  below the threshold.
+- **The 25 burst-end ratios** ran from 0.4641 to 0.6288, against 0.825. All 25 are below it.
+- **The refresh rate was 90 Hz,** so "no burst" would have meant that no single stall reached 333 ms.
+  Every launch showed a burst.
+
+| Span ratio | `Mc-1` | `Mc-2` | `Mc-3` | `Mc-4` | `Mc-5` |
+|---|---|---|---|---|---|
+| `M5-1` | 0.3263 | 0.3514 | 0.3243 | 0.3442 | 0.3461 |
+| `M5-2` | 0.3284 | 0.3537 | 0.3264 | 0.3465 | 0.3483 |
+| `M5-3` | 0.3130 | 0.3371 | 0.3111 | 0.3302 | 0.3319 |
+| `M5-4` | 0.2857 | 0.3077 | 0.2840 | 0.3015 | 0.3031 |
+| `M5-5` | 0.2852 | 0.3072 | 0.2835 | 0.3009 | 0.3025 |
+
+| Burst-end ratio | `Mc-1` | `Mc-2` | `Mc-3` | `Mc-4` | `Mc-5` |
+|---|---|---|---|---|---|
+| `M5-1` | 0.5234 | 0.4767 | 0.4641 | 0.5352 | 0.5404 |
+| `M5-2` | 0.6090 | 0.5547 | 0.5400 | 0.6228 | 0.6288 |
+| `M5-3` | 0.5537 | 0.5043 | 0.4909 | 0.5662 | 0.5717 |
+| `M5-4` | 0.5465 | 0.4977 | 0.4845 | 0.5588 | 0.5642 |
+| `M5-5` | 0.5466 | 0.4978 | 0.4847 | 0.5590 | 0.5644 |
+
+- **The agent's pre-registered prediction held:** HOLDS on both quantities, `FELL`, and better on
+  both.
+- **By section 2 of the pre-registration, these are weak HOLDS.** Each carries the confound of L1
+  to L4: the thresholds were easier to pass than intended if ρ's 2.4 s and 4.0 s held the catalogue
+  parse. Whether they did is not known.
+- **The scope:** the span and the burst end only. No statement about which phase 5d improves is made
+  from this measurement.
+- **What the result supports,** as `decide.py` prints it: "Measured on debuggable, uncompiled builds
+  whose JIT compiles during the window being measured. The result supports "the ingestion window fell
+  by X on these builds" and does NOT support "users see X less on a release build". The control's
+  window reaches compiled code while 5d's does not, so the measured ratio is conservative relative
+  to a cold-against-cold comparison."
+
+**Beside the verdicts, deciding nothing.**
+- **The JIT thread's CPU across each span, in ms of CPU:**
+  - control: 1390, 950, 1360, 1250 and 1220, over spans of 2223 to 2409 ms;
+  - 5d: 880, 740, 790, 800 and 750, over spans of 683 to 786 ms.
+- **The history rows' cost by process age,** in µs per row, by 250 ms bins of process age, with the
+  rows in each bin in `decide.json`:
+  - control, from 1250 to 2750 ms: 2414 to 3387, in every launch;
+  - control, from 2750 ms on: 1761 to 2452;
+  - 5d, all its rows, between 1250 and 2500 ms: 264 to 552.
+  - The control's rows are cheaper from about 2750 ms of process age, and 5d's span has ended before
+    then. That is the shape of the JIT confound the pre-registration names; it is recorded, not
+    quantified further.
+- **The pages' order:**
+  - the control interleaved in `Mc-2`, 1 of its 5, and ran its pages one after the other in the
+    other four;
+  - 5d ran one after the other in all 5;
+  - the excluded launch ran one after the other.
+  - Recorded, not interpreted, beside the confound the pre-registration names.
+- **Beside the 2026-10-09 figures, with no threshold, since no decision hangs on them:**
+  - the control's span was 2223 to 2409 ms, against 2348 to 2490 then;
+  - its burst end was 3770 to 4390 ms, against 3939 to 4245;
+  - its skipped frames were 248 to 315, against 200 to 227.
+
+**The 60 Hz readings, corrected, before the closing measurement's first launch.**
+- **What was read.**
+  - At 14:02, `section-read.sh` listed the display's app-request votes as one of 90.0 and three of
+    60.000004 Hz, while the display read 90.0 on all six readings.
+  - A read of the votes by display, at 14:02, showed that they are per display. Display 0, the
+    phone's screen, carried the 90.0 cap; displays 2, 3 and 4 carried the 60.000004 caps.
+  - At 14:23 the list held the three of 60.000004 only, and the display again read 90.0.
+- **What that does to 12:03.** The readout of 12:03, before the negative control, had the same
+  order: a 90.0 vote, then three of 60.000004. So it showed no app request capping the phone's screen
+  at 60 Hz.
+- **The claim falls.**
+  - "Another app had requested that rate", in the negative control's results and in item 3 of
+    *Before the closing measurement, 2026-11-04*, is not supported by the votes it was read from.
+  - It was the agent's reading at the time. It was pushed in `a246727` at 14:01:46 and found wrong at
+    about 14:02.
+- **What remains.**
+  - The cause of the 60 Hz readings from 12:01 to 12:03 is not known.
+  - Another app's window being listed, and later not visible, is a coincidence in time, not a shown
+    mechanism.
+  - The hypothesis is not excluded: Android also lets an app ask for a rate through the compositor,
+    which this readout does not show. That is from documentation, not observed here.
+- **For `-2` of 2026-11-03:** the plausible explanation of item 3 is withdrawn, and its cause stays
+  unknown.
+- **`section-read.sh` was not changed.** It was hashed in the pre-registration. Its vote lines do
+  not name the display, so read on their own they cannot separate the two cases.
+
+**Published** in `experiment/startup-5d/closing-measurement-2026-11-04/` on both experiment branches:
+`5d672ca` on `experiment/startup-5d-control`, and `53d9233` on `experiment/startup-5d-treatment`.
+Both were read back from the remote at 14:26:24.
+- **The files:**
+  - `decide.json`, every value `decide.py` printed, in full;
+  - `launches.txt`, every launch's saved idle record and sitting line, in sitting order;
+  - `three-quantities.jsonl`;
+  - `section-before.txt` and `section-after.txt`.
+- **One edit, as before:** each launch record's local APK path writes its user directory as
+  `%USERPROFILE%`. That is 10 lines. Line endings are LF.
+- **Scanned before the push.** The added lines hold no user name, no account id, no token, no
+  authorization text and no chat text. The channel appears only as the fingerprint `c8cb0e91`.
+
+**Not done.**
+- Nothing was decided from the verdicts.
+- `RELEASE-STATE.md` was not edited. It still owes two entries: the measurement, with #84's deferral
+  condition, and the phone's build, which is now `a2f12f1`'s (`ece097ac…`), read back at 14:23.
+- The overhead launches were not run.
