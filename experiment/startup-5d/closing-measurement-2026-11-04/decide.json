@@ -1,0 +1,1430 @@
+{
+  "rho": {
+    "span": 0.4166666666666667,
+    "burst_end": 0.65
+  },
+  "threshold": {
+    "span": 0.7083333333333334,
+    "burst_end": 0.825
+  },
+  "control": {
+    "span": [
+      2394.4835919999996,
+      2223.094061,
+      2409.015311,
+      2269.40927,
+      2257.489738
+    ],
+    "burst_end": [
+      3892.0833880007267,
+      4273.3237310014665,
+      4389.466566000134,
+      3806.0826420001686,
+      3769.6744650006294
+    ],
+    "burst_frames": [
+      287,
+      276,
+      315,
+      268,
+      248
+    ]
+  },
+  "treatment": {
+    "span": [
+      781.2439059999999,
+      786.3035930000001,
+      749.3655729999998,
+      684.1393229999999,
+      682.8757290000001
+    ],
+    "burst_end": [
+      2037.0345270000398,
+      2370.3649130016565,
+      2154.976914998144,
+      2126.8335970006883,
+      2127.470449998975
+    ],
+    "burst_frames": [
+      91,
+      95,
+      87,
+      100,
+      87
+    ]
+  },
+  "pairings": {
+    "span": [
+      [
+        0.32626822276425105,
+        0.3514218852478865,
+        0.32430009989255726,
+        0.3442498963617963,
+        0.3460675337076548
+      ],
+      [
+        0.32838128255589244,
+        0.35369785147386085,
+        0.3264004132350656,
+        0.34647941356122164,
+        0.3483088227442476
+      ],
+      [
+        0.3129549834894003,
+        0.3370822612260129,
+        0.3110671690537876,
+        0.33020292236666493,
+        0.3319463917758016
+      ],
+      [
+        0.2857147675957013,
+        0.30774195973168045,
+        0.2839912722331385,
+        0.3014614120263992,
+        0.3030531264368475
+      ],
+      [
+        0.2851870571514863,
+        0.30717356542836816,
+        0.2834667450563165,
+        0.30090461779069055,
+        0.3024933923309821
+      ]
+    ],
+    "burst_end": [
+      [
+        0.5233789525887875,
+        0.4766862178547504,
+        0.46407336663148824,
+        0.5352050174952427,
+        0.5403741214030001
+      ],
+      [
+        0.6090221294614292,
+        0.5546888235509726,
+        0.5400120669244857,
+        0.6227833538990065,
+        0.6287983047367091
+      ],
+      [
+        0.5536821029174058,
+        0.5042859026486903,
+        0.49094277917278895,
+        0.5661928858869083,
+        0.5716612760613493
+      ],
+      [
+        0.5464511894985872,
+        0.4977000880067325,
+        0.4845312215098493,
+        0.5587985855932431,
+        0.5641955603188492
+      ],
+      [
+        0.5466148172873057,
+        0.4978491179043895,
+        0.4846763081596075,
+        0.5589659106511016,
+        0.564364501431457
+      ]
+    ]
+  },
+  "verdicts": {
+    "span": "HOLDS",
+    "burst_end": "HOLDS",
+    "burst_frames": "FELL",
+    "burst_frames_note": "'a great deal' cannot be tested without a number, and none was given"
+  },
+  "history_rows_in_span": [
+    800,
+    800,
+    800,
+    800,
+    800,
+    800,
+    800,
+    800,
+    800,
+    800
+  ],
+  "void_rows": false,
+  "void_first_stable_frame": false,
+  "display_readings": [
+    "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+  ],
+  "display_unread": [],
+  "void_refresh_rate": false,
+  "refresh_rate_hz": 90.0,
+  "no_burst_means": "no frame within anchor + 10 s started 30 intervals after its vsync: no single stall reached 333 ms at 90 Hz",
+  "battery_states": [
+    "saver=0 ac=false usb=true wireless=false"
+  ],
+  "void_battery": false,
+  "void_launches": {},
+  "order": "CTCTCTCTCT",
+  "void_order": false,
+  "launch_records": [
+    {
+      "run": "Mc-1",
+      "commit": "dea38cc",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1407.9,
+        3802.4
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/dea38cc-dev-arm64-v8a-debug.apk",
+        "local_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "install_started": "1793797505.704558200",
+        "installed": "Success",
+        "install_ended": "1793797514.006265800",
+        "phone_path": "/data/app/~~oV5we-WL1szGBcRnwYUwkQ==/com.fs.twitchminichat.dev-krYL2WzawfJi0119YR5Z4g==/base.apk",
+        "phone_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:05:13"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "295",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "297",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 1390.0,
+        "bracket_ms": [
+          1260.4,
+          3802.5
+        ],
+        "span_ms": 2394.5
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 23,
+          "dedup_us": 143.0,
+          "row_us": 3367.7
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 75,
+          "dedup_us": 187.7,
+          "row_us": 3083.4
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 68,
+          "dedup_us": 178.9,
+          "row_us": 3090.5
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 75,
+          "dedup_us": 278.3,
+          "row_us": 2870.8
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 79,
+          "dedup_us": 315.7,
+          "row_us": 2801.5
+        },
+        {
+          "from_ms": 2500.0,
+          "rows": 79,
+          "dedup_us": 281.5,
+          "row_us": 2817.2
+        },
+        {
+          "from_ms": 2750.0,
+          "rows": 23,
+          "dedup_us": 73.5,
+          "row_us": 2010.8
+        },
+        {
+          "from_ms": 3000.0,
+          "rows": 118,
+          "dedup_us": 77.9,
+          "row_us": 1887.4
+        },
+        {
+          "from_ms": 3250.0,
+          "rows": 120,
+          "dedup_us": 98.9,
+          "row_us": 1889.1
+        },
+        {
+          "from_ms": 3500.0,
+          "rows": 114,
+          "dedup_us": 110.7,
+          "row_us": 1984.0
+        },
+        {
+          "from_ms": 3750.0,
+          "rows": 26,
+          "dedup_us": 110.6,
+          "row_us": 1811.2
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "Mc-2",
+      "commit": "dea38cc",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1605.4,
+        3828.5
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/dea38cc-dev-arm64-v8a-debug.apk",
+        "local_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "install_started": "1793797720.698128000",
+        "installed": "Success",
+        "install_ended": "1793797728.913373700",
+        "phone_path": "/data/app/~~Lf4p8j5h5SFf_y6DUmHqtQ==/com.fs.twitchminichat.dev-JXJ3pajF4bd7MqOyP8DDRA==/base.apk",
+        "phone_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:08:47"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "295",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "296",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 2,
+        "1": 2
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 950.0,
+        "bracket_ms": [
+          1592.8,
+          3828.6
+        ],
+        "span_ms": 2223.1
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 44,
+          "dedup_us": 151.6,
+          "row_us": 2745.0
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 57,
+          "dedup_us": 159.3,
+          "row_us": 2481.8
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 87,
+          "dedup_us": 223.5,
+          "row_us": 2480.3
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 79,
+          "dedup_us": 282.6,
+          "row_us": 2735.5
+        },
+        {
+          "from_ms": 2500.0,
+          "rows": 84,
+          "dedup_us": 122.0,
+          "row_us": 2675.8
+        },
+        {
+          "from_ms": 2750.0,
+          "rows": 108,
+          "dedup_us": 100.5,
+          "row_us": 2103.6
+        },
+        {
+          "from_ms": 3000.0,
+          "rows": 102,
+          "dedup_us": 125.8,
+          "row_us": 2208.7
+        },
+        {
+          "from_ms": 3250.0,
+          "rows": 105,
+          "dedup_us": 119.7,
+          "row_us": 2178.3
+        },
+        {
+          "from_ms": 3500.0,
+          "rows": 101,
+          "dedup_us": 119.9,
+          "row_us": 2242.1
+        },
+        {
+          "from_ms": 3750.0,
+          "rows": 33,
+          "dedup_us": 103.5,
+          "row_us": 2095.9
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "Mc-3",
+      "commit": "dea38cc",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1582.0,
+        3991.0
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/dea38cc-dev-arm64-v8a-debug.apk",
+        "local_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "install_started": "1793797912.090573100",
+        "installed": "Success",
+        "install_ended": "1793797920.443447000",
+        "phone_path": "/data/app/~~94ba_IWCVseKJXBF1zNOKg==/com.fs.twitchminichat.dev-xkzBsluu2dGyrN8Ex6S3mA==/base.apk",
+        "phone_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:11:59"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "299",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "299",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 2,
+        "1": 2
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 1360.0,
+        "bracket_ms": [
+          1536.3,
+          3991.3
+        ],
+        "span_ms": 2409.0
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 45,
+          "dedup_us": 154.7,
+          "row_us": 3067.8
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 67,
+          "dedup_us": 173.6,
+          "row_us": 3236.2
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 74,
+          "dedup_us": 258.7,
+          "row_us": 3093.4
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 6,
+          "dedup_us": 350.5,
+          "row_us": 3036.7
+        },
+        {
+          "from_ms": 2500.0,
+          "rows": 81,
+          "dedup_us": 300.9,
+          "row_us": 2660.8
+        },
+        {
+          "from_ms": 2750.0,
+          "rows": 91,
+          "dedup_us": 180.8,
+          "row_us": 2451.8
+        },
+        {
+          "from_ms": 3000.0,
+          "rows": 93,
+          "dedup_us": 86.8,
+          "row_us": 2215.3
+        },
+        {
+          "from_ms": 3250.0,
+          "rows": 123,
+          "dedup_us": 88.4,
+          "row_us": 1776.4
+        },
+        {
+          "from_ms": 3500.0,
+          "rows": 110,
+          "dedup_us": 106.4,
+          "row_us": 1941.7
+        },
+        {
+          "from_ms": 3750.0,
+          "rows": 110,
+          "dedup_us": 103.9,
+          "row_us": 1961.8
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "Mc-4",
+      "commit": "dea38cc",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1440.2,
+        3709.6
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/dea38cc-dev-arm64-v8a-debug.apk",
+        "local_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "install_started": "1793798124.875017800",
+        "installed": "Success",
+        "install_ended": "1793798136.595104100",
+        "phone_path": "/data/app/~~W98LqNts-wtnWLB9Ncd0NQ==/com.fs.twitchminichat.dev-zL93EDYZI37SrU-STxrMAg==/base.apk",
+        "phone_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:15:34"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "298",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "299",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 4,
+        "1": 4
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 1250.0,
+        "bracket_ms": [
+          1302.9,
+          3709.7
+        ],
+        "span_ms": 2269.4
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 13,
+          "dedup_us": 145.7,
+          "row_us": 3387.1
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 81,
+          "dedup_us": 215.8,
+          "row_us": 2760.6
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 77,
+          "dedup_us": 284.9,
+          "row_us": 2826.4
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 84,
+          "dedup_us": 289.1,
+          "row_us": 2599.7
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 81,
+          "dedup_us": 299.7,
+          "row_us": 2730.3
+        },
+        {
+          "from_ms": 2500.0,
+          "rows": 64,
+          "dedup_us": 176.2,
+          "row_us": 2546.5
+        },
+        {
+          "from_ms": 2750.0,
+          "rows": 66,
+          "dedup_us": 82.6,
+          "row_us": 1807.6
+        },
+        {
+          "from_ms": 3000.0,
+          "rows": 116,
+          "dedup_us": 97.3,
+          "row_us": 1950.8
+        },
+        {
+          "from_ms": 3250.0,
+          "rows": 121,
+          "dedup_us": 104.9,
+          "row_us": 1862.3
+        },
+        {
+          "from_ms": 3500.0,
+          "rows": 97,
+          "dedup_us": 98.2,
+          "row_us": 1953.1
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "Mc-5",
+      "commit": "dea38cc",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1441.3,
+        3698.8
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/dea38cc-dev-arm64-v8a-debug.apk",
+        "local_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "install_started": "1793798417.067736100",
+        "installed": "Success",
+        "install_ended": "1793798426.566862800",
+        "phone_path": "/data/app/~~g52yJEtZ02Mq1l0mUM9viA==/com.fs.twitchminichat.dev-oaVLOFnSe6rsGji0guyGyQ==/base.apk",
+        "phone_sha256": "d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:20:25"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "298",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "299",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 1220.0,
+        "bracket_ms": [
+          1408.4,
+          3698.9
+        ],
+        "span_ms": 2257.5
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 17,
+          "dedup_us": 148.6,
+          "row_us": 2754.0
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 59,
+          "dedup_us": 150.8,
+          "row_us": 2655.3
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 91,
+          "dedup_us": 198.1,
+          "row_us": 2414.3
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 89,
+          "dedup_us": 243.4,
+          "row_us": 2537.9
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 75,
+          "dedup_us": 329.6,
+          "row_us": 2889.6
+        },
+        {
+          "from_ms": 2500.0,
+          "rows": 69,
+          "dedup_us": 296.2,
+          "row_us": 2913.4
+        },
+        {
+          "from_ms": 2750.0,
+          "rows": 60,
+          "dedup_us": 73.3,
+          "row_us": 1896.0
+        },
+        {
+          "from_ms": 3000.0,
+          "rows": 126,
+          "dedup_us": 78.4,
+          "row_us": 1760.9
+        },
+        {
+          "from_ms": 3250.0,
+          "rows": 124,
+          "dedup_us": 101.6,
+          "row_us": 1820.7
+        },
+        {
+          "from_ms": 3500.0,
+          "rows": 90,
+          "dedup_us": 113.5,
+          "row_us": 2014.9
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "M5-1",
+      "commit": "a2f12f1",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1417.1,
+        2198.4
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/a2f12f1-dev-arm64-v8a-debug.apk",
+        "local_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "install_started": "1793797598.642830800",
+        "installed": "Success",
+        "install_ended": "1793797613.020811100",
+        "phone_path": "/data/app/~~s4bqjKTb4u_sZXa-uoHjSw==/com.fs.twitchminichat.dev-PjarkR2pmfaFZje2g8h1AA==/base.apk",
+        "phone_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:06:46"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "296",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "295",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 4,
+        "1": 4
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 880.0,
+        "bracket_ms": [
+          1284.4,
+          2198.4
+        ],
+        "span_ms": 781.2
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 184,
+          "dedup_us": 137.7,
+          "row_us": 325.8
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 216,
+          "dedup_us": 286.7,
+          "row_us": 456.1
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 335,
+          "dedup_us": 164.3,
+          "row_us": 332.6
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 65,
+          "dedup_us": 282.5,
+          "row_us": 439.1
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "M5-2",
+      "commit": "a2f12f1",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 3,
+      "span_ms": [
+        1516.6,
+        2302.9
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/a2f12f1-dev-arm64-v8a-debug.apk",
+        "local_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "install_started": "1793797814.522300100",
+        "installed": "Success",
+        "install_ended": "1793797822.703128600",
+        "phone_path": "/data/app/~~XO7gVqZ6TbWxROAfXvQi8w==/com.fs.twitchminichat.dev-2GY4BFH-vQ472As-s2V_cg==/base.apk",
+        "phone_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:10:21"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "296",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "299",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 1,
+        "1": 1
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 740.0,
+        "bracket_ms": [
+          1496.7,
+          2303.0
+        ],
+        "span_ms": 786.3
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1500.0,
+          "rows": 160,
+          "dedup_us": 152.3,
+          "row_us": 355.9
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 240,
+          "dedup_us": 306.3,
+          "row_us": 551.5
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 328,
+          "dedup_us": 209.3,
+          "row_us": 377.7
+        },
+        {
+          "from_ms": 2250.0,
+          "rows": 72,
+          "dedup_us": 276.6,
+          "row_us": 484.5
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "M5-3",
+      "commit": "a2f12f1",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1370.0,
+        2119.4
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/a2f12f1-dev-arm64-v8a-debug.apk",
+        "local_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "install_started": "1793798013.547460000",
+        "installed": "Success",
+        "install_ended": "1793798022.429509500",
+        "phone_path": "/data/app/~~vFYLOpfU5G-cWuKliZifqQ==/com.fs.twitchminichat.dev-ENk00oweVGnpW0q6SFIcuA==/base.apk",
+        "phone_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:13:41"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "299",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "300",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 1,
+        "1": 0
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 790.0,
+        "bracket_ms": [
+          1251.3,
+          2119.5
+        ],
+        "span_ms": 749.4
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 167,
+          "dedup_us": 152.7,
+          "row_us": 326.9
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 233,
+          "dedup_us": 289.2,
+          "row_us": 469.6
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 190,
+          "dedup_us": 158.7,
+          "row_us": 334.2
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 210,
+          "dedup_us": 240.0,
+          "row_us": 399.3
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "M5-4",
+      "commit": "a2f12f1",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 1,
+      "span_ms": [
+        1443.4,
+        2127.5
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/a2f12f1-dev-arm64-v8a-debug.apk",
+        "local_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "install_started": "1793798321.031287300",
+        "installed": "Success",
+        "install_ended": "1793798330.404776800",
+        "phone_path": "/data/app/~~-kV9i2GMICeiViYBznLUjA==/com.fs.twitchminichat.dev-3K6VApC1urNJUdGYRbFz7Q==/base.apk",
+        "phone_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:18:48"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "296",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "297",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 3,
+        "1": 3
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 800.0,
+        "bracket_ms": [
+          1282.5,
+          2127.6
+        ],
+        "span_ms": 684.1
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 131,
+          "dedup_us": 111.4,
+          "row_us": 289.2
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 269,
+          "dedup_us": 240.7,
+          "row_us": 407.4
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 178,
+          "dedup_us": 109.7,
+          "row_us": 263.7
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 222,
+          "dedup_us": 243.3,
+          "row_us": 420.6
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    },
+    {
+      "run": "M5-5",
+      "commit": "a2f12f1",
+      "void": [],
+      "recorded_waits": [],
+      "frames_in_span": 2,
+      "span_ms": [
+        1380.2,
+        2063.1
+      ],
+      "foreign_process_starts": [],
+      "input_events": 0,
+      "first_after_install": true,
+      "install": {
+        "apk": "%USERPROFILE%/tmc-5d-round/apks/a2f12f1-dev-arm64-v8a-debug.apk",
+        "local_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "install_started": "1793798527.428339200",
+        "installed": "Success",
+        "install_ended": "1793798536.219883000",
+        "phone_path": "/data/app/~~2J_lm7Am7nvjtYyf_ntmbQ==/com.fs.twitchminichat.dev-dV5L8QoW2yUi18Flk2DoNw==/base.apk",
+        "phone_sha256": "ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d",
+        "last_update_time": "lastUpdateTime=2026-11-04 14:22:15"
+      },
+      "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+      "battery": [
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "297",
+          "when": "before"
+        },
+        {
+          "saver": "0",
+          "ac": "false",
+          "usb": "true",
+          "wireless": "false",
+          "status": "5",
+          "level": "100",
+          "temperature": "298",
+          "when": "after"
+        }
+      ],
+      "battery_state": "saver=0 ac=false usb=true wireless=false",
+      "display": [
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+        "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+      ],
+      "pages": [
+        {
+          "slot": 0,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        },
+        {
+          "slot": 1,
+          "channel_fp": "c8cb0e91",
+          "history_count": 400
+        }
+      ],
+      "both_pages_at_the_cap": true,
+      "live_rows_by_page": {
+        "0": 0,
+        "1": 0
+      },
+      "jit_cpu_across_the_span": {
+        "ms": 750.0,
+        "bracket_ms": [
+          1265.4,
+          2063.2
+        ],
+        "span_ms": 682.9
+      },
+      "history_row_cost_by_process_age": [
+        {
+          "from_ms": 1250.0,
+          "rows": 113,
+          "dedup_us": 113.6,
+          "row_us": 301.2
+        },
+        {
+          "from_ms": 1500.0,
+          "rows": 287,
+          "dedup_us": 261.0,
+          "row_us": 436.5
+        },
+        {
+          "from_ms": 1750.0,
+          "rows": 282,
+          "dedup_us": 177.9,
+          "row_us": 341.4
+        },
+        {
+          "from_ms": 2000.0,
+          "rows": 118,
+          "dedup_us": 274.1,
+          "row_us": 421.3
+        }
+      ],
+      "history_waits_caught": {
+        "snapshots": [],
+        "rows_after_a_wait": []
+      }
+    }
+  ],
+  "what_the_result_supports": "Measured on debuggable, uncompiled builds whose JIT compiles during the window being measured. The result supports \"the ingestion window fell by X on these builds\" and does NOT support \"users see X less on a release build\". The control's window reaches compiled code while 5d's does not, so the measured ratio is conservative relative to a cold-against-cold comparison.",
+  "better_than_control": {
+    "span": true,
+    "burst_end": true
+  },
+  "not_better_on_either": false
+}

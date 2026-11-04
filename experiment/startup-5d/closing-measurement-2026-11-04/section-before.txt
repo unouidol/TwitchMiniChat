@@ -1,0 +1,25 @@
+read at 2026-11-04 14:02:05 +0100
+low_power=0
+  mIsPowered=true
+  mPlugType=2
+  mIsPowered=true
+  mSettingBatterySaverEnabled=false
+  AC powered: false
+  USB powered: true
+  Wireless powered: false
+  status: 5
+  level: 100
+  temperature: 292
+Thermal Status: 0
+app-request vote: maxRefreshRate=90.0
+app-request vote: maxRefreshRate=60.000004
+app-request vote: maxRefreshRate=60.000004
+app-request vote: maxRefreshRate=60.000004
+14:02:08 refreshRate=90.0
+14:02:08 refreshRate=90.0
+14:02:09 refreshRate=90.0
+14:02:09 refreshRate=90.0
+14:02:10 refreshRate=90.0
+14:02:11 refreshRate=90.0
+installed sha256: e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23
+read until 14:02:12
