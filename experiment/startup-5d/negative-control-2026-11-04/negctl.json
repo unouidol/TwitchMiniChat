@@ -1,0 +1,5693 @@
+{
+ "rule": {
+  "requal_failures": 3,
+  "requal_scored_per_build": 10,
+  "p_null_consistent_at_or_above": 0.05,
+  "band_positions": [
+   1,
+   8,
+   14
+  ]
+ },
+ "builds": {
+  "control": {
+   "labels": [
+    "Nc-plain-1",
+    "Nc-plain-2",
+    "Nc-plain-3",
+    "Nc-plain-4",
+    "Nc-plain-5-r1",
+    "Nc-plain-6",
+    "Nc-plain-7",
+    "Nc-plain-8",
+    "Nc-plain-9",
+    "Nc-plain-10",
+    "Nc-plain-11-r2",
+    "Nc-plain-12",
+    "Nc-plain-13",
+    "Nc-plain-14"
+   ],
+   "plain": true,
+   "display": {
+    "readings": [
+     "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+    ],
+    "unread": [],
+    "one_reading": true
+   },
+   "battery": {
+    "states": [
+     "saver=0 ac=false usb=true wireless=false"
+    ],
+    "unread": [],
+    "levels_and_temperatures": {
+     "Nc-plain-1": [
+      [
+       "100",
+       "315"
+      ],
+      [
+       "100",
+       "315"
+      ]
+     ],
+     "Nc-plain-8": [
+      [
+       "100",
+       "311"
+      ],
+      [
+       "100",
+       "312"
+      ]
+     ],
+     "Nc-plain-14": [
+      [
+       "100",
+       "326"
+      ],
+      [
+       "100",
+       "326"
+      ]
+     ],
+     "Nc-plain-2": [
+      [
+       "100",
+       "313"
+      ],
+      [
+       "100",
+       "314"
+      ]
+     ],
+     "Nc-plain-3": [
+      [
+       "100",
+       "313"
+      ],
+      [
+       "100",
+       "312"
+      ]
+     ],
+     "Nc-plain-4": [
+      [
+       "100",
+       "308"
+      ],
+      [
+       "100",
+       "310"
+      ]
+     ],
+     "Nc-plain-5-r1": [
+      [
+       "100",
+       "312"
+      ],
+      [
+       "100",
+       "311"
+      ]
+     ],
+     "Nc-plain-6": [
+      [
+       "100",
+       "310"
+      ],
+      [
+       "100",
+       "312"
+      ]
+     ],
+     "Nc-plain-7": [
+      [
+       "100",
+       "311"
+      ],
+      [
+       "100",
+       "312"
+      ]
+     ],
+     "Nc-plain-9": [
+      [
+       "100",
+       "311"
+      ],
+      [
+       "100",
+       "312"
+      ]
+     ],
+     "Nc-plain-10": [
+      [
+       "100",
+       "311"
+      ],
+      [
+       "100",
+       "313"
+      ]
+     ],
+     "Nc-plain-11-r2": [
+      [
+       "100",
+       "320"
+      ],
+      [
+       "100",
+       "322"
+      ]
+     ],
+     "Nc-plain-12": [
+      [
+       "100",
+       "323"
+      ],
+      [
+       "100",
+       "325"
+      ]
+     ],
+     "Nc-plain-13": [
+      [
+       "100",
+       "325"
+      ],
+      [
+       "100",
+       "326"
+      ]
+     ]
+    },
+    "one_state": true
+   },
+   "void_launches": {},
+   "rows_in_span": {
+    "each": {
+     "Nc-plain-1": 800,
+     "Nc-plain-8": 800,
+     "Nc-plain-14": 800,
+     "Nc-plain-2": 800,
+     "Nc-plain-3": 800,
+     "Nc-plain-4": 800,
+     "Nc-plain-5-r1": 800,
+     "Nc-plain-6": 800,
+     "Nc-plain-7": 800,
+     "Nc-plain-9": 800,
+     "Nc-plain-10": 800,
+     "Nc-plain-11-r2": 800,
+     "Nc-plain-12": 800,
+     "Nc-plain-13": 800
+    },
+    "baselines_equal": true,
+    "injected_differing": []
+   },
+   "launch_records": [
+    {
+     "run": "Nc-plain-1",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1616.7,
+      3793.2
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793790492.438630300",
+      "installed": "Success",
+      "install_ended": "1793790502.008380600",
+      "phone_path": "/data/app/~~cXEVmZ7DmOzW_jAcQ3fxuQ==/com.fs.twitchminichat.dev-bWOSrZCeRUyp_fwORkPqhQ==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:08:20"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "315",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "315",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 2,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 770.0,
+      "bracket_ms": [
+       1610.5,
+       3793.3
+      ],
+      "span_ms": 2176.4
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 40,
+       "dedup_us": 128.6,
+       "row_us": 2270.7
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 91,
+       "dedup_us": 141.2,
+       "row_us": 2393.6
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 87,
+       "dedup_us": 132.9,
+       "row_us": 2569.0
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 106,
+       "dedup_us": 122.1,
+       "row_us": 2161.0
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 111,
+       "dedup_us": 103.8,
+       "row_us": 2027.3
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 119,
+       "dedup_us": 105.6,
+       "row_us": 1896.5
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 108,
+       "dedup_us": 122.7,
+       "row_us": 2032.8
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 111,
+       "dedup_us": 108.3,
+       "row_us": 2005.9
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 8,
+       "dedup_us": 116.2,
+       "row_us": 2229.9
+      },
+      {
+       "from_ms": 3750.0,
+       "rows": 19,
+       "dedup_us": 108.3,
+       "row_us": 2012.2
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-8",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 3,
+     "span_ms": [
+      1413.8,
+      3725.4
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793791448.625587900",
+      "installed": "Success",
+      "install_ended": "1793791457.217241900",
+      "phone_path": "/data/app/~~O0JJV5HF_cey88kSCjZ6wA==/com.fs.twitchminichat.dev-8CTrq8nZUwpQm7_e_7CcOw==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:24:16"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "311",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "312",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 4,
+      "1": 4
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1020.0,
+      "bracket_ms": [
+       1378.5,
+       3725.4
+      ],
+      "span_ms": 2311.6
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 16,
+       "dedup_us": 131.5,
+       "row_us": 3315.8
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 86,
+       "dedup_us": 141.3,
+       "row_us": 2561.7
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 59,
+       "dedup_us": 191.5,
+       "row_us": 2404.2
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 85,
+       "dedup_us": 243.9,
+       "row_us": 2556.0
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 96,
+       "dedup_us": 151.2,
+       "row_us": 2378.4
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 58,
+       "dedup_us": 151.7,
+       "row_us": 2520.1
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 82,
+       "dedup_us": 81.6,
+       "row_us": 2164.1
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 110,
+       "dedup_us": 92.7,
+       "row_us": 2081.2
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 109,
+       "dedup_us": 109.5,
+       "row_us": 2099.6
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 99,
+       "dedup_us": 109.3,
+       "row_us": 2065.9
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-14",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1548.6,
+      3616.8
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793792293.880539800",
+      "installed": "Success",
+      "install_ended": "1793792302.151924400",
+      "phone_path": "/data/app/~~RyEbfGB0Royijb5mAYxDzw==/com.fs.twitchminichat.dev-vDj6WSgJs-STR7QU2K3sBQ==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:38:21"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "326",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "326",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 0,
+      "1": 0
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 860.0,
+      "bracket_ms": [
+       1534.4,
+       3616.9
+      ],
+      "span_ms": 2068.2
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 57,
+       "dedup_us": 151.2,
+       "row_us": 2613.8
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 87,
+       "dedup_us": 145.8,
+       "row_us": 2451.9
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 85,
+       "dedup_us": 211.1,
+       "row_us": 2591.9
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 78,
+       "dedup_us": 231.9,
+       "row_us": 2485.2
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 77,
+       "dedup_us": 139.0,
+       "row_us": 2093.4
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 117,
+       "dedup_us": 69.3,
+       "row_us": 1849.7
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 121,
+       "dedup_us": 87.6,
+       "row_us": 1808.5
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 122,
+       "dedup_us": 104.2,
+       "row_us": 1847.8
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 56,
+       "dedup_us": 106.1,
+       "row_us": 1874.0
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-2",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1408.0,
+      3785.3
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793790591.323108000",
+      "installed": "Success",
+      "install_ended": "1793790599.327110100",
+      "phone_path": "/data/app/~~6hTT1XDBEY9ip4J2kdytAQ==/com.fs.twitchminichat.dev-XQKek7rcZw_O1Xyw66u_oQ==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:09:58"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "313",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "314",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 1,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1170.0,
+      "bracket_ms": [
+       1251.6,
+       3785.4
+      ],
+      "span_ms": 2377.3
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 24,
+       "dedup_us": 129.6,
+       "row_us": 3311.1
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 75,
+       "dedup_us": 167.4,
+       "row_us": 2685.0
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 87,
+       "dedup_us": 207.3,
+       "row_us": 2573.6
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 79,
+       "dedup_us": 278.3,
+       "row_us": 2838.5
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 62,
+       "dedup_us": 256.6,
+       "row_us": 2617.8
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 54,
+       "dedup_us": 158.9,
+       "row_us": 2689.6
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 95,
+       "dedup_us": 78.8,
+       "row_us": 2194.7
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 106,
+       "dedup_us": 95.7,
+       "row_us": 2161.6
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 105,
+       "dedup_us": 108.0,
+       "row_us": 2147.2
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 99,
+       "dedup_us": 111.5,
+       "row_us": 2273.0
+      },
+      {
+       "from_ms": 3750.0,
+       "rows": 14,
+       "dedup_us": 113.7,
+       "row_us": 2292.3
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-3",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1425.6,
+      3854.0
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793790671.521537800",
+      "installed": "Success",
+      "install_ended": "1793790680.511764900",
+      "phone_path": "/data/app/~~MpQVZGU2JinZOkVK49MXkQ==/com.fs.twitchminichat.dev-rNwYEQJXiH-HHNPw162tIg==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:11:19"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "313",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "312",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 1,
+      "1": 1
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1220.0,
+      "bracket_ms": [
+       1312.7,
+       3854.1
+      ],
+      "span_ms": 2428.5
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 21,
+       "dedup_us": 130.8,
+       "row_us": 3294.5
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 45,
+       "dedup_us": 149.2,
+       "row_us": 3058.2
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 84,
+       "dedup_us": 191.9,
+       "row_us": 2677.9
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 85,
+       "dedup_us": 230.4,
+       "row_us": 2669.2
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 76,
+       "dedup_us": 268.4,
+       "row_us": 2854.3
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 89,
+       "dedup_us": 153.3,
+       "row_us": 2545.6
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 43,
+       "dedup_us": 74.6,
+       "row_us": 2043.4
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 107,
+       "dedup_us": 90.5,
+       "row_us": 2088.8
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 107,
+       "dedup_us": 104.1,
+       "row_us": 2094.1
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 100,
+       "dedup_us": 112.3,
+       "row_us": 2255.0
+      },
+      {
+       "from_ms": 3750.0,
+       "rows": 43,
+       "dedup_us": 112.6,
+       "row_us": 2173.8
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-4",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1538.0,
+      3629.2
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793790876.537147300",
+      "installed": "Success",
+      "install_ended": "1793790892.263381900",
+      "phone_path": "/data/app/~~f46BfyoosOHWuUdUo0J8Dg==/com.fs.twitchminichat.dev-oPWvKnpqmDL7wj5Mqdi86A==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:14:49"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "308",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "310",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 2,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 920.0,
+      "bracket_ms": [
+       1527.8,
+       3629.3
+      ],
+      "span_ms": 2091.2
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 64,
+       "dedup_us": 174.1,
+       "row_us": 2545.1
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 65,
+       "dedup_us": 213.3,
+       "row_us": 2538.3
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 81,
+       "dedup_us": 257.8,
+       "row_us": 2649.9
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 78,
+       "dedup_us": 253.3,
+       "row_us": 2737.0
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 108,
+       "dedup_us": 141.7,
+       "row_us": 2109.9
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 121,
+       "dedup_us": 82.2,
+       "row_us": 1778.0
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 114,
+       "dedup_us": 97.5,
+       "row_us": 1895.7
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 110,
+       "dedup_us": 107.6,
+       "row_us": 2007.2
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 59,
+       "dedup_us": 96.9,
+       "row_us": 1956.6
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-5-r1",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1397.6,
+      3712.7
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793791142.602027900",
+      "installed": "Success",
+      "install_ended": "1793791156.842071300",
+      "phone_path": "/data/app/~~fDPEchFudlg24pOnxbIR6A==/com.fs.twitchminichat.dev-k5bfhr9w9B8rTJe2ZUmG2g==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:19:15"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "312",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "311",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 5,
+      "1": 5
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1130.0,
+      "bracket_ms": [
+       1275.3,
+       3712.8
+      ],
+      "span_ms": 2315.1
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 27,
+       "dedup_us": 144.0,
+       "row_us": 3272.2
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 47,
+       "dedup_us": 168.8,
+       "row_us": 2684.8
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 85,
+       "dedup_us": 160.5,
+       "row_us": 2578.4
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 83,
+       "dedup_us": 215.4,
+       "row_us": 2652.1
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 105,
+       "dedup_us": 145.8,
+       "row_us": 2259.9
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 87,
+       "dedup_us": 148.2,
+       "row_us": 2409.6
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 121,
+       "dedup_us": 76.5,
+       "row_us": 1882.4
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 114,
+       "dedup_us": 97.6,
+       "row_us": 1866.6
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 28,
+       "dedup_us": 116.1,
+       "row_us": 1967.2
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 103,
+       "dedup_us": 104.9,
+       "row_us": 1851.1
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-6",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1424.6,
+      3591.4
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793791280.520159700",
+      "installed": "Success",
+      "install_ended": "1793791289.607530900",
+      "phone_path": "/data/app/~~sTYWzhBKPrrU5FLXn5Q_fA==/com.fs.twitchminichat.dev-euuiRL1YL3HxbbsY_-urIA==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:21:28"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "310",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "312",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 0,
+      "1": 0
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1150.0,
+      "bracket_ms": [
+       1369.1,
+       3591.5
+      ],
+      "span_ms": 2166.8
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 19,
+       "dedup_us": 135.9,
+       "row_us": 3392.7
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 62,
+       "dedup_us": 165.1,
+       "row_us": 2981.2
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 63,
+       "dedup_us": 165.6,
+       "row_us": 2629.4
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 81,
+       "dedup_us": 232.8,
+       "row_us": 2700.7
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 84,
+       "dedup_us": 246.4,
+       "row_us": 2628.3
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 91,
+       "dedup_us": 150.3,
+       "row_us": 2349.5
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 121,
+       "dedup_us": 72.2,
+       "row_us": 1864.2
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 116,
+       "dedup_us": 94.8,
+       "row_us": 1950.6
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 121,
+       "dedup_us": 103.6,
+       "row_us": 1847.3
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 42,
+       "dedup_us": 110.2,
+       "row_us": 2029.5
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-7",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1550.8,
+      3707.2
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793791363.103743600",
+      "installed": "Success",
+      "install_ended": "1793791374.137091500",
+      "phone_path": "/data/app/~~Eq5ldGk-4yHu7H5MpeXKCg==/com.fs.twitchminichat.dev-Isz3A048HhCX4xmTV01tOw==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:22:51"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "311",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "312",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 840.0,
+      "bracket_ms": [
+       1539.9,
+       3707.3
+      ],
+      "span_ms": 2156.4
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 57,
+       "dedup_us": 148.7,
+       "row_us": 2491.2
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 65,
+       "dedup_us": 152.7,
+       "row_us": 2482.9
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 88,
+       "dedup_us": 188.8,
+       "row_us": 2495.9
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 94,
+       "dedup_us": 143.5,
+       "row_us": 2427.0
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 100,
+       "dedup_us": 90.2,
+       "row_us": 2284.1
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 98,
+       "dedup_us": 146.1,
+       "row_us": 2357.1
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 108,
+       "dedup_us": 101.3,
+       "row_us": 2109.6
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 103,
+       "dedup_us": 106.0,
+       "row_us": 2160.1
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 87,
+       "dedup_us": 111.2,
+       "row_us": 2206.1
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-9",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1421.6,
+      3686.5
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793791708.321026700",
+      "installed": "Success",
+      "install_ended": "1793791717.334755900",
+      "phone_path": "/data/app/~~hrAQ8yCSWENXxsFrL9VfRg==/com.fs.twitchminichat.dev-OOfecPfskgLAnLVOsRFd9A==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:28:36"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "311",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "312",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 3
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1100.0,
+      "bracket_ms": [
+       1301.3,
+       3686.8
+      ],
+      "span_ms": 2264.9
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 20,
+       "dedup_us": 124.3,
+       "row_us": 3166.4
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 92,
+       "dedup_us": 150.1,
+       "row_us": 2450.7
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 88,
+       "dedup_us": 245.9,
+       "row_us": 2514.2
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 79,
+       "dedup_us": 283.4,
+       "row_us": 2813.4
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 106,
+       "dedup_us": 135.8,
+       "row_us": 2156.9
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 15,
+       "dedup_us": 155.2,
+       "row_us": 2494.2
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 100,
+       "dedup_us": 81.0,
+       "row_us": 2103.0
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 111,
+       "dedup_us": 103.1,
+       "row_us": 2006.9
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 108,
+       "dedup_us": 107.9,
+       "row_us": 2106.4
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 81,
+       "dedup_us": 110.9,
+       "row_us": 2086.7
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-10",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1642.6,
+      3656.2
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793791796.166303000",
+      "installed": "Success",
+      "install_ended": "1793791804.723852200",
+      "phone_path": "/data/app/~~4baeJA4wmpPyCIwOXsZw2Q==/com.fs.twitchminichat.dev-t8nNHAjEF7Xzmg6QbM8PvQ==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:30:03"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "311",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "313",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 7,
+      "1": 7
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 840.0,
+      "bracket_ms": [
+       1636.8,
+       3656.2
+      ],
+      "span_ms": 2013.5
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 25,
+       "dedup_us": 127.7,
+       "row_us": 2888.9
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 83,
+       "dedup_us": 149.2,
+       "row_us": 2498.6
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 88,
+       "dedup_us": 195.2,
+       "row_us": 2495.4
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 87,
+       "dedup_us": 191.4,
+       "row_us": 2599.3
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 105,
+       "dedup_us": 125.1,
+       "row_us": 2195.8
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 111,
+       "dedup_us": 129.1,
+       "row_us": 2031.3
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 113,
+       "dedup_us": 119.4,
+       "row_us": 2048.9
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 118,
+       "dedup_us": 107.0,
+       "row_us": 1915.3
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 70,
+       "dedup_us": 103.3,
+       "row_us": 1972.6
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-11-r2",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1422.9,
+      3607.8
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793792046.961651000",
+      "installed": "Success",
+      "install_ended": "1793792055.206097900",
+      "phone_path": "/data/app/~~dKJWmvYbopyjmepvcL3p9Q==/com.fs.twitchminichat.dev-qeYA0QD7wxJtcZFEGn1yGg==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:34:14"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "320",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "322",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 3
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1200.0,
+      "bracket_ms": [
+       1293.8,
+       3607.9
+      ],
+      "span_ms": 2184.8
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 20,
+       "dedup_us": 135.4,
+       "row_us": 3267.2
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 85,
+       "dedup_us": 162.7,
+       "row_us": 2628.2
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 86,
+       "dedup_us": 168.0,
+       "row_us": 2503.6
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 83,
+       "dedup_us": 231.4,
+       "row_us": 2682.6
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 86,
+       "dedup_us": 227.6,
+       "row_us": 2614.9
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 40,
+       "dedup_us": 155.9,
+       "row_us": 2464.3
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 106,
+       "dedup_us": 74.8,
+       "row_us": 1878.5
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 121,
+       "dedup_us": 82.8,
+       "row_us": 1849.0
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 124,
+       "dedup_us": 103.4,
+       "row_us": 1813.4
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 49,
+       "dedup_us": 108.8,
+       "row_us": 1938.0
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-12",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1508.4,
+      3799.0
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793792123.456266200",
+      "installed": "Success",
+      "install_ended": "1793792131.927723700",
+      "phone_path": "/data/app/~~fFeH2MHFCvdVZIEtzCtURg==/com.fs.twitchminichat.dev-56DwpdQuY1kDgURExTZlpg==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:35:31"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "323",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "325",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1190.0,
+      "bracket_ms": [
+       1471.7,
+       3799.2
+      ],
+      "span_ms": 2290.6
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 48,
+       "dedup_us": 164.2,
+       "row_us": 3396.0
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 76,
+       "dedup_us": 165.0,
+       "row_us": 3013.7
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 86,
+       "dedup_us": 187.1,
+       "row_us": 2573.5
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 82,
+       "dedup_us": 258.6,
+       "row_us": 2708.6
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 86,
+       "dedup_us": 216.9,
+       "row_us": 2763.1
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 48,
+       "dedup_us": 87.9,
+       "row_us": 2167.3
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 118,
+       "dedup_us": 76.2,
+       "row_us": 1915.5
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 120,
+       "dedup_us": 97.8,
+       "row_us": 1864.1
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 114,
+       "dedup_us": 107.8,
+       "row_us": 1967.7
+      },
+      {
+       "from_ms": 3750.0,
+       "rows": 22,
+       "dedup_us": 110.4,
+       "row_us": 1978.4
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "Nc-plain-13",
+     "commit": "2e72e42",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1511.1,
+      3916.4
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/2e72e42-dev-arm64-v8a-debug.apk",
+      "local_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "install_started": "1793792210.474088300",
+      "installed": "Success",
+      "install_ended": "1793792219.376076200",
+      "phone_path": "/data/app/~~bCCPPYpFcziPsZBHkcqhew==/com.fs.twitchminichat.dev-HfJ8PUwoXEL1wTNcCa6_Ag==/base.apk",
+      "phone_sha256": "d9970f278909e125ae15540a13cac1389e467fa3beaeb3ba5d2ff447c5c19ac8",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:36:58"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "325",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "326",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 3
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 1360.0,
+      "bracket_ms": [
+       1345.4,
+       3916.5
+      ],
+      "span_ms": 2405.3
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 67,
+       "dedup_us": 174.3,
+       "row_us": 3157.4
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 76,
+       "dedup_us": 156.0,
+       "row_us": 3004.0
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 83,
+       "dedup_us": 193.0,
+       "row_us": 2504.8
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 80,
+       "dedup_us": 262.3,
+       "row_us": 2730.1
+      },
+      {
+       "from_ms": 2500.0,
+       "rows": 77,
+       "dedup_us": 283.2,
+       "row_us": 2899.6
+      },
+      {
+       "from_ms": 2750.0,
+       "rows": 21,
+       "dedup_us": 157.6,
+       "row_us": 2386.0
+      },
+      {
+       "from_ms": 3000.0,
+       "rows": 106,
+       "dedup_us": 83.6,
+       "row_us": 2162.1
+      },
+      {
+       "from_ms": 3250.0,
+       "rows": 105,
+       "dedup_us": 96.2,
+       "row_us": 2133.7
+      },
+      {
+       "from_ms": 3500.0,
+       "rows": 111,
+       "dedup_us": 110.2,
+       "row_us": 2055.4
+      },
+      {
+       "from_ms": 3750.0,
+       "rows": 74,
+       "dedup_us": 113.1,
+       "row_us": 1974.9
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    }
+   ],
+   "fixed_replica": {
+    "band": [
+     "Nc-plain-1",
+     "Nc-plain-8",
+     "Nc-plain-14"
+    ],
+    "scored": [
+     "Nc-plain-2",
+     "Nc-plain-3",
+     "Nc-plain-4",
+     "Nc-plain-5-r1",
+     "Nc-plain-6",
+     "Nc-plain-7",
+     "Nc-plain-9",
+     "Nc-plain-10",
+     "Nc-plain-11-r2",
+     "Nc-plain-12",
+     "Nc-plain-13"
+    ],
+    "launches": [
+     {
+      "run": "Nc-plain-2",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 125.977772,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 50.14989100000003,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.801621,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 41.293378999999945,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.672085999999999,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1696.1176660000003,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "follow_or_count_composer_restore": {
+        "value": 123.28192200000004,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1584.054440999999,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timeline_insert_without_view_build": {
+        "value": 112.06322500000124,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "composer_snapshot_follow_decision",
+       "dedup_backfill_mention",
+       "follow_or_count_composer_restore",
+       "hidden_user_check",
+       "timeline_insert",
+       "timeline_insert_of_which_view_build",
+       "timeline_insert_without_view_build",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "Nc-plain-3",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 124.57462299999992,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 48.96228800000003,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.8651620000000024,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 40.71808500000002,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.614505999999997,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1704.208706000002,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "follow_or_count_composer_restore": {
+        "value": 121.34088099999992,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1591.8516180000026,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timeline_insert_without_view_build": {
+        "value": 112.3570879999993,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "composer_snapshot_follow_decision",
+       "dedup_backfill_mention",
+       "follow_or_count_composer_restore",
+       "hidden_user_check",
+       "timeline_insert",
+       "timeline_insert_of_which_view_build",
+       "timeline_insert_without_view_build",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "Nc-plain-4",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 123.06318800000003,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 47.062028999999995,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.6867719999999973,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 37.946715999999995,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.482971999999994,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1533.3308720000005,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 110.23590000000007,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1428.7058900000047,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 104.62498199999573,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "dedup_backfill_mention",
+       "follow_or_count_composer_restore"
+      ]
+     },
+     {
+      "run": "Nc-plain-5-r1",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 109.45366400000009,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 48.39208199999993,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.7357709999999993,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 38.211531999999984,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.3634900000000085,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1546.950767999998,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 103.02745799999998,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1441.4064069999995,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 105.54436099999862,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": []
+     },
+     {
+      "run": "Nc-plain-6",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 116.64781399999997,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 49.629429999999914,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.733018999999999,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 39.441500000000055,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.451890999999996,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1594.4606119999985,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 103.0563049999999,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1486.9144679999977,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 107.54614400000082,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "dedup_backfill_mention",
+       "hidden_user_check",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "Nc-plain-7",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 109.26368099999999,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 47.470988000000034,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.630740999999999,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 39.579134,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.7674799999999955,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1590.3963130000009,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 126.6844159999999,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1482.4900480000035,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 107.90626499999735,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "composer_snapshot_follow_decision",
+       "follow_or_count_composer_restore",
+       "hidden_user_check"
+      ]
+     },
+     {
+      "run": "Nc-plain-9",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 126.47774800000022,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timestamp_echo_reconcile": {
+        "value": 48.752774,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.789632000000004,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 39.172912,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.377666,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1585.3859840000002,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 103.28157400000005,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1477.0978599999983,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 108.28812400000197,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "dedup_backfill_mention",
+       "hidden_user_check",
+       "timeline_insert_without_view_build",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "Nc-plain-10",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 113.05332899999989,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 46.67140499999999,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.62589,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 37.44071599999999,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.733336999999994,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1534.9220440000004,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 106.79609700000007,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1429.0002710000035,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 105.92177299999685,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "composer_snapshot_follow_decision"
+      ]
+     },
+     {
+      "run": "Nc-plain-11-r2",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 117.540968,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 48.71246200000006,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.7339639999999985,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 39.53755299999998,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.432694999999997,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1565.5400140000004,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 103.04045600000002,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1458.978231999999,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 106.56178200000136,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "dedup_backfill_mention",
+       "hidden_user_check",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "Nc-plain-12",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 119.38807200000021,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 49.97568299999999,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.8350329999999997,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 40.142816999999994,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.718714999999998,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1629.7153900000017,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "follow_or_count_composer_restore": {
+        "value": 109.67844800000007,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1518.9121330000023,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timeline_insert_without_view_build": {
+        "value": 110.80325699999935,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "composer_snapshot_follow_decision",
+       "dedup_backfill_mention",
+       "follow_or_count_composer_restore",
+       "hidden_user_check",
+       "timeline_insert",
+       "timeline_insert_of_which_view_build",
+       "timeline_insert_without_view_build",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "Nc-plain-13",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 129.74792499999998,
+        "upper_bound": 126.23937,
+        "lower_reference": 90.807497,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timestamp_echo_reconcile": {
+        "value": 50.40156500000002,
+        "upper_bound": 58.418180000000035,
+        "lower_reference": 35.43380699999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.7935399999999984,
+        "upper_bound": 12.761033999999999,
+        "lower_reference": -7.465732000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 41.68322600000002,
+        "upper_bound": 48.635426,
+        "lower_reference": 27.245936000000015,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.463018,
+        "upper_bound": 14.576593999999996,
+        "lower_reference": -5.563021000000001,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 1708.917451000002,
+        "upper_bound": 1615.6084540000015,
+        "lower_reference": 1469.622765,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "follow_or_count_composer_restore": {
+        "value": 115.81541299999995,
+        "upper_bound": 118.24780600000007,
+        "lower_reference": 90.25093799999998,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 1591.8448130000024,
+        "upper_bound": 1507.335829000002,
+        "lower_reference": 1364.7715460000022,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timeline_insert_without_view_build": {
+        "value": 117.07263799999964,
+        "upper_bound": 118.2726249999996,
+        "lower_reference": 93.81237199999987,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "dedup_backfill_mention",
+       "follow_or_count_composer_restore",
+       "hidden_user_check",
+       "timeline_insert",
+       "timeline_insert_of_which_view_build",
+       "timeline_insert_without_view_build",
+       "timestamp_echo_reconcile"
+      ]
+     }
+    ],
+    "failing_launches": [
+     "Nc-plain-2",
+     "Nc-plain-3",
+     "Nc-plain-7",
+     "Nc-plain-9",
+     "Nc-plain-12",
+     "Nc-plain-13"
+    ],
+    "failing_values": 13,
+    "held_values": 99,
+    "above_the_highest_baseline_before_the_margin": 52,
+    "fraction_above_the_highest_baseline": 0.5252525252525253,
+    "expected_fraction_if_exchangeable": 0.25
+   },
+   "all_bands": {
+    "bands": 364,
+    "launches_outside_each_band": 11,
+    "held_sets": [
+     "mention",
+     "reconcile",
+     "buddy",
+     "hidden",
+     "beforeinsert",
+     "insert",
+     "follow",
+     "build",
+     "gap",
+     "app"
+    ],
+    "failure_count_distribution": [
+     0.3356643356643345,
+     0.21212121212121232,
+     0.015132783882783883,
+     0.07849095349095347,
+     0.14348568098568093,
+     0.11103063603063612,
+     0.05225954600954604,
+     0.023110223110223115,
+     0.016033966033966028,
+     0.01058941058941059,
+     0.0020812520812520815
+    ],
+    "expected_failing_launches_of_ten": 2.326673326673327,
+    "all_nine_held_per_launch_failure_rate": 0.2495004995004995
+   }
+  },
+  "5d": {
+   "labels": [
+    "N5-plain-1",
+    "N5-plain-2",
+    "N5-plain-3",
+    "N5-plain-4",
+    "N5-plain-5",
+    "N5-plain-6",
+    "N5-plain-7-r1",
+    "N5-plain-8",
+    "N5-plain-9",
+    "N5-plain-10",
+    "N5-plain-11",
+    "N5-plain-12",
+    "N5-plain-13",
+    "N5-plain-14"
+   ],
+   "plain": true,
+   "display": {
+    "readings": [
+     "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+    ],
+    "unread": [],
+    "one_reading": true
+   },
+   "battery": {
+    "states": [
+     "saver=0 ac=false usb=true wireless=false"
+    ],
+    "unread": [],
+    "levels_and_temperatures": {
+     "N5-plain-1": [
+      [
+       "100",
+       "326"
+      ],
+      [
+       "100",
+       "327"
+      ]
+     ],
+     "N5-plain-8": [
+      [
+       "100",
+       "324"
+      ],
+      [
+       "100",
+       "324"
+      ]
+     ],
+     "N5-plain-14": [
+      [
+       "100",
+       "323"
+      ],
+      [
+       "100",
+       "325"
+      ]
+     ],
+     "N5-plain-2": [
+      [
+       "100",
+       "327"
+      ],
+      [
+       "100",
+       "327"
+      ]
+     ],
+     "N5-plain-3": [
+      [
+       "100",
+       "327"
+      ],
+      [
+       "100",
+       "327"
+      ]
+     ],
+     "N5-plain-4": [
+      [
+       "100",
+       "327"
+      ],
+      [
+       "100",
+       "327"
+      ]
+     ],
+     "N5-plain-5": [
+      [
+       "100",
+       "327"
+      ],
+      [
+       "100",
+       "327"
+      ]
+     ],
+     "N5-plain-6": [
+      [
+       "100",
+       "326"
+      ],
+      [
+       "100",
+       "325"
+      ]
+     ],
+     "N5-plain-7-r1": [
+      [
+       "100",
+       "325"
+      ],
+      [
+       "100",
+       "324"
+      ]
+     ],
+     "N5-plain-9": [
+      [
+       "100",
+       "323"
+      ],
+      [
+       "100",
+       "322"
+      ]
+     ],
+     "N5-plain-10": [
+      [
+       "100",
+       "323"
+      ],
+      [
+       "100",
+       "322"
+      ]
+     ],
+     "N5-plain-11": [
+      [
+       "100",
+       "322"
+      ],
+      [
+       "100",
+       "321"
+      ]
+     ],
+     "N5-plain-12": [
+      [
+       "100",
+       "320"
+      ],
+      [
+       "100",
+       "320"
+      ]
+     ],
+     "N5-plain-13": [
+      [
+       "100",
+       "320"
+      ],
+      [
+       "100",
+       "320"
+      ]
+     ]
+    },
+    "one_state": true
+   },
+   "void_launches": {},
+   "rows_in_span": {
+    "each": {
+     "N5-plain-1": 800,
+     "N5-plain-8": 800,
+     "N5-plain-14": 800,
+     "N5-plain-2": 800,
+     "N5-plain-3": 800,
+     "N5-plain-4": 800,
+     "N5-plain-5": 800,
+     "N5-plain-6": 800,
+     "N5-plain-7-r1": 800,
+     "N5-plain-9": 800,
+     "N5-plain-10": 800,
+     "N5-plain-11": 800,
+     "N5-plain-12": 800,
+     "N5-plain-13": 800
+    },
+    "baselines_equal": true,
+    "injected_differing": []
+   },
+   "launch_records": [
+    {
+     "run": "N5-plain-1",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1543.2,
+      2269.6
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793792378.775426900",
+      "installed": "Success",
+      "install_ended": "1793792386.841292600",
+      "phone_path": "/data/app/~~XMQigF_PMcukA5bToExE8Q==/com.fs.twitchminichat.dev-G2CsRlpnW34P_cFAB1x8pA==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:39:45"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "326",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 2,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 810.0,
+      "bracket_ms": [
+       1419.7,
+       2269.8
+      ],
+      "span_ms": 726.5
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 398,
+       "dedup_us": 224.4,
+       "row_us": 398.7
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 143,
+       "dedup_us": 87.4,
+       "row_us": 234.8
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 205,
+       "dedup_us": 185.2,
+       "row_us": 316.5
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 54,
+       "dedup_us": 112.6,
+       "row_us": 235.4
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-8",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1445.4,
+      2207.3
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793793015.027988300",
+      "installed": "Success",
+      "install_ended": "1793793023.320529400",
+      "phone_path": "/data/app/~~HQujwWLzwaD8gC1RBXuCvA==/com.fs.twitchminichat.dev-LGfXaBh1ke6phbXw7nwtKg==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:50:22"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "324",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "324",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 0,
+      "1": 0
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 820.0,
+      "bracket_ms": [
+       1300.2,
+       2207.4
+      ],
+      "span_ms": 761.9
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 137,
+       "dedup_us": 109.4,
+       "row_us": 280.6
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 169,
+       "dedup_us": 176.9,
+       "row_us": 356.8
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 112,
+       "dedup_us": 230.4,
+       "row_us": 391.1
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 382,
+       "dedup_us": 147.3,
+       "row_us": 327.3
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-14",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1402.7,
+      2168.2
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793793501.917571200",
+      "installed": "Success",
+      "install_ended": "1793793510.030305200",
+      "phone_path": "/data/app/~~x8RVMntAl359nBPIoScxZQ==/com.fs.twitchminichat.dev--FTcAa4Am5cXOsKWTO3rpw==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:58:29"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "323",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "325",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 1,
+      "1": 1
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 880.0,
+      "bracket_ms": [
+       1260.7,
+       2168.2
+      ],
+      "span_ms": 765.5
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 124,
+       "dedup_us": 116.6,
+       "row_us": 334.3
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 233,
+       "dedup_us": 229.5,
+       "row_us": 416.4
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 164,
+       "dedup_us": 107.3,
+       "row_us": 289.8
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 279,
+       "dedup_us": 209.1,
+       "row_us": 364.6
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-2",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1386.7,
+      2179.1
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793792454.435446500",
+      "installed": "Success",
+      "install_ended": "1793792462.741797900",
+      "phone_path": "/data/app/~~MWmFrjXD-nqYREF6j5kbmg==/com.fs.twitchminichat.dev-cvXASyOXPfLW-pY_Y4mLwg==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:41:01"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 7,
+      "1": 7
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 820.0,
+      "bracket_ms": [
+       1256.2,
+       2179.3
+      ],
+      "span_ms": 792.4
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 57,
+       "dedup_us": 89.7,
+       "row_us": 272.0
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 304,
+       "dedup_us": 278.0,
+       "row_us": 488.2
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 162,
+       "dedup_us": 110.4,
+       "row_us": 291.0
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 277,
+       "dedup_us": 224.9,
+       "row_us": 381.5
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-3",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1415.9,
+      2125.4
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793792530.576285900",
+      "installed": "Success",
+      "install_ended": "1793792538.747268200",
+      "phone_path": "/data/app/~~SNVBVtUtJDdn6LSp63tuWA==/com.fs.twitchminichat.dev-MBixoP0kIy2q4a0fQb0Gsg==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:42:17"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 5,
+      "1": 5
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 810.0,
+      "bracket_ms": [
+       1246.2,
+       2125.7
+      ],
+      "span_ms": 709.5
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 129,
+       "dedup_us": 126.1,
+       "row_us": 334.6
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 271,
+       "dedup_us": 273.5,
+       "row_us": 477.6
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 176,
+       "dedup_us": 142.3,
+       "row_us": 339.5
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 224,
+       "dedup_us": 256.0,
+       "row_us": 417.1
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-4",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1454.0,
+      2076.3
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793792606.326016300",
+      "installed": "Success",
+      "install_ended": "1793792614.553287600",
+      "phone_path": "/data/app/~~Z_0vgqOgavk9RrfnLM8aRA==/com.fs.twitchminichat.dev-FvvUWrjUJnOVykfJnBKoVg==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:43:33"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 3
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 700.0,
+      "bracket_ms": [
+       1327.2,
+       2076.4
+      ],
+      "span_ms": 622.3
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 100,
+       "dedup_us": 140.1,
+       "row_us": 318.8
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 265,
+       "dedup_us": 279.9,
+       "row_us": 453.7
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 300,
+       "dedup_us": 194.9,
+       "row_us": 375.7
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 135,
+       "dedup_us": 257.0,
+       "row_us": 415.3
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-5",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1435.4,
+      2216.2
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793792691.361666400",
+      "installed": "Success",
+      "install_ended": "1793792700.272627500",
+      "phone_path": "/data/app/~~4QtLG2lR1xTSqYyTTVC5Uw==/com.fs.twitchminichat.dev-VvrxMfDKGK3ugY91sDhdeQ==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:44:59"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "327",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 4,
+      "1": 4
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 870.0,
+      "bracket_ms": [
+       1295.6,
+       2216.3
+      ],
+      "span_ms": 780.8
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 53,
+       "dedup_us": 113.6,
+       "row_us": 279.5
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 278,
+       "dedup_us": 250.5,
+       "row_us": 419.2
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 131,
+       "dedup_us": 252.0,
+       "row_us": 415.4
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 338,
+       "dedup_us": 228.5,
+       "row_us": 392.6
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-6",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1425.9,
+      2172.3
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793792770.465817400",
+      "installed": "Success",
+      "install_ended": "1793792778.813820400",
+      "phone_path": "/data/app/~~R_rX2bd8FFY--c3FzbytSQ==/com.fs.twitchminichat.dev-BGcIUpcxwlzcNxre6uTUog==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:46:17"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "326",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "325",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 2,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 820.0,
+      "bracket_ms": [
+       1280.5,
+       2172.4
+      ],
+      "span_ms": 746.3
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 137,
+       "dedup_us": 173.9,
+       "row_us": 394.7
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 177,
+       "dedup_us": 251.4,
+       "row_us": 438.2
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 131,
+       "dedup_us": 255.0,
+       "row_us": 423.5
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 355,
+       "dedup_us": 211.6,
+       "row_us": 363.3
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-7-r1",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1393.5,
+      2088.3
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793792929.708465300",
+      "installed": "Success",
+      "install_ended": "1793792937.925895400",
+      "phone_path": "/data/app/~~oj22t2iBd2E1O6bR1xAlRg==/com.fs.twitchminichat.dev-EVesG01Aus8YSQtdowtDDQ==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:48:57"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "325",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "324",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 0,
+      "1": 0
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 790.0,
+      "bracket_ms": [
+       1237.0,
+       2088.4
+      ],
+      "span_ms": 694.8
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 248,
+       "dedup_us": 117.6,
+       "row_us": 304.0
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 152,
+       "dedup_us": 251.4,
+       "row_us": 427.8
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 221,
+       "dedup_us": 105.5,
+       "row_us": 258.5
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 179,
+       "dedup_us": 216.4,
+       "row_us": 365.1
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-9",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 3,
+     "span_ms": [
+      1463.3,
+      2251.9
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793793104.814467900",
+      "installed": "Success",
+      "install_ended": "1793793113.516165600",
+      "phone_path": "/data/app/~~I5Hp-tSDvS88L1TDvkWJeg==/com.fs.twitchminichat.dev-kZjlazmuj3ABApHy_RVXGA==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:51:52"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "323",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "322",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 3
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 790.0,
+      "bracket_ms": [
+       1392.9,
+       2252.1
+      ],
+      "span_ms": 788.6
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 82,
+       "dedup_us": 103.0,
+       "row_us": 298.6
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 265,
+       "dedup_us": 177.7,
+       "row_us": 338.4
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 73,
+       "dedup_us": 277.4,
+       "row_us": 451.9
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 376,
+       "dedup_us": 143.2,
+       "row_us": 295.2
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 4,
+       "dedup_us": 242.5,
+       "row_us": 378.6
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-10",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1407.2,
+      2142.0
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793793183.817871100",
+      "installed": "Success",
+      "install_ended": "1793793191.805689500",
+      "phone_path": "/data/app/~~6Tc5ozpgE0lRKZxgchMBAg==/com.fs.twitchminichat.dev-b1sjWeSJnKJ0s9X3vSgMaQ==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:53:10"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "323",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "322",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 0,
+      "1": 0
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 790.0,
+      "bracket_ms": [
+       1259.9,
+       2142.0
+      ],
+      "span_ms": 734.7
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 181,
+       "dedup_us": 111.1,
+       "row_us": 300.2
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 219,
+       "dedup_us": 211.6,
+       "row_us": 372.0
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 182,
+       "dedup_us": 112.7,
+       "row_us": 290.6
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 218,
+       "dedup_us": 222.6,
+       "row_us": 400.6
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-11",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 1,
+     "span_ms": [
+      1402.4,
+      1991.4
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793793259.912942800",
+      "installed": "Success",
+      "install_ended": "1793793268.238625100",
+      "phone_path": "/data/app/~~9O6zY0JmKk9vzN_ozTcWXQ==/com.fs.twitchminichat.dev-gvThW5KkbY-vWxJlvuFjHA==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:54:27"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "322",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "321",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 3
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 700.0,
+      "bracket_ms": [
+       1258.5,
+       1991.5
+      ],
+      "span_ms": 589.0
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 227,
+       "dedup_us": 114.5,
+       "row_us": 295.8
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 173,
+       "dedup_us": 252.1,
+       "row_us": 412.5
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 400,
+       "dedup_us": 134.2,
+       "row_us": 282.6
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-12",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1651.4,
+      2290.7
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793793337.851457200",
+      "installed": "Success",
+      "install_ended": "1793793345.952464000",
+      "phone_path": "/data/app/~~Aqb5uL_b-BfodmXfYpFX6w==/com.fs.twitchminichat.dev-Rh0PLXvDlpdb9dvAsdwnZQ==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:55:45"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "320",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "320",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 3,
+      "1": 3
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 610.0,
+      "bracket_ms": [
+       1645.5,
+       2290.8
+      ],
+      "span_ms": 639.3
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1500.0,
+       "rows": 24,
+       "dedup_us": 101.8,
+       "row_us": 296.9
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 242,
+       "dedup_us": 133.9,
+       "row_us": 311.6
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 461,
+       "dedup_us": 196.7,
+       "row_us": 365.3
+      },
+      {
+       "from_ms": 2250.0,
+       "rows": 73,
+       "dedup_us": 227.5,
+       "row_us": 395.9
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    },
+    {
+     "run": "N5-plain-13",
+     "commit": "550b414",
+     "void": [],
+     "recorded_waits": [],
+     "frames_in_span": 2,
+     "span_ms": [
+      1443.9,
+      2209.6
+     ],
+     "foreign_process_starts": [],
+     "input_events": 0,
+     "first_after_install": true,
+     "install": {
+      "apk": "%USERPROFILE%/tmc-5d-round/apks/550b414-dev-arm64-v8a-debug.apk",
+      "local_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "install_started": "1793793424.885431800",
+      "installed": "Success",
+      "install_ended": "1793793433.188750700",
+      "phone_path": "/data/app/~~9PzpOXSKfRcjd0jxjdASeA==/com.fs.twitchminichat.dev-FjYpDMfs7BAUxJ4GlGF8sg==/base.apk",
+      "phone_sha256": "e881d0abaf9e13a2d5c62c3e20aa77c66b188766cfa364cdde6144c70182ac23",
+      "last_update_time": "lastUpdateTime=2026-11-04 12:57:12"
+     },
+     "compile_state": "before: [status=run-from-apk] [reason=unknown]",
+     "battery": [
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "320",
+       "when": "before"
+      },
+      {
+       "saver": "0",
+       "ac": "false",
+       "usb": "true",
+       "wireless": "false",
+       "status": "5",
+       "level": "100",
+       "temperature": "320",
+       "when": "after"
+      }
+     ],
+     "battery_state": "saver=0 ac=false usb=true wireless=false",
+     "display": [
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]",
+      "refreshRate=90.0 frameRateOverride=[] skipwarning=[]"
+     ],
+     "pages": [
+      {
+       "slot": 0,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      },
+      {
+       "slot": 1,
+       "channel_fp": "c8cb0e91",
+       "history_count": 400
+      }
+     ],
+     "both_pages_at_the_cap": true,
+     "live_rows_by_page": {
+      "0": 2,
+      "1": 2
+     },
+     "jit_cpu_across_the_span": {
+      "ms": 840.0,
+      "bracket_ms": [
+       1315.7,
+       2209.7
+      ],
+      "span_ms": 765.8
+     },
+     "history_row_cost_by_process_age": [
+      {
+       "from_ms": 1250.0,
+       "rows": 123,
+       "dedup_us": 99.2,
+       "row_us": 276.7
+      },
+      {
+       "from_ms": 1500.0,
+       "rows": 187,
+       "dedup_us": 230.9,
+       "row_us": 451.8
+      },
+      {
+       "from_ms": 1750.0,
+       "rows": 123,
+       "dedup_us": 294.5,
+       "row_us": 493.6
+      },
+      {
+       "from_ms": 2000.0,
+       "rows": 367,
+       "dedup_us": 198.5,
+       "row_us": 367.4
+      }
+     ],
+     "history_waits_caught": {
+      "snapshots": [],
+      "rows_after_a_wait": []
+     }
+    }
+   ],
+   "fixed_replica": {
+    "band": [
+     "N5-plain-1",
+     "N5-plain-8",
+     "N5-plain-14"
+    ],
+    "scored": [
+     "N5-plain-2",
+     "N5-plain-3",
+     "N5-plain-4",
+     "N5-plain-5",
+     "N5-plain-6",
+     "N5-plain-7-r1",
+     "N5-plain-9",
+     "N5-plain-10",
+     "N5-plain-11",
+     "N5-plain-12",
+     "N5-plain-13"
+    ],
+    "launches": [
+     {
+      "run": "N5-plain-2",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 168.74146500000003,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 47.800988000000046,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.712130000000009,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 31.700944999999994,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.083119000000003,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 41.288807999999996,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 24.37888699999999,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 41.288807999999996,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "dedup_backfill_mention",
+       "follow_or_count_composer_restore",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "N5-plain-3",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 179.70073800000006,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timestamp_echo_reconcile": {
+        "value": 48.96831900000002,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.8331270000000024,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 33.80323700000001,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.287194,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 44.63140200000001,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 22.458636000000016,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 44.63140200000001,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "composer_snapshot_follow_decision",
+       "dedup_backfill_mention",
+       "hidden_user_check",
+       "timeline_insert",
+       "timeline_insert_without_view_build",
+       "timestamp_echo_reconcile"
+      ]
+     },
+     {
+      "run": "N5-plain-4",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 180.38005000000018,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timestamp_echo_reconcile": {
+        "value": 47.20094700000001,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.586300000000003,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 31.144736999999985,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.025407000000003,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 40.584529000000025,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 19.90772500000001,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 40.584529000000025,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "dedup_backfill_mention"
+      ]
+     },
+     {
+      "run": "N5-plain-5",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 179.36307399999976,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timestamp_echo_reconcile": {
+        "value": 44.268851000000026,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.7049980000000033,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 30.265361000000038,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.3185240000000045,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 40.72570099999993,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 20.789843000000005,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 40.72570099999993,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "composer_snapshot_follow_decision",
+       "dedup_backfill_mention"
+      ]
+     },
+     {
+      "run": "N5-plain-6",
+      "pass": false,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 175.8542650000001,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": false
+       },
+       "timestamp_echo_reconcile": {
+        "value": 46.04694099999998,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.7148490000000014,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 31.237074000000003,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.169483999999996,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 42.43820899999997,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 23.12038799999999,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 42.43820899999997,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "composer_snapshot_follow_decision",
+       "dedup_backfill_mention",
+       "follow_or_count_composer_restore",
+       "timeline_insert",
+       "timeline_insert_without_view_build"
+      ]
+     },
+     {
+      "run": "N5-plain-7-r1",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 131.25901199999998,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 44.868385999999965,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.6342640000000044,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 28.609635999999984,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 3.992446999999996,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 39.60265700000006,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 17.55301900000003,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 39.60265700000006,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": []
+     },
+     {
+      "run": "N5-plain-9",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 134.05058,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 42.215614,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.6810520000000015,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 28.294540000000012,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 3.941926999999997,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 38.53585899999998,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 16.325905000000034,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 38.53585899999998,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": []
+     },
+     {
+      "run": "N5-plain-10",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 139.23572499999995,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 46.88218899999995,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.7432440000000047,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 30.851028999999993,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.056306000000001,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 41.773022000000005,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 21.467600999999995,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 41.773022000000005,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "timeline_insert",
+       "timeline_insert_without_view_build"
+      ]
+     },
+     {
+      "run": "N5-plain-11",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 132.27452200000013,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 42.16683600000002,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.5718580000000064,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 27.383442000000034,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 3.6930029999999987,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 37.35252299999995,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 16.559108999999985,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 37.35252299999995,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": []
+     },
+     {
+      "run": "N5-plain-12",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 141.64311999999998,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 44.47086900000009,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.6509450000000014,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 29.405166000000026,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 3.9841980000000032,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 39.54682600000007,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 24.941771999999983,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 39.54682600000007,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "follow_or_count_composer_restore"
+      ]
+     },
+     {
+      "run": "N5-plain-13",
+      "pass": true,
+      "segments": {
+       "dedup_backfill_mention": {
+        "value": 159.3955750000001,
+        "upper_bound": 168.98428599999986,
+        "lower_reference": 126.064021,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timestamp_echo_reconcile": {
+        "value": 47.42312900000002,
+        "upper_bound": 57.21946999999999,
+        "lower_reference": 32.81792199999999,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "buddy_capture": {
+        "value": 2.7630590000000037,
+        "upper_bound": 12.727763000000003,
+        "lower_reference": -7.496193999999997,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "hidden_user_check": {
+        "value": 31.205430999999987,
+        "upper_bound": 43.398433999999995,
+        "lower_reference": 17.59297099999996,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "composer_snapshot_follow_decision": {
+        "value": 4.243171999999993,
+        "upper_bound": 14.154794000000003,
+        "lower_reference": -6.233585000000003,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert": {
+        "value": 42.82650599999998,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "follow_or_count_composer_restore": {
+        "value": 22.077338999999988,
+        "upper_bound": 32.503906999999955,
+        "lower_reference": 6.125840000000011,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_of_which_view_build": {
+        "value": 0,
+        "upper_bound": 10.0,
+        "lower_reference": -10.0,
+        "below_lower_reference": false,
+        "pass": true
+       },
+       "timeline_insert_without_view_build": {
+        "value": 42.82650599999998,
+        "upper_bound": 51.52412199999997,
+        "lower_reference": 27.258783999999984,
+        "below_lower_reference": false,
+        "pass": true
+       }
+      },
+      "above_the_highest_baseline": [
+       "buddy_capture",
+       "composer_snapshot_follow_decision",
+       "dedup_backfill_mention",
+       "timeline_insert",
+       "timeline_insert_without_view_build",
+       "timestamp_echo_reconcile"
+      ]
+     }
+    ],
+    "failing_launches": [
+     "N5-plain-3",
+     "N5-plain-4",
+     "N5-plain-5",
+     "N5-plain-6"
+    ],
+    "failing_values": 4,
+    "held_values": 99,
+    "above_the_highest_baseline_before_the_margin": 28,
+    "fraction_above_the_highest_baseline": 0.2828282828282828,
+    "expected_fraction_if_exchangeable": 0.25
+   },
+   "all_bands": {
+    "bands": 364,
+    "launches_outside_each_band": 11,
+    "held_sets": [
+     "mention",
+     "reconcile",
+     "buddy",
+     "hidden",
+     "beforeinsert",
+     "insert",
+     "follow",
+     "build",
+     "gap",
+     "app"
+    ],
+    "failure_count_distribution": [
+     0.6703296703296685,
+     0.00539460539460539,
+     0.05784215784215778,
+     0.11888111888111902,
+     0.05139860139860142,
+     0.036713286713286705,
+     0.048951048951048966,
+     0.010489510489510481,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "expected_failing_launches_of_ten": 1.2340159840159843,
+    "all_nine_held_per_launch_failure_rate": 0.1371128871128871
+   }
+  }
+ },
+ "combined": {
+  "failure_count_distribution_of_twenty": [
+   0.22500576346730056,
+   0.14400191882709337,
+   0.030703813752015433,
+   0.10487015080047023,
+   0.13995133425515513,
+   0.10476634130105641,
+   0.0782572966286127,
+   0.0577477876144834,
+   0.040317402377841934,
+   0.029709911855266495,
+   0.019736532510945596,
+   0.012576491211918292,
+   0.0067746573827992445,
+   0.0030598087809626277,
+   0.001523039897165771,
+   0.0007629608154083678,
+   0.00021295720596419893,
+   2.183131553760923e-05,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "p_null": 0.600288503953588
+ },
+ "verdict": "CONSISTENT WITH NOISE: P_null 0.6003 >= 0.05. Criterion 3 cannot discriminate leakage from noise at three baselines."
+}
