@@ -2275,3 +2275,188 @@ of the qualification, and not part of a sitting.
     be run.
   - The "after" side rests on one launch.
 - **Not started:** the qualification.
+
+**The qualification sitting, 2026-11-04, 07:55 to 08:50: both builds NOT QUALIFIED.** It ran as *The
+qualification sitting of 2026-11-03* sets out, once the phone was reconnected. *Qualification* says a
+failed qualification stops the round before the measurement, so the round stops here. The closing
+measurement was not run.
+
+- **Battery saver was on at the start. It was turned off before the first counted launch.**
+  - The excluded launch, at 07:56, read battery saver on and 60.000004 Hz, before and after.
+  - The phone read `mSettingBatterySaverEnabled=true`, sticky, with `mSettingAutomaticBatterySaver=0`.
+    So charging would not have turned it off.
+  - Every earlier record checked read it off, at 90.0 Hz: `-13`, `-14`, `-15` and the diagnostic
+    launch.
+  - The plan requires it off before the decision launches, and one state across a section,
+    qualification included (*The battery*, and the record of 2026-11-03). So the agent stopped
+    before the first counted launch and asked. Federico turned it off; the agent did not change it.
+  - At 07:59 `low_power` read 0. The display read 90.0 Hz on all 6 readings from 07:59:31 to 07:59:56,
+    so the section is held at 90.0 Hz.
+  - The excluded launch was not repeated. It is there for the pages' reading, and battery saver does
+    not choose a page's channel or history count. That is the agent's reasoning; it was not tested.
+- **The excluded launch, `X-sitting-excluded`, excluded from every count.** Both pages read
+  `c8cb0e91` with 400 history rows, so the sitting started. The control build was read back as
+  `d9970f27…` twice.
+- **The launches: 28 counted, 14 per build, in the plan's order.** First three baselines with `full`,
+  then `mention` to `app`, then `stall` with `arg=8000`. The control ran from 08:00:13 to 08:24:01,
+  and 5d from 08:25:11 to 08:50:12.
+  - Every launch of the sitting was preceded by the driver's install and read-back, then by
+    `run.sh`'s. That makes 35 launches, counting the excluded one and the void ones. Both readings
+    gave STEP B's sha256 every time: `d9970f27…` for `2e72e42`, and `e881d0ab…` for `550b414`.
+  - All 28 counted launches read the same:
+    - 0 input events;
+    - 90.0 Hz before and after;
+    - battery saver 0, on USB power;
+    - 800 history rows in the span, with both pages on `c8cb0e91` at 400;
+    - compile state `run-from-apk`;
+    - first after install.
+  - Recorded, not held:
+    - the level rose from 42 to 56 over the control, and from 58 to 74 over 5d;
+    - the temperature rose from 29.3 to 32.6 °C.
+  - The host scripts ran on Python 3.10.0.
+- **Six launches were void.** Each was read, then re-run in its place.
+  - Four were late deliveries, each on a spawn still inside its window:
+    - `Sc-base-2`: page 1, row 219, 433.9 ms, and page 0, row 219, 1495.4 ms, both `UNCHANGED`;
+    - `Sc-gap`: page 0, row 224, 852.1 ms, `UNCHANGED`;
+    - `S5-buddy`: page 0, row 180, 1351.5 ms, `STORED`, and page 1, row 180, 1084.0 ms, `UNCHANGED`;
+    - `S5-stall`: page 0, row 241, 1294.1 ms, and page 1, row 241, 1031.2 ms, both `UNCHANGED`. The
+      launch before it, `S5-app`, ingested a new spawn live, `stored`, 5338.9 ms after its anchor.
+  - Two had a foreign process start inside the span, with no wait:
+    - `Sc-gap-r1`: `.adservices`, started for `com.google.android.ext.services`'s
+      `AdServicesCommonService`, at 2061.2 ms;
+    - `S5-buddy-r1`: `com.heytap.mcs.statistics` and `com.heytap.mcs.biz.message`, at 268.3 and
+      285.3 ms.
+  - The fix gates only a spawn outside its window. A spawn inside it still reaches `resolvePokemon`.
+    That the four waits are its parse is inferred from where they fall, as at `-2` and `-3`; it is
+    not shown.
+  - Each late delivery's re-run came 86 to 130 s later, by the driver's clock. Each read its history
+    spawns as `ignored_expired`, with no wait.
+- **No contradiction of the diagnostic launch.** In none of the 35 launches was a recorded wait on an
+  `IGNORED_EXPIRED` row.
+  - 50 history ingestions were `ignored_expired`, 44 of them in counted launches. None was followed
+    by a wait.
+  - 8 history ingestions were of spawns still inside their window. All 8 were in the four late
+    deliveries, and 7 were followed by a wait of their page. The eighth, page 1's at 3034.6 ms in
+    `Sc-gap`, was not; that page's largest gap was 232.5 ms.
+- **A fault of the driver, found and fixed during the sitting.**
+  - `launchcheck.py` exits 1 when a launch is void. On `Sc-base-2` the driver read that as a failure
+    and stopped.
+  - The launch's record was complete. The fix accepts exit status 0 and 1.
+  - No launch was affected.
+
+**The two verdicts.** They come from `qualify5d.py`, blob `41ac728`, run in the run directory on
+Python 3.10.0. Before the first launch, the run directory's scripts were read to be the same blobs as
+`2e72e42`'s and `550b414`'s.
+- control: `NOT QUALIFIED: reconcile (criteria 3), buddy (criteria 3), hidden (criteria 3),
+  beforeinsert (criteria 3), insert (criteria 2, 3), follow (criteria 3), build (criteria 2), gap
+  (criteria 3), app (criteria 3)`
+- 5d: `NOT QUALIFIED: reconcile (criteria 3), buddy (criteria 3), hidden (criteria 3), beforeinsert
+  (criteria 3), insert (criteria 3), follow (criteria 3), build (criteria 3), gap (criteria 3), app
+  (criteria 3)`
+- What held on both builds:
+  - one display reading and one battery state;
+  - 800 rows in every span;
+  - no void launch scored;
+  - three baselines, which injected nothing, and each injection once.
+
+**The criteria, control (`2e72e42`).**
+- **Criterion 1** passes on all 11. The recorded delays are 200.10 to 201.35 ms against 200, and
+  534.45 ms against 534 for `stall`.
+- **Criterion 2** applies to 10 injections. It passes on 8, with rises of 189.5 to 201.8 ms, and
+  fails on two:
+  - `insert`: 1669.9 ms against the baselines' 1653.5, 1637.5 and 1584.1, a rise of 32.4 ms over
+    their median;
+  - `build`: 1599.5 ms against 1542.4, 1526.1 and 1477.3, a rise of 73.4 ms.
+- **Criterion 3** passes on `mention` and `build`, and is NOT APPLICABLE to `stall`. It fails on the
+  other 8, and every failing value lies below its band:
+  - `timeline_insert`, on 7: 1469.1 to 1556.8 ms against [1574.1, 1663.5]. On `insert` it contains
+    the injection, so it is not held there;
+  - its view build, on 8: 1365.9 to 1451.0 ms against [1467.3, 1552.4];
+  - `follow_or_count_composer_restore`, on 4 (`reconcile`, `hidden`, `insert` and `app`): 97.6 to
+    99.8 ms against [100.3, 137.0].
+- **Criterion 4** passes on all 11. Its reported span rise runs from −229.1 to 44.8 ms, against a
+  spread of 249.6 ms across the baselines.
+- **Criterion 5** passes. The burst ended at 8535.97 ms, inside [8534.38, 8537.63]. All three
+  baselines' bursts ended before the stall, at 4105.2 to 4244.2 ms.
+
+**The criteria, 5d (`550b414`).**
+- **Criterion 1** passes on all 11: 200.10 to 200.15 ms, and 534.78 ms for `stall`.
+- **Criterion 2** passes on all 10, with rises of 143.0 to 218.7 ms.
+- **Criterion 3** passes on `mention`, and is NOT APPLICABLE to `stall`. It fails on the other 9, each
+  on one segment, `dedup_backfill_mention`: 97.4 to 167.0 ms against [168.6, 203.4]. The baselines
+  read 181.1, 193.4 and 178.6 ms.
+- **Criterion 4** passes on all 11. Its reported span rise runs from −5.6 to 186.4 ms, against a
+  spread of 175.3 ms across the baselines.
+- **Criterion 5** passes. The burst ended at 8536.35 ms, inside [8534.31, 8538.00]. The baselines'
+  bursts ended at 2279.4 to 2324.6 ms.
+
+**Beside the verdicts, deciding nothing.**
+- **Criterion 3's failures follow launch order again.** On both builds the baselines ran first, and
+  every failing segment is lower in the later launches. This is recorded, not diagnosed, as on
+  2026-11-02.
+  - On the control, `insert`'s and `build`'s criterion 2 values sit in segments that fall the same
+    way. That this took their rises below 100 ms is inferred from those values; it is not shown.
+- **The JIT thread's CPU across the span:**
+  - control: 750 to 1090 ms, across brackets of 2177.6 to 2513.2 ms and spans of 2117.7 to 2405.0 ms;
+  - 5d: 600 to 820 ms, across brackets of 643.6 to 898.9 ms and spans of 637.0 to 882.8 ms.
+- **A history row's cost by process age.** These are medians per row, binned by 250 ms of the row's
+  begin after the anchor.
+  - **Control: a whole row cost 2368 to 3468 µs in the bin from 1500 ms, and 1788 to 2132 µs in the
+    bin from 3000 ms.**
+    - At 3000 ms the baselines read 1940 to 2132 µs, and the later launches 1788 to 2116.
+    - Dedup was highest at up to 316.4 µs, in the bins from 2000 or 2250 ms in 11 of the 14
+      launches. It read 74.7 to 101.3 µs in the bin from 3000 ms.
+  - **5d: every span lies between 1250 and 2500 ms.**
+    - A whole row cost 148 to 513 µs, and dedup 50.1 to 290.3 µs.
+    - Three launches had dedup sums of 97.9, 97.4 and 133.4 ms: `beforeinsert`, `follow` and `build`.
+      These are the only three whose dedup fell to 50.1 to 81.0 µs, in the bins from 2000 or
+      2250 ms.
+    - Every other bin of every launch read 89.8 µs or more, and no baseline bin read less than
+      124.4 µs.
+- **The three quantities the owner added.**
+  - **a. The largest gap below 300 ms.**
+    - In the seven row injections it falls where the delay was placed, before page 0's row 101: 202.6
+      to 206.2 ms on the control, and 200.8 to 201.6 ms on 5d. The exception is 5d's `follow`, whose
+      largest is 217.5 ms before row 208, with 206.4 ms on page 1 at the same moment.
+    - In `gap` it falls before row 200: 205.5 ms on the control, and 200.8 ms on 5d.
+    - In the baselines it is 87.3 to 182.1 ms on the control's page 0, and 3.4 to 191.1 ms on its
+      page 1. On 5d it is 106.6 to 130.8 ms on page 0, and 1.1 to 42.4 ms on page 1.
+    - The largest in any counted launch is 298.4 ms, in 5d's `build`, on page 0 before row 156. 5d's
+      `build` puts its delay in a bind, outside every row. Whether this gap holds it was not
+      checked.
+  - **b. The pages' order.**
+    - The pages ran one after the other in 13 of the control's 14 counted launches, with page 1
+      starting 1088.9 to 1517.4 ms after page 0. Only in `follow` did they interleave.
+    - On 5d they ran one after the other in 10 of 14, with offsets from −308.9 to 656.5 ms. They
+      interleaved in `base-1`, `reconcile`, `follow` and `gap`, and in `gap` page 1 began first.
+    - The excluded launch ran them one after the other. All four late deliveries interleaved.
+    - In the 14 two-page excluded records before this sitting, they interleaved every time. This is
+      recorded, not interpreted.
+  - **c. The spawn ingestions.**
+    - The history ingestions are counted above.
+    - Two launches ingested a spawn live, outside the history:
+      - `Sc-build` at 15961.7 ms, `stored`, then `unchanged` 1 ms later;
+      - `S5-app` at 5338.9 ms, the same pair.
+    - Six counted launches logged no history spawn ingestion: `Sc-base-1`, `S5-mention`,
+      `S5-reconcile`, `S5-build`, `S5-gap` and `S5-app`.
+
+**Published: every value `qualify5d.py` printed.** It is in `experiment/startup-5d/qualification-2026-11-04/`
+on both experiment branches:
+- `74bdb16` on `experiment/startup-5d-control`, and `20bc40a` on `experiment/startup-5d-treatment`.
+  Each sits directly on its build commit, so the builds stay `2e72e42` and `550b414`.
+- The files hold:
+  - both outputs, whole;
+  - each launch's line;
+  - the three quantities for all 35 launches;
+  - tables derived from them, which hold every launch's criteria, JIT CPU and cost curve.
+- **One edit to the outputs:** each launch record's local APK path writes its user directory as
+  `%USERPROFILE%`. That is 14 lines per file; nothing else differs.
+- **Scanned before the push.** The added lines hold no account id beyond its prefix, no user name, no
+  token and no chat text.
+- The run directories stay in `%USERPROFILE%\tmc-5d-round\C\runs`, outside any clone.
+
+**Not done.**
+- Criterion 3's failures were not diagnosed, and no criterion was adjusted.
+- The closing measurement was not run.
+- The phone keeps `550b414`'s build, installed at 08:49:31 for `S5-stall-r1`. It is recorded in
+  `RELEASE-STATE.md` after the round, as the plan says, not now.
