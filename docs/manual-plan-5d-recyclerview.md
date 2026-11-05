@@ -3598,6 +3598,10 @@ checked against `K5-1-r1`'s records.
     It waited for page 0's parse of an in-window spawn, which #94 leaves on the launch path by design.
   - That the gate returns before the resolution is shown by the code and by #94's tests, not by this
     launch.
+  - **The owner's error, recorded later on 2026-11-05:** the owner's claim conflated what the records
+    show (the expired row did not cause the wait) with what they cannot show (that the gate returned
+    before resolving). The bullet above already says exactly that, so it is not reworded. See *The
+    owner's corrections*, below, item b.
 - **The rule was mis-specified, and the error is the owner's.** As the owner wrote it, it says "a wait
   on an expired row" where it meant "an expired row that caused a wait".
   - **The reason:** a wait is measured where it ends, on the row the main thread reaches next. A row
@@ -3620,6 +3624,12 @@ checked against `K5-1-r1`'s records.
       apart, with page 1's row queued behind page 0's on the main thread.
     - So a residual of that shape would be classed CONTRADICTION. The rule errs toward stopping, never
       toward passing. The tolerance is unchanged.
+    - **Its known false-positive mode, recorded later on 2026-11-05 by the owner's decision.** The
+      tolerance is grounded in 10 of the 13 lock pairs of 2026-11-03. A live-spawn residual whose two
+      waits end 147.5 to 177.8 ms apart, as the other 3 did, would be classed CONTRADICTION, although
+      it is the live-spawn residual. **Anyone meeting a CONTRADICTION from `residual_check.py` reads
+      this note before concluding that #94's gate failed:** check first whether the other page's
+      worker logged `stored` inside the expired row's wait, and how far apart the two waits end.
   - **Tested before the push** on records other than `K5-1-r1`:
     - `-13` of 2026-11-03 gave CONTRADICTION;
     - a copy of `-13` with one synthetic `stored` line gave LIVE_SPAWN_RESIDUAL for the row that
@@ -3704,3 +3714,54 @@ checked against `K5-1-r1`'s records.
 - **The open item of the interrupted step is closed** by that decision, not left open.
 - **Recorded, not acted on:** `Kc-1`, `K5-1-r1` and the two excluded launches are in the run
   directory on `nbpromec1`. They are not published.
+
+**The owner's corrections, recorded 2026-11-05 after the overhead step.** The owner of the
+measurement accepted the corrections the agent reported. Each below is recorded as the owner's
+error, with its reason. No figure above changes.
+- **a. The probe-removed figures were the owner's approximation.**
+  - The owner gave the highest span pairing as falling to about 0.332, and the mean span ratio as
+    0.326 falling to 0.306.
+  - From each launch's own counts, they are 0.3355, and 0.3192 falling to 0.2992 (item 4).
+  - **The reason they differ:** the owner's figures came from densities times a 750 ms span. These
+    come from each launch's own events and messages.
+- **b. "It did not resolve the catalogue" conflated two things.**
+  - **What `K5-1-r1`'s records show:** page 1's expired row did not cause the wait.
+  - **What they cannot show:** that the gate returned before resolving. The catalogue was already
+    cached for the process, so a resolve would also have cost about 1 ms, and the two cannot be
+    told apart.
+  - **What does show the gate's early return:** the code, where in `a2f12f1` the gate returns at
+    `SmartCatchSpawnCoordinator.kt:244` to `253`, before `resolvePokemon` at `256`; and #94's tests.
+  - Item 3 already says this, so its bullet is not reworded. A note beside it points here.
+- **c. "The span sits inside the burst window" was false for two launches.**
+  - In `M5-1` the span ends 161.4 ms after its burst end, and in `M5-4` 0.7 ms after.
+  - That is why the burst end's governing row is the window's (item 4).
+- **d. "The ten lock pairs" are 10 of 13, and the 20 ms tolerance stays as it is.**
+  - The clause the owner cited records 13 pairs. The tolerance is grounded in 10 of them.
+  - Its known false-positive mode is recorded beside it in item 3.
+  - **Why it is not changed:** changing it now, after `K5-1-r1` passed at 0.635 ms, would fit it to
+    the case it has just decided. And a rule that errs toward stopping errs the right way.
+
+**The device-test tag of `a2f12f1`: made against #92's marker, and removed, 2026-11-05.**
+- **Made:** the agent created and pushed `device-test/5.5.1-dev-8-a2f12f1`, a lightweight tag on
+  `a2f12f1`.
+  - It did so on the owner's instruction of 08:25 +0100, which asked for the phone's build to be
+    recorded with a tag under the first form of *Test device*'s rule in `RELEASE-STATE.md`.
+- **It was made against #92's marker,** at the top of that section. The marker says the round's builds
+  get no device-test tag: "a tag names a tested build, and nothing is tested until the round ends".
+  - The agent reported the conflict, and recorded it on `docs/state-test-device-measurement-builds`
+    (`2b516f3`) without settling it.
+- **The marker wins, by the owner's decision.** An instruction given to an agent is a hypothesis, and
+  the marker was the contrary evidence.
+  - The marker's reason is sound: a measurement build is not a release candidate.
+  - Tagging one pollutes a namespace whose purpose is finding shippable builds.
+- **Removed, after checking that the commit survives without the tag.**
+  - **First, as a step of its own:** `git ls-remote` read 45 branch heads on the remote, at 10:07:33.
+    `git merge-base --is-ancestor` was run against each one. Exactly one reaches `a2f12f1`:
+    `experiment/startup-5d-treatment-measurement`, whose tip is `a2f12f1` itself.
+  - **Then:** the tag was deleted on the remote, and then in the clone, each in a command of its own.
+  - **Confirmed:** at 10:08:06, `git ls-remote --tags origin 'device-test/*'` listed only the tags of
+    `c1380af` and `d56812b`.
+- **Before the removal, only one file named the tag.** `git grep` was run on the eight branches that
+  could hold a mention. The only file was `RELEASE-STATE.md` on
+  `docs/state-test-device-measurement-builds`, where the second form is rewritten without it.
+- **That experiment branch is now the only ref reaching `a2f12f1`.** It stays as it is.
