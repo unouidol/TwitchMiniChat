@@ -820,6 +820,25 @@ the hypothesis, since the control pays more:
   instead: each run's counts times the per-call cost the calibration measures.
 - **Emote requests** follow the builds, and are counted the same way.
 
+**Corrected beside it, 2026-11-05, by the owner of the measurement's instruction:** "each toward the
+hypothesis, since the control pays more" holds for absolute cost and reverses for the ratio.
+- **For absolute cost it holds, in the three places it names.**
+  - The control records 804 to 808 view builds a launch, with two hook calls each, against 176 to 216
+    in 5d.
+  - Its timed hooks cost 2.13 ms inside each span, against 1.74 to 1.78 ms.
+  - It does not hold for the probe's total inside the span. The message log, in the paragraph below,
+    costs 5d 44.70 to 57.13 ms against the control's 17.89 to 21.49 ms (*The overhead step,
+    2026-11-05*, under *Recorded results*, item 4).
+- **For the ratio it reverses.**
+  - The probe is denser inside 5d's span, in all 25 pairings: 8.37 to 9.69 timed events and 1.227 to
+    1.773 messages per ms, against 3.32 to 3.60 and 0.394 to 0.466.
+  - Its cost is therefore a larger share of 5d's span. Removing it lowers every span ratio, after
+    over before, so the measured ratio is conservative: the bias runs against the hypothesis, not
+    toward it.
+- **Why the two differ:** a ratio moves with each arm's cost as a share of its own span, not with which
+  arm pays more. (s5 − p5) / (sc − pc) is below s5 / sc exactly when p5 / s5 is above pc / sc.
+- The sentence above stays as it was written.
+
 The message log's cost is per main-thread message, so it scales with each span's own length and
 messages, counted in each run, times the calibrated cost per message. The CPU snapshots run on the
 probe's own thread; their count and cost are recorded per run.
@@ -3501,3 +3520,187 @@ Both were read back from the remote at 14:26:24.
 - `RELEASE-STATE.md` was not edited. It still owes two entries: the measurement, with #84's deferral
   condition, and the phone's build, which is now `a2f12f1`'s (`ece097ac…`), read back at 14:23.
 - The overhead launches were not run.
+  - **Added 2026-11-05:** one calibration per build was then taken, and the ten probe-off launches
+    were deliberately not run, by the owner's decision on the probe's cost. See *The overhead step,
+    2026-11-05*, below.
+
+**The overhead step, 2026-11-05: one calibration per build, a CONTRADICTION and its successor rule, and the
+probe-off launches deliberately not run.**
+
+By the instruction of the owner of the measurement. The verdicts of 2026-11-04 stand as recorded.
+ρ does not change, and the thresholds stay 0.708 and 0.825.
+
+**1. The pre-registration, before any overhead launch.**
+- **The file:** `experiment/startup-5d/overhead-prereg-2026-11-05.md`, sha256 `90c4f18c…`. It was
+  committed as `9bff12f` and `5c5c2b0` and read back from the remote at 08:50:46.
+- **What it fixes:**
+  - The overhead launches cannot change the verdicts. They can void the round, if a launch's display
+    reading or battery state is not the section's, and they size the bias reported beside the
+    verdicts.
+  - The driver, `overhead.sh`, stops before any launch whose readings are not the section's.
+    `offcheck.py` applies the void conditions a probe-off launch can be checked for.
+    `overhead_report.py` fixes the report.
+- **Read from the ten launches' own records before any overhead launch:** the probe is denser inside
+  5d's span than inside the control's, in all 25 pairings.
+  - Timed probe events per ms of span were 8.37 to 9.69 in 5d, against 3.32 to 3.60.
+  - Main-thread messages per ms were 1.227 to 1.773, against 0.394 to 0.466.
+  - So on the counted terms, removing the probe can only lower the span ratios, whatever it costs per
+    call. This corrects a line of *The probe on two builds, and its own cost* (the note added there).
+
+**2. The first sitting, 08:51 to 08:59: stopped for memory.**
+- **`X-O-excluded`** (`dea38cc`, `full`) gave EXCLUDED_OK, with both pages on `c8cb0e91` at 400 rows.
+  - Its idle wait saw input in 14 consecutive 20 s windows before a quiet one.
+  - The launch itself recorded 242 input events. The phone was in use.
+- **`Kc-1`** (`dea38cc`, `full calibrate`) was CLEAN, and its `calibration.json` was copied.
+- **`K5-1`** was interrupted.
+  - Claude Code stopped the sitting's tracked shell for low memory, and the driver's own processes
+    went on. The agent stopped `overhead.sh` at 08:59:14, and `K5-1`'s chain at 08:59:27, inside
+    `run.sh`'s install, before any force-stop or start.
+  - No launch of `K5-1` took place. `runs/K5-1/` holds only `install.txt`, and it is kept.
+
+**3. The resumption, from 09:30, and the CONTRADICTION.**
+- **The addendum:** `experiment/startup-5d/overhead-resume-2026-11-05.md`, sha256 `ad8b3cc3…`. It was
+  committed as `bede745` and `0eb91aa` and read back at 09:30:03, before the resumed launches.
+  - It fixes the order: `X-O2-excluded`, then `K5-1-r1` in `K5-1`'s place, then the ten probe-off
+    launches.
+  - It fixes the driver, `overhead-one.sh`: one launch per foreground call, with `overhead.sh`'s
+    `launch()` unchanged.
+- **`X-O2-excluded`** (`dea38cc`, `full`, 09:30) gave EXCLUDED_OK. There was no input, and the
+  launcher was in front.
+- **`K5-1-r1`** (`a2f12f1`, `full calibrate`, 09:32) gave **"RESULT CONTRADICTION: a recorded wait on
+  an IGNORED_EXPIRED row"**. The sitting stopped, as the rule says. That is recorded here in the
+  rule's own words, and it is not reinterpreted in place.
+  - **The records,** in seconds since boot on `CLOCK_MONOTONIC`:
+    - page 0, row 335, a wait of 1369.5 ms, from 10161.888 to 10163.258, on a `stored` row;
+    - page 1, row 103, a wait of 1174.3 ms, from 10162.083 to 10163.257, on an `ignored_expired` row.
+  - **The ingestion lines:**
+    - page 0's worker logged `ignored_expired` at 10161.480 and `stored` at 10163.255;
+    - page 1's worker logged `ignored_expired` at 10163.256 and `unchanged` at 10163.269.
+
+**Beside the CONTRADICTION, added the same morning: why it is not a contradiction of the
+attribution, the rule's error, and the successor rule.** The owner gave the reasons; each was
+checked against `K5-1-r1`'s records.
+- **The timing holds, read:**
+  - the two waits end 1 ms apart, at 10163.257 and 10163.258 (0.635 ms, from the probe's
+    nanoseconds);
+  - page 0's `stored` line falls 3 ms before its wait ends;
+  - page 1's `ignored_expired` falls 1 ms after page 0's `stored`.
+- **"Page 1's expired row reached @Synchronized ingestPokemon and blocked there": consistent, with the
+  blocking inferred.**
+  - In `a2f12f1`, `ingestPokemon` is `@Synchronized` (`SmartCatchSpawnCoordinator.kt:229` to `230`).
+  - #94's gate returns inside it, at lines 244 to 253, before `resolvePokemon` at line 256.
+  - No stack was taken, so the blocking is inferred.
+- **"It did not resolve the catalogue. #94's gate worked": not shown by these records.**
+  - Once page 0's parse had succeeded, the catalogue was cached for the process. A resolve by page 1
+    would then also take about 1 ms, so the timing cannot tell the gate's early return from a cached
+    resolve.
+  - What the records show is what the attribution needs: page 1's expired row did not cause the wait.
+    It waited for page 0's parse of an in-window spawn, which #94 leaves on the launch path by design.
+  - That the gate returns before the resolution is shown by the code and by #94's tests, not by this
+    launch.
+- **The rule was mis-specified, and the error is the owner's.** As the owner wrote it, it says "a wait
+  on an expired row" where it meant "an expired row that caused a wait".
+  - **The reason:** a wait is measured where it ends, on the row the main thread reaches next. A row
+    can therefore carry a wait that another page's worker caused.
+- **The successor rule,** pre-registered, hashed and pushed before any further launch:
+  `experiment/startup-5d/contradiction-successor-2026-11-05.md`, sha256 `6636d8ac…`, with
+  `residual_check.py` (`61b253c7…`). They were committed as `d942bd9` and `10572a5` and read back at
+  09:48:35.
+  - **In the owner's words:** "a wait on an ignored_expired row is a CONTRADICTION unless, in the same
+    interval, the other page's worker stored an in-window spawn AND the two waits co-terminate within
+    20 ms; in that case it is recorded as the known live-spawn residual, with the evidence listed."
+  - **Mechanically:**
+    - the other page's history thread logged `outcome=stored` inside the expired row's wait interval;
+    - and the other page has a recorded wait ending within 20 ms of that wait's end.
+  - **What it does not change:** a recorded wait still voids its launch as a late delivery.
+  - **The 20 ms** is taken from the 2026-11-03 lock pairs that co-terminated within −9.2 to +18.4 ms
+    (*The catalogue-parse mechanism, tested against the fifteen records*, clause b). It was not
+    chosen on `K5-1-r1`'s numbers.
+    - **That clause records 13 pairs, not 10.** In the other 3, the ends were +147.5 to +177.8 ms
+      apart, with page 1's row queued behind page 0's on the main thread.
+    - So a residual of that shape would be classed CONTRADICTION. The rule errs toward stopping, never
+      toward passing. The tolerance is unchanged.
+  - **Tested before the push** on records other than `K5-1-r1`:
+    - `-13` of 2026-11-03 gave CONTRADICTION;
+    - a copy of `-13` with one synthetic `stored` line gave LIVE_SPAWN_RESIDUAL for the row that
+      waited;
+    - `N5-plain-7` gave no verdict.
+- **`K5-1-r1` re-read under the successor rule, after the push: LIVE_SPAWN_RESIDUAL.**
+  - **The evidence:** page 0's worker (tid 24426) logged `stored` at 10163.255, inside page 1's wait.
+    Page 0's own wait ends 0.635 ms after page 1's.
+  - **Every other probe record of the round, 130, was read under it too.**
+    - 117 have no expired-row wait: 3 of 2026-11-03, 111 of 2026-11-04 and 3 of 2026-11-05, dated by
+      the copy of each record.
+    - 13 read CONTRADICTION, all excluded launches of 2026-11-03. Those ran builds without #94's gate,
+      where the expired spawn did parse itself.
+  - **So the 5d calibration it produced is usable.**
+    - `calibration.json` was copied by `run.sh` before the stop.
+    - The calibration is measured on the main thread after the window closes and after the dump, so it
+      does not depend on the span.
+  - **As a launch, `K5-1-r1` stays void as a late delivery.** It has two recorded waits, and the
+    successor rule does not change that.
+  - **Its slot has used one of its three re-runs:** `K5-1` was interrupted, and `K5-1-r1` ran in its
+    place.
+
+**4. The probe's cost on both arms, from the two calibrations and the ten launches' counts.**
+- **Computed by the agent with `overhead_report.py`'s definitions.** The owner's arithmetic was
+  checked, not copied.
+- **The decision's reading was fixed before computing,** in section 6 of the successor rule's file:
+  - if every probe-removed ratio is at or below its measured ratio, the step CLOSES;
+  - if not, the shift returns to the owner.
+- **The calibrations:**
+  - control (`Kc-1`): 266.8 ns a hook call and 20.4 µs a dispatched message;
+  - 5d (`K5-1-r1`): 266.8 ns and 47.1 µs. These are medians of 5 rounds; the first round of each read
+    about 650 ns a hook.
+
+| Inside each span | Control `Mc-1` to `Mc-5` | 5d `M5-1` to `M5-5` |
+|---|---|---|
+| timed hooks | 2.13 ms in each | 1.74 to 1.78 ms |
+| dispatch log | 17.89 to 21.49 ms | 44.70 to 57.13 ms |
+| the probe's cost | **20.02 to 23.62 ms** | **46.46 to 58.87 ms** |
+| as a share of the span | **0.90 to 1.05 %** | **6.00 to 8.60 %** |
+| over the burst window, anchor to burst end | 37.04 to 55.22 ms | 61.39 to 63.18 ms |
+
+| 25 pairings | Highest | Lowest | Below the threshold | Highest's distance below it |
+|---|---|---|---|---|
+| span, measured | 0.3537 (`M5-2`/`Mc-2`) | 0.2835 | 25 | 0.3546 below 0.7083 |
+| **span, probe removed** | **0.3355** (`M5-2`/`Mc-2`) | 0.2619 | 25 | **0.3728** |
+| burst end, measured | 0.6288 (`M5-2`/`Mc-5`) | 0.4641 | 25 | 0.1962 below 0.825 |
+| burst end, the span's cost removed | 0.6202 (`M5-2`/`Mc-5`) | 0.4530 | 25 | 0.2048 |
+| **burst end, the window's cost removed** | **0.6181** (`M5-2`/`Mc-5`) | 0.4558 | 25 | **0.2069** |
+
+- **No probe-removed pairing is above its measured ratio,** in either quantity.
+  - The mean span ratio falls from 0.3192 to 0.2992.
+  - The largest drop in a span pairing is 0.0239, and in a burst-end pairing 0.0113.
+- **The burst end's governing row is the window's.**
+  - The premise that "the span sits inside that window" holds for 8 of the 10 launches. In `M5-1` the
+    span ends 161.4 ms after the burst end, and in `M5-4` 0.7 ms after.
+  - So removing the whole span's cost from those two over-removes. Counting the probe's events and
+    messages from the anchor to each burst end does not. Both give the same conclusion.
+- **The owner's arithmetic, checked:**
+  - It agrees on the hooks (1.7 to 1.9 ms), on 5d's 6 to 9 % and on the control's 20.0 to 23.6 ms,
+    near 1 %.
+  - 5d's dispatch log is 44.70 to 57.13 ms from each launch's own message count, inside the owner's
+    42 to 64 ms. That range came from densities times a 750 ms span.
+  - The highest pairing falls to 0.3355, not about 0.332. `M5-2` carries 965 messages, and so 47.20
+    ms, below the range's top.
+  - The mean measured span ratio is 0.3192, not 0.326, and falls to 0.2992, not 0.306.
+  - Where the two differ, these figures govern.
+
+**5. The decision: the overhead step CLOSES, and the ten probe-off launches were NOT RUN.**
+- **By the rule fixed before computing:** every probe-removed ratio is at or below its measured ratio.
+  - The highest span ratio stays 0.3728 below 0.7083.
+  - The highest burst-end ratio stays 0.2069 below 0.825.
+  - On the probe's account the measured ratios are conservative.
+- **This is a step deliberately not taken, not one quietly dropped.** *Order of the launches*, item 3,
+  and *The probe on two builds, and its own cost* specify 5 probe-off launches per build, measured
+  with `overhead.py`. None was run, by the owner's decision on this arithmetic.
+- **What the probe-off launches would have measured that this does not:**
+  - hook calls that record no time;
+  - the probe thread's CPU snapshots: 21 to 23 a launch, costing 208.9 to 311.8 ms of that thread's
+    CPU across the ten launches, on another thread than the main one;
+  - any effect of the probe on the burst end beyond its main-thread time.
+  - The bias above is therefore that of the counted terms, and of those only.
+- **The open item of the interrupted step is closed** by that decision, not left open.
+- **Recorded, not acted on:** `Kc-1`, `K5-1-r1` and the two excluded launches are in the run
+  directory on `nbpromec1`. They are not published.
