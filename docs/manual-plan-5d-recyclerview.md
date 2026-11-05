@@ -3826,3 +3826,150 @@ in words the code contradicts. Each is recorded here as the owner's error, with 
     `main-v5`'s `RELEASE-STATE.md`, `fc63adb` as the commit the round measured, and `cdbe6ac` and
     `6c47c7d` in this plan. Those citations would then point at commits no branch reaches.
   - **What it costs:** nothing. The squash flattens the history when the pull request merges.
+
+**Before 5d's pull request, 2026-11-05, later: the owner's four conditions.** All four landed on this
+branch before the pull request opened: `7c6f58a`, `a911bb9`, `4eb73f8`, and this record.
+
+- **The owner reverses his own lean on U1.** He leaned toward a `RecyclerView` subclass that
+  overrides `performClick`. The lint message, read with the suppression removed, settled it the
+  other way.
+  - **The message, executed on `d40edc3` with the suppression removed and then restored:**
+    `ClickableViewAccessibility`, Error, "Custom view `RecyclerView` has `setOnTouchListener` called
+    on it but does not override `performClick`", at the `setOnTouchListener` call in
+    `attachEmptySpaceTaps`.
+  - **What the check accepts, read from its bytecode:** only a `performClick` declared on the
+    receiver's own class. So the subclass would be a new file and a new type, holding only an
+    override that calls super.
+  - **What the inherited method already does:** it invokes the click listener.
+  - **The owner's reason, in his words:** the accessibility concern is already met, and the check
+    cannot see it. "That is a false positive, not a cause, and the rule against suppressing
+    warnings exists so real causes get fixed, not so false positives get worked around with a
+    subclass whose only caller is a linter." The subclass is not built.
+- **Condition 1, U1: the suppression kept, justified where it stands, and tested (`7c6f58a`).**
+  - **The comment at the suppression** (`ChatFragment.kt:3731` on this commit's head) cites three
+    lines, each read for it:
+    - **The click listener:** `View.java:8083` in compileSdk 36's sources,
+      `li.mOnClickListener.onClick(this);`, inside `View.performClick()`.
+    - **The accessibility path:** `ACTION_CLICK` on a clickable view runs `performClickInternal`,
+      which calls `performClick` (`View.java:16124` to `16127`).
+    - **The delegate:** RecyclerView 1.3.1's accessibility delegate hands every action to View's
+      handling first (`RecyclerViewAccessibilityDelegate.java:64`, from the sources jar).
+  - **Not read:** the phone runs Android 12, and its `View.java` was not read. The line numbers
+    are API 36's.
+  - **What would make the suppression wrong,** as the comment states it: anything that stops the
+    inherited `performClick` from reaching `clearChannelFocusClickListener`. That is an override
+    that does not call super, the listener set somewhere other than the list, the click logic
+    moved into the touch listener, or the list made not clickable.
+  - **The TalkBack case** is in section M, as its own case. Its decisive observable is the
+    `CHAT_FOCUS` line `reason=outside_click`. A message row's click does the same visible things
+    and writes no such line.
+- **Condition 2, U4: the field renamed (`a911bb9`).**
+  - **The rename:** `renderedRows` is now `shownRows` (`ChatFragment.kt:1426`).
+  - **The format note:** no separate format note for the journal exists in this repository.
+    `HistoryDiagnosticsLog`'s KDoc names no field, and `RELEASE-STATE.md`'s section on the journal
+    describes no fields. The field's one description is the KDoc of `markDiagnosticsMoment`, so the
+    line went there.
+  - **What the note says:**
+    - `5.5.1` and every build before 5d write `renderedRows`, `v5.5.1` among them (read there).
+    - From 5d on, builds write `shownRows`, and 5.6.0 is the first release to carry it
+      (`RELEASE-STATE.md`: 5.6.0 carries the chat work).
+    - Development builds on both sides of 5d report `5.5.1 (8)` in the header, so the name tells
+      them apart.
+- **Condition 3, U10: the oracle moved, and pinned (`4eb73f8`).**
+  - **A correction of the agent's earlier reading:** "nothing blocks the move" was read for the
+    class alone. `ChatTimelineViewSync.kt` also declared `RebindableTimelineView` and
+    `ChatTimelineChange`, which `ChatRowViewBinder`, `PendingEchoView`, `ChatTimelineAdapter`,
+    the list sync, `ChatTimelineShownRows` and the dev harness use. Moving the file whole would
+    have broken main and dev.
+    - Those two stay in main, in `ChatTimelineChange.kt`.
+    - `ChatTimelineViews` and the sync moved to `app/src/test`.
+  - **`timelineIndexOf`, decided by the rule:** the oracle needs it, so it moved to test with the
+    class, into `ChatTimelineShownRowsInverse.kt`. It moved as extensions, so the calls and the
+    tests that pin it did not change.
+    - **The four-argument overload:** its only caller outside the tests was the sync.
+    - **The three-argument overload:** it lost its production callers as well, which the owner's
+      question did not name. Its only callers in main were the four-argument overload and the
+      sync. It moved by the same rule.
+  - **Links in production code:** none to the moved symbols is left.
+    - `ChatTimelineListSync.kt:9` to `10` now names the sync in plain text.
+    - `ChatTimelineShownRows`' KDoc says the way back is in the tests.
+    - `ChatTimelineChange`'s KDoc no longer links `ChatTimelineViews.rebind`.
+    - **Left as it is:** the dev harness's `FrozenRowViews4804609.kt:158`. It names
+      `ChatTimelineViewSync.applyEchoEvent` in plain text, as the code at `4804609` handled it,
+      and that is not a link.
+  - **Executed on `4eb73f8`, the head before this record:**
+    - **Unit tests:** stable and dev, 93 classes and 632 tests each, 0 failed, 0 skipped.
+    - **Lint:** stable and dev, unit-test sources included, "no new issues (and 38 errors filtered
+      by baseline)" each.
+    - **Assemble:** both debug APKs built.
+  - **The two holes pinned.** Two new cases in #76's test check `replaced` and
+    `hiddenUsersChanged` against the 4850a83 transcription's layout, with the sync taking no part.
+    - **The walk** has the same operations in the same proportions. The rows and shown rows are
+      read from the layout, and the hidden users are the ones the walk gave.
+    - **Neither case is vacuous.** Both assert that their checks ran away from position 0:
+      - 7,589 echo changes were checked, 7,300 of them past the first position;
+      - 28,791 changes of hidden users, carrying 150,343 InsertRanges away from position 0 and
+        178,791 RemoveRanges.
+  - **The mutants re-run against the amended test,** on `4eb73f8`, stable, every unit test. The
+    predictions were written before the runs. Each mutant was applied to HEAD's files, and the
+    tree was clean before and after.
+
+    | Mutant | #76's walk | #76's new case for it | `ChatTimelineListSyncDifferentialTest` | failing tests of 632 |
+    |---|---|---|---|---|
+    | M4, `replaced` returns null | passes | **fails**, seed 0 step 82, a Change expected and null returned | fails, its `checkNotNull` | 4 |
+    | M5, InsertRange one position early | passes | **fails**, seed 0 step 18, "ranges" | fails, seed 0 step 18, "list against the layout" | 5 |
+
+    - **Each case kills its mutant.** Unmutated, all 632 pass.
+    - **Other tests that also kill them:** `ChatTimelineShownRowsPropertyTest` kills both,
+      `ChatTimelineShownRowsTest` kills M4 (`aShownRow_isInsertedRemovedAndChanged_atItsPosition`)
+      and M5 (`unHidingAUser_insertsItsRows_whereTheyStandInTheTimeline`).
+  - **The oracle's independence rests on two mechanisms, not one.**
+    - **#76's chain:** the sync is checked against its 4850a83 transcription. It holds only where a
+      decider's fault changes the sync's layout, or where one of the two new cases checks the
+      decision directly.
+    - **5d's own intolerance:** the list sync consumes the deciders' output as it is, with no
+      fallback and no search. Its differential test then fails at once on a wrong position, as
+      with M5, or a missing change, as with M4's `checkNotNull`.
+    - **Before today**, M4 and M5 were caught only by the second mechanism. Anyone reading "pinned
+      by #76" would have trusted one mechanism where two were doing the work.
+- **Condition 4: the absolute test of the mapping.**
+  - **It already exists.** `ChatTimelineShownRowsTest` pins the mapping against literal,
+    hand-written values. Its timeline is alice, bob, a system line, alice, an echo, bob and carol,
+    and it holds hidden rows, an echo, a system line and ordinary rows.
+    - **The forward mapping**, with bob hidden, at line 43: `[0, null, 1, 2, 3, null, 4]`.
+    - **The inverse mapping**, with bob and carol hidden, at line 49: `[0, 2, 3, 4]`.
+    - **With every user hidden**, lines 55 to 57: the system line and the echo at 0 and 1.
+    - **The predicate overloads**, lines 75 to 76.
+    - **The deciders' positions**, lines 116 to 121.
+    - **The two ends:** the forward cases reach both branches, counting from the start and counting
+      from the end, and so do the inverse ones.
+  - **No new test was added,** since the condition asked for one only if none existed.
+  - **The round-trip-consistent mutant, M8,** with its predictions written first. It was executed
+    on `4eb73f8`, stable, every unit test.
+    - **The mutant:** the forward mapping in main swaps shown positions 0 and 1 whenever two or
+      more rows are shown. The inverse in test undoes the same swap first. So the round trip is
+      the identity, both ways, on every input.
+    - **#76's walk passes it.**
+    - **`ChatTimelineListSyncDifferentialTest` fails it,** at seed 0 step 10, "list against the
+      layout".
+    - **`ChatTimelineShownRowsTest`:** the literal cases fail (lines 35, 43, 49 and 55), and so
+      does the reference case at line 80. `theTwoDirections_areInverse` passes, since it checks
+      only the round trip.
+    - **#76's new echo case** fails at seed 0 step 244.
+    - **In all,** 8 of 632 tests fail.
+  - **So no mutant meeting the condition could be constructed, and the reason is structural.**
+    - **The two consumers differ.** The list sync consumes the forward mapping alone. The old
+      sync consumes only the round trip, apart from its hidden-users path.
+    - **So the round trip cannot hide a forward fault from the comparison.** The list sync's
+      differential test compares a list built from forward positions with the layout the old
+      sync built. A consistent pair leaves that layout right, so it exposes a forward fault the
+      moment the walk meets one.
+    - **What that means about the risk:** the risk the agent named holds for #76's walk alone,
+      which passes M8. It does not hold for the chain. Since the move, the inverse is not
+      production code at all.
+  - **What remains:** a fault confined to inputs that no generator reaches.
+    - **The walks' reach:** the largest timeline the walks reached was 240 rows in #76's walk and
+      201 in the list sync's.
+    - **The reference case's reach:** sizes of 1 to 59.
+    - **The literal cases' reach:** a single timeline of 7 rows.
+    - **Not tested:** a fault that appears only past those sizes.
