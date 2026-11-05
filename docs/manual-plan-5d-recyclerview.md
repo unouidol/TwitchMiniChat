@@ -1937,6 +1937,71 @@ and the thresholds stay 0.708 and 0.825.
   - **INCONCLUSIVE:** nothing further. It reads the same either way.
 - **L4.** If 2.4 s and 4.0 s held no parse, there is no asymmetry. The report claims neither case.
 
+**Beside L1 to L4, added 2026-11-05 after the closing measurement: a bound on the confound, not a
+change to it.** By the instruction of the owner of the measurement. The four items above stay as
+they were written. ρ does not change, the thresholds stay 0.708 and 0.825, both verdicts stand, and
+both HOLDS stay weak.
+- **Computed by the agent** from the 25 unrounded pairings of each quantity in the closing
+  measurement's `decide.json`. The owner's figures were checked against the result, not copied, and
+  they agree: the span cannot fall below 0.5 and its highest ratio is 0.3537, the burst end flips at
+  about 2.11 s, the parse measured 0.9 to 1.5 s, and the longest recorded wait is 1516.1 ms.
+- **The model.** Suppose 2.4 s and 4.0 s held a parse cost k that these builds no longer pay. The
+  threshold the prediction's own model gives is then T(k) = (1 + (t − k)/(c − k)) / 2, with
+  (t, c) = (1.0, 2.4) for the span and (2.6, 4.0) for the burst end.
+  - **Its valid range is 0 ≤ k < t.** k is a cost, so it is not negative. t − k is the prediction for
+    5d with the cost removed, so it must stay positive.
+  - **T falls as k grows.** Its derivative is (t − c) / (2(c − k)²), which is negative because t < c.
+  - **At k = 0** it is (1 + ρ)/2, the thresholds as fixed: 0.70833 and 0.825.
+  - **As k approaches t, T approaches 0.5.** At k = t the prediction for 5d is zero.
+  - **Above t the model says nothing.** t − k is negative there, so the model predicts a negative
+    duration. At k = c it is undefined.
+  - So within the range neither threshold reaches 0.5.
+- **Where each threshold meets the highest observed ratio r.** Solving T(k) = r with r′ = 2r − 1
+  gives k = (t − r′c) / (1 − r′).
+  - **Span.** The highest of the 25 ratios is 0.353698, `M5-2` over `Mc-2`; the lowest is 0.283467.
+    - The solution is k = 1.317 s. That is above t = 1.0 s, outside the range: the predicted 5d span
+      there would be −0.317 s.
+    - Within the range the threshold stays above 0.5, and all 25 ratios are below 0.5.
+    - **No k in the model's range changes the span's verdict.**
+  - **Burst end.** The highest ratio is 0.628798, `M5-2` over `Mc-5`; the lowest is 0.464073.
+    - The threshold meets the highest ratio at k = 2.114 s, which is inside the range.
+    - For every k below 2.114 s, all 25 ratios stay below the threshold, and HOLDS stands.
+    - From 2.114 s up to 2.6 s, the highest ratio is not below the threshold. The threshold stays above
+      0.5 and the lowest ratio is below 0.5, so the 25 fall on both sides: INCONCLUSIVE. 18 of the 25
+      are 0.5 or above.
+  - **No k in the range makes either quantity FAIL.**
+- **Against what the records hold.**
+  - **The longest recorded wait is 1516.1 ms:** `-13` of 2026-11-03, page 0, row 141, outcome
+    `ignored_expired`.
+    - It is the longest of the 50 waits in the 127 probe records in the run directory on `nbpromec1`
+      (`waitRows`), read for this bound.
+    - Records not held there were not read. The records of 2026-11-02's 28 launches are on
+      `DESKTOP-BCT68L9`, as *A launch with a recorded wait is void and is re-run* states. *Criterion
+      3's failures, diagnosed from the 28 launches' own records* gives their 10 late deliveries as
+      resuming 0.9 to 1.4 s later.
+  - **The parse's measured range is 0.92 to 1.52 s.**
+    - That is the longest wait of each of the 15 excluded launches of 2026-11-03, 921.8 to 1516.1 ms.
+      *The catalogue-parse mechanism, tested against the fifteen records* attributes these waits to
+      the parse.
+    - Its clause c held in 14 of the 15. The exception, `-2`, is the 921.8 ms; without it the range is
+      1065.0 to 1516.1 ms.
+    - These are gaps between history rows on the main thread, not the parse timed on its own thread.
+  - **The burst end's flip point, 2.114 s, is 598 ms above the longest recorded wait,** 1.39 times
+    it.
+  - **The span's range ends at 1.0 s, below most of the measured parse.** The model assumes the 1.0 s
+    target carries whatever 2.4 s held. A parse of 1.0 s or more cannot have been in 2.4 s and carried
+    into a 1.0 s target. For such a k the model does not describe the span; it does not predict a
+    flip.
+- **What the bound is, and is not.**
+  - **It is the model's own flip point, set against the longest wait any record read here holds.**
+    The comparison between them is inferred, not measured:
+    - k is what a parse added to the spans and burst ends of 2026-10-09, whose records are not in this
+      repository;
+    - a wait measured on the main thread need not have added its own length to a burst end, more or
+      less (*Did the span or the burst end contain the catalogue parse?*).
+  - **It does not say whether 2.4 s and 4.0 s held the parse.** L1 stands: that is not known.
+  - **Both HOLDS stay weak,** as L3 and section 2 of the pre-registration have them.
+
 **3. Five findings, recorded as the owner of the measurement gave them, deciding nothing.**
 - **What they were checked against:** the re-qualification's `qualify-R-control.txt`,
   `qualify-R-5d.txt` and `location.txt`. These are published in
@@ -3357,6 +3422,10 @@ Python 3.10.0.
 - **By section 2 of the pre-registration, these are weak HOLDS.** Each carries the confound of L1
   to L4: the thresholds were easier to pass than intended if ρ's 2.4 s and 4.0 s held the catalogue
   parse. Whether they did is not known.
+  - *Added 2026-11-05:* a bound on that confound now stands beside L1 to L4, in *After the
+    re-qualification, 2026-11-04*. The span's HOLDS stands for every k the model admits, and the
+    burst end's for every k below 2.114 s. Both stay weak. The sentence above stays as it was
+    written.
 - **The scope:** the span and the burst end only. No statement about which phase 5d improves is made
   from this measurement.
 - **What the result supports,** as `decide.py` prints it: "Measured on debuggable, uncompiled builds
