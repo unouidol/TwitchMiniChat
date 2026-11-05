@@ -458,9 +458,76 @@ holds.
 
 ### Closing start-up measurement of the conversion
 
-Empty until it is taken. It will hold the start-up figures before and after the conversion,
-the build each came from, the device they were measured on, and the JDK each build was made
-with.
+**Taken on 2026-11-04, 14:03 to 14:23, and recorded here on 2026-11-05.** The full record is in
+`docs/manual-plan-5d-recyclerview.md` on `feature/5d-recyclerview-timeline`, at `8f39772`: the
+pre-registration (sha256 `0dbec904…`), the instrument's qualification, every launch and its void
+checks. The launch data are published in `experiment/startup-5d/closing-measurement-2026-11-04/` on
+`experiment/startup-5d-control` (`5d672ca`) and `experiment/startup-5d-treatment` (`53d9233`).
+
+- **Before and after:** the conversion as `main-v5` has it at `ed41de1`, 5a and 5c merged, against
+  the same code with 5d, the step that puts the rows in a `RecyclerView`. Each build adds the same
+  start-up probe.
+  - Before: `dea38cc`, on `experiment/startup-5d-control-measurement`, which is `ed41de1` plus the
+    probe. APK sha256 `d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402`.
+  - After: `a2f12f1`, on `experiment/startup-5d-treatment-measurement`, which is 5d at `fc63adb`
+    plus the probe, merged with `ed41de1`. APK sha256
+    `ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d`.
+    - Since `fc63adb`, `feature/5d-recyclerview-timeline` has changed nothing under `app/src/main`, up
+      to `8f39772`. What changed is 7 harness files of the dev flavour, under `app/src/dev`, and
+      documentation (`git diff --stat fc63adb 8f39772 -- app/`).
+- **How each build was made:** dev debug, `:app:assembleDevDebug`, on `nbpromec1` on 2026-11-03, with
+  AGP 9.2.1 and Gradle 9.4.1. Both used the same JDK binary, the JetBrains Runtime
+  `21.0.10+1-b1163.110`. That both builds ran in one Gradle daemon is inferred: it was the only
+  daemon running, and no build log names its daemon. Both builds are debuggable and uncompiled
+  (`run-from-apk`).
+- **The device:** the OnePlus AC2003 of *Test device*, on Android 12 (API 31), as `getprop` read it
+  on 2026-11-05. It ran at 90 Hz on USB power with battery saver off. Ten cold starts were made in one session, alternating and control
+  first, with an install before every launch.
+
+| Per launch | Before, `dea38cc` | After, `a2f12f1` |
+|---|---|---|
+| span of the history rows, ms | 2394.5, 2223.1, 2409.0, 2269.4, 2257.5 | 781.2, 786.3, 749.4, 684.1, 682.9 |
+| first stable frame (burst end), ms | 3892.1, 4273.3, 4389.5, 3806.1, 3769.7 | 2037.0, 2370.4, 2155.0, 2126.8, 2127.5 |
+| skipped frames | 287, 276, 315, 268, 248 | 91, 95, 87, 100, 87 |
+
+- **The verdicts are `decide.py`'s,** under a rule fixed before the measurement.
+  - **Span: HOLDS.** Its 25 ratios, after over before, ran from 0.2835 to 0.3537, against a
+    threshold of 0.708.
+  - **First stable frame: HOLDS.** Its 25 ratios ran from 0.4641 to 0.6288, against 0.825.
+  - **Skipped frames: fell.** That is all the rule claims for them: the prediction gave no number.
+- **Both HOLDS are weak.**
+  - The thresholds come from 2.4 s and 4.0 s, measured on 2026-10-09. Those figures may have held the
+    catalogue parse, which these builds no longer pay; if they did, the thresholds were easier to
+    pass than intended.
+  - Whether they did is not known.
+- **The bound on that confound,** recorded beside it in the plan on 2026-11-05. It changes neither
+  verdict.
+  - In the confound's own model, a parse cost k inside both 2026-10-09 figures, the span's HOLDS
+    stands for every k the model admits, 0 to 1.0 s.
+  - The first stable frame's HOLDS stands for every k below 2.114 s. Between 2.114 s and 2.6 s it
+    would be INCONCLUSIVE, and at no k would it FAIL.
+  - 2.114 s is 598 ms above the longest wait any record of the round holds, 1516.1 ms. Comparing k with
+    a wait is an inference.
+- **What it supports,** on the span and the first stable frame only, in `decide.py`'s words: "the
+  ingestion window fell by X on these builds", and NOT "users see X less on a release build". "The
+  control's window reaches compiled code while 5d's does not, so the measured ratio is conservative
+  relative to a cold-against-cold comparison." It does not say which phase 5d improves.
+
+**The deferral of the toolchain upgrade (#84), above: whether its condition is met.** Its condition
+has two halves, both read from the clone.
+- **The measurement half is met.** The rule decided before the measurement asks for the measurement
+  to be taken and recorded in this file, not for any outcome. It was taken on 2026-11-04 and is
+  recorded here. On `main-v5` this half holds once this entry merges.
+- **The conversion half is not met on `main-v5`.** At `ed41de1`, `chatContainer` in
+  `app/src/main/res/layout/fragment_chat.xml` is still a `LinearLayout` inside a `ScrollView`, which
+  is the entry's own test. On `feature/5d-recyclerview-timeline` that container is gone, and the
+  layout holds a `RecyclerView`, `chatList`, in its place. So this half holds once 5d merges.
+- **So the deferral is not lifted yet.** It lifts when 5d merges, with nothing further to measure.
+- **Once it lifts,** the AGP 9.4 / Gradle 9.6 upgrade and the JDK pin are unlocked, and they are
+  scheduled after the release that ships the conversion, not inside it. "Unlocked" does not read as
+  "do it now".
+  - This is as the 5d plan records it, by the owner's reading of #84. The plan notes that this
+    sentence is not in #84's description or in the entry.
 
 ## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
