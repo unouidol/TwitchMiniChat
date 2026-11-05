@@ -926,4 +926,31 @@ device build of that round, has its own tag and resolves. The example still expl
 its command one day returns nothing, so it stays; whoever next changes this section should know it
 rather than find it again.
 
+**A build taken from an experiment branch is recorded with a tag, the branch's name and its commit,
+and with "no pull request: measurement build from an experiment branch" where the number would
+stand.** Added on 2026-11-05. The tag is made as above: named
+`device-test/<versionName>-<versionCode>-<commit>`, pushed, and confirmed with
+`git ls-remote --tags origin` before the record is written. The branch's name stands where the first
+form writes the number, because it says where the build came from, which a tag name carries badly.
+The sentence "no pull request" is written out rather than the place left empty, so that the record
+reads as having no number and not as a number forgotten. An example is
+`device-test/5.5.1-dev-8-a2f12f1`, on `experiment/startup-5d-treatment-measurement`, at `a2f12f1`:
+the build of the 5d round's closing measurement. Its row in the table above is not written yet,
+because the marker at the top of this section holds until that round ends.
+
+Why the rule gained a second form: the first assumed that every device-tested build comes from a
+pull request's branch. A measurement build is made on an experiment branch that by design never
+becomes a pull request: what the branch adds is the instrument, and the code it measures reaches
+`main-v5` through its own pull request. Under the first form alone such a build had no number to
+write, so the rule had a gap where its records did not: the tag of `a2f12f1` was made and confirmed
+on 2026-11-05, with nothing the rule named to write beside it. The tag is still required, although
+nothing deletes an experiment branch at a merge, because the tag names the tested commit itself:
+a branch can gain commits, be moved or be deleted once its round ends, and the tag does not depend
+on any of them.
+
+**Not settled here:** the marker at the top of this section, of 2026-11-02, says that the round's
+builds get no device-test tag, "a tag names a tested build, and nothing is tested until the round
+ends". The tag of `a2f12f1` was made by the instruction of the owner of the measurement. The
+marker's sentence is left as it was written; which of the two holds is the owner's to settle.
+
 Update this section from the device, not from intent.
