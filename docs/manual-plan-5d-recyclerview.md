@@ -571,6 +571,35 @@ Reinstall the clean final APK and run both themes again: the same counts as H1.
 
 5c's M1 to M6 again, and 5d's own:
 
+**The row regime, read on 2026-11-05.** No automated test covers the mapping at or past 400 rows,
+and these checks are currently the only thing that exercises that regime.
+- **Production:**
+  - **The page's start:** on a channel at the history source's cap of 400 rows, a page's timeline
+    starts with 400 history rows. The cap is the backend's, which is not in this repository and was
+    not read.
+  - **The app sets no cap.** `ChatTimeline` has no capacity. Rows leave it one echo at a time
+    (`removeEcho`) or all at once (`clear`), so live messages take it past 400, and it keeps growing.
+  - **The measured scenario's 800 rows** were two pages of 400, so two timelines, not one of 800.
+- **The tests, by reading, with the largest timeline each walk printed on its last clean run
+  (`4eb73f8`):**
+  - `ChatTimelineViewSyncShownRowsDifferentialTest`: 240 rows.
+  - `ChatTimelineListSyncDifferentialTest`: 201.
+  - `ChatTimelineShownRowsPropertyTest`: 112.
+  - `ChatTimelineShownRowsTest`: 7 rows in the literal cases, 1 to 59 in the reference case.
+  - `ChatTimelineInsertDifferentialTest`: 323, but it tests the timeline's order, not the mapping.
+  - **One test crosses 400:** `ChatTimelineShownRowsCostTest`. It runs at 400, 1,000 and 6,400 rows
+    with one row inserted at the front, the middle or the end, and grows a timeline from 400 to 800
+    by appends.
+    - **What it checks:** how many rows an insert reads, and the round trip of the inserted row.
+      `timelineIndexOf` of `inserted`'s position must give the index back.
+    - **What that catches:** a fault in the forward mapping alone, at that row, fails it there,
+      because the inverse is the test's own.
+    - **What it does not check:** any position by value, any other decider, or the list sync. A fault
+      matched in both directions passes it, as M8 did.
+- **So these checks exercise the regime only when they run where it occurs:** on a channel at the
+  history cap, with live messages arriving, so that the timeline passes 400 while rows are hidden,
+  shown again, echoed and scrolled.
+
 - **Far up and back.** Scroll far up in a busy chat and back down: emotes come back in rows the list
   rebinds from the pool, on Glide's real timing.
 - **Scrolled up while messages arrive.** The rows on screen stay where they are, the jump button
@@ -579,7 +608,8 @@ Reinstall the clean final APK and run both themes again: the same counts as H1.
   between rows, on a system line, and below the last row of a short chat. Below the last row is new:
   the old container ended at its last row.
 - **The same click, through TalkBack** (added 2026-11-05: the owner's condition for keeping the
-  `ClickableViewAccessibility` suppression at `attachEmptySpaceTaps`). This tests what the check
+  `ClickableViewAccessibility` suppression at `attachEmptySpaceTaps`; approved by the owner the same
+  day, with `reason=outside_click` as its decider). This tests what the check
   protects instead of declaring it met. The check asks for `performClick` because an accessibility
   service clicks through it. The list's click is the inherited `View.performClick`, which the check
   cannot see.
@@ -3973,3 +4003,31 @@ branch before the pull request opened: `7c6f58a`, `a911bb9`, `4eb73f8`, and this
     - **The reference case's reach:** sizes of 1 to 59.
     - **The literal cases' reach:** a single timeline of 7 rows.
     - **Not tested:** a fault that appears only past those sizes.
+
+**After #97 opened, 2026-11-05: two errors of the owner's, recorded as his.**
+- **He said both differential tests would pass a round-trip-consistent fault. They would not.** M8
+  showed it: #76's walk passed it, and `ChatTimelineListSyncDifferentialTest` failed it at seed 0
+  step 10.
+  - **Why: the two consumers use the mapping differently.** The list sync uses only the forward
+    mapping. The old sync uses only the round trip, the inverse after the forward, apart from its
+    hidden-users path.
+  - **What follows:** a fault matched in both directions leaves the old sync's layout right. The
+    list sync's comparison against that layout then exposes the forward fault.
+  - **That difference, not an extra test, is what closes the class.** No test was added for it.
+    `ChatTimelineShownRowsTest`'s literal cases also fail M8, and they were already there.
+- **"Move ChatTimelineViewSync to test" was written having looked at the class, not the file.**
+  - **What the file also held:** `ChatTimelineChange` and `RebindableTimelineView`, which main and
+    the dev harness use. Moving it whole would have broken both builds.
+  - **What was done instead:** the agent split it, keeping those two in main in
+    `ChatTimelineChange.kt`.
+  - **The agent's earlier reading** made the same mistake, as recorded above.
+- **Added in the same step, none of it run:**
+  - **The row regime,** at the top of section M. By reading, one test crosses 400 rows,
+    `ChatTimelineShownRowsCostTest`. It checks reads and the inserted row's round trip, and no
+    position by value.
+  - **The TalkBack case's approval,** with `reason=outside_click` as its decider. A message row's
+    click also closes the keyboard and empties the channel field, so only that Logcat line
+    separates the path under test. Approving the case is not read as the go-ahead to turn TalkBack
+    on: that stays the owner's at the time it runs.
+  - **The label at the framework citation:** `View.java:8083` is API 36's line number. The
+    suppression rests on the call, which on another API level is found by its text.
