@@ -578,6 +578,33 @@ Reinstall the clean final APK and run both themes again: the same counts as H1.
 - **A tap on empty space clears the channel field's focus.** With the channel field focused, tap
   between rows, on a system line, and below the last row of a short chat. Below the last row is new:
   the old container ended at its last row.
+- **The same click, through TalkBack** (added 2026-11-05: the owner's condition for keeping the
+  `ClickableViewAccessibility` suppression at `attachEmptySpaceTaps`). This tests what the check
+  protects instead of declaring it met. The check asks for `performClick` because an accessibility
+  service clicks through it. The list's click is the inherited `View.performClick`, which the check
+  cannot see.
+  - **TalkBack is a phone setting.** Turning it on needs the owner's say-so. Turn it off again
+    before anything else in the round.
+  - **Setup:** a channel whose messages fill the list. The channel field holds text and is focused,
+    and the keyboard is open. Logcat runs with the tag `CHAT_FOCUS`.
+  - **Act:** with TalkBack on, move its focus to the chat list itself, not to a row: swipe through
+    the screen's elements until TalkBack announces the list. Then double-tap.
+  - **Pass:** the keyboard closes, the channel field empties, and Logcat shows
+    `composer focus guard disarmed reason=outside_click` at that moment.
+  - **Why the Logcat line decides it, read from the code:** only the list's own listener,
+    `clearChannelFocusClickListener`, writes `reason=outside_click`. A message row's click,
+    `messageClickListener` (`ChatFragment.kt:772` to `775`), also closes the keyboard and empties
+    the channel field, but it writes no such line.
+  - **Why a full list matters, reasoned and not seen:** TalkBack's double-tap asks the focused
+    node for `ACTION_CLICK`, and `ACTION_CLICK` reaches `performClick`. If TalkBack instead fell
+    back to a simulated tap at the node's centre, in a full list that tap would land on a message
+    row. That TalkBack prefers `ACTION_CLICK` is its documented behaviour; it was not read here.
+  - **Fail, focus reached:** the list is announced, but the double-tap leaves the keyboard open, or
+    writes no `outside_click` line. Then the suppression is wrong, and the check has found a real
+    cause. Stop and report.
+  - **Fail, never reached:** TalkBack never announces the list as an element. The click is then out
+    of TalkBack's reach altogether. That is a defect of its own, not the one the check names.
+    Record it, and leave it to the owner.
 - **Swipe-to-reply inside the list,** on a message with an id.
 - **An echo sent and confirmed,** and the same echo scrolled far away and back.
 - **Hide a user, then show them again** from the blocked-users screen.

@@ -3705,10 +3705,22 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     /*
-     * Lint's ClickableViewAccessibility asks that a view given a touch listener override performClick.
-     * RecyclerView does not, and needs not here: the listener calls the list's own performClick on the
-     * tap it detects, and an accessibility click reaches the same OnClickListener through
-     * View.performClick, which RecyclerView inherits.
+     * Suppressed as a false positive, not as a cause left unfixed. ClickableViewAccessibility reports
+     * "Custom view `RecyclerView` has `setOnTouchListener` called on it but does not override
+     * `performClick`". It accepts only a performClick declared on the receiver's own class, so it
+     * cannot see the one RecyclerView inherits, and what it protects is met through that one:
+     * - The click logic is the list's OnClickListener, clearChannelFocusClickListener, set on the list
+     *   just before this is attached, and View.performClick calls it. In compileSdk 36's sources,
+     *   View.java:8083 reads `li.mOnClickListener.onClick(this);`.
+     * - An accessibility click reaches the same call. View handles ACTION_CLICK on a clickable view
+     *   with performClickInternal, which calls performClick (View.java:16124 to 16127), and RecyclerView
+     *   1.3.1's accessibility delegate hands every action to View's handling first
+     *   (RecyclerViewAccessibilityDelegate.java:64).
+     * - The touch listener calls the list's performClick on the tap it detects.
+     * The suppression becomes wrong when the inherited performClick stops reaching
+     * clearChannelFocusClickListener: a performClick override on the list that does not call super,
+     * the listener set somewhere other than the list, the click logic moved into the touch listener,
+     * or the list made not clickable. The 5d manual plan tests this with TalkBack rather than relying on it.
      */
     @SuppressLint("ClickableViewAccessibility")
     private fun attachEmptySpaceTaps(list: RecyclerView) {
