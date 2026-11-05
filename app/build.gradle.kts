@@ -204,6 +204,12 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.viewpager2)
+    /*
+     * Declared at the version the code is written against, not left to resolution: viewpager2 1.1.0
+     * brings 1.3.1, material 1.13.0 asks for 1.2.1, so a bump of either would move it with nothing
+     * failing. The chat list's code cites this version's source lines and relies on its behaviour.
+     */
+    implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.work.runtime)
     implementation(libs.glide)
