@@ -3718,6 +3718,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * - The click logic is the list's OnClickListener, clearChannelFocusClickListener, set on the list
      *   just before this is attached, and View.performClick calls it. In compileSdk 36's sources,
      *   View.java:8083 reads `li.mOnClickListener.onClick(this);`.
+     *   That line number is API 36's; this rests on the call, so on another API level look for the call.
      * - An accessibility click reaches the same call. View handles ACTION_CLICK on a clickable view
      *   with performClickInternal, which calls performClick (View.java:16124 to 16127), and RecyclerView
      *   1.3.1's accessibility delegate hands every action to View's handling first
