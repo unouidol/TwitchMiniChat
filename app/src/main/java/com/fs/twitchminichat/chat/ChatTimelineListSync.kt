@@ -6,11 +6,13 @@ import com.fs.twitchminichat.ChatTimelinePosition
  * Keeps a [ChatTimeline] and says, for every change to it, what the change does to the list of
  * shown rows, as the [ShownRowsUpdate]s a list holding only those rows needs. Pure, main thread.
  *
- * The same decisions as [ChatTimelineViewSync], on the same timeline and the same hidden users,
- * returned instead of applied: [ChatTimelineViewSync] keeps a view for every row, a hidden one
- * included, and hides it in place; a list fed by this class holds only the shown rows, so a row
- * that is not shown has no update and, in that list, no view at all. Each update's position is
- * the row's position in that list, so nothing translates it back to a timeline index.
+ * The same decisions as ChatTimelineViewSync, the sync the page used before 5d, on the same
+ * timeline and the same hidden users, returned instead of applied. That sync keeps a view for
+ * every row, a hidden one included, and hides it in place; it now lives in the unit tests, as the
+ * reference this class is checked against (ChatTimelineListSyncDifferentialTest). A list fed by
+ * this class holds only the shown rows, so a row that is not shown has no update and, in that
+ * list, no view at all. Each update's position is the row's position in that list, so nothing
+ * translates it back to a timeline index.
  *
  * Every change goes to the timeline first; the updates follow from the timeline as it then is.
  * Nothing else may change the timeline, or the list would stop following it.

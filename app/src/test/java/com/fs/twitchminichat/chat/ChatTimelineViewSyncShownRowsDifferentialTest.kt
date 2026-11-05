@@ -2,6 +2,7 @@ package com.fs.twitchminichat.chat
 
 import com.fs.twitchminichat.ChatTimelinePosition
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
@@ -16,6 +17,13 @@ import kotlin.random.Random
  * ChatTimelineVisibility, the timeline as it was at 4850a83 instead of calling [ChatTimeline],
  * and an echo's next status instead of calling PendingEchoStatus.after, so a change to any of
  * them cannot move the oracle with it.
+ *
+ * The sync shares its deciders, the functions of [ChatTimelineShownRows], with
+ * [ChatTimelineListSync], so this test pins the list sync's decisions only where a fault in a
+ * decider changes the sync's layout. For two decisions it does not, because the sync absorbs the
+ * fault: a null from `replaced`, and an InsertRange that starts too early in `hiddenUsersChanged`.
+ * Mutating either left the walk passing. The last two cases check those decisions against the
+ * transcription's layout directly, with the sync taking no part, so nothing can absorb them.
  */
 class ChatTimelineViewSyncShownRowsDifferentialTest {
 
@@ -102,6 +110,200 @@ class ChatTimelineViewSyncShownRowsDifferentialTest {
         }
         println("seeds=$SEEDS operations=$OPERATIONS_PER_SEED largestTimeline=$largest stepsWithHiddenViews=$hiddenSteps hiddenRowCountChecks=$countChecks")
         println(coverage)
+    }
+
+    /**
+     * The first hole, pinned: the decision on an echo's change of status. With `replaced` mutated to
+     * return null, the walk above still passed. On null the sync rebinds the echo's view at its
+     * timeline index, which is the call the decision would have led to. So after every event that
+     * moves an echo, `replaced` is checked against the transcription's layout: it must be a Change of
+     * that echo, at the number of views before the echo's view that the layout does not hide.
+     */
+    @Test(timeout = 600_000L)
+    fun anEchosChangeOfStatus_isAChange_atTheEchosPositionAmongTheViewsTheLayoutShows() {
+        var changes = 0
+        var changesPastTheFirstPosition = 0
+
+        repeat(SEEDS) { seed ->
+            val walk = TranscriptionWalk(seed)
+            repeat(OPERATIONS_PER_SEED) { step ->
+                val applied = walk.step()
+                if (applied is Applied.EchoMoved) {
+                    val layout = walk.layout
+                    val rows = walk.rows()
+                    val shownBefore = layout.views.take(applied.index).count { view -> view !in layout.hidden }
+                    val expected = if (layout.views[applied.index] in layout.hidden) {
+                        null
+                    } else {
+                        ShownRowsUpdate.Change(shownBefore, rows[applied.index], ChatTimelineChange.ECHO_STATUS)
+                    }
+                    assertEquals(
+                        "seed $seed step $step replaced",
+                        expected,
+                        ChatTimelineShownRows.replaced(rows, walk.hiddenUsers, layout.hidden.size, applied.index, ChatTimelineChange.ECHO_STATUS)
+                    )
+                    changes++
+                    if (shownBefore > 0) changesPastTheFirstPosition++
+                }
+            }
+        }
+        println("echoChanges=$changes pastTheFirstPosition=$changesPastTheFirstPosition")
+        /* A check that never ran, or never away from position 0, proves nothing about the position. */
+        assertTrue("no echo's status ever moved", changes > 0)
+        assertTrue("no echo that moved had a shown row before it", changesPastTheFirstPosition > 0)
+    }
+
+    /**
+     * The second hole, pinned: where a change of hidden users puts the rows it shows again. With
+     * `hiddenUsersChanged` mutated to start an InsertRange one position early, the walk above still
+     * passed. The sync finds each row of a range by a forward search from the shown row before the
+     * range, and an early start only makes that search start sooner. So after every change of hidden
+     * users, the ranges are checked against the transcription's layout. Applied in order to a list of
+     * the rows the layout showed before the change, they must leave exactly the rows it shows after
+     * the change, and none may fall outside the list.
+     */
+    @Test(timeout = 600_000L)
+    fun aChangeOfHiddenUsers_isTheRangesThatTakeWhatTheLayoutShowedToWhatItShows() {
+        var changes = 0
+        var insertRangesPastTheFirstPosition = 0
+        var removeRanges = 0
+
+        repeat(SEEDS) { seed ->
+            val walk = TranscriptionWalk(seed)
+            repeat(OPERATIONS_PER_SEED) { step ->
+                val applied = walk.step()
+                if (applied is Applied.HiddenUsersChanged) {
+                    val where = "seed $seed step $step"
+                    val updates = ChatTimelineShownRows.hiddenUsersChanged(applied.rows, applied.previous, applied.next)
+                    assertEquals("$where changed", applied.changed, updates.isNotEmpty())
+
+                    val list = ArrayList(applied.shownBefore)
+                    for (update in updates) {
+                        when (update) {
+                            is ShownRowsUpdate.InsertRange -> {
+                                assertTrue("$where $update outside ${list.size} rows", update.position in 0..list.size)
+                                list.addAll(update.position, update.rows)
+                                if (update.position > 0) insertRangesPastTheFirstPosition++
+                            }
+                            is ShownRowsUpdate.RemoveRange -> {
+                                assertTrue(
+                                    "$where $update outside ${list.size} rows",
+                                    update.position >= 0 && update.position + update.count <= list.size
+                                )
+                                list.subList(update.position, update.position + update.count).clear()
+                                removeRanges++
+                            }
+                            else -> throw AssertionError("$where a change of hidden users only removes and inserts ranges: $update")
+                        }
+                    }
+                    assertEquals("$where ranges", walk.shownRows(), list)
+                    changes++
+                }
+            }
+        }
+        println("hiddenUserChanges=$changes insertRangesPastTheFirstPosition=$insertRangesPastTheFirstPosition removeRanges=$removeRanges")
+        /* A comparison that never saw a kind of range, or never one away from position 0, proves nothing about it. */
+        assertTrue("no change of hidden users", changes > 0)
+        assertTrue("no InsertRange away from the first position", insertRangesPastTheFirstPosition > 0)
+        assertTrue("no RemoveRange", removeRanges > 0)
+    }
+
+    /** What one step of [TranscriptionWalk] did, for the cases that check a decision against it. */
+    private sealed interface Applied {
+
+        /** An echo's status moved. [index] is its row's index, which the move leaves as it was. */
+        data class EchoMoved(val index: Int) : Applied
+
+        /**
+         * The hidden users went from [previous] to [next]. [rows] are the transcription's rows,
+         * which a change of hidden users leaves as they are, [shownBefore] the rows its layout
+         * showed before the change, and [changed] the transcription's answer.
+         */
+        data class HiddenUsersChanged(
+            val rows: List<ChatTimelineRow>,
+            val shownBefore: List<ChatTimelineRow>,
+            val previous: Set<String>,
+            val next: Set<String>,
+            val changed: Boolean
+        ) : Applied
+
+        /** Anything else. */
+        object Other : Applied
+    }
+
+    /**
+     * A random walk of the same operations as the first case, in the same proportions, driving the
+     * transcription alone. Today's sync takes no part, so a decision checked against this walk's
+     * layout is checked against frozen code with nothing in between. The rows are read from the
+     * layout, which holds one view per row in timeline order. The hidden users are the ones the walk
+     * gave the transcription, kept here so that the transcription need not expose its own.
+     */
+    private inner class TranscriptionWalk(private val seed: Int) {
+        private val random = Random(seed)
+        private var clockMillis = 1_000_000L
+        val layout = RecordingLayout()
+        private val old = Sync4850a83(layout) { clockMillis }
+        private val taken = ArrayList<ChatTimelinePosition>()
+        private var nextView = 0
+
+        var hiddenUsers: Set<String> = emptySet()
+            private set
+
+        fun rows(): List<ChatTimelineRow> = layout.views.map { view -> layout.tags.getValue(view) }
+
+        fun shownRows(): List<ChatTimelineRow> =
+            layout.views.filter { view -> view !in layout.hidden }.map { view -> layout.tags.getValue(view) }
+
+        fun step(): Applied {
+            clockMillis += random.nextLong(0L, 2_000L)
+            return when (random.nextInt(100)) {
+                in 0..44 -> {
+                    val view = "v${nextView++}"
+                    val timestampSec = TIMESTAMPS[random.nextInt(TIMESTAMPS.size)]
+                    val preserved = if (taken.isNotEmpty() && random.nextInt(4) == 0) taken.removeAt(random.nextInt(taken.size)) else null
+                    val kind = random.nextInt(10)
+                    val user = USERS[random.nextInt(USERS.size)]
+                    old.insert(view, timestampSec, preserved) { position -> row(kind, user, position) }
+                    Applied.Other
+                }
+                in 45..52 -> {
+                    val user = USERS[random.nextInt(USERS.size)].trim().lowercase()
+                    changeHiddenUsers(hiddenUsers + user) { old.hideUser(user) }
+                }
+                in 53..60 -> {
+                    val users = USERS.filter { random.nextInt(3) == 0 }.map { user -> user.trim().lowercase() }.toSet()
+                    changeHiddenUsers(users) { old.setHiddenUsers(users) }
+                }
+                in 61..74 -> {
+                    /* Echo ids are local-0 to local-6; 7 and 8 name no echo. */
+                    val localId = "local-${random.nextInt(0, 9)}"
+                    val event = PendingEchoEvent.values()[random.nextInt(PendingEchoEvent.values().size)]
+                    val index = rows().indexOfFirst { row -> row is PendingEchoRow && row.localId == localId }
+                    if (old.applyEchoEvent(localId, event)) Applied.EchoMoved(index) else Applied.Other
+                }
+                in 75..96 -> {
+                    val localId = "local-${random.nextInt(0, 9)}"
+                    old.removeEcho(localId)?.let { position -> taken += position }
+                    Applied.Other
+                }
+                else -> {
+                    if (seed % 3 == 0) {
+                        old.clear()
+                        taken.clear()
+                    }
+                    Applied.Other
+                }
+            }
+        }
+
+        private fun changeHiddenUsers(next: Set<String>, change: () -> Boolean): Applied {
+            val rows = rows()
+            val shownBefore = shownRows()
+            val previous = hiddenUsers
+            val changed = change()
+            hiddenUsers = next
+            return Applied.HiddenUsersChanged(rows, shownBefore, previous, next, changed)
+        }
     }
 
     private fun row(kind: Int, user: String, position: ChatTimelinePosition): ChatTimelineRow = when (kind) {
