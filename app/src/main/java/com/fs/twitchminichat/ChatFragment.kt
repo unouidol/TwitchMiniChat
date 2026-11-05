@@ -1410,14 +1410,20 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * Long-pressing refresh lets the user flag the moment a gap was noticed, so
      * the journal can be read without knowing the exact wall-clock time later.
      *
-     * renderedRows is the number of shown rows. Before 5d it was the container's child
-     * count, which included the rows of hidden users; a list holds only the shown rows,
-     * and its own child count would be only the rows laid out on screen.
+     * shownRows is the number of shown rows: the timeline's rows, less those of hidden users.
+     *
+     * Until 5d this field was renderedRows, the chat container's child count: one view per
+     * timeline row, the rows of hidden users included. 5.5.1 and every build before 5d write
+     * renderedRows; builds from 5d on write shownRows, and the first release to carry it is
+     * 5.6.0. Development builds on both sides of 5d report 5.5.1 (8) in the journal's header,
+     * so the field's name is what tells which count a journal holds. The count changed, so the
+     * name changed with it. A list holds only the shown rows, and its own child count would be
+     * only the rows laid out on screen.
      */
     private fun markDiagnosticsMoment() {
         recordDiagnostics(
             "user.marker",
-            "renderedRows" to chatTimelineController.shownRowCount
+            "shownRows" to chatTimelineController.shownRowCount
         )
 
         Toast.makeText(
