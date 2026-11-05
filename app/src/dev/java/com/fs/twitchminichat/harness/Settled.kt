@@ -2,6 +2,7 @@ package com.fs.twitchminichat.harness
 
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isGone
 
 /**
  * The one layout state in which the harness reads or draws a view: settled, meaning laid out, with
@@ -35,7 +36,7 @@ internal object Settled {
     }
 
     private fun firstUnsettled(view: View, path: String): String? {
-        if (view.visibility == View.GONE) return null
+        if (view.isGone) return null
         if (!view.isLaidOut) return "$path was never laid out"
         if (view.isLayoutRequested) return "$path has a layout pending"
         if (view is ViewGroup) {
