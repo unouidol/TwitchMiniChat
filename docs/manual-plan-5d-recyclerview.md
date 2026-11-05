@@ -3765,3 +3765,37 @@ error, with its reason. No figure above changes.
   could hold a mention. The only file was `RELEASE-STATE.md` on
   `docs/state-test-device-measurement-builds`, where the second form is rewritten without it.
 - **That experiment branch is now the only ref reaching `a2f12f1`.** It stays as it is.
+
+**Before 5d's pull request, 2026-11-05: two retractions of the owner's, and the merge onto
+`baef242`.** The agent reported an inventory of the change from `dea38cc` to `a2f12f1`, with every hunk
+classified. It is not in this repository. Two of its items, U1 and U4, had been described by the owner
+in words the code contradicts. Each is recorded here as the owner's error, with its reason.
+- **U1, `ChatListEmptySpaceTaps`.** The owner called it "a behaviour change nobody asked for". It is
+  the opposite: compensation for behaviour lost with the ScrollView.
+  - **Why it is needed:** RecyclerView 1.3.1 never clicks on its own. In its source, read from the
+    sources jar, `onTouchEvent` is at `RecyclerView.java:3750`, and the file holds no call to
+    `performClick` and none to `super.onTouchEvent`.
+  - **What it keeps working:** on `main-v5`, a tap on the chat area that no row takes reached
+    `chatContainer.setOnClickListener(clearChannelFocusClickListener)` through `LinearLayout`'s
+    `View.onTouchEvent`. That listener closes the keyboard and clears the channel field
+    (`ChatFragment.kt:1744` to `1772` on this branch). Without the class, the tap would stop doing
+    either.
+  - **The owner's error:** the sign was inverted.
+- **U4, `renderedRows`.** The owner said 5d renames it. It does not: it keeps the name and changes what
+  it counts.
+  - **The field:** `renderedRows`, in the journal's `user.marker` event.
+    - On `baef242` it is `chatContainer.childCount` (`ChatFragment.kt:1399`): one view per timeline
+      row, the rows of hidden users included.
+    - On this branch it is `chatTimelineController.shownRowCount` (`ChatFragment.kt:1420`): the
+      timeline's rows, less those of hidden users.
+  - **Who reads it:** nothing but the journal. The search covered 45 remote branches, 3 tags, the
+    host's run directory, and GitHub's code search over the owner's 7 repositories. Its only readers
+    are people reading an exported journal.
+  - **The owner's error:** the hazard was described as though the rename had already handled it.
+- **The branch was merged with `main-v5`, not rebased, and that was right.**
+  - **The merge:** `6c17c4d` merges `baef242` (#95) into this branch. Against `fc63adb`, it changes
+    `app/src/main` and `app/src/test` only by #94's two files.
+  - **Why not a rebase:** it would rewrite 40 public commits, and documents cite them: `8f39772` in
+    `main-v5`'s `RELEASE-STATE.md`, `fc63adb` as the commit the round measured, and `cdbe6ac` and
+    `6c47c7d` in this plan. Those citations would then point at commits no branch reaches.
+  - **What it costs:** nothing. The squash flattens the history when the pull request merges.
