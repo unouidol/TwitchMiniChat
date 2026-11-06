@@ -659,7 +659,8 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     page stays current with the screen on, and no user is hidden, so `shownRows` counts every row.
   - **How long:** until the timeline holds at least 1,200 rows, 800 live rows past the history, with
     messages still arriving. The owner kept that bound on 2026-11-06: past Chatterino2's limit of
-    1,000 is the mark that means something.
+    1,000 is the mark that means something. That limit, and what Chatterino2 does at it, is recorded
+    under *Recorded results*, 2026-11-06, "Chatterino2's scrollback cap".
     - **What it costs:** 6 to 24 rows a minute were recorded on the measurement's channel on 2026-11-03
       (under *Recorded results*). At that rate, 800 rows take 33 to 133 minutes. That channel was
       chosen quiet, for the measurement. So this is a leave-it-running case, not a hands-on one.
@@ -4388,7 +4389,8 @@ are in `%USERPROFILE%\tmc-5d-round\V`.
   - **The phone was in use:** the recorder counted 742 touch lines in that call. So step 3 was not
     relaunched.
   - **A clean repeat of step 3** needs a launch, then about 5 to 20 undisturbed minutes at the rates
-    seen. Rows came at about 43 a minute from A to B, the jump included, and 12.5 a minute after B.
+    seen. Rows came at about 43 a minute from A to B, the jump included, and 12.3 a minute after B:
+    75 rows in 6 min 5 s. The 12.5 first written here was 75 over 6 minutes.
     Scheduling it is the owner's.
 - **Before and after,** read at 09:20:29 and 10:38:06:
   - battery saver 0 and USB power, at both;
@@ -4401,3 +4403,211 @@ are in `%USERPROFILE%\tmc-5d-round\V`.
     the same morning, and did not change it. Section M's screen note is corrected to match.
 - **The phone keeps `dea38cc`,** with the dev app not running. Read on the phone at 10:38: sha256
   `d005e901…`, last updated 2026-11-06 09:25:39.
+
+**2026-11-06, after the sitting: step 3 not repeated, and the view criterion qualified.**
+- **Step 3 is not repeated, by the owner's decision.** The reason: a 5-to-20-minute hands-off window
+  is worth more than a fourth decimal place. That replaces the "clean repeat of step 3" above, which
+  stays as it was written.
+- **The bound the decision rests on.** The taps changed the views that are not rows by at most one,
+  net (ΔV − ΔN = 0.5).
+  - **With one such view added between A and B:** k = 372 / 372.5 = 0.9987 and C = 68.1, so R is
+    2.709 instead of 2.713.
+  - **The bands:** at the two decimals they are stated in, they stay at 1.43 and 1.90. At three, they
+    move by 0.001 to 0.002.
+- **The criterion is qualified.** Steps 1 to 3 passed, and step 4 was replaced by the intercept, as
+  pre-registered.
+- **k = 1 is an independent confirmation.** Two sources that share nothing agree on it:
+  - **The code:** each row is one `SwipeReplyTextView`, with no children (`ChatFragment.kt:702` at
+    `dea38cc`).
+  - **The counts:** 1.00, from two dumps.
+
+**2026-11-06: Chatterino2's scrollback cap, read at `1b2b630f`.** It is cited as evidence that a cap
+belongs in a chat client, not as a design to copy.
+- **The owner's error:** the owner wrote that these details "stay in the repository plan meanwhile".
+  They did not.
+  - **Where they were:** only in the agent's draft for `claude/architecture-debt.md`, in a temporary
+    folder that gets cleaned.
+  - **So they are recorded here,** to survive until the owner moves them into
+    `claude/chat-rendering-plan.md`.
+- **The queue and its limit:**
+  - **`LimitedQueue`** is a `boost::circular_buffer` with a default limit of 1000:
+    `LimitedQueue(size_t limit = 1000)`, in `src/messages/LimitedQueue.hpp`.
+  - **A channel's messages** are a `LimitedQueue` sized by a setting, `scrollbackSplitLimit`, whose
+    default is 1000 (`/misc/scrollback/splitLimit`). The sizing is
+    `messages_(getSettings()->scrollbackSplitLimit)` in `src/common/Channel.cpp`, and the setting is
+    in `src/singletons/Settings.hpp`.
+- **It removes at the cap.**
+  - **A live message** pushed onto a full queue drops the oldest. `pushBack` returns that one as
+    `deleted`, and `Channel::addMessage` passes it to `messageRemovedFromStart`.
+  - **History at the front** never evicts anything. `pushFront` inserts only what fits.
+- **What marks `Disabled` instead of removing is moderation and disconnects, not the cap:**
+  - a message deleted by id, through `disableMessage`;
+  - every message except system lines, timeouts and whispers, through `disableAllMessages`.
+- **The commit read:**
+  - **It is not the tag.** `1b2b630f` is "chore: bump versions to v2.5.6 (#7348)", on Chatterino2's
+    master, 2026-10-04. The tag `v2.5.6` points at another commit, `5921016f`.
+  - **The two have diverged:** the tag is 4 commits ahead and 279 behind.
+  - **The cited lines hold at both.** `LimitedQueue.hpp` is byte-identical at the two commits.
+    `Channel.cpp` and `Settings.hpp` differ, but not in the lines cited above.
+
+**2026-11-06: the 169 rows in one minute.** This was read from the records, and nothing was run on the
+phone.
+- **What was recorded.** Only the row counts and their times, in `rows.txt`, read about 60 s apart.
+  - **Before the jump,** from dump A at 09:27:01: +6, +12, +23, +31, +33 and +34 a minute.
+  - **The jump:** 560 rows at 09:33:06, then 729 at 09:34:07, 74 s after the last tap.
+  - **After it:** +64 in the 89 s to dump B, then +22, +25, +22, 0, +1 and +5 a minute.
+- **The records on the host cannot tell history from live rows.**
+  - **What they hold:** a row count with its time, the `Views:` count, and the touch events.
+  - **Why none of them settles it:** none carries a row's origin. Both kinds take the same path into
+    the timeline, `appendChatLine`, and cost one view each.
+- **What would decide it: the app's diagnostics journal,** which is on the phone and was not read. It
+  is `files/diagnostics/history-diagnostics.log`, with a `-previous` file it rotates into at 512 KiB.
+  By reading `dea38cc`:
+  - **Every connect or reconnect, resume and manual refresh writes one line,** through
+    `applyBackfillDecision` (`ChatFragment.kt:2859-2873`). The line is `backfill.triggered` with its
+    `source` (`first_connect`, `reconnect_offline`, `reconnect_no_pause_reference`, `resume`,
+    `resume_no_pause` or `manual_refresh`), or `backfill.skipped` with its `reason`.
+  - **Every request that returns writes `backfill.result`,** with `messageCount`, `firstTs` and
+    `lastTs` (`ChatFragment.kt:2975-2982`).
+  - **The journal is always on.** It stamps each line with the phone's wall clock.
+  - **Live messages write no journal line.**
+  - **The test:**
+    - no `backfill.result` between 09:33:06 and 09:34:07 means the 169 rows were live. The window is
+      widened by the phone's offset from the host's clock, which was not measured;
+    - a `backfill.result` in that window means history arrived. Its `messageCount` bounds what it
+      could add, and `firstTs` and `lastTs` say whether its window overlapped rows already shown.
+  - **What may leave the phone:** event names, times and those three fields only. The journal also
+    records account and channel names.
+- **One constraint from the counts, by arithmetic and not a finding.**
+  - **A backfill of messages missed while disconnected** adds at most what was sent during the gap.
+  - **No gap shows before 09:33:06:** the minute before the jump gained 34 rows, the most of any
+    minute before it.
+  - **So missed messages could reach 169 only at a live rate of about 169 a minute.** A history
+    explanation would need a response adding rows that were not missed: older ones, or duplicates.
+  - **Why duplicates are excluded by reading, on one condition:** live and history rows carry the
+    same `id:` key, and at 560 rows the deduplicator was below its limit of 800, so it still held every
+    key shown. The condition is that
+    the backend relays Twitch's message ids, which cannot be checked here, because the backend is not
+    in this repository.
+- **What it means for the long session.**
+  - **The case cannot rely on such a rate.** The same page gained 0 to 43 rows a minute in every
+    other minute of this sitting, and the 169 is unexplained. A projection from two readings
+    across such a minute would be off by a factor of five or more.
+  - **It may wait for a burst, and must assume none.** The case is leave-it-running, and its readings
+    are set by the row count, not the clock. Its duration is planned at the low rates recorded: 6 to
+    24 a minute on 2026-11-03, and 12.3 a minute after dump B here. At 12.3, 800 rows take 65
+    minutes.
+  - **Rows from history are not "live rows past the history",** which is how the case defines its
+    1,200. The session already reads the journal for its row counts (`user.marker`). So it reads
+    `backfill.*` from the same file, and rows from history are counted apart.
+  - **Past 800 rows, the deduplicator forgets, by reading.** It keeps the 800 most recent `id:` keys,
+    on `main-v5` and on this branch alike (`ChatMessageDeduplicator.kt:80`).
+    - **Why this case:** it is the first case that passes 800 rows.
+    - **The open question:** whether a backfill there can return rows older than the 800 kept keys.
+      That depends on the backend's response, which is not read.
+    - **A duplicate row** is already one of its failure criteria.
+
+**2026-11-06: the three 60 Hz readings, compared.** Read from the records: the plan, the runs' files,
+and `-2`'s logcat. Nothing was run.
+
+| | 2026-11-03, `-2` | 2026-11-04, before the negative control | 2026-11-06, this sitting |
+|---|---|---|---|
+| When it read 60 | before the launch, 09:47 | 15 of 18 readings, 12:01:40 to 12:03:05 | the after-read, 10:38:06; 90.0 at 09:20:29 |
+| Battery | 100, full, 28.6 °C | 100, full, 32.4 °C | 100, full, 29.2 °C; 94 and charging at the 90.0 read |
+| Battery saver, power | off, USB | off, USB | off, USB |
+| Thermal status | not read | 0 | 0 at both reads |
+| What ran before | another app, in front until the launch | another app had been in use; its window was listed | the owner using the phone: 742 touch lines from 10:29 to 10:37 |
+| The dev app in front at the 60 read | no: the vendor's log names another app | not recorded | no: no process |
+| Which range or vote | the primary range, [0 60] to [0 90] | app requests: none capped the phone's screen at 60, by their order; the votes were mapped to displays only at 14:02 | not read |
+| How it ended | 90.0 2.0 s after the dev app came in front | 90.0 from 12:04:32 | not seen: it ended at 60 |
+
+- **Shared:** a full battery at level 100, battery saver off, and USB power. In none of the three was
+  the dev app shown in front at the 60 Hz reading. That is certain in the first and the third, and
+  not recorded in the second.
+- **Not shared:** the time of day, and what ran before, beyond "another app" and "the owner's use".
+- **Nothing recorded distinguishes the conditions of the 60 Hz readings from those of the 90.0 ones.**
+  - **A full battery:** 90 of the 129 launches that read 90.0 before were at a full battery too.
+  - **Another app in front before the launch:** 16 launches read 90.0 with it, and their range did
+    not change at the launch.
+  - **A video decoder's log line before the launch:** 10 launches at 90.0 had one too. `-2`'s line
+    reported `renderFps=0`.
+  - **Temperature:** the three, at 28.6 to 32.4 °C, fall inside the 27.4 to 32.7 °C of the 90.0
+    readings before a launch.
+  - **Thermal status:** 0 wherever it was read, at both rates.
+- **What the records do show, without separating the two.**
+  - **No reading with the dev app in front and battery saver off has read 60.** The after-reads,
+    taken with the app in front at the end of each launch, read 90.0 in all 130 such launches. The one
+    after-read at 60 had battery saver on. At `-2`, two minutes of readings with the app in front also
+    read 90.0 throughout.
+  - **In the one instance with a log, `-2`, the cap was the primary range.** That range is the
+    display's whole allowed band, not only what apps request. It was [0 60], and `DisplayManagerService`
+    replaced it with [0 90] 2.0 s after the vendor's refresh-rate service (`OPlusRefreshRateService`)
+    logged the dev app as the front package.
+    - **The same delay comes at every launch from the launcher:** in 113 launches the display specs
+      were re-compared 1.66 to 2.10 s after the front package changed, with no change in the range.
+    - **What set [0 60]** happened before the log began, and is not recorded.
+- **What a change of rate mid-session costs the long session.**
+  - **As written, nothing: section M holds no refresh rate.** None of the long session's criteria
+    times frames. The rule that voids on a change belongs to the startup measurement (*The rule*). So
+    the premise that a change voids the long session is not in the plan. Making it a condition is the
+    owner's decision.
+  - **If it is made one:** the session runs 30 to 130 minutes. A change found only at the after-read
+    voids all of it, and cannot say when the change happened.
+- **What could be done.**
+  - **Read the rate at every poll and every reading,** one `dumpsys display` a minute. A change is
+    then caught within a minute and placed between two row counts. Whether the segments before it
+    stand is the owner's ruling.
+  - **Stream the display's log lines only, to a local file, for the session:**
+    `DisplayManagerService` "Comparing display specs", SurfaceFlinger's `setDesiredActiveMode`, and the
+    vendor service's front-package lines. In `-2` those lines carried the change and its moment. They
+    name other apps, so they stay local and are reported only by category.
+  - **Keep the dev app in front for the whole session:** that is the condition under which no 60 Hz
+    reading has been recorded.
+  - **Pin the rate with the phone's own refresh-rate setting.** That is the owner's to change, and was
+    not done.
+
+**2026-11-06: the poll's silence, and its invariant.**
+- **The process under measurement ended at 09:49:04.841, during the pause.** It was a user-requested
+  "remove task" (exit reason 10, importance 400), and the timeline the added check needed went with
+  it.
+- **The loop's silence was the defect, not the process's death.** A process ending is an event a
+  sitting must expect. The loop polled a dead process for eight minutes and printed "no container
+  found" eight times. That is an instrument that did not look, read as nothing to see.
+- **The fix, in the round's `sitting.sh`:** it is in `%USERPROFILE%\tmc-5d-round\V`, like `run.sh`
+  outside this repository.
+  - **`bind`** records the process under measurement: its package, its pid, and its start time from
+    `/proc/<pid>/stat`.
+  - **Before every dump and every row count,** `pidof` must name that pid, and its start time must
+    match.
+  - **After the check:**
+    - a dump must name that pid in its header;
+    - a row count must come from that pid's activity, and find the timeline in its hierarchy.
+  - **A violation** prints `INVARIANT VIOLATED [...]`, with what was required and what was found, and
+    exits 3.
+  - **`poll`** runs the check on every iteration, and stops at the first violation.
+- **Shown to fire, offline,** against a stand-in for adb:
+  - nothing bound;
+  - the process gone;
+  - restarted with a new pid;
+  - the same pid with another start time;
+  - the timeline not in view;
+  - a dump naming another pid;
+  - a poll whose process goes at its second iteration, which stops there with exit 3.
+  - **And not in the healthy case:** a poll that reaches its target exits 0.
+- **Shown to fire, on the phone,** pointed at the sitting's pid 25900, with one read-only `pidof`. It
+  exited 3, wrote no row line, and printed:
+
+  ```text
+  INVARIANT VIOLATED [process]
+    required: every reading comes from com.fs.twitchminichat.dev pid 25900, started at unrecorded (clock ticks since boot), bound at 'A, dump A of 2026-11-06 09:27:01'
+    found:    pidof com.fs.twitchminichat.dev returns no process
+    No reading from here on measures what was bound. Stopping, exit 3.
+  ```
+
+  - **Why "unrecorded":** pid 25900 was bound for this demonstration afterwards, and its start time
+    was never read.
+- **Not yet exercised on the phone:** two reads, so the first `bind` exercises both.
+  - **What:** the start-time read from `/proc/<pid>/stat`, and the `pid=` of
+    `dumpsys activity top`'s `ACTIVITY` line.
+  - **If either reads differently on this phone,** `bind` or the first reading fails loudly, not
+    silently.
