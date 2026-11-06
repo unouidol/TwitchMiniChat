@@ -664,22 +664,39 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       (under *Recorded results*). At that rate, 800 rows take 33 to 133 minutes. That channel was
       chosen quiet, for the measurement. So this is a leave-it-running case, not a hands-on one.
     - **The fastest honest route is a busier channel.** The time is 800 rows over the channel's rate,
-      and no busier channel's rate is recorded. So the rate is measured at the start: two row-count
-      readings some minutes apart, and the time projected from them.
+      and no busier channel's rate exists in the records. So the rate is measured at the start of the
+      case, from two row-count readings some minutes apart, and the time is projected from them. It is
+      not assumed from 2026-11-03's quiet channel.
     - **Not used:**
       - rows the harness injects, since the question is about a real session;
       - the tester's own messages, which would be spam, and whose rows are echoes, not messages.
-    - **What would break the session, by reading:**
-      - **A change of channel** clears the timeline (`ChatChannelBinding.changeTo`). Nothing else
-        that was read clears it: not a reconnect, not a refresh.
-      - **A tap on refresh** starts a manual refresh. The row-count reading is a long-press.
-    - **The screen:** the app does not keep it on, and has no foreground service. The phone's display
-      timeout governs, and that is a phone setting, the owner's to change; otherwise someone wakes the
-      screen before it sleeps.
-      - **By reading:** the page's stop handler does not close the connection.
-      - **Not examined:** what Android does with the stopped process, and whether rows keep arriving.
-      - **So:** the readings are taken with the page current, and the row count at each reading, not
-        the clock, says where the session stands.
+    - **The two reading hazards, by reading:**
+      - **A change of channel** clears the timeline (`ChatChannelBinding.changeTo`). A reconnect or a
+        refresh does not.
+      - **The row-count reading is a long-press on refresh.** A tap starts a manual refresh.
+    - **The screen is held on by USB power, read and not changed.** `stay_on_while_plugged_in` read 7
+      (AC, USB and wireless) on 2026-11-06, with `dumpsys power` showing `mStayOn=true` on USB. It
+      read the same on 2026-11-02, and 5c's plan records it the same way. So "Stay awake while
+      charging", which the owner approved turning on, is already on, and nothing is changed.
+      - **The agent's error:** it gave the display timeout as the obstacle without reading this
+        setting, which the round had already recorded. The timeout, read at 15 s, governs only off
+        USB power.
+      - **Verified before and after,** like the sitting's other parameters: the setting, and USB power
+        from `dumpsys battery`. If USB power is lost, the screen is no longer held, and that is
+        recorded.
+      - **By reading:** the app has no foreground service or wake lock, and the page's stop handler
+        does not close the connection. Whether rows keep arriving while the app is stopped was not
+        examined. With the screen held, the question should not arise.
+    - **A realistic worst case, not a normal usage condition.** The screen is held awake for 30 to
+      130 minutes, on a chat with animated emotes, so their frames are decoded for as long as the
+      session lasts. That costs battery and heat, on purpose, and is recorded as a condition of the
+      session, not as a neutral parameter.
+      - **The owner called it the path of the measured battery defect.** By the record, that holds
+        for the work and not for the state. #69's measured defect was animated emotes decoding after
+        Home, in the background (5c's B1). Here the app is in the foreground with the emotes on
+        screen, where decoding them is intended.
+      - **So nothing here tests #69.** B1 does, at the end of the round.
+      - **Read at each reading, beside the counts:** the battery's temperature and the thermal status.
   - **Three readings:** after the history (about 400 rows), at about 800, and at 1,200 or more. Each
     takes:
     - **The row count:** long-press refresh. It writes `shownRows` into the journal's `user.marker`
@@ -699,19 +716,37 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         included.
     - **It has never been run in this project.** Neither plan uses it, and it has not been seen on
       this phone.
-    - **What qualifying it takes, before the case can decide anything:**
+    - **What qualifying it takes, before the case can decide anything.** This was rewritten on
+      2026-11-06, before the sitting. Its results are under *Recorded results*.
       1. **Present:** one dump on this phone shows the `Views:` line.
-      2. **Repeatable:** three dumps within a minute, with the list at rest at the bottom, agree
-         within a small share of the margin the criterion needs. A 1.5x threshold needs the at-rest
-         spread well under 50%. 10% is proposed, not measured.
-      3. **Sensitive, against a known answer:** on a build without recycling, the pre-5d container,
-         the count rises with rows. Two dumps some hundred rows apart give the views per row, `k`.
-         That measures the no-recycling prediction on this app instead of assuming it. Installing
-         that build is the owner's decision.
-      4. **The rest of the app:** a dump with an empty or short timeline gives `C`, the views that
-         are not rows.
+      2. **Repeatable, against the band gap:** three dumps with the list at rest give counts whose
+         largest over smallest is `f`.
+         - **The rule:** f² must be smaller than 1.155², the width of the inconclusive gap (below), so
+           f < 1.155.
+         - **Why:** one reading of the ratio uses two counts, each anywhere in that spread, so it
+           lands within a factor f of the truth either way, a span of f². A span as wide as the gap
+           means the instrument cannot resolve the distance between pass and fail.
+         - **Reported beside it, not deciding:** f against M/1.155, the margin from each prediction to
+           the edge of its own band. If f exceeds it, a true prediction can read as inconclusive.
+         - **What this spread does not cover:** how many rows the screen holds at each reading. It is
+           the dump's own repeatability.
+      3. **k, the views per row, on a build without recycling:** the control measurement build
+         `dea38cc` (APK `d005e901…`), which is pre-5d by construction. It is installed with the
+         owner's approval.
+         - **The dumps:** two, at least 200 rows apart, counting both pages' rows together.
+         - **The rows at each dump:** each page's `chatContainer` children, read from
+           `dumpsys activity top` just before and just after the dump. On that build, every timeline
+           row is one child.
+      4. **C, the views that are not rows.** As asked, this is one dump with a short timeline. That
+         dump cannot be taken on that build (*Recorded results*, 2026-11-06). So C is the intercept of
+         step 3's two dumps: C = V − k·N at either.
+      - **R, M and the bands:**
+        - R = (C + 1,200k) / (C + 400k), the no-recycling prediction for one timeline;
+        - M = √R;
+        - pass at or below M/1.155, fail at or above M·1.155, and inconclusive between.
+      - **The abandon condition,** declared by the owner before step 1: if R is below 1.3, the bands
+        do not separate the two predictions, and the view criterion is DROPPED, not stretched.
       - **Until steps 1 and 2 pass,** the view criterion goes unjudged.
-      - **Until steps 3 and 4 have run,** the no-recycling prediction stays an upper bound (below).
   - **At each reading:**
     - **Scroll:** fling far up, then back to the bottom.
     - **Follow the bottom:** at the bottom, new messages keep the list there. Scrolled up, the list
@@ -727,27 +762,23 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     - an animated emote frozen on screen, or animating in a row that is not its own;
     - hiding or showing a user leaving a row in the wrong place, or the echo not confirming in place;
     - a crash, an ANR (Application Not Responding) dialog, or an `OutOfMemoryError` in Logcat;
-    - **`Views:` growing with the rows:** a count at 1,200 rows above 1.5 times the count at 400. The
-      threshold is the owner's, set on 2026-11-06, and the derivation, from the mechanism, follows.
-      - **Recycling** holds views only for the rows laid out, plus a cache and a pool of fixed size.
-        Its count stays roughly constant as rows grow: about 1.0x from 400 to 1,200.
-      - **No recycling** holds a view for every row. Its count grows in proportion with the rows:
-        about 3.0x from 400 to 1,200, as the rows triple.
-      - **The threshold, 1.5x, is far from both predictions.** It is not their midpoint in
-        logarithmic terms, as first written. That midpoint is √3, about 1.73, and 1.5x is 37% of the
-        way from 1.0 to 3.0 in those terms, nearer the recycling prediction.
-      - **3.0x is an upper bound.** The count includes `C`, the views that are not rows, and a row
-        may be more than one view, `k` each. No recycling then predicts (C + 1,200k) / (C + 400k),
-        which is below 3.0. A second page's rows, counted in `C`, lower it further. Qualification's
-        steps 3 and 4 give the figure for this app.
-      - **A result between the two predictions is INCONCLUSIVE,** and is reported as such, not
-        explained.
-      - **Open, for the owner, before the run: the two rules overlap.**
-        - **Read literally,** every result between 1.0x and 3.0x is inconclusive, and every result
-          above 1.5x fails, so 2.0x would be both.
-        - **One reading that keeps both,** the agent's and not decided: pass at or below 1.5x, fail at
-          or above 2.0x (3.0x over 1.5), and inconclusive between them.
-        - **What that reading gives:** the two bands sit symmetrically about √3 in logarithmic terms.
+    - **`Views:` growing with the rows,** judged by bands placed from the app's own C and k (settled on
+      2026-11-06). The ratio is the count at 1,200 rows over the count at 400.
+      - **The bands,** with R and M from the instrument's steps: the ratio passes at or below M/1.155
+        and fails at or above M·1.155. Between them it is INCONCLUSIVE, which is reported as such and
+        not explained.
+      - **Until R is measured, the bands are provisional:** 1.5x and 2.0x, as for R = 3.
+      - **The derivation, from the mechanism:**
+        - **Recycling** holds views only for the rows laid out, plus a cache and a pool of fixed size.
+          Its count stays roughly constant as rows grow: about 1.0x from 400 to 1,200.
+        - **No recycling** holds a view for every row. Its count grows with the rows, and at most
+          triples from 400 to 1,200. With C and k it is R = (C + 1,200k) / (C + 400k).
+        - **The bands' centre is M = √R,** the geometric midpoint of 1.0 and R. Each band edge sits a
+          factor of 1.155 from it. For R = 3 that centre is √3, about 1.73, with edges at 1.5x and
+          2.0x: √3 / 1.5 and 2.0 / √3 are both 1.155.
+      - **A second page:** R as written is for one growing timeline. If the long session holds a
+        second page, its rows enter C if they do not grow, or the growth if the page shares the
+        channel, and R changes. Which applies is fixed with the session's page setup, before it runs.
   - **Not a failure: memory growing.** The timeline's data grows with every row, because nothing caps
     it. That predates 5d and is not a 5d regression. PSS and the Java heap are recorded as figures,
     not judged.
@@ -4202,3 +4233,71 @@ branch before the pull request opened: `7c6f58a`, `a911bb9`, `4eb73f8`, and this
   - The 1,200-row bound was kept, with its cost recorded.
   - The view criterion was replaced by its shape.
   - Its instrument was recorded as not qualified.
+
+**2026-11-06: the owner's three errors in the view criterion, and the instrument's sitting,
+pre-registered before its first dump.**
+- **The owner's three errors, in the criterion as first set:**
+  - **"1.5x, midway in logarithmic terms" was wrong.** The geometric midpoint of 1.0 and 3.0 is √3,
+    about 1.73. 1.5x is 37% of the way in those terms: ln 1.5 / ln 3 = 0.369.
+  - **The two rules overlapped.** "Fail above 1.5x" and "inconclusive between the predictions" both
+    applied at 2.0x.
+  - **3.0x is only an upper bound.** The views that are not rows, and a row costing more than one
+    view, pull the no-recycling prediction below it.
+  - **Taken:** the agent's reconciliation. That is pass at or below 1.5x, fail at or above 2.0x, and
+    inconclusive between, because √3 / 1.5 and 2.0 / √3 are both 1.155. Those figures are
+    provisional until R is measured.
+- **Why placing the bands from C and k is not washing the pre-registration.**
+  - **C and k are properties of the app:** how many views it holds besides rows, and how many views a
+    row costs on a list that does not recycle.
+  - **They are measured on the control build,** which cannot recycle by construction. So they say
+    nothing about whether 5d recycles.
+  - **5d's ratio is not measured in this sitting.**
+- **The abandon condition, declared before step 1:** if R comes out below 1.3, the bands do not
+  separate the two predictions, and the view criterion is DROPPED, not stretched.
+  - **The agent's note, written with it:** the exact boundary is about 1.33, which is 1.155².
+  - **Why:** below it, M/1.155 is under 1.0, so the recycling prediction itself falls inside the
+    inconclusive band. An R between 1.3 and 1.33 would keep a criterion that a perfectly recycling
+    list cannot pass.
+  - **Whose decision:** whether to raise the condition is the owner's. If R lands there, both readings
+    are reported.
+- **Step 4 cannot be taken as written.** This was read from the control's launches `Mc-1` to `Mc-5`.
+  - **A short timeline is too brief to dump:** both page views exist from 1,192 to 1,380 ms after the
+    anchor, and page 0's first history row arrives from 1,408 to 1,605 ms. A short timeline lasts
+    175 to 333 ms. A dump runs a collection first, and is expected to take longer than that. Its
+    duration is timed at every dump of this sitting, and recorded with the result.
+  - **After that, both pages hold 400 history rows.** A shorter timeline needs both pages switched
+    to a channel with short history, and back again. That is input and a change to the app's setup,
+    so it is the owner's call.
+  - **So C is the intercept of step 3's two dumps.** Under the line they define it is the same
+    quantity, extrapolated rather than read. Step 4 as written stays open for the owner.
+- **The probe is a declared confound.** This was read in both measurement builds.
+  - **It creates no view.** It wraps the page's inflation and each row's creation, and reads the
+    container's children.
+  - **With the probe on, it holds every row view it saw built.** It keeps them in two
+    `IdentityHashMap<View, Int>` maps, `rowOfView` and `buildOfView`, which nothing clears. On a
+    recycling build that keeps alive the views the list lets go, and inflates the count.
+  - **With the probe off, it holds nothing:** `buildIn` returns −1 unless the mode is full, and
+    `buildOut` then stores nothing. The mode is off when `files/startup-probe/flag` is absent.
+  - **So the sitting runs with the probe off,** with the flag's absence read before each launch.
+- **The sitting's procedure:**
+  - **Read before and after:**
+    - USB power, battery saver, the level and the temperature;
+    - thermal status and the refresh rate;
+    - `stay_on_while_plugged_in`;
+    - the installed APK's sha256, read on the phone;
+    - the probe directory's listing by name and size, for the cleanup queued after the round.
+  - **No input events.** Each launch is `am force-stop` then `am start -W`, as `run.sh` launches.
+  - **Steps 1 and 2, on `a2f12f1`,** installed since 2026-11-05 09:32:32, sha256 `ece097ac…`: a
+    launch, then 60 s to settle, then one dump, then three more about 20 s apart. The list stays at
+    rest at the bottom throughout.
+  - **Steps 3 and 4, on `dea38cc`,** installed with `adb install -r` and read back:
+    - a launch, then 60 s to settle, then dump A with each page's rows;
+    - the rows polled until both pages together have gained 200, then dump B. The wait is at most
+      30 minutes. If 30 minutes pass first, dump B is taken anyway, and the rows it spans are
+      reported.
+  - **Afterwards the phone keeps `dea38cc`,** read back and recorded here. The long session installs
+    its own build.
+  - **What is saved:**
+    - every meminfo dump, in `%USERPROFILE%\tmc-5d-round\V`;
+    - from the view hierarchy, only each page's row count. The hierarchy dump itself is not saved,
+      since it can carry more than the counts.
