@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.TextView
 import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.ChatRowText
+import com.fs.twitchminichat.chat.ChatRowViewType
 import com.fs.twitchminichat.chat.ChatTimelineChange
 import com.fs.twitchminichat.chat.ChatTimelineRow
 import com.fs.twitchminichat.chat.PendingEchoRow
@@ -15,13 +16,14 @@ import com.fs.twitchminichat.chat.RowText
 import com.fs.twitchminichat.chat.SystemLineRow
 
 /**
- * Builds the view of each row of the chat timeline from the row's data, and binds a row to a view:
- * the only code that makes a row's view or writes what it shows, its tag included.
+ * Builds the view of each row of the chat timeline, and binds a row to a view: the only code that
+ * makes a row's view or writes what it shows, its tag included.
  *
- * One view type per row kind: a chat message gets the page's message view, a system line a plain
- * TextView, an echo a [PendingEchoView] around a message view. The bind functions are typed by
- * kind, so a row is only ever bound to a view of its own kind, and [create] picks the kind from the
- * row.
+ * One view type per row kind, as [ChatRowViewType] names them: a chat message gets the page's
+ * message view, a system line a plain TextView, an echo a [PendingEchoView] around a message view.
+ * [newView] builds an empty view of a type and [bind] binds a row to a view of its kind; the bind
+ * functions are typed by kind, so a row is only ever bound to a view of its own kind. [create] is
+ * the two in order, for a row's view built outside the chat list.
  *
  * Binding a view that already showed another row leaves nothing of that row behind. Everything
  * carried inside the text resets by construction: a message view has a movement method, and with
@@ -41,9 +43,13 @@ import com.fs.twitchminichat.chat.SystemLineRow
  *    used to set once per view is now turned on or off by every bind, from the row's message id.
  *    Watched by the pairs into and out of a message without one, and mutant S1.
  * 5. The echo's hidden status text. Hiding the status line leaves its text in place, so what an
- *    echo's view holds depends on the statuses it passed through, not only on the one it shows. An
- *    echo is therefore only ever bound as sending - [bindEcho] requires it - and every later status
- *    reaches its view as a rebind, as in production; the proof rebuilds an echo the same way.
+ *    echo's view holds depends on the statuses it passed through, not only on the one it shows. A
+ *    full bind therefore shows the status line as sending first and then the row's own status, so a
+ *    view back from the pool holds the text of no row before it. A status that changes while the
+ *    echo is shown reaches its view as a rebind; the proof rebuilds an echo the same way. The two
+ *    paths agree in pixels for every echo, and in state for all but one: an echo that was unconfirmed
+ *    before it was confirmed keeps "unconfirmed" in its hidden line when rebound, and "sending" when
+ *    bound at once. The harness's direct-bind check declares that one exception.
  * 6. The emote session. The loader keeps a message's emote loads and images in a session held by
  *    the view, outside the text the applier replaces, and an image delivered to the session of the
  *    row before would land in a buffer the view no longer shows. So every bind of a message ends the
@@ -54,40 +60,33 @@ import com.fs.twitchminichat.chat.SystemLineRow
  * The tag, which the long-press and swipe actions read when they fire, is written by every bind and
  * every rebind, in the same call that writes what the view shows. Watched by the proof and mutant T1.
  *
- * Production still binds each view once, when its row is inserted; nothing binds a view to a
- * second row yet. That doing so is correct is what the rebind proof shows, and 5d, which turns it
- * on, must run that proof again rather than inherit this result.
+ * Since 5d the timeline is a RecyclerView (ChatTimelineAdapter), and a view is bound to another row
+ * whenever its holder comes back from the recycled pool. That doing so is correct is what the rebind
+ * proof shows, run over the adapter's own bind. How the list keeps what this binder needs, each the
+ * answer to a constraint 5c wrote down for it:
  *
- * Constraints for 5d, which will put the timeline in a RecyclerView and rebind views as they
- * scroll. Each is true of this code now and becomes false, or starts to matter, once rows recycle:
- *
- * 1. Keep one view type per row kind. The flags a movement method forces on a message view -
- *    focusable, clickable, long-clickable - are set by its first bind only, because
- *    TextView.setMovementMethod does nothing when given the movement method the view already has
- *    (TextView.java:2808, API 36), so a view type shared across kinds carries them from a message
- *    into a system line without anything failing.
- * 2. Call [unbind] from onViewRecycled. A holder reaches onViewRecycled only on its way to the
- *    recycled pool; one kept in the cache does not, and can be handed back for its position without
- *    a bind, which is why a detach keeps the session and only the binding may end it.
- * 3. An echo's change of status must stay a partial bind, a payload applied by [rebind]. A full bind
- *    of the echo would end its emote session and load its emotes again on every status change.
- * 4. A change animation can show two holders for one row at once, the old and the new, so one row
- *    would hold two sessions while it runs. Bind changes with payloads, or turn change animations
- *    off, rather than let a change rebuild the row.
- * 5. The animation gate assumes a row that scrolled away stays attached (EmoteAnimationGate). That is
- *    true while the timeline is a ScrollView and false in a RecyclerView, where a detach already
- *    stops a row's emotes; 5d decides whether the detach or the viewport rules.
- * 6. The gate's viewport is reported from the ScrollView's offset (reportEmoteAnimationViewport),
- *    sampled at most every 100 ms after a scroll or a layout (scheduleEmoteAnimationReconcile), and
- *    a row's place in it is found by walking the row's parents up to chatContainer
- *    (timelineSpanOf). None of the three exists in a RecyclerView, which reports positions itself.
- * 7. A hidden row is GONE but stays attached, so a detach never pauses it. Whether the gate counts a
- *    GONE row as visible depends on the position and height a GONE child keeps in its LinearLayout,
- *    which has NOT been read. In a list fed only the shown rows, a hidden row is no view at all.
- * 8. onDestroyView releases every session (TwitchEmoteImageLoader.releaseAll) because no removal
- *    reaches the views that go with the page. Whether every holder of a RecyclerView reaches
- *    onViewRecycled when the page's view is destroyed has NOT been read, so keep the call until it
- *    has.
+ * 1. One view type per row kind: [ChatRowViewType] is the only source of view types.
+ * 2. [unbind] is called from onViewRecycled. A holder reaches onViewRecycled only on its way to the
+ *    recycled pool; one kept in the cache does not, and is handed back for its position without a
+ *    bind, which is why a detach keeps the session and only the binding may end it. A removed row's
+ *    holder is never cached (RecyclerView 1.3.1, RecyclerView.java:7097-7101), so it reaches the
+ *    pool, and its session ends at the layout pass that removes it, not at the call that removed it.
+ * 3. An echo's change of status stays a partial bind: the payload [ChatTimelineChange.ECHO_STATUS],
+ *    applied by [rebind]. A full bind would end its emote session and load its emotes again.
+ * 4. The list has no item animator, so a change never shows two holders for one row: with no
+ *    animator an updated holder is rebound in place (RecyclerView.java:5188-5190, :7208-7216).
+ * 5. A detach decides whether a row's emotes run: a row scrolled away is detached, and its session
+ *    stops its animated emotes until it is attached again. The animation gate keeps only whether
+ *    the page is started and current (EmoteAnimationGate).
+ * 6. The viewport reporting, its 100 ms sampling and the walk up to the container are gone: the list
+ *    attaches exactly the rows it lays out.
+ * 7. A hidden row is no view at all: the list holds only the shown rows. (A LinearLayout skips a
+ *    GONE child when measuring and laying out, LinearLayout.java:841 and :1695, API 36, so a GONE
+ *    row kept the frame it last had; that question ended with the container.)
+ * 8. onDestroyView still releases every session (TwitchEmoteImageLoader.releaseAll): holders do not
+ *    reach onViewRecycled when the page's view goes. LinearLayoutManager recycles its children on
+ *    detach only when recycleChildrenOnDetach is set, false by default (LinearLayoutManager.java:128,
+ *    :245-250), and RecyclerView's own detach recycles nothing (RecyclerView.java:3421-3443, :7542-7547).
  */
 internal class ChatRowViewBinder(
     private val applier: ChatRowTextApplier,
@@ -137,13 +136,29 @@ internal class ChatRowViewBinder(
     }
 
     /** Builds the view of [row], of the type its kind takes, bound to it. */
-    fun create(row: ChatTimelineRow): View = when (row) {
-        is ChatMessageRow -> page.newMessageView().also { view ->
-            page.attachMessageActions(view)
-            bindMessage(view, row)
+    fun create(row: ChatTimelineRow): View = newView(ChatRowViewType.of(row)).also { view -> bind(view, row) }
+
+    /**
+     * Builds an empty view of [viewType], one of [ChatRowViewType]: a message view with the page's
+     * actions, a system line's TextView, or an echo's view around its own message view.
+     */
+    fun newView(viewType: Int): View = when (viewType) {
+        ChatRowViewType.MESSAGE -> page.newMessageView().also { view -> page.attachMessageActions(view) }
+        ChatRowViewType.SYSTEM_LINE -> TextView(page.context())
+        ChatRowViewType.PENDING_ECHO -> PendingEchoView(page.context(), page.newMessageView())
+        else -> error(
+            "A view of type $viewType was asked for. Invariant: ChatRowViewType is the only source of view " +
+                "types, and it has three."
+        )
+    }
+
+    /** Binds [row] to [view], a view [newView] built for [row]'s kind. */
+    fun bind(view: View, row: ChatTimelineRow) {
+        when (row) {
+            is ChatMessageRow -> bindMessage(view as TextView, row)
+            is SystemLineRow -> bindSystemLine(view as TextView, row)
+            is PendingEchoRow -> bindEcho(view as PendingEchoView, row)
         }
-        is SystemLineRow -> TextView(page.context()).also { view -> bindSystemLine(view, row) }
-        is PendingEchoRow -> PendingEchoView(page.context(), page.newMessageView()).also { view -> bindEcho(view, row) }
     }
 
     /** Binds [row] to [view], a message view: its tag, its swipe target, then its text and emotes. */
@@ -160,32 +175,36 @@ internal class ChatRowViewBinder(
     }
 
     /**
-     * Binds [row], an echo that is sending, to [view]: its tag, the message on the echo's own message
-     * view - which carries no tag and no actions - then the status line.
+     * Binds [row], an echo at any status, to [view]: its tag, the message on the echo's own message
+     * view - which carries no tag and no actions - then the status line, shown as sending first and
+     * then at the row's own status (item 5 above).
+     *
+     * Any status, not only sending. Before 5d an echo was bound only as it entered the timeline, so
+     * requiring sending encoded an invariant of the callers there were, not of the echo. In a
+     * RecyclerView an echo confirmed in place stays a row, and when its holder comes back from the
+     * pool the list binds it at its status of the moment: that requirement would have crashed the app.
      */
     fun bindEcho(view: PendingEchoView, row: PendingEchoRow) {
-        check(row.status == PendingEchoStatus.SENDING) {
-            "An echo was bound as ${row.status}. Invariant: an echo is bound as it enters the timeline, " +
-                "from appendPendingOutgoingMessage, which builds it SENDING, and every later status reaches " +
-                "its view as an ECHO_STATUS rebind."
-        }
         view.tag = row
         bindMessageText(view.messageView, row.user, row.messageText, row.emotesRaw, row.replyParentUserLogin)
-        view.bindStatus(row.status, page.echoStatusTextColor())
+        val statusTextColor = page.echoStatusTextColor()
+        view.bindStatus(PendingEchoStatus.SENDING, statusTextColor)
+        if (row.status != PendingEchoStatus.SENDING) view.bindStatus(row.status, statusTextColor)
     }
 
     /**
-     * Ends what [view], a view [create] built, shows that outlives its text: its message's emote
-     * session. Called when the view's row leaves the timeline, and in 5d when its holder is recycled.
+     * Ends what [view], a view [newView] built, shows that outlives its text: its message's emote
+     * session. Called when the view's holder is recycled: its row left the list, or the holder was
+     * evicted from the list's cache.
      */
     fun unbind(view: View) {
         when (view) {
             is PendingEchoView -> page.unbindEmotes(view.messageView)
             is TextView -> page.unbindEmotes(view)
             else -> error(
-                "A ${view.javaClass.simpleName} was unbound. Invariant: create builds three kinds of view - a " +
-                    "message view and a system line's, both TextViews, and a PendingEchoView - and " +
-                    "ChatTimelineController is the only writer of the container."
+                "A ${view.javaClass.simpleName} was unbound. Invariant: newView builds three kinds of view - a " +
+                    "message view and a system line's, both TextViews, and a PendingEchoView - and the chat " +
+                    "list's adapter recycles only views newView built."
             )
         }
     }
@@ -194,8 +213,8 @@ internal class ChatRowViewBinder(
     fun rebind(view: View, row: ChatTimelineRow, change: ChatTimelineChange) {
         val rebindable = checkNotNull(view as? RebindableTimelineView) {
             "A ${view.javaClass.simpleName} was rebound in place, which it cannot be. Invariant: only an " +
-                "echo is rebound in place - ChatTimelineViewSync.applyEchoEvent is the only caller - and " +
-                "create builds every echo's view as a PendingEchoView."
+                "echo is rebound in place - ChatTimelineListSync.applyEchoEvent is the only source of " +
+                "ECHO_STATUS - and newView builds every echo's view as a PendingEchoView."
         }
         view.tag = row
         rebindable.rebind(row, change)
