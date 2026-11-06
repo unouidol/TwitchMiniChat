@@ -571,8 +571,10 @@ Reinstall the clean final APK and run both themes again: the same counts as H1.
 
 5c's M1 to M6 again, and 5d's own:
 
-**The row regime, read on 2026-11-05.** No automated test covers the mapping at or past 400 rows,
-and these checks are currently the only thing that exercises that regime.
+**The row regime, read on 2026-11-05, corrected on 2026-11-06.** On 2026-11-05 no automated test
+checked the mapping by value at or past 400 rows. Since 2026-11-06 one does, for the mapping alone:
+`ChatTimelineShownRowsPastTheCapTest`, below. These checks remain the only thing that exercises the
+regime in the list itself: the list sync, the RecyclerView, scrolling, emotes and memory past 400 rows.
 - **Production:**
   - **The page's start:** on a channel at the history source's cap of 400 rows, a page's timeline
     starts with 400 history rows. The cap is the backend's, which is not in this repository and was
@@ -596,6 +598,18 @@ and these checks are currently the only thing that exercises that regime.
       because the inverse is the test's own.
     - **What it does not check:** any position by value, any other decider, or the list sync. A fault
       matched in both directions passes it, as M8 did.
+  - **Added on 2026-11-06, tests only: `ChatTimelineShownRowsPastTheCapTest`.** It checks the mapping
+    by value, both ways, at every row and every position.
+    - **Its two cases:**
+      - the reference case's shape, with system lines added, at 400, 401, 800, 801 and 1,600 rows,
+        eight seeds each;
+      - one timeline of 801 rows whose answers are counted by hand, not by `ChatTimelineVisibility`.
+    - **M8 fails both.** But M8's fault is at positions 0 and 1, which the small cases already catch,
+      so that shows only that the test checks values.
+    - **M9 shows what it adds.** M9 is a fault matched in both directions that appears only past 400
+      rows: it swaps the last two shown positions. Of 634 stable tests it fails exactly these two.
+      `ChatTimelineShownRowsCostTest` and every other test pass it.
+    - **What it still does not check:** the list sync past 400 rows, or anything on the device.
 - **So these checks exercise the regime only when they run where it occurs:** on a channel at the
   history cap, with live messages arriving, so that the timeline passes 400 while rows are hidden,
   shown again, echoed and scrolled.
@@ -638,6 +652,43 @@ and these checks are currently the only thing that exercises that regime.
 - **Swipe-to-reply inside the list,** on a message with an id.
 - **An echo sent and confirmed,** and the same echo scrolled far away and back.
 - **Hide a user, then show them again** from the blocked-users screen.
+- **A long session, past 400 rows** (added 2026-11-06). No round recorded here has run it, on any
+  build. It is the regime the row-regime note above names, and the one where recycling views matters
+  most.
+  - **Setup:** the final build, on a busy channel whose history arrives at the cap of 400 rows. The
+    page stays current with the screen on, and no user is hidden, so `shownRows` counts every row.
+  - **How long:** until the timeline holds at least 1,200 rows, 800 live rows past the history, with
+    messages still arriving. That bound is proposed, not measured. The owner may change it before the
+    run.
+  - **Three readings:** after the history (about 400 rows), at about 800, and at 1,200 or more. Each
+    takes:
+    - **The row count:** long-press refresh. It writes `shownRows` into the journal's `user.marker`
+      event, which is read from the journal afterwards.
+    - **Memory:** `adb shell dumpsys meminfo` for the package of the build on the phone. It records
+      the total PSS (proportional set size), the Java heap, and the `Views:` count under Objects. It
+      reads and changes nothing. That the dump prints `Views:` on this phone is the platform's
+      documented output, not yet seen here. If it is absent, say so, and that criterion goes unjudged.
+  - **At each reading:**
+    - **Scroll:** fling far up, then back to the bottom.
+    - **Follow the bottom:** at the bottom, new messages keep the list there. Scrolled up, the list
+      stays put and the jump button counts, and tapping it returns to the bottom.
+    - **Emotes:** animated emotes on screen animate. Scrolled away and back, they animate again.
+  - **Once, at 1,200 rows or more:** hide a user and show them again. Then send a message, and watch
+    its echo confirm.
+  - **What counts as a failure, written before the run:**
+    - a row out of timeline order, duplicated, missing, blank, or showing another row's content;
+    - at the bottom, a new message arriving without the list following it;
+    - the jump button's count disagreeing with the rows that arrived while scrolled up, or its tap not
+      returning to the bottom;
+    - an animated emote frozen on screen, or animating in a row that is not its own;
+    - hiding or showing a user leaving a row in the wrong place, or the echo not confirming in place;
+    - a crash, an ANR (Application Not Responding) dialog, or an `OutOfMemoryError` in Logcat;
+    - **`Views:` growing with the rows:** a rise of 100 or more between the reading at about 800 rows
+      and the one at 1,200 or more. The list should hold views only for the rows it lays out. The
+      bound of 100 is proposed, not measured.
+  - **Not a failure: memory growing.** The timeline's data grows with every row, because nothing caps
+    it. That predates 5d and is not a 5d regression. PSS and the Java heap are recorded as figures,
+    not judged.
 - **Does the history still drip in? A scope decision, not a check** (added 2026-11-02). During the
   round, with the 5d build on the phone, not after the pull request merges: Federico opens the app
   on a cached channel and says whether the history still appears to drip in rather than arrive.
@@ -4031,3 +4082,31 @@ branch before the pull request opened: `7c6f58a`, `a911bb9`, `4eb73f8`, and this
     on: that stays the owner's at the time it runs.
   - **The label at the framework citation:** `View.java:8083` is API 36's line number. The
     suppression rests on the call, which on another API level is found by its text.
+
+**2026-11-06: four corrections, three of them the owner's.**
+- **RecyclerView 1.3.1 comes from viewpager2 1.1.0, not from material 1.13.0.** The app declares
+  viewpager2 directly, and material asks for 1.2.1. The owner said material twice. The agent's body
+  for #97 said the same, and was corrected on 2026-11-05.
+- **"Declaring pins the premise" was wrong, and it was the owner's whole purpose for #98.** Gradle
+  resolves to the highest requested version, so a later viewpager2 or material can move RecyclerView
+  with nothing failing. #98 documents the dependency, and does not protect the premise.
+  - **What protects it instead:** #99, into `main-v5`, open and not merged. It adds
+    `CheckRecyclerViewVersion` to `app/build.gradle.kts`, which fails each variant's build when its
+    runtime classpath resolves RecyclerView to anything but 1.3.1.
+  - **`strictly()` was not applied.** Run on Gradle 9.4.1, a strict version declared on `:app` below
+    a transitive request was selected, and the request downgraded, with the build passing.
+- **The 400-row cap is the history source's, not the app's.** The timeline has no cap. Rows leave it
+  one echo at a time, or all at once on clear, so live messages take it past 400 and it keeps
+  growing. The owner treated the cap as the app's.
+- **One test does cross 400 rows:** `ChatTimelineShownRowsCostTest`, at 400, 1,000 and 6,400. It
+  checks rows read and the inserted row's round trip, not mapped values, which is why M8 passed it.
+  - **This one corrects a line of this plan.** As asked on 2026-11-05, the top of section M said that
+    no automated test covered the mapping at or past 400 rows. The agent wrote that line and the
+    test's reach into the same block without reconciling them. What no test covered there was the
+    mapping by value.
+- **Added in the same step:**
+  - **`ChatTimelineShownRowsPastTheCapTest`,** tests only, with no production file changed. Its
+    results are in section M's row-regime note: M8 fails both its cases, and M9 fails those two and
+    no other test.
+  - **The long-session case,** in section M, with its failure criteria written before any run.
+  - **The row-regime note,** corrected to match.
