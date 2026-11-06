@@ -742,8 +742,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
          stays under the shell's ten-minute limit, in the foreground, and continues the last: its
          labels, its saved extract and its rates file carry over;
       5. `state` after the last reading.
-    - **The session's cap, the agent's proposal and the owner's to set:** 140 minutes, past the 133
-      that 6 rows a minute would take.
+    - **The session's cap: 140 minutes,** approved by the owner on 2026-11-06. It is past the 133
+      that 6 rows a minute would take. The session ends at its target or at its cap, never on a
+      `Views:` reading (the agent's addition, under the bands below).
     - **First, at every poll, the invariant:** the bound process is alive, with the pid and start time
       bound (*Recorded results*, "the poll's silence, and its invariant").
     - **The row counts and the journal, read in one pass.**
@@ -751,7 +752,10 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         - `backfill.triggered`'s `source`, only as one of the six values that
           `HistoryBackfillPolicy.kt:5-10` writes;
         - `backfill.result`'s `messageCount`, `firstTs` and `lastTs`;
-        - `user.marker`'s `shownRows`, the row count this case already reads from the journal;
+        - `user.marker`'s `shownRows`, the row count this case already reads from the journal.
+          **Approved by the owner on 2026-11-06 as an extracted field: it is a count, not a name.**
+          It was flagged, not included quietly, since the owner's list first named only the two
+          backfill events;
         - each line's moment. No account name, no channel name, no message text.
       - **How:** the journal is piped from the phone into `journal_extract.py`, and never written raw.
         The extractor prints only what it builds from fields whose values match their shape in the
@@ -864,6 +868,33 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       - **Measured on 2026-11-06, for one growing timeline:** R = 2.71, so pass at or below 1.43 and
         fail at or above 1.90 (*Recorded results*, the instrument's sitting). Another page setup gives
         other bands, recorded there too.
+      - **If the session ends below 1,200 rows,** by the owner's rule of 2026-11-06, written before
+        the run, the bands are RECOMPUTED from the same formula on the actual counts.
+        - R = (C + k·N_end) / (C + k·N_start), where N_start and N_end are the row counts at the first
+          and at the last reading that has a dump. With k = 1.00 that is (67 + N_end) / (67 + N_start).
+        - M = √R; pass at or below M/1.155, fail at or above M·1.155, inconclusive between.
+        - **Not washing:** C, k and the two row counts are all fixed independently of the outcome.
+          So the end must be too: the session ends at its target or at its cap, never on a `Views:`
+          reading. That condition is the agent's addition.
+        - **The worked example, checked:** 400 to 900 rows gives R = 967/467 = 2.07, M = 1.44, and
+          bands at 1.25 and 1.66. Computed: 2.0707, 1.4390, 1.2459 and 1.6620.
+      - **The floor, from the abandon condition already declared:** R below 1.3 drops the view
+        criterion, and R ≥ 1.3 needs N_end ≥ (1.3 × (C + k·N_start) − C) / k.
+        - **With C = 67, k = 1.00 and N_start = 400:** 540.1, so **541 rows**, the first whole count,
+          where R = 1.302. At 540, R = 1.2998.
+        - **Over the recorded ranges,** C from 66 to 68 and k from 1.000 to 1.003, the floor runs from
+          539.7 to 540.4.
+        - **So the session has a useful minimum, 541 rows, as well as its cap.**
+        - **If it ends below the floor,** the view criterion is DROPPED, not stretched, and reported as
+          dropped. The case's other criteria are judged on what was seen. The session is recorded as
+          short of the case's length, and whether to run it again is the owner's.
+      - **Between 541 and 555 rows, by the same arithmetic, a pass cannot happen.** R there is below
+        1.155² = 1.334, so the pass edge M/1.155 is below 1.0, and a count that does not grow at all
+        reads inconclusive. From 556 rows on, a ratio of 1.00 passes. The abandon condition stays at
+        1.3, as declared. Whether 1.334 should replace it is the owner's.
+      - **Not covered by the rule as given:** a session ending at 1,200 rows or more, and a first
+        reading away from 400. The same formula covers both. Whether it applies to them is the
+        owner's.
       - **The derivation, from the mechanism:**
         - **Recycling** holds views only for the rows laid out, plus a cache and a pool of fixed size.
           Its count stays roughly constant as rows grow: about 1.0x from 400 to 1,200.
@@ -4793,3 +4824,166 @@ this block ran on the phone.
   - **One comparison first ran on a wrong path.** `git diff --quiet` reports no difference for a path
     that is in neither tree.
   - **So all four were rerun by blob,** each path checked to exist.
+
+**2026-11-06: the duplicate condition, derived from the code, beside the pre-registration.** Read on
+this branch at `a5f0b59`, with the arithmetic computed. Nothing was run on the phone. The
+pre-registration is not edited; where this narrows it, the last item says so.
+- **The owner's narrowing, recorded first:** "past 800 rows duplicates are possible" named the wrong
+  trigger. The row count is not it: the comparison is between the backfill window and the time span
+  of the kept keys. The risk is therefore highest when the span is short, which is early in the
+  session, not late. The owner reached for the row count because it was the number in front of the
+  owner.
+  - **What holds, by the derivation below:** the window decides, set against how far back the newest
+    shown row whose key has left lies.
+  - **What falls or narrows:**
+    - **The row count is not idle.** No key leaves before 800 have gone in, so it is a necessary
+      condition, though not the trigger.
+    - **"Early" holds in one sense only.** Before the 800th key the risk is nil: every older message
+      was either never shown or still has its key. After it, the newest keyless row lies 800/r
+      minutes back while keys go in in message order. That is constant at a steady rate, and shortest
+      when the rate is highest. Only if a history response is listed newest first does the distance
+      start short: at the time since the page started, about 33 minutes right after the 800th key.
+    - **The window is not the whole comparison.** The response must also hold that row, which
+      depends on the backend's selection within its cap of 400.
+- **The sensitivity, the owner's figure, checked:** 800 keys span less than 60 minutes above 800/60 =
+  13.33 rows a minute, 8.4% above the planned 12.3. So the session records the rate as it goes, from
+  its long-presses' counts and moments, as finely as they are spaced, and does not assume it. The
+  figure bites only for a window that re-covers an hour of shown rows (below).
+- **The condition, from the code.**
+  - **One guard.** A row enters the timeline only through `appendChatLine`, whose one check is
+    `shouldSuppress(key)` (`ChatFragment.kt:3644`). History reaches it in the response's order, with
+    no filter (`:2965-2984`).
+  - **The keys.**
+    - **Live:** `id:` and the IRC message's id, or else `live:` with the time, the user and a hash of
+      the text (`:2255-2266`).
+    - **History:** `id:` and the backend's id, or else `hist:` with the time, the user and a hash of
+      the text (`:2969-2974`).
+  - **Which keys are kept:** `id:` keys only, at most 800 (`ChatMessageDeduplicator.kt:80`).
+    - A new `id:` key past 800 removes the earliest inserted, and `containsKey` does not reorder
+      (`:46`). So a key leaves after exactly 800 newer `id:` keys, however often it suppressed a copy.
+    - `live:` and `hist:` keys are suppressed only when they equal the previous key within 1.5 s.
+  - **What resets them:** a channel change, together with the timeline (`ChatChannelBinding.kt:103`).
+    - The deduplicator lives with the fragment (`ChatFragment.kt:629`), the timeline with its view
+      (`:1497`, in `onViewCreated`).
+    - A view rebuilt under the same fragment would keep the keys and empty the timeline. That
+      suppresses rows; it cannot duplicate them.
+  - **So a duplicate needs one of two things:**
+    - **eviction:** a response holds a message already shown whose `id:` key went in more than 800
+      `id:` keys ago;
+    - **mismatch:** a response holds a message already shown under another key, such as a current row
+      relayed without an id, keyed `hist:` against its live `id:`. The owner's backend reading says
+      current rows carry ids.
+- **How far back each backfill re-covers rows already shown,** from `HistoryBackfillPolicy.kt` and
+  `HistoryBackfillState.kt`. Every window ends at its request and spans 30 to 3600 s.
+  - **Reconnect or resume after a stop:** `onStop` closes the connection (`ChatFragment.kt:2078`), so
+    the gap's messages were never shown. The window, the gap plus 10 s (`:571-572`), re-covers 10 s
+    of shown rows.
+  - **Reconnect without a stop,** a dropped connection: from the newest message shown, kept as a
+    maximum (`HistoryBackfillState.kt:185-187`), plus 10 s. Again 10 s of shown rows.
+  - **Resume after a pause without a stop,** the connection still open: the time away plus 10 s, all
+    of it shown.
+  - **Manual refresh:** 120 s, about 25 rows at 12.3 a minute. Every tap sends one, with no
+    suppression (`:366-373`).
+  - **First connect:** 3600 s, once per page (`:225-240`).
+    - **And again after a failed request.** `REQUEST_FAILED` and `SESSION_MISSING` clear
+      `historyLoaded` (`:396-418`). The next connect is then a first connect, over a full timeline
+      whose keys were not cleared, and it re-covers up to an hour of shown rows.
+    - The pre-registration's section 3 did not have this. Apart from a long pause without a stop, it
+      is the only window that re-covers more than minutes of shown rows.
+  - **A window still owed** widens any of them back to a failed request's window start, or to a
+    skipped one's pause or stop moment (`:659-684`, `:718-764`). That re-covers no more shown rows
+    than the request it stands for.
+- **Which of them can return a row whose key has gone, by eviction.** The window must re-cover more
+  than 800 key-inserting messages of shown rows, and the response must hold one of the older ones.
+  - **A refresh** would need more than 800 rows in 120 s, 400 a minute. No rate this channel has shown
+    comes near.
+  - **A reconnect or a resume after a stop** would need 800 in 10 s. So "after a reconnect" falls, for
+    eviction: a reconnect re-covers only 10 s of rows already shown.
+  - **The first connect again, or a long pause without a stop,** needs the hour before it to hold more
+    than 800 key-inserting messages, above 13.3 a minute. The backend must also return that hour's
+    older part.
+  - **The backend's selection, which was not read, decides that last part.**
+    - **If it returns the newest 400 of a window,** no response can hold a key that has left, at any
+      rate, window or time: the newest 400 messages are among the 800 most recent keys.
+    - **If it returns the oldest 400,** it can.
+  - **With the history at its cap and a steady 12.3 a minute, no selection or order lets even a 3600 s
+    window reach a key that has left.**
+    - **Keys in message order:** the newest keyless row is 800/r = 65 minutes back, beyond any window.
+    - **History listed newest first, newest 400 selected:** its newest rows leave first, but no
+      response reaches them.
+    - **History listed newest first, oldest 400 selected:** the history ends about 27 minutes before
+      the page started, and its newest row's key leaves first, 32.5 minutes in. That row is then
+      exactly 60 minutes back, at the window's edge, and every keyless row after it lies further
+      back. This case does not depend on the rate: the row sits 60 − 400/r minutes before the page
+      and leaves 400/r minutes into it.
+- **Can it be created deliberately inside one session? Not at the planned rate.**
+  - **No tap can.** The one request a tap makes is a refresh, and 120 s re-covers 25 rows.
+  - **The one wide window a person can bring about is the first connect again.** A request must fail,
+    and the connection must reconnect.
+    - **How, by reading and not tried:** a refresh tapped with the network cut, then the network
+      restored. The cut is a phone setting, airplane mode or Wi-Fi, so it is the owner's to approve,
+      and it drops the connection while it lasts.
+    - **At 12.3 a minute with the history at its cap, it would show no duplicate under any selection or
+      order** (above). So it is not a test either: it gives the same self-confirming "no duplicates"
+      that item 9 would have.
+  - **When, at a higher rate: not early.** With keys in message order, a 3600 s window reaches a
+    keyless row only once the history's keys and then the oldest live ones have left, after 800/r
+    minutes: 40 minutes at 20 a minute. The newest-first case that starts short needs the hour before
+    the page to hold fewer than 400 messages, which the case's setup, history at the cap, excludes.
+- **What would be needed instead.**
+  - **First, the backend's selection within its cap of 400.**
+    - **If it is the newest 400,** a duplicate by eviction is impossible in any session, and the
+      eviction question closes by reading. The query is the owner's to read, in the backend clone.
+    - **The session's own first record could also show it:** the first connect's `firstTs` and
+      `lastTs`, against its moment. The newest 400 end at the request; the oldest 400 start an hour
+      before it. That needs the app's UTC offset, which the tooling does not record.
+  - **If it is the oldest 400:** a different rate, a channel above 13.3 rows a minute for the hour
+    before the wide window, and the network cut above, after 800/r minutes. Neither is in the session
+    as planned.
+  - **Or a change no manual case can make.** A unit test of `ChatMessageDeduplicator` at a small
+    capacity shows the eviction itself. A dev-harness case with a stand-in history client shows the
+    duplicated row. Both are code changes, outside 5.6.0.
+  - **A second session alone changes nothing:** the same rate and windows, and the deduplicator starts
+    empty.
+- **The one deliberate tap that can show a duplicate in this session is a refresh, by mismatch, not by
+  eviction.** It is not added. The owner decides.
+  - **Which:** one refresh, between two long-presses, with nothing else touched. It counts only if its
+    `backfill.result` falls between them.
+  - **When:** any time, since this mechanism does not depend on the row count. After the first
+    reading, so that the bracket is clean.
+  - **What it would show:** the rows it added, that is, the change in `shownRows` less the live rows
+    of the bracket. While the connection holds, its 120 s are all shown rows, so every row it adds is
+    a duplicate.
+    - **0, under the owner's backend reading,** where every history copy carries its live row's id.
+    - **More than a few** means current rows whose history copies key differently: the mismatch the
+      caveat names, found.
+  - **What it cannot show:** eviction. It tests the key match, and says nothing past 800 rows.
+- **Item 9 is not taken,** by the owner's decision: a refresh at 1,000 rows or more could not produce
+  a duplicate by eviction.
+  - **The owner's reason** set 65 minutes of kept keys against a 60-minute window.
+  - **A refresh's window is 120 s,** which settles it further.
+- **What this narrows in the pre-registration, which stays as hashed:**
+  - **Section 1, "after a reconnect":** by eviction, a reconnect cannot.
+  - **Section 3** misses the first connect that a failed request brings back, the one wide window.
+  - **Section 4's "wider than about 30 minutes":** with the history at its cap, that route closes too.
+    Its prediction of no duplicate in this session stands, more firmly: by eviction, none at 12.3 a
+    minute, under any selection, whatever the window.
+  - **Section 9:** not taken. Nothing replaces it unless the owner adds the refresh for mismatch.
+
+**2026-11-06: four instruments today that did not look, read as nothing to see.**
+- **The fourth:** `git diff --quiet` reports no difference for a path in neither tree, so a comparison
+  that succeeds on a wrong path is not a comparison.
+  - **What was done instead:** all four comparisons were rerun by blob, with each path checked to
+    exist.
+  - **Its entry is in AGENTS.md's *Git and GitHub behavior already diagnosed*,** by its own pull
+    request into `main-v5`: #100, open.
+- **The owner counted it the third today. It is the fourth:**
+  1. the poll at 09:49 that read a dead process as "no container found" eight times: the record above
+     that named the shape;
+  2. the extractor whose empty output read as "nothing new", 31 times;
+  3. the mark taken from the wrong clock;
+  4. `git diff --quiet` on a wrong path, read as "identical".
+- **Three gave a false reading; the mark did not.** It was caught by reading, before any run.
+- **The extractor's fault was not new either.** A Git Bash path given to Windows' Python voided
+  `Qc-base-1` on 2026-11-02, and the account came back empty then too (*The qualification,
+  2026-11-02*).
