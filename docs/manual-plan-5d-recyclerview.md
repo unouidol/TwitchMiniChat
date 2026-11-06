@@ -658,16 +658,60 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
   - **Setup:** the final build, on a busy channel whose history arrives at the cap of 400 rows. The
     page stays current with the screen on, and no user is hidden, so `shownRows` counts every row.
   - **How long:** until the timeline holds at least 1,200 rows, 800 live rows past the history, with
-    messages still arriving. That bound is proposed, not measured. The owner may change it before the
-    run.
+    messages still arriving. The owner kept that bound on 2026-11-06: past Chatterino2's limit of
+    1,000 is the mark that means something.
+    - **What it costs:** 6 to 24 rows a minute were recorded on the measurement's channel on 2026-11-03
+      (under *Recorded results*). At that rate, 800 rows take 33 to 133 minutes. That channel was
+      chosen quiet, for the measurement. So this is a leave-it-running case, not a hands-on one.
+    - **The fastest honest route is a busier channel.** The time is 800 rows over the channel's rate,
+      and no busier channel's rate is recorded. So the rate is measured at the start: two row-count
+      readings some minutes apart, and the time projected from them.
+    - **Not used:**
+      - rows the harness injects, since the question is about a real session;
+      - the tester's own messages, which would be spam, and whose rows are echoes, not messages.
+    - **What would break the session, by reading:**
+      - **A change of channel** clears the timeline (`ChatChannelBinding.changeTo`). Nothing else
+        that was read clears it: not a reconnect, not a refresh.
+      - **A tap on refresh** starts a manual refresh. The row-count reading is a long-press.
+    - **The screen:** the app does not keep it on, and has no foreground service. The phone's display
+      timeout governs, and that is a phone setting, the owner's to change; otherwise someone wakes the
+      screen before it sleeps.
+      - **By reading:** the page's stop handler does not close the connection.
+      - **Not examined:** what Android does with the stopped process, and whether rows keep arriving.
+      - **So:** the readings are taken with the page current, and the row count at each reading, not
+        the clock, says where the session stands.
   - **Three readings:** after the history (about 400 rows), at about 800, and at 1,200 or more. Each
     takes:
     - **The row count:** long-press refresh. It writes `shownRows` into the journal's `user.marker`
       event, which is read from the journal afterwards.
     - **Memory:** `adb shell dumpsys meminfo` for the package of the build on the phone. It records
       the total PSS (proportional set size), the Java heap, and the `Views:` count under Objects. It
-      reads and changes nothing. That the dump prints `Views:` on this phone is the platform's
-      documented output, not yet seen here. If it is absent, say so, and that criterion goes unjudged.
+      reads and changes nothing.
+  - **The view count's instrument: `Views:` in `dumpsys meminfo`. It is not qualified.**
+    - **What it counts.** This was read in Android 12's platform source (AOSP `android12-release`),
+      not in this phone's OnePlus build.
+      - `ActivityThread.dumpMemInfo` runs `runtime.gc()` first, "since countInstancesOfClass counts
+        unreachable objects".
+      - It then prints `Views:` from `ViewDebug.getViewInstanceCount()`, which is
+        `VMDebug.countInstancesOfClass(View.class, true)`.
+      - So it counts every instance of View or a subclass in the process, attached or not: the list's
+        laid-out rows, its cache, its recycled pool, and every other view of the app, both pages
+        included.
+    - **It has never been run in this project.** Neither plan uses it, and it has not been seen on
+      this phone.
+    - **What qualifying it takes, before the case can decide anything:**
+      1. **Present:** one dump on this phone shows the `Views:` line.
+      2. **Repeatable:** three dumps within a minute, with the list at rest at the bottom, agree
+         within a small share of the margin the criterion needs. A 1.5x threshold needs the at-rest
+         spread well under 50%. 10% is proposed, not measured.
+      3. **Sensitive, against a known answer:** on a build without recycling, the pre-5d container,
+         the count rises with rows. Two dumps some hundred rows apart give the views per row, `k`.
+         That measures the no-recycling prediction on this app instead of assuming it. Installing
+         that build is the owner's decision.
+      4. **The rest of the app:** a dump with an empty or short timeline gives `C`, the views that
+         are not rows.
+      - **Until steps 1 and 2 pass,** the view criterion goes unjudged.
+      - **Until steps 3 and 4 have run,** the no-recycling prediction stays an upper bound (below).
   - **At each reading:**
     - **Scroll:** fling far up, then back to the bottom.
     - **Follow the bottom:** at the bottom, new messages keep the list there. Scrolled up, the list
@@ -683,9 +727,27 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     - an animated emote frozen on screen, or animating in a row that is not its own;
     - hiding or showing a user leaving a row in the wrong place, or the echo not confirming in place;
     - a crash, an ANR (Application Not Responding) dialog, or an `OutOfMemoryError` in Logcat;
-    - **`Views:` growing with the rows:** a rise of 100 or more between the reading at about 800 rows
-      and the one at 1,200 or more. The list should hold views only for the rows it lays out. The
-      bound of 100 is proposed, not measured.
+    - **`Views:` growing with the rows:** a count at 1,200 rows above 1.5 times the count at 400. The
+      threshold is the owner's, set on 2026-11-06, and the derivation, from the mechanism, follows.
+      - **Recycling** holds views only for the rows laid out, plus a cache and a pool of fixed size.
+        Its count stays roughly constant as rows grow: about 1.0x from 400 to 1,200.
+      - **No recycling** holds a view for every row. Its count grows in proportion with the rows:
+        about 3.0x from 400 to 1,200, as the rows triple.
+      - **The threshold, 1.5x, is far from both predictions.** It is not their midpoint in
+        logarithmic terms, as first written. That midpoint is √3, about 1.73, and 1.5x is 37% of the
+        way from 1.0 to 3.0 in those terms, nearer the recycling prediction.
+      - **3.0x is an upper bound.** The count includes `C`, the views that are not rows, and a row
+        may be more than one view, `k` each. No recycling then predicts (C + 1,200k) / (C + 400k),
+        which is below 3.0. A second page's rows, counted in `C`, lower it further. Qualification's
+        steps 3 and 4 give the figure for this app.
+      - **A result between the two predictions is INCONCLUSIVE,** and is reported as such, not
+        explained.
+      - **Open, for the owner, before the run: the two rules overlap.**
+        - **Read literally,** every result between 1.0x and 3.0x is inconclusive, and every result
+          above 1.5x fails, so 2.0x would be both.
+        - **One reading that keeps both,** the agent's and not decided: pass at or below 1.5x, fail at
+          or above 2.0x (3.0x over 1.5), and inconclusive between them.
+        - **What that reading gives:** the two bands sit symmetrically about √3 in logarithmic terms.
   - **Not a failure: memory growing.** The timeline's data grows with every row, because nothing caps
     it. That predates 5d and is not a 5d regression. PSS and the Java heap are recorded as figures,
     not judged.
@@ -4110,3 +4172,33 @@ branch before the pull request opened: `7c6f58a`, `a911bb9`, `4eb73f8`, and this
     no other test.
   - **The long-session case,** in section M, with its failure criteria written before any run.
   - **The row-regime note,** corrected to match.
+
+**2026-11-06, later: #99 merged, and two records.**
+- **#99 merged into `main-v5` as `98f235a`.**
+  - **The merge:** pinned to #99's head, `0df74ab`, after CI run `42178166044` passed on exactly
+    that head. `main-v5`'s tree equals `0df74ab`'s.
+  - **Into this branch:** merged as `6c1ebb1`, which brought only `app/build.gradle.kts`.
+  - **On the merged tree:** the check passes for all four variants, and its grep finds 24 lines. They
+    are the 23 of `3efb40e`, plus one correction line this plan added, "RecyclerView 1.3.1 comes from
+    viewpager2". The message gives a grep, not a list.
+- **`strictly()` was settled by running it, not by the documentation, which contradicts itself.**
+  - **The documentation:** "Declaring rich versions" says a strict version on a declared dependency
+    "can downgrade a version". "Graph resolution" says that if one "is declared that is lower than
+    the highest, resolution will fail".
+  - **The run:** on Gradle 9.4.1, a strict 1.2.1 declared on `:app` against viewpager2's transitive
+    1.3.1 resolved to 1.2.1 "by ancestor". There was no warning, and the build succeeded. It failed
+    only while #98's own non-strict 1.3.1 was declared too.
+  - **What follows:** a strict 1.3.1 would silently downgrade a later bump that asks for more.
+  - **Whose was what:** that characterisation was the agent's, not the owner's, before the run and
+    after it. The owner's error was "declaring pins the premise".
+- **M8 did not justify the past-the-cap test, and M9 did.**
+  - **M8's fault is at positions 0 and 1,** which the small tests already catch. That both new cases
+    fail it shows only that they check values.
+  - **M9 is the same matched swap,** on the last two shown positions and past 400 rows only. It fails
+    exactly the two new cases, and passes every other test, `ChatTimelineShownRowsCostTest`
+    included.
+  - **The agent noticed that M8 was insufficient,** and built the mutant that was needed.
+- **The long-session case's criteria changed before any run.** All of it is in section M.
+  - The 1,200-row bound was kept, with its cost recorded.
+  - The view criterion was replaced by its shape.
+  - Its instrument was recorded as not qualified.
