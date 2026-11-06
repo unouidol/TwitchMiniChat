@@ -581,6 +581,14 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     not read.
   - **The app sets no cap.** `ChatTimeline` has no capacity. Rows leave it one echo at a time
     (`removeEcho`) or all at once (`clear`), so live messages take it past 400, and it keeps growing.
+    - **Beside it, the owner's reasoning, recorded as reasoning** (2026-11-06): a cap near 1,000 would
+      keep the timeline and the deduplicator's capacity consistent, which is plausibly why Chatterino2
+      sits there. It is not Chatterino2's stated reason, and whether Chatterino2 deduplicates against
+      its buffer was not read.
+      - **The agent's precision:** consistency needs the cap at or below the deduplicator's capacity,
+        800 today (`ChatMessageDeduplicator.kt:80`). Then every row shown has its key kept. A cap at
+        1,000 with the capacity left at 800 would leave up to 200 shown rows without a kept key.
+      - It is also item 8 of the long session's pre-registration (*Recorded results*, 2026-11-06).
   - **The measured scenario's 800 rows** were two pages of 400, so two timelines, not one of 800.
 - **The tests, by reading, with the largest timeline each walk printed on its last clean run
   (`4eb73f8`):**
@@ -661,13 +669,16 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     messages still arriving. The owner kept that bound on 2026-11-06: past Chatterino2's limit of
     1,000 is the mark that means something. That limit, and what Chatterino2 does at it, is recorded
     under *Recorded results*, 2026-11-06, "Chatterino2's scrollback cap".
-    - **What it costs:** 6 to 24 rows a minute were recorded on the measurement's channel on 2026-11-03
-      (under *Recorded results*). At that rate, 800 rows take 33 to 133 minutes. That channel was
-      chosen quiet, for the measurement. So this is a leave-it-running case, not a hands-on one.
-    - **The fastest honest route is a busier channel.** The time is 800 rows over the channel's rate,
-      and no busier channel's rate exists in the records. So the rate is measured at the start of the
-      case, from two row-count readings some minutes apart, and the time is projected from them. It is
-      not assumed from 2026-11-03's quiet channel.
+    - **What it costs, as planned on 2026-11-06:** 12.3 rows a minute, the rate after dump B in the
+      instrument's sitting (*Recorded results*). At that rate, 800 live rows take about 65 minutes.
+      The 6 to 24 a minute recorded on 2026-11-03's quiet channel would take 33 to 133. So this is a
+      leave-it-running case, not a hands-on one.
+    - **The 169 rows in one minute are not relied on,** and the case assumes that no such minute comes
+      (*Recorded results*, "the 169 rows in one minute"). A burst would shorten the session, but the
+      plan does not count on one.
+    - **The rate is still read at the start,** from the first two long-presses some minutes apart, and
+      the next long-presses are timed from it. A busier channel would be faster, but no busier
+      channel's rate exists in the records.
     - **Not used:**
       - rows the harness injects, since the question is about a real session;
       - the tester's own messages, which would be spam, and whose rows are echoes, not messages.
@@ -675,6 +686,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       - **A change of channel** clears the timeline (`ChatChannelBinding.changeTo`). A reconnect or a
         refresh does not.
       - **The row-count reading is a long-press on refresh.** A tap starts a manual refresh.
+        - **A tap by mistake is not silent:** it writes `backfill.triggered` with
+          `source=manual_refresh`, which the session's poll prints, and the history it brings is
+          counted apart like any other (below).
     - **The screen is held on by USB power, read and not changed.** `stay_on_while_plugged_in` read 7
       (AC, USB and wireless) on 2026-11-06, with `dumpsys power` showing `mStayOn=true` on USB. It
       read the same on 2026-11-02, and 5c's plan records it the same way. So "Stay awake while
@@ -689,9 +703,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       - **By reading:** the app has no foreground service or wake lock, and the page's stop handler
         does not close the connection. Whether rows keep arriving while the app is stopped was not
         examined. With the screen held, the question should not arise.
-    - **A realistic worst case, not a normal usage condition.** The screen is held awake for 30 to
-      130 minutes, on a chat with animated emotes, so their frames are decoded for as long as the
-      session lasts. That costs battery and heat, on purpose, and is recorded as a condition of the
+    - **A realistic worst case, not a normal usage condition.** The screen is held awake for about 65
+      minutes as planned, and up to the session's cap (below), on a chat with animated emotes, so their
+      frames are decoded for as long as the session lasts. That costs battery and heat, on purpose, and is recorded as a condition of the
       session, not as a neutral parameter.
       - **The owner called it the path of the measured battery defect.** By the record, that holds
         for the work and not for the state. #69's measured defect was animated emotes decoding after
@@ -699,13 +713,90 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         screen, where decoding them is intended.
       - **So nothing here tests #69.** B1 does, at the end of the round.
       - **Read at each reading, beside the counts:** the battery's temperature and the thermal status.
+    - **The session's parameters,** read with the round's `sitting.sh state` before the mark and after
+      the last reading, like the sitting's:
+      - battery saver; AC, USB and wireless power; the battery's status, level and temperature;
+      - the thermal status;
+      - the display's rate;
+      - **"Stay awake while charging",** `stay_on_while_plugged_in`: approved by the owner, and already
+        on at 7, so read and not changed (above);
+      - the display timeout, `screen_off_timeout`, with `dumpsys power`'s wakefulness and `mStayOn`;
+      - the build on the phone: its APK's sha256, `versionCode`, `versionName` and last update time.
+      - **The worst-case note above goes with them, as corrected:** the screen held awake on animated
+        emotes is a condition of the session, and nothing here tests #69.
   - **Three readings:** after the history (about 400 rows), at about 800, and at 1,200 or more. Each
     takes:
     - **The row count:** long-press refresh. It writes `shownRows` into the journal's `user.marker`
-      event, which is read from the journal afterwards.
+      event, which the session's poll reads from the journal (below).
     - **Memory:** `adb shell dumpsys meminfo` for the package of the build on the phone. It records
       the total PSS (proportional set size), the Java heap, and the `Views:` count under Objects. It
       reads and changes nothing.
+  - **The session's poll, once a minute, by the round's `sitting.sh`,** with `journal_extract.py`, in
+    `%USERPROFILE%\tmc-5d-round\V`, outside this repository, frozen at sha256 `854dca02…` and
+    `f5abb492…`. Written on 2026-11-06. Nothing of it has run on the phone.
+    - **The order:**
+      1. `state` before;
+      2. `session-start <label>`, with the dev app not running: the mark;
+      3. the launch onto the channel, then `bind`;
+      4. `session-poll 800 8`, called again after each return until it reports its target. Each call
+         stays under the shell's ten-minute limit, in the foreground, and continues the last: its
+         labels, its saved extract and its rates file carry over;
+      5. `state` after the last reading.
+    - **The session's cap, the agent's proposal and the owner's to set:** 140 minutes, past the 133
+      that 6 rows a minute would take.
+    - **First, at every poll, the invariant:** the bound process is alive, with the pid and start time
+      bound (*Recorded results*, "the poll's silence, and its invariant").
+    - **The row counts and the journal, read in one pass.**
+      - **Extracted, and nothing else:**
+        - `backfill.triggered`'s `source`, only as one of the six values that
+          `HistoryBackfillPolicy.kt:5-10` writes;
+        - `backfill.result`'s `messageCount`, `firstTs` and `lastTs`;
+        - `user.marker`'s `shownRows`, the row count this case already reads from the journal;
+        - each line's moment. No account name, no channel name, no message text.
+      - **How:** the journal is piped from the phone into `journal_extract.py`, and never written raw.
+        The extractor prints only what it builds from fields whose values match their shape in the
+        code. The poll then checks every extracted line against that grammar, and saves nothing of a
+        read that holds a line outside it.
+      - **From the mark:** the instant of the journal's last line before the launch, in the journal's
+        own clock. So the first connect's history is in the extract, and no earlier session's line is.
+        Every poll re-reads the extract from the mark, and the lines earlier polls saved must come
+        first and unchanged: a journal that rotated past them stops the poll.
+      - **History counted apart from live rows:** at each long-press, the messages delivered by every
+        `backfill.result` before it are summed. History rows shown are at most that sum, since the
+        deduplicator can only remove rows, so `shownRows` less the sum is a lower bound on the live
+        rows. A result whose `messageCount` was rejected makes it no bound, and the poll prints it
+        UNKNOWN. The target is 800 live rows by that bound.
+      - **A read that fails is never "nothing new":** an unreadable journal, an empty extraction, or a
+        line outside the grammar stops the poll with `INVARIANT VIOLATED`.
+    - **The refresh rate, at every poll, with its moment. Not a void condition,** by the owner's ruling
+      of 2026-11-06.
+      - **The dev app stays in front for the whole session.**
+      - **The rate is read only after the dev app has been in front for more than 2.1 s:** in front at
+        two reads 2.2 s apart, then the rate and its range, then the front read once more. What
+        happens between the two reads is not read.
+      - **A poll that finds another app in front** prints `RATE NOT READ` with its moment, and the
+        session goes on.
+      - **A change of rate** is placed between two polls. Whether the segments around it stand is the
+        owner's ruling.
+    - **Shown to work offline, against a stand-in for adb, in 15 cases,** each ending with the exit and
+      the message expected:
+      - a healthy session, with an earlier session's lines in the journal that the mark excludes;
+      - another app in front; the process gone at the second poll; a poll's line outside the
+        whitelist; a rate of 60 with the range [0 60]; an unreadable journal at a poll;
+      - a rejected `messageCount`, which leaves no bound until the cap; a journal rotated past saved
+        lines;
+      - a mark with the app running; a process bound before the mark; a reused label; a poll with no
+        mark; two consecutive calls of one session;
+      - a mark whose journal is unreadable, or whose extractor returns something other than one
+        instant.
+      - **What it extracted was checked:** the 37 files the cases saved, 150 lines, hold no account,
+        channel, text or other field outside the whitelist. Their input was a synthetic journal with an
+        account and a channel on every line, an injected `source`, a malformed `messageCount` and a
+        text field.
+    - **Not yet exercised on the phone:** reading the journal with `run-as`. The mark is its first
+      read, and fails loudly if it reads nothing.
+    - **Duplicates:** what this session can say about them is pre-registered (*Recorded results*,
+      2026-11-06, "the long session's tooling, and its duplicate prediction").
   - **The view count's instrument: `Views:` in `dumpsys meminfo`. It is not qualified.**
     - **What it counts.** This was read in Android 12's platform source (AOSP `android12-release`),
       not in this phone's OnePlus build.
@@ -4611,3 +4702,94 @@ and `-2`'s logcat. Nothing was run.
     `dumpsys activity top`'s `ACTIVITY` line.
   - **If either reads differently on this phone,** `bind` or the first reading fails loudly, not
     silently.
+
+**2026-11-06: the backend relays Twitch's message ids, by the owner's reading.**
+- **Read by the owner in the backend clone,** not here: `history_endpoint_service.py:157` serializes
+  `"id": message.message_id`, and `chat_history_store.py:184` selects `msg_id`, mapped at `:209`.
+- **So the condition that "Why duplicates are excluded by reading" rested on holds** (the 169 rows,
+  above). A history copy of a row already shown carries the same `id:` key, and at 560 rows the
+  deduplicator still held every key.
+- **The caveat, the owner's:** `msg_id` was added by a migration (`chat_history_store.py:85`). Rows
+  inserted before it relay `"id": null`, and the deduplicator has no key for them: the app keys them
+  `hist:` (`ChatFragment.kt:2972`), which it does not keep. True of old history, not of current rows.
+
+**2026-11-06: the recurring 60 Hz, explained by the owner, and how far the records carry it.**
+- **The owner's explanation:** the cap was the primary range, [0 60], lifted 2.0 s after the dev app
+  came to the front. That matches the re-compare delay of 1.66 to 2.10 s across 113 launches, and 0 of
+  130 readings were at 60 with the dev app in front and battery saver off. So those three readings
+  were taken too early.
+- **Set against the three, from the records above:**
+  - **`-2`, 2026-11-03: it holds as recorded.** The 60 was read before the launch, with another app in
+    front, and [0 60] was replaced 2.0 s after the vendor's service logged the dev app as the front
+    package.
+  - **This sitting's after-read, 10:38:06: consistent, not shown.** The dev app had no process, so it
+    was not in front. That the cap would have lifted once it was is not observed: the reading ended at
+    60, and the range was not read.
+  - **The negative control's 15 readings, 2026-11-04: the rule holds, the mechanism is not shown.**
+    - They came before its first launch, at 12:05:47, and which app was in front was not recorded.
+    - The rate went from 60 to 90.0 and back between 12:01:56 and 12:02:27, and to 90.0 for good at
+      12:04:32, with no launch of the dev app recorded at either change. So its lifts were not "2.0 s
+      after the dev app came to the front".
+    - Its primary range was not read.
+  - **So the claim narrows.** The three were read before the dev app had been in front for 2.1 s:
+    certainly in `-2` and in the sitting, and by the launch record in the control. The lifting at 2.0 s
+    is shown in `-2` only.
+- **What set [0 60] originally is still unknown, and stays unknown.** It happened before any log
+  began, and nothing recorded can recover it.
+- **The rule that follows:** read the rate only after the dev app has been in front for more than
+  2.1 s.
+  - 2.1 s is the largest delay seen, 2.099 s: a sample maximum, not a bound.
+  - In the long session the app stays in front for minutes before most polls, far past it.
+- **Section M now records the rate at every poll, with its moment, and not as a void condition,** by
+  the owner's ruling. That supersedes "As written, nothing: section M holds no refresh rate", above,
+  which was true when written.
+
+**2026-11-06: the long session's tooling, and its duplicate prediction pre-registered.** Nothing in
+this block ran on the phone.
+- **The pre-registration:** `docs/5d-long-session-duplicates-prereg-2026-11-06.md`, sha256
+  `bb846ae18860ccd6bbbe2348c57cd7820c2e1ede802eed4fcf51eaa7d3b9bca3`, git blob `93f1ef1`.
+  - **Its times, by this machine's clock:** written by 12:14:25 +01:00 (the file's time), hashed at
+    12:42:49, committed as `e8a9a6c` at 12:43:02, and pushed at 12:43:18.
+  - **Read back from GitHub at 12:43:29:** the branch's head was `e8a9a6c`, with the same blob and
+    the same sha256.
+  - **No poll of the long session has run.**
+  - **What it fixes:**
+    - the owner's prediction;
+    - the mechanism and the backfill windows, by reading;
+    - the narrower prediction the reading gives: none in this session, unless a window is wider than
+      about 30 minutes or the rate rises far above the plan's;
+    - what is recorded, and what no duplicate would mean;
+    - that it is a candidate pre-existing defect, not a 5d regression, and not in 5.6.0's scope.
+  - **The agent's additions in it, marked there:**
+    - the narrower prediction;
+    - the line between this question and section M's "duplicated" criterion, item 7;
+    - one deliberate refresh, proposed, and not part of the session unless the owner adds it, item 9.
+- **The tooling changed after the pre-registration was hashed, before any poll.**
+  - **It names** `sitting.sh` at sha256 `1120fb03…` and `journal_extract.py` at `34313d2f…`. They are
+    now `854dca02…` and `f5abb492…`, frozen for the session.
+  - **What changed: the session's mark.**
+    - It was the phone shell's clock. It is now the instant of the journal's last line, read with the
+      app not running.
+    - The journal stamps its lines with the app's clock, and the two clocks were never compared.
+    - So a difference between them would have dropped the first history from the count, or let an
+      earlier session's lines in, both silently.
+    - Whether the process was bound after the mark is now judged by the host's clock.
+  - **What did not change:** the events and fields extracted, the counts, and every invariant the
+    pre-registration relies on. The pre-registration is not edited.
+- **The tooling's checks, executed offline** against a stand-in for adb: 15 cases, each ending with the
+  exit and the message expected (section M). The 37 files they saved, 150 lines, hold no field outside
+  the whitelist.
+- **A defect of the tooling, found and fixed offline before those checks.**
+  - **What happened:** the first test of the session's poll hung, printing `shownRows=none_yet` 31
+    times.
+  - **Why:** the extractor's path reached the Windows Python in POSIX form, because adb's path
+    conversion is off for the whole script. The extractor never ran, and its empty output read as
+    nothing new.
+  - **Now:** the path is converted, the pipe's failure is checked, and the extractor exits 5 on an
+    empty input. The case "journal unreadable" stops with `INVARIANT VIOLATED [journal]`.
+  - **It is the poll's silence above,** in a new instrument.
+- **The deduplicator's code paths are the same on `main-v5` and this branch:** executed, by blob
+  (pre-registration, item 7).
+  - **One comparison first ran on a wrong path.** `git diff --quiet` reports no difference for a path
+    that is in neither tree.
+  - **So all four were rerun by blob,** each path checked to exist.
