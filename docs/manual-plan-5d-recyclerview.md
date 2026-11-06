@@ -679,8 +679,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       read the same on 2026-11-02, and 5c's plan records it the same way. So "Stay awake while
       charging", which the owner approved turning on, is already on, and nothing is changed.
       - **The agent's error:** it gave the display timeout as the obstacle without reading this
-        setting, which the round had already recorded. The timeout, read at 15 s, governs only off
-        USB power.
+        setting, which the round had already recorded. The timeout governs only off USB power. It
+        read 15 s early on 2026-11-06, and 30 minutes from 09:20 the same day, a change the agent did
+        not make (*Recorded results*, the instrument's sitting).
       - **Verified before and after,** like the sitting's other parameters: the setting, and USB power
         from `dumpsys battery`. If USB power is lost, the screen is no longer held, and that is
         recorded.
@@ -768,6 +769,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         and fails at or above M·1.155. Between them it is INCONCLUSIVE, which is reported as such and
         not explained.
       - **Until R is measured, the bands are provisional:** 1.5x and 2.0x, as for R = 3.
+      - **Measured on 2026-11-06, for one growing timeline:** R = 2.71, so pass at or below 1.43 and
+        fail at or above 1.90 (*Recorded results*, the instrument's sitting). Another page setup gives
+        other bands, recorded there too.
       - **The derivation, from the mechanism:**
         - **Recycling** holds views only for the rows laid out, plus a cache and a pool of fixed size.
           Its count stays roughly constant as rows grow: about 1.0x from 400 to 1,200.
@@ -4301,3 +4305,99 @@ pre-registered before its first dump.**
     - every meminfo dump, in `%USERPROFILE%\tmc-5d-round\V`;
     - from the view hierarchy, only each page's row count. The hierarchy dump itself is not saved,
       since it can carry more than the counts.
+
+**2026-11-06: the instrument's sitting, its results.** It was executed on the phone from 09:20 to
+10:38, after `9ca3dfe` had pushed the pre-registration. The dumps, the row counts and the state reads
+are in `%USERPROFILE%\tmc-5d-round\V`.
+- **The probe flag was present, and was removed.**
+  - **What it read:** `full calibrate`, written on 2026-11-05 at 09:32. A dev process started at
+    09:04:31 that morning, by no command of the agent's, was running with it.
+  - **What was done:** the content was recorded first. Then only the flag was removed, in a command
+    of its own. It was absent before both launches.
+  - **What was kept:** `latest` and the 211 run files, for the cleanup queued after the round.
+- **What the launches opened: the accounts page, page 0.** One chat page was attached off-screen
+  beside it, and no second chat page existed.
+  - **Read from the view hierarchy:** the pager's two attached pages, and its fragments
+    (`LoginFragment` and one `ChatFragment`).
+  - **So the sitting measured one timeline,** and R as written applies. The procedure's "both pages"
+    did not apply.
+- **Step 1, on `a2f12f1` (sha256 `ece097ac…`, read on the phone): passes.** The dump prints
+  `Views:`: 97.
+- **Step 2: passes.** Three dumps at rest, about 22 s apart, read 97, 97 and 97. So f = 1.000,
+  against the rule f < 1.155.
+  - **The list:** it laid out 25 rows at step 1's dump and 27 at step 2's, and the count did not
+    move.
+  - **It was off-screen,** at rest. The launch did not open the chat page, and no input was sent to
+    open it.
+  - **No input** was recorded in that call: getevent, run for the whole of it, recorded no event.
+- **The dumps' duration:** 0.40 to 0.68 s by the host's clock, adb included, over the six dumps that
+  found the process. That is longer than the short timeline's 175 to 333 ms, so step 4 as written
+  stays out of reach.
+- **Step 3, on `dea38cc`:** installed from 09:25:31 to 09:25:40 with `adb install -r`. It was read
+  back on the phone as `d005e901…`, last updated 09:25:39.
+  - **Dump A,** 60 s after the launch, at 09:27:01: 488 views, with 420 rows read before it and 421
+    after.
+  - **Dump B,** at 09:35:36: 861 views, with 793 rows before it and after.
+  - **k = 373 / 372.5 = 1.00.** It is between 1.000 and 1.003, depending on which of A's two row
+    counts is taken.
+  - **By reading, 1 is the expected value.** The control builds each message row as one
+    `SwipeReplyTextView`, an `AppCompatTextView` with no children (`ChatFragment.kt:702` at
+    `dea38cc`).
+  - **At both dumps:** `ViewRootImpl` 1, `AppContexts` 7 and `Activities` 1.
+- **Step 4, C as the intercept:** C = 488 − 1.00 × 420.5 ≈ 67, the same at B. It is between 66 and
+  68 by the same choice of A's count.
+  - **Consistent with 5d's count, by reasoning, not a check:** 97 at rest is C, plus the 25 to 27
+    rows laid out, plus the list's cache and pool. That leaves 3 to 5 for the cache and pool, if
+    5d's C is the control's, which nothing measured shows.
+- **R, M and the bands, for one growing timeline:**
+  - R = (67 + 1,200) / (67 + 400) = 2.71, from 2.709 to 2.718 over the range of k and C;
+  - M = √R = 1.65;
+  - **pass at or below 1.43, fail at or above 1.90,** and inconclusive between. These replace the
+    provisional 1.5x and 2.0x.
+  - **The abandon condition does not apply:** R is above 1.3, and above 1.33. The view criterion
+    stands.
+  - **The spread's margin, reported and not deciding:** f = 1.000, against M/1.155 = 1.43.
+  - **Other page setups, for information:**
+    - two pages sharing the channel: (C + 2,400k) / (C + 800k) = 2.85;
+    - a second page whose 400 rows stay idle: (C + 1,600k) / (C + 800k) = 1.92. That gives M = 1.39,
+      and bands at 1.20 and 1.60.
+    - Which applies is fixed with the long session's page setup, before it runs.
+- **A confound: the owner's taps, between A and B.** getevent recorded 8 taps on the touchscreen:
+  4 from 09:28:49 to 09:29:01, and 4 from 09:31:51 to 09:31:52.
+  - **How the times were placed:** a `TMC_ROUND` log mark put getevent's clock against the host's.
+    Host time is monotonic time plus 1,793,943,213.93 s.
+  - **Whose:** likely the owner's, by the owner's word.
+  - **What stayed the same:** the app stayed on its accounts page, and `ViewRootImpl` stayed at 1.
+    So no dialog was open at either dump.
+  - **What it could have moved, and by how much:** ΔV − ΔN = 373 − 372.5 = 0.5, between 0 and 1 by
+    A's two row counts. So, if each row is one view, the views that are not rows changed by at most
+    one, net, from A to B. A view added and another freed would cancel, and nothing measured
+    excludes that.
+  - **Not explained:** the rows rose 169 in one minute, from 560 at 09:33:06 to 729 at 09:34:07, 74 s
+    after the last tap. Whether a tap on the accounts page adds rows was not examined.
+- **The added check was not measured.**
+  - **What it was:** declared before dump B, because of the taps: a third dump, B2, at least 200
+    rows after B, with no input between them.
+  - **The owner paused the sitting** after the poll at 09:41:41, at 868 rows, 75 after B. The agent
+    stopped the poll and its recorder.
+  - **The process ended during the pause,** at 09:49:04.841. `dumpsys activity exit-info` records
+    reason 10 (USER REQUESTED), "remove task", at importance 400. The timeline went with it.
+  - **Its replacement, P1 to P2, measured nothing.** It was declared on resuming, to be taken wholly
+    under the recorder. Its first dump, at 10:29:20, found no process. The agent's loop did not check
+    for one, and its eight polls found no list. That is the agent's error.
+  - **The phone was in use:** the recorder counted 742 touch lines in that call. So step 3 was not
+    relaunched.
+  - **A clean repeat of step 3** needs a launch, then about 5 to 20 undisturbed minutes at the rates
+    seen. Rows came at about 43 a minute from A to B, the jump included, and 12.5 a minute after B.
+    Scheduling it is the owner's.
+- **Before and after,** read at 09:20:29 and 10:38:06:
+  - battery saver 0 and USB power, at both;
+  - the level: 94 and charging, then 100 and full;
+  - the temperature: 32.7 °C, then 29.2 °C. The thermal status was 0 at both;
+  - `stay_on_while_plugged_in` 7, with `mStayOn=true`, at both;
+  - **the refresh rate moved:** 90.0 Hz before, and 60.000004 Hz after. The agent changed no
+    setting, and the phone was in the owner's use at the end. Not examined further;
+  - **`screen_off_timeout` read 1,800,000, 30 minutes, at both.** The agent had read 15,000 earlier
+    the same morning, and did not change it. Section M's screen note is corrected to match.
+- **The phone keeps `dea38cc`,** with the dev app not running. Read on the phone at 10:38: sha256
+  `d005e901…`, last updated 2026-11-06 09:25:39.
