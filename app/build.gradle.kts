@@ -1,4 +1,6 @@
 import java.util.Properties
+import org.gradle.api.artifacts.result.ResolvedComponentResult
+import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -205,9 +207,10 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.viewpager2)
     /*
-     * Declared at the version the code is written against, not left to resolution: viewpager2 1.1.0
-     * brings 1.3.1, material 1.13.0 asks for 1.2.1, so a bump of either would move it with nothing
-     * failing. The chat list's code cites this version's source lines and relies on its behaviour.
+     * The version the code is written against, declared so that the build names it: viewpager2
+     * 1.1.0 brings 1.3.1, material 1.13.0 asks for 1.2.1. A declaration is a floor, not a pin:
+     * Gradle takes the highest version anything asks for, so a later viewpager2 or material can
+     * still move it. What fails when it moves is CheckRecyclerViewVersion, below.
      */
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -222,4 +225,85 @@ dependencies {
     testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+/**
+ * The RecyclerView version whose source the chat list's code cites by line number.
+ *
+ * Deliberately not read from the catalog's `recyclerview`: a bump made there alone must fail
+ * [CheckRecyclerViewVersion], so that a new version cannot arrive without someone reading again
+ * what cites this one. A deliberate bump changes both, after that reading.
+ */
+val citedRecyclerViewVersion = "1.3.1"
+
+/**
+ * Fails a variant's build when its runtime classpath, the one its APK packs, resolves
+ * androidx.recyclerview:recyclerview to any version but [citedRecyclerViewVersion].
+ *
+ * A check, not a constraint: it reads resolution and changes nothing in it. The declaration in
+ * `dependencies` cannot hold the version, being a floor, and `strictly` would hold it by changing
+ * resolution: Gradle documents that a strict version on a declared dependency "can downgrade a
+ * version", and on Gradle 9.4.1 it did, with the build passing, for a transitive request above it.
+ * Runs before each variant's preBuild, so every test, lint and assemble of a variant runs it.
+ */
+abstract class CheckRecyclerViewVersion : DefaultTask() {
+    /** The variant checked, named in the message. */
+    @get:Input
+    abstract val variantName: Property<String>
+
+    /** The version the code cites. */
+    @get:Input
+    abstract val expectedVersion: Property<String>
+
+    /** The variant's runtime classpath as resolved, read when the task runs. */
+    @get:Internal
+    abstract val runtimeClasspath: Property<ResolvedComponentResult>
+
+    @TaskAction
+    fun check() {
+        val versions = sortedSetOf<String>()
+        val seen = HashSet<ResolvedComponentResult>()
+        val pending = mutableListOf(runtimeClasspath.get())
+        while (pending.isNotEmpty()) {
+            val component = pending.removeAt(pending.lastIndex)
+            if (!seen.add(component)) continue
+            val module = component.moduleVersion
+            if (module != null && module.group == "androidx.recyclerview" && module.name == "recyclerview") {
+                versions += module.version
+            }
+            component.dependencies.filterIsInstance<ResolvedDependencyResult>().forEach { pending += it.selected }
+        }
+        val expected = expectedVersion.get()
+        if (versions != setOf(expected)) {
+            val found = if (versions.isEmpty()) "is not on" else "resolves to ${versions.joinToString()} on"
+            val pattern = expected.replace(".", "\\.")
+            throw GradleException(
+                """
+                RecyclerView $found ${variantName.get()}'s runtime classpath, and the code cites $expected.
+                The chat list's code cites RecyclerView $expected's source by line number: ChatRowViewBinder's
+                KDoc, and the two-slot view cache reasoning in the dev harness's RecyclerProof and in
+                docs/manual-plan-5d-recyclerview.md, among others. A different version voids those line
+                numbers. Read every citation again against the new version's source, found with
+                  git grep -n -E "RecyclerView $pattern|$pattern's|(RecyclerView|RecyclerViewAccessibilityDelegate|LinearLayoutManager|OrientationHelper)\.java"
+                and only then change citedRecyclerViewVersion in app/build.gradle.kts.
+                """.trimIndent()
+            )
+        }
+        logger.lifecycle("RecyclerView $expected on ${variantName.get()}'s runtime classpath: the version the code cites.")
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val check = tasks.register<CheckRecyclerViewVersion>(
+            "check${variant.name.replaceFirstChar { it.uppercase() }}RecyclerViewVersion"
+        ) {
+            group = "verification"
+            description = "Fails when ${variant.name}'s runtime classpath resolves RecyclerView to a version the code does not cite."
+            variantName.set(variant.name)
+            expectedVersion.set(citedRecyclerViewVersion)
+            runtimeClasspath.set(variant.runtimeConfiguration.incoming.resolutionResult.rootComponent)
+        }
+        variant.lifecycleTasks.registerPreBuild(check)
+    }
 }
