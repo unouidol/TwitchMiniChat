@@ -250,6 +250,52 @@ Firebase reads came before the first build; the scripts' checks ran while it bui
     sameness of the code was compared file by file. For `5b09932`, `888489a` and `1198c79` it is
     inferred from the same verified toolchain.
 
+**The first machine again, read on 2026-11-09 for the long session's build:** `DESKTOP-BCT68L9`, the
+home PC. Every item was read on it that day; none was taken from the 2026-11-02 block above.
+- **Its key is provably the one `nbpromec1` matched against the phone.**
+  - `~/.android/debug.keystore` holds one entry, `androiddebugkey`, certificate SHA-256
+    `9b3a523bb6a20c80df9c3ceffbdcd072795c7409791bedfc1b7a0506578e5c51`, in full.
+  - **The link, by hashes and certificates read here:** the archived `cc4c0cf` APK in
+    `C:\Users\Fede\StudioProjects\tmc-5d-round\apks` hashes to `5cc84bb3…` of the first table, the
+    build the phone held when `nbpromec1`'s key was compared in full with its signer. Its signer is
+    the key above, in all 64 hex characters.
+  - **The phone, read the same day:** the dev app's APK, pulled off it, is signed by the same
+    certificate, in all 64 hex characters. So an install from this machine replaces it in place.
+- **The clones: clean, and behind, which is a state and not a divergence** (the owner's ruling).
+  `git status --porcelain --untracked-files=all` printed 0 lines in the clone and in its three
+  worktrees. The clone's branch was 23 commits behind `origin/main-v5`, and `TwitchMiniChat-wt-5d`
+  45 behind `feature/5d-recyclerview-timeline`; the worktree was fast-forwarded.
+- **AGP 9.2.1 and Gradle 9.4.1**, from the tree.
+- **The JDK matches `nbpromec1`'s, character for character.** `gradlew --version` printed `Launcher
+  JVM: 21.0.10 (JetBrains s.r.o. 21.0.10+1-b1163.110)` and `Daemon JVM: Compatible with Java 21,
+  JetBrains, nativeImageCapable=false (from gradle/gradle-daemon-jvm.properties)`. That file is the
+  same in every tree here, with `toolchainVendor=JETBRAINS` and `toolchainVersion=21`. The daemon's
+  JDK, `%USERPROFILE%\.gradle\jdks\jetbrains_s_r_o_-21-amd64-windows.2`, reports
+  `JBR-21.0.10+1-1163.110-jcef`, and its `release` file `JAVA_RUNTIME_VERSION="21.0.10+1-b1163.110"`.
+- **The Android SDK, `D:\Android\SDK`: android-36 revision 2, and build-tools 35.0.0, 36.0.0 and
+  36.1.0,** the same as `nbpromec1`'s. The gap above, "no record exists for `DESKTOP-BCT68L9`", is
+  closed.
+- **Recorded so that the next comparison has a term, since none exists for `nbpromec1`:**
+  - compileSdk 36, targetSdk 36 and minSdk 26, from the tree;
+  - **Kotlin 2.2.10, carried by AGP and declared nowhere.** AGP 9.2.1's resolved metadata in the
+    Gradle cache names `kotlin-gradle-plugin` and `kotlin-stdlib` 2.2.10, the only Kotlin compiler in
+    the cache. The build scripts are compiled by Gradle's own Kotlin, 2.3.0. The finding is under
+    *Backlog*.
+- **The dev flavour's Firebase configuration matches the phone's.** `TwitchMiniChat-wt-5d`'s
+  `app/src/dev/google-services.json` is byte-identical to the clone's, and its project id, project
+  number and dev application id are those in the resources of the dev APK on the phone. The worktree
+  `TwitchMiniChat-wt-docs` carries CI's placeholder and cannot build for the phone.
+- **adb 37.0.1** (`1.0.41`), as on `nbpromec1`. The phone was not visible at first, while Windows
+  listed a USB device failing to identify itself. By 08:12 it was listed as the OnePlus AC2003,
+  authorised.
+- **Android Studio 2026.2.1** (`AI-262.9437.185.2621.16467767`), the build that ran on 2026-11-02,
+  open on the clone. Its log of 2026-11-09 shows no upgrade prompt.
+  - **A past event, recorded as such:** on 2026-10-15 its Upgrade Assistant proposed AGP 9.2.1 to
+    9.4.1, and Gradle 9.6.0 and AGP 9.4.1 were downloaded between 08:30 and 08:35. The clone's
+    `libs.versions.toml` and `gradle-wrapper.properties` were rewritten at 09:45, and both now match
+    the commit. No branch declares AGP 9.4. Applied and reverted; nothing is pending.
+  - **AGP 9.4 and Gradle 9.6 stay queued for after the release,** with the JDK pin.
+
 ## H. The harness
 
 Run as in 5c: both themes, the APK's hash read back from the phone, 0 input events, the results file
@@ -802,22 +848,51 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     - **Duplicates:** what this session can say about them is pre-registered (*Recorded results*,
       2026-11-06, "the long session's tooling, and its duplicate prediction").
       - **Eviction is closed by reading,** the owner's of 2026-11-09: the backend returns the newest
-        messages of a window (*Recorded results*, 2026-11-09). No tap or window of this session can
-        produce a duplicate by eviction.
+        messages of a window (*Recorded results*, 2026-11-09). Given its premise, that the backend
+        stores every message the app showed, no tap or window of this session can produce a duplicate
+        by eviction.
       - **The mismatch refresh, added by the owner on 2026-11-09.** Mismatch is now the only open
-        route, so this one tap is the session's whole duplicate test, not an extra.
-        - **What:** one tap on refresh, between two long-presses, with nothing else touched. It counts
-          only if its `backfill.result` falls between them.
-        - **When:** once, at any time after the first reading, so that the bracket is clean.
-        - **What it measures:** the rows the refresh added, that is the change in `shownRows` across
-          the bracket, less the live rows of the bracket, taken as the session's rate times its
-          length. While the connection holds, the refresh's 120 s are all rows already shown, so every
-          row it adds is a duplicate.
-        - **Predicted: 0 rows added.** More than a few means history copies keyed differently from
-          their live rows: the mismatch, found.
-        - **Not set, and the owner's:** a number for "a few", and the bracket's length, which sizes the
-          live-row correction. At 12.3 rows a minute a 10 s bracket holds about 2 live rows, and a
-          refresh whose every copy mismatched would add about 25, its 120 s of rows.
+        route, so this one tap is the session's whole duplicate test, not an extra. Its two values
+        were set by the owner the same day, derived from the rate rather than chosen.
+        - **What:** one tap on refresh, between two long-presses 10 s apart, with nothing else
+          touched. It counts only if its `backfill.result` falls between them.
+        - **When:** once, after AT LEAST TWO readings, not after the first, so that the rate the
+          threshold rests on is measured rather than planned.
+        - **The bracket, 10 s, provided it contains a refresh's response. On the records it does:**
+          - **No refresh is recorded.** The phone's journal, 3,185 lines from 2026-10-05, holds no
+            `manual_refresh`. A refresh uses the same history client as every recorded source
+            (`ChatFragment.kt:1480`), so the figure is theirs: 686 requests, from trigger to result or
+            failure, median 418 ms, 95th percentile 789 ms, maximum 5,021 ms, none above 10 s. The
+            slowest source is the first connect, whose window is an hour and whose response is 400
+            rows; a refresh's window is 120 s.
+          - **Not bounded by the code:** the client's connect and read timeouts are 5,000 ms each
+            (`BackendHistoryClient.kt:191-192`), and a read timeout applies per read, so the code alone
+            does not cap a request at 10 s. A response later than the bracket voids it; it cannot
+            miscount it.
+          - **The result line comes before its rows.** `backfill.result` is written on the worker
+            thread (`ChatFragment.kt:2956`), and each row is then posted to the UI (`:2965-2990`). So
+            the second long-press must come after the rows are shown, not only after the line, and
+            the tap belongs at the start of the bracket.
+        - **What is judged:** Δ, the change in `shownRows` across the bracket, against E, the live rows
+          expected from the MEASURED live rate over the bracket's length. With no mismatch Δ is live
+          rows alone. A refresh whose every copy mismatched adds its 120 s of rows on top, about 25 at
+          12.3 a minute.
+        - **The threshold, the owner's:** the case FAILS if Δ exceeds 4E. At the planned 12.3 a minute
+          a 10 s bracket expects about 2 rows, so the figure is 8.
+        - **The bands, the owner's, at the planned rate:** 0 to 3 is consistent with no mismatch; 8 or
+          more is mismatch; 4 to 7 is INCONCLUSIVE, reported as inconclusive and not argued either way.
+        - **Reported:** the threshold computed from the measured rate at the moment of the refresh,
+          and the planned figure, both.
+        - **The noise, the agent's arithmetic under a Poisson model, which bursts would widen:** at
+          E = 2.05, Δ reaches 4 in 15% of brackets with no mismatch, and 8 in 0.13%. A total mismatch
+          falls below 8 with a probability of 7 × 10⁻⁶.
+        - **Not yet settled, raised on 2026-11-09 and the owner's:**
+          - at E = 2.05, "exceeds 4E" puts mismatch at 9 or more, while the bands put it at 8 or more;
+          - the edge between 3 and 4 is given as a number, with no rule at a measured rate;
+          - "readings" may mean this section's three readings or any long-press;
+          - which span the measured rate is taken over;
+          - "the case FAILS" against the pre-registration's item 7, where a duplicate in the timeline's
+            data is a candidate pre-existing defect, recorded there and not as a 5d failure.
         - **What it costs the target, by reading the rule above, not run:** its `messageCount` enters
           the history sum, so the bound on live rows drops by the copies it suppresses, up to about 25
           rows, 2 minutes at 12.3 a minute.
@@ -873,6 +948,11 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
           below it, neither reaches its own band. No whole row count at C = 67, k = 1.00 and
           N_start = 400 gives an R between 1.334 and 1.334025, so the floor (below) is the same under
           either.
+        - **The owner's reading of it, 2026-11-09:** that note confirms 1.334 as the boundary. It is
+          the degenerate point, the infimum of a usable R: above it both predictions sit strictly
+          inside their bands. Exactly, the infimum is 1.155² = 1.334025, whose three-decimal value is
+          1.334; between the two neither prediction is strictly inside, and at N_start = 400 no whole
+          row count falls there.
       - **Until steps 1 and 2 pass,** the view criterion goes unjudged.
   - **At each reading:**
     - **Scroll:** fling far up, then back to the bottom.
@@ -2540,6 +2620,15 @@ Started on 2026-11-03: this plan had no backlog before the entry below. An entry
 not classified. Nothing here is fixed, and nothing is called a defect, until what the entry names
 has been read.
 
+- **No Kotlin version is declared anywhere, so the compiler is whatever AGP carries.** Recorded on
+  2026-11-09, by the owner's ruling. On `DESKTOP-BCT68L9`, AGP 9.2.1 carries 2.2.10.
+  - **An AGP bump can change the compiler silently.** That is the same shape as the RecyclerView
+    premise that #99 now guards: a version the code relies on, left to resolution.
+  - **Not in 5.6.0's scope.**
+  - **The project instructions state "Kotlin 2.2.10" as though it were pinned,** and the owner will
+    correct them. On 2026-11-09 the statement was not found in this repository's instructions on any
+    branch (`AGENTS.md`, `CLAUDE.md`, `README.md`, `RELEASE-STATE.md`, `.github/`), so where it stands
+    is the owner's to name.
 - **`CurrentSpawnStore.load` returns a future-dated stored spawn with no skew limit.** At
   `CurrentSpawnStore.kt:77` a negative age returns the snapshot, while `decide` rejects an incoming
   spawn dated more than 5 s ahead.
@@ -5031,15 +5120,16 @@ it, this entry says so.
    - **What was read:** `chat_history_store.py:184-199` is `ORDER BY ts DESC, id DESC LIMIT ?`,
      followed by `rows.reverse()`. So the backend returns the newest `limit` messages in the window,
      in chronological order. The backend is not in this repository, and this was not read here.
-   - **Why that closes it:** it is the condition the entry of 2026-11-06 named as closing it. The
-     newest 400 are, by construction, the last keys into the 800 kept, so eviction cannot produce a
-     duplicate at any rate.
-   - **What it rests on, the agent's static reading, not run:** the backend's store holding the
-     messages the app showed. A message among a response's newest 400 has at most 399 newer ones
-     there. Each later response's older part is a run of messages just before it, at most 400 long,
-     so together they insert at most 400 older keys after it. That is at most 799 keys after it,
-     short of the 800 that would evict it. The margin is one key at its narrowest, so only a store
-     missing messages the app showed could close it. Nothing read says the store misses any.
+   - **Why that closes it: at most 799 keys go in after any message a response can return,** short
+     of the 800 that would evict it. This is the agent's static reading, not run. By the owner's
+     ruling of 2026-11-09 it replaces the owner's looser reasoning, that the newest 400 are by
+     construction the last keys into the 800 kept.
+     - **Its premise: the backend stores every message the app showed.**
+     - A message among a response's newest 400 then has at most 399 newer ones, one key each at most.
+     - Each later response's older part is a run of messages just before it, at most 400 long, so
+       together they insert at most 400 older keys after it.
+     - The margin is one key at its narrowest, so only a store missing messages the app showed could
+       close it. Nothing read says the store misses any.
    - **Section 3 of the pre-registration's eviction case is thereby settled by reading.** Its three
      "Not read" items:
      - which 400 a window holding more returns: the newest;
@@ -5072,3 +5162,47 @@ it, this entry says so.
      its cap and NEVER on a `Views:` reading, since ending on the judged quantity would break the
      not-washing argument.
    - **Section M's 2.71, 1.43 and 1.90 stay,** as the values for the planned counts, 400 and 1,200.
+
+**2026-11-09, later: the owner's rulings, the phone read, and the refresh's two values.** On
+`DESKTOP-BCT68L9`. The phone was read over adb from 08:12, with the dev app not running. Nothing was
+installed, uninstalled or launched. The journal was piped from the phone into a local filter that
+prints counts, event and field names, and a whitelist of count and source values; no line was
+written or shown raw.
+- **The rulings.**
+  1. 1a is closed as far as this machine can close it: its key is provably the one `nbpromec1`
+     matched against the phone (*Every APK of the round comes from one machine*, 2026-11-09).
+  2. The clones being behind is a state to update, not a divergence. `322984b` was taken.
+  3. Kotlin and the SDK levels are a gap in the record, not a divergence. This machine's values are
+     recorded there, and the Kotlin finding is under *Backlog*.
+  4. The 2026-10-15 upgrade stays recorded as a past event, applied and reverted. AGP 9.4 and Gradle
+     9.6 stay queued for after the release.
+  5. The 799-key bound replaces the owner's looser reasoning, with its premise named (the entry
+     above, item 1).
+  6. 1.334 stands, read as the degenerate point (section M, the abandon condition).
+- **The phone, read.**
+  - **The dev app's signer** is `9b3a523b…5c51`, equal in all 64 hex characters to this machine's
+    `androiddebugkey`.
+  - **Its Firebase project** is the dev configuration's: the same project id, project number and dev
+    application id.
+  - **The build it holds:** sha256 `d005e901…`, `dea38cc`'s, read by `sha256sum` on the device and
+    from the copy pulled off it. versionCode 8, `5.5.1-dev`, last updated 2026-11-06 09:25:39, as
+    recorded above at 10:38 that day.
+  - **The journal kept its earlier lines:** `history-diagnostics.log`, 3,185 lines and 401,770 bytes,
+    from 2026-10-05 11:45:05 to 2026-11-08 12:43:54. There is no `history-diagnostics-previous.log`.
+    About 120 KB, roughly 970 lines at its mean, remain before it rotates at 512 KiB.
+  - **It holds no `user.marker`,** so no long-press has been journaled on this phone, and so no
+    `renderedRows` or `shownRows` field either.
+  - **A launch after the last record:** on 2026-11-08 at 12:43:53 one page started, received a first
+    connect of 400 rows, and stopped 0.7 s later. It was not the agent's; whose it was is not
+    recorded.
+  - **Two accounts, each with a recent-channels list** in `shared_prefs/channel_history.xml`, counted
+    and not read. In the journal, on 2026-11-05, every launch connected both pages, on one channel,
+    with 400 rows each. Since 2026-11-06 every launch has started only the first account's page, as
+    that day's sitting found: the launch opens the accounts page, and only the adjacent chat page is
+    attached.
+- **"The 400 cached rows" are not app data.** By reading `dea38cc`, the app stores no chat rows. Its
+  local data is the recent-channels list and other preferences, the journal, and the probe's files.
+  Each page's 400 rows come from the backend's history at every first connect, as every excluded
+  launch of the round found. So no row count exists to be read with the app stopped, and an install
+  cannot remove one. The nearest reading is each page's first connect at the next launch.
+- **The refresh's two values** are in section M, *Duplicates*, with the points still open there.
