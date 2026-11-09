@@ -20,6 +20,13 @@ account, no channel and no text can reach the output. A summary goes to stderr.
 import re
 import sys
 
+# Every line is written with LF alone, here at the source and only here. On Windows a text-mode
+# stdout writes CRLF, and the shell's command substitution strips the carriage return of the LAST
+# line it captures only, so a saved line's bytes depended on whether it was the last of its read.
+# sitting.sh's [kept] check then found one line with and without its CR, and stopped the long
+# session L5D1 on 2026-11-09. A CR that came back would stop the poll the same way.
+sys.stdout.reconfigure(newline="\n")
+
 LINE = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}) (\S+)(.*)$")
 # BackfillSource's journal values (HistoryBackfillPolicy.kt:5-10). Matching the six exactly,
 # rather than a pattern, is what keeps a channel-shaped word out of this field.
