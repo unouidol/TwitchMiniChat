@@ -1,0 +1,82 @@
+# Mutation check of sitting_suite.sh, and the checks around it - 2026-11-09, DESKTOP-BCT68L9
+#
+# Tools mutated: sitting.sh 13cb9ff5394f3fddcf3f67e57d3c6befc1a4a28e4357d33c0cb542852e567a8f and
+# journal_extract.py 340e263f1397e8c441d80090aca5d3b383187ef267466c471e182787deaa6e43, as committed at
+# 6dc2351 (treatment) and bff7379 (control). Suite: sitting_suite.sh dcb47e983395d61660ec875cc1a490022cbf04aed458200c5f5ee2090bca81bd,
+# standin_adb.sh 17dfbfca806b0830e049b5ff198301106ffafe1c9ecc780c12520a4988a61b1d, run with the "new" expectations.
+# PY=py -3.14 -I -X utf8: 3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)].
+# M01-M25: 2026-11-09 11:02 to 11:25, 8 at a time. M26, added after them because they had missed the
+# pid check, predicted before its run: 11:26 to 11:31. After every mutant the tools were restored from
+# the commit and verified by sha256 against the blob.
+#
+# The predictions, written into apply_mutant.py before any run (id, file, predicted killer, family):
+#   M01	journal_extract.py	C1	the mark excludes an earlier session's lines
+#   M02	sitting.sh	C1	the mark is taken in the journal's own clock
+#   M03	sitting.sh	C9	the mark refuses a running app
+#   M04	sitting.sh	C15	the mark is exactly one instant
+#   M05	sitting.sh	C11	a label is never reused
+#   M06	sitting.sh	C12	a poll needs a mark
+#   M07	sitting.sh	C10	the process is bound after the mark
+#   M08	sitting.sh	C3	every poll checks the bound process is alive
+#   M09	sitting.sh	SURVIVES	the bound pid must keep its start time
+#   M10	sitting.sh	C6, C14	a failed journal read stops the poll (sitting.sh)
+#   M11	journal_extract.py	C6, C14	an empty journal input is an error (extractor)
+#   M12	sitting.sh	C8	lines saved by earlier polls must come first
+#   M13	sitting.sh	C4	a line outside the grammar stops the poll
+#   M14	journal_extract.py	C1	the extractor prints only whitelisted fields
+#   M15	journal_extract.py	C7	a value must match its field's shape
+#   M16	journal_extract.py	SURVIVES	a source is one of the six values only
+#   M17	sitting.sh	C7	a rejected messageCount leaves no bound
+#   M18	sitting.sh	SURVIVES	LIVE is the rows less the history before them
+#   M19	sitting.sh	SURVIVES	the target is reached at exactly the target
+#   M20	sitting.sh	C7	the session ends at its cap
+#   M21	sitting.sh	C2	no rate is read with another app in front
+#   M22	sitting.sh	SURVIVES	the front is read again 2.2 s later
+#   M23	sitting.sh	C5	the rate is recorded with its range
+#   M24	sitting.sh	C13	a second call continues the labels
+#   M25	sitting.sh	C13, C8	a second call continues the saved extract
+#   M26	sitting.sh	SURVIVES	the live pid must be the bound pid
+#
+# The results (killed_by: the cases that failed; TIMEOUT-in-X: the suite timed out inside case X):
+M01 suite_exit=1 cases_reported=22 killed_by=[C1 C2 C5 C7 C13 P1 P2 P3 P4 P5 P6] | restored: both sha256 equal the blob
+M02 suite_exit=1 cases_reported=22 killed_by=[C1 C2 C4 C5 C7 C8 C13 C14 C15 P1 P2 P3 P4 P5 P6] | restored: both sha256 equal the blob
+M03 suite_exit=1 cases_reported=22 killed_by=[C9] | restored: both sha256 equal the blob
+M04 suite_exit=1 cases_reported=22 killed_by=[C15] | restored: both sha256 equal the blob
+M05 suite_exit=1 cases_reported=22 killed_by=[C11] | restored: both sha256 equal the blob
+M06 suite_exit=1 cases_reported=22 killed_by=[C12] | restored: both sha256 equal the blob
+M07 suite_exit=1 cases_reported=22 killed_by=[C10] | restored: both sha256 equal the blob
+M08 suite_exit=1 cases_reported=22 killed_by=[C3] | restored: both sha256 equal the blob
+M09 suite_exit=0 cases_reported=22 killed_by=[] | restored: both sha256 equal the blob
+M10 suite_exit=1 cases_reported=22 killed_by=[C6 C14] | restored: both sha256 equal the blob
+M11 suite_exit=0 cases_reported=22 killed_by=[] | restored: both sha256 equal the blob
+M12 suite_exit=1 cases_reported=22 killed_by=[C8] | restored: both sha256 equal the blob
+M13 suite_exit=1 cases_reported=22 killed_by=[C4 L] | restored: both sha256 equal the blob
+M14 suite_exit=1 cases_reported=22 killed_by=[C1 C2 C3 C5 C7 C8 C13 P1 P2 P3 P4 P5 P6] | restored: both sha256 equal the blob
+M15 suite_exit=1 cases_reported=22 killed_by=[C7 P5] | restored: both sha256 equal the blob
+M16 suite_exit=0 cases_reported=22 killed_by=[] | restored: both sha256 equal the blob
+M17 suite_exit=1 cases_reported=22 killed_by=[C7] | restored: both sha256 equal the blob
+M18 suite_exit=1 cases_reported=22 killed_by=[P1 P2 P5 P6] | restored: both sha256 equal the blob
+M19 suite_exit=1 cases_reported=22 killed_by=[P1 P2 P3 P5] | restored: both sha256 equal the blob
+M20 suite_exit=124 cases_reported=6 killed_by=[TIMEOUT-in-C7] | restored: both sha256 equal the blob
+M21 suite_exit=1 cases_reported=22 killed_by=[C2] | restored: both sha256 equal the blob
+M22 suite_exit=0 cases_reported=22 killed_by=[] | restored: both sha256 equal the blob
+M23 suite_exit=1 cases_reported=22 killed_by=[C5] | restored: both sha256 equal the blob
+M24 suite_exit=1 cases_reported=22 killed_by=[C13] | restored: both sha256 equal the blob
+M25 suite_exit=1 cases_reported=22 killed_by=[C8 C13] | restored: both sha256 equal the blob
+M26 suite_exit=0 cases_reported=22 killed_by=[] | restored: both sha256 equal the blob
+#
+# U1, unreachable_grammar.sh 6dc2351, the real extractor against a hostile journal:
+#   extractor at 6dc2351: sha256 340e263f1397e8c441d80090aca5d3b383187ef267466c471e182787deaa6e43
+#   grammar at 6dc2351: 354 characters, from sitting.sh's journal()
+#   hostile journal: 6000 lines, sha256 795ffab2eac3122b180edcfc7c3cd58b8122802feaecee109782236746cc1c32, 6000 ending in CR, 808 with non-ASCII bytes
+#   since='': extractor exit 0, 1624 lines emitted, 24 outside the grammar | # journal extract: 5372 journal lines read, 1624 kept, 705 values rejected by shape
+#   since='2026-11-09 10:05:00.000': extractor exit 0, 818 lines emitted, 10 outside the grammar | # journal extract: 5372 journal lines read, 818 kept, 363 values rejected by shape
+#   emitted, by event and page token (with since=''):
+#   the grammar is not vacuous: rejects a doctored line 1 of 1, accepts a real one 1 of 1
+#   U1 FAIL
+#
+# Measured on the phone, 2026-11-09 (OnePlus AC2003, Android 12): adb exec-out run-as ... cat <missing file>
+# exits 0 and writes the error on stdout; adb shell does the same with exit 1. standin_adb.sh exits 1 for
+# exec-out, so the suite's C6 and C14 model a failure the phone does not produce; see M11.
+# The phone's own journal through the committed extractor: 3201 lines read, 1380 kept, 0 outside the
+# grammar; 0 non-ASCII bytes in 403784.
