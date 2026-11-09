@@ -8,6 +8,11 @@ channel on every line (ChatFragment.recordDiagnostics). This keeps, after the op
   backfill.result     messageCount, firstTs, lastTs
   user.marker         shownRows
 
+and, first on every kept line, page=<label>: the page that wrote the line, labelled A, B, ... in
+the order in which its account first appears on a kept line after "since", or "?" for a line
+with no account. The label comes from that order alone, never from the account's value, which
+is not printed. Added on 2026-11-09, so that the poll can count two pages apart.
+
 Each value must match the shape its field has in the code; a value that does not is counted
 and never printed. Every printed token is built here from those parts, so no other field, no
 account, no channel and no text can reach the output. A summary goes to stderr.
@@ -31,6 +36,19 @@ last_only = len(sys.argv) > 1 and sys.argv[1] == "--last"
 since = sys.argv[1] if len(sys.argv) > 1 and not last_only else ""
 seen = kept = rejected = 0
 last_instant = None
+# Page labels by order of first appearance on a kept line after "since": the account's value is a
+# key here and is never printed.
+labels = {}
+
+
+def page_of(account):
+    """Returns the page label of a kept line: A, B, ... by first appearance, "?" with no account."""
+    if account is None:
+        return "?"
+    if account not in labels:
+        labels[account] = chr(ord("A") + len(labels)) if len(labels) < 26 else "?"
+    return labels[account]
+
 for raw in sys.stdin.buffer:
     match = LINE.match(raw.decode("utf-8", "replace").rstrip("\r\n"))
     if not match:
@@ -47,7 +65,7 @@ for raw in sys.stdin.buffer:
         key, sep, value = token.partition("=")
         if sep:
             fields[key] = value
-    out = []
+    out = [f"page={page_of(fields.get('account'))}"]
     for key, shape in KEEP[event].items():
         value = fields.get(key)
         if value is None:
