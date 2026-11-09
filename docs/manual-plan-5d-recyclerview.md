@@ -6066,3 +6066,73 @@ recomputed, before its mark.** By the owner's four rulings.
   which holds at any rate. Reading the code was worth more than doing the arithmetic.
 - **The checks by hand stay OUT of the automated session,** in a separate pass after it (section M, the
   long session).
+
+**2026-11-09, 13:06 to 13:40: the long session `L5D2`, run to its TARGET. The view criterion PASSES,
+under C = 101 and under C = 67, and the refresh bracket is consistent with no mismatch.** On
+`DESKTOP-BCT68L9`, with the build `ba1f88e3…` of `00c1e78` on the phone, the tools `13cb9ff5…`,
+`63ec6b91…` and `ef1cd5e5…`. Every output, uncut, is in `C:\Users\Fede\StudioProjects\tmc-5d-round\V`:
+`session-L5D2.log`, `rates-L5D2.txt`, `dumps.txt` with its six meminfo files, `presses.txt`,
+`journal-extract-L5D2.txt` and `getevent-L5D2.txt`; `L5D1`'s are in its subfolder.
+- **Before the mark, 13:06:49:** battery saver 0; USB power, AC and wireless off; status 5, full, level
+  100; 25.6 °C; thermal status 0; `stay_on_while_plugged_in` 7, `mStayOn=true`, awake;
+  `screen_off_timeout` 1,800,000; the dev app not running; `PY="py -3.14 -I -X utf8"`, `3.14.0
+  (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]`; adb 37.0.1. The display
+  read 90.0 Hz with another app in front.
+- **The mark,** 13:07:13, at the journal's last line, 12:54:21.600. A cold launch, 1,439 ms; one
+  `swipe-from-accounts`; the process bound, pid 4469, start 2631071.
+- **Both pages on one channel:** A's first connect, 400 rows, at 13:07:21.192; B's, 400, at 13:07:32.824;
+  A's `resume_no_pause`, 18.
+- **The rate before,** with the dev app in front 2.2 s: 90.0 Hz, range [0 90]. **At every one of the 29
+  polls,** the same, with the dev app in front at both reads; and after, the same.
+- **The readings and the counts,** each long-press on A followed at once by a dump with A on screen:
+
+  | | Phone time | A `shownRows` | B `shownRows` | `Views:` | PSS, KB | Java heap, KB |
+  |---|---|---|---|---|---|---|
+  | Reading 1 | 13:08:02.138, B 13:08:18.954 | 416 | 425 | 163 | 133,646 | 17,544 |
+  | Count | 13:14:56.029 | 586 | | 168 | 139,799 | 19,712 |
+  | Reading 2 | 13:25:03.149 | 944 | | 162 | 157,625 | 29,708 |
+  | Count | 13:32:09.803 | 1,132 | | 167 | 145,967 | 19,696 |
+  | Reading 3, the target | 13:38:45.287, B 13:39:12.822 | 1,499 | 1,510 | 167 | 146,894 | 20,340 |
+
+- **The target,** at the poll after reading 3: `TARGET REACHED: at least 1017 live rows >= 800`. The
+  session ended there, at its target, and not on a `Views:` reading. Its length, from the mark, 31.5
+  minutes.
+- **The view criterion: PASS, under both C, so the verdict is PASS.** The ratio is 167 / 163 = 1.0245;
+  N_start = 416 + 425 = 841 and N_end = 1,499 + 1,510 = 3,009, both pages measured, k = 1.00.
+  - **C = 101, the primary:** R = 3.3015, M = 1.8170, pass at or below 1.5732, fail at or above 2.0986.
+    PASS.
+  - **C = 67, beside it:** R = 3.3877, M = 1.8406, pass at or below 1.5936, fail at or above 2.1258. PASS.
+  - **They agree,** and k at 1.003 moves no edge by more than 0.0003. R is far above 1.334, and N_end far
+    above its floor, 1,156 at C = 101, so the criterion is not DROPPED. Each row a view would have read
+    about 3.30.
+- **B's measured counts:** 425 at reading 1 and 1,510 at reading 3. B grew as A did, 1,085 rows against
+  A's 1,083, while it was STARTED off screen: measured, no longer only well founded. As it came on
+  screen at the end, after 31 minutes away, B took a `resume` backfill of 400 messages, and its count
+  still ran level with A's: consistent with its connection held and those copies suppressed. An
+  observation, not a test.
+- **The live rate:** between readings 1 and 2, by the poll's bound, 511 live rows in 1,021.0 s, **30.03
+  a minute**; 31.0 without the bound. Over the session A's bound went from −2 to 1,017, about 33 a
+  minute, with a burst of about 56 a minute between the last two counts.
+- **The refresh bracket, after reading 2, with nothing else touched:**
+  - A's long-press, `shownRows=953` at 13:25:33.762; the tap, a `manual_refresh` triggered at
+    13:25:39.176 and its result 368 ms later, `messageCount=47`; A's long-press, `shownRows=957` at
+    13:25:45.351, 5.8 s after the result. No other line between them, so the bracket counts.
+  - **Δ = 4 rows in 11.589 s.** At the measured 30.03 a minute, E = 5.80, so consistent below 11.60,
+    inconclusive from 11.60 to below 23.20, mismatch at 23.20 or more. **Δ = 4 is consistent with no
+    mismatch.** At the planned 12.3 a minute, E = 2.38 and the bands are 0-4, 5-9 and 10 or more: Δ = 4 is
+    consistent there too.
+  - **So all 47 of the refresh's history copies were suppressed,** keyed as their live rows were: the
+    mismatch route is not found. A total mismatch would have read about 53.
+- **Duplicates:** none counted. The bracket is the count; no candidate was identified by eye, the checks
+  by hand being the separate pass.
+- **No interruption:** 0 touches by hand over the session; every press passed `[front]` and `[target]`,
+  with focus on the dev app after it; the process invariant held at every poll; no rate line found
+  another app in front; the saved extract, 20 lines, holds no CR.
+- **After the last poll, 13:39:50:** battery saver 0; USB power; status 5, level 100; 25.1 °C; thermal
+  status 0; 90.0 Hz with the dev app in front 2.2 s; `stay_on_while_plugged_in` 7, awake; the same build;
+  pid 4469, the bound process; the same interpreter and tools.
+- **Closed:** the dev app force-stopped at 13:40:31 and the touch recorder stopped. Left set, as recorded
+  above: `stay_on_while_plugged_in` 7, kept on; `show_touches` 1; battery saver 0; no probe flag.
+- **The outcomes, in section M's words:** the view criterion PASSES; the mismatch test is consistent
+  with no mismatch; no reading of this session is VOID; nothing is DROPPED or INCONCLUSIVE. The checks
+  by hand remain for the hands-on pass.
