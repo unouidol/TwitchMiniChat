@@ -2,6 +2,7 @@ package com.fs.twitchminichat.harness
 
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
 import com.fs.twitchminichat.PendingOutgoingChatMessage
 import com.fs.twitchminichat.chat.PendingEchoEvent
 
@@ -114,9 +115,19 @@ internal object ParityCatalogue {
         return emotesRaw.split('/').sumOf { specification -> specification.substringAfter(':').split(',').size }
     }
 
-    /** Builds [row] with ChatFragment's producers into [container]. */
-    fun produce(row: ParityRow, index: Int, production: ProductionRowViews, container: ViewGroup) {
-        val controller = production.newTimeline(container)
+    /**
+     * Builds [row] with ChatFragment's producers into [list], laid out as frames would lay it out.
+     *
+     * A row's view exists only once the list lays it out, so the list is laid out where a frame
+     * comes between two things in production: after the row arrives, after each of an echo's events
+     * - each is its own message from Twitch, seconds apart - and after a user is hidden. An echo is
+     * therefore built as sending and moved by rebinds, as on the phone; built after all its events
+     * it would be bound at once at its last status, the path the direct-bind check compares.
+     *
+     * [hide] false leaves a hidden row's user shown: the row is the same, and only then has a view.
+     */
+    fun produce(row: ParityRow, index: Int, production: ProductionRowViews, list: RecyclerView, hide: Boolean = true) {
+        val controller = production.newTimeline(list)
         when (row) {
             is ParityRow.Message -> {
                 production.chatMessage(
@@ -127,9 +138,16 @@ internal object ParityCatalogue {
                     replyParentUserLogin = row.reply,
                     messageTimestampSec = timestampSec(index)
                 )
-                if (row.hidden) controller.setHiddenUsers(setOf(row.user.trim().lowercase()))
+                production.layOut(list, "produce ${row.id}")
+                if (row.hidden && hide) {
+                    controller.setHiddenUsers(setOf(row.user.trim().lowercase()))
+                    production.layOut(list, "produce ${row.id}, hidden")
+                }
             }
-            is ParityRow.System -> production.systemLine(row.text)
+            is ParityRow.System -> {
+                production.systemLine(row.text)
+                production.layOut(list, "produce ${row.id}")
+            }
             is ParityRow.Echo -> {
                 val localId = "parity-${row.id}"
                 production.pendingEcho(
@@ -142,8 +160,10 @@ internal object ParityCatalogue {
                     ),
                     row.reply
                 )
+                production.layOut(list, "produce ${row.id}")
                 row.events.forEach { event ->
                     production.applyEchoEvent(controller, localId, PendingEchoEvent.valueOf(event))
+                    production.layOut(list, "produce ${row.id}, $event")
                 }
             }
         }

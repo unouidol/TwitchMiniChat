@@ -10,7 +10,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.isEmpty
-import com.fs.twitchminichat.ChatTimelineController
+import androidx.recyclerview.widget.RecyclerView
 import com.fs.twitchminichat.PendingEchoView
 import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.PendingEchoEvent
@@ -31,7 +31,10 @@ import org.json.JSONObject
  * shows here.
  *
  * Steps L1 to L6 run once for each emote row of the catalogue, on one view each; L7, L10, L8 and L9
- * run once, in that order.
+ * run once, in that order. Since 5d, L7, L10 and L8 run over the production timeline in a list
+ * attached to the window, and each asserts what the list does at its next layout pass: a row removed
+ * or cleared releases its session there, through onViewRecycled, and not at the call; a status change
+ * reaches the echo's view there, as a payload bind.
  *
  * L10 is the path every message the user sends with an emote takes: the echo is confirmed in place
  * by Twitch's USERSTATE, an ECHO_STATUS rebind that must leave its emote session alone
@@ -43,9 +46,9 @@ import org.json.JSONObject
  * proof delivers it, and the loader's rows are reported to an [EmoteRowRecorder] that wants every
  * row's animations, so an emote runs exactly while its row is attached.
  *
- * What it cannot show: that a RecyclerView takes the cache path in this app; that 5d calls unbind from
- * onViewRecycled; Glide's own ordering of cached and asynchronous deliveries; that a real GIF resumes
- * on its frame, since the fixed drawable has none; decoding work; ViewPager2 detaching a whole page.
+ * What it cannot show: that a RecyclerView takes the cache path in this app, which [RecyclerProof]
+ * shows; Glide's own ordering of cached and asynchronous deliveries; that a real GIF resumes on its
+ * frame, since the fixed drawable has none; decoding work; ViewPager2 detaching a whole page.
  */
 internal class EmoteLifecycleProof(
     private val root: FrameLayout,
@@ -237,9 +240,9 @@ internal class EmoteLifecycleProof(
         val record = StepRecord("L7 removeEcho", ECHO_LOCAL_ID)
         steps += Step(record, listOf(
             {
-                val container = newContainer()
-                root.addView(container)
-                val timeline = ChatTimelineController(container, binder)
+                val list = page.newList()
+                root.addView(list)
+                val timeline = page.newTimeline(list)
                 images.label = "L7"
                 timeline.insert(messageTimestampSec = ECHO_SENT_AT_SEC) { position ->
                     PendingEchoRow(
@@ -253,13 +256,17 @@ internal class EmoteLifecycleProof(
                         status = PendingEchoStatus.SENDING
                     )
                 }
+                page.layOut(list, "L7 insert")
                 images.deliverPending()
-                val messageView = (container.getChildAt(0) as PendingEchoView).messageView
+                val messageView = (list.getChildAt(0) as PendingEchoView).messageView
                 record.pre("loadsLive", images.loadsOf("L7").count { it.live } == ParityCatalogue.emoteCount(ECHO_EMOTES))
                 record.pre("attached", messageView.isAttachedToWindow)
                 timeline.removeEcho(ECHO_LOCAL_ID)
-                record.check("removed", container.isEmpty())
-                record.check("everyLoadClearedAtTheCall", images.loadsOf("L7").all { it.cleared })
+                /* The list removes the row's view at its next layout pass (ChatRowViewBinder, item 2). */
+                record.check("noLoadClearedAtTheCall", images.loadsOf("L7").none { it.cleared })
+                page.layOut(list, "L7 removeEcho")
+                record.check("removed", list.isEmpty())
+                record.check("everyLoadClearedAtTheNextLayout", images.loadsOf("L7").all { it.cleared })
                 record.check("releaseReportedOnce", recorder.releasesOf(messageView) == 1)
             }
         ))
@@ -272,7 +279,7 @@ internal class EmoteLifecycleProof(
     private fun addConfirmEchoStep() {
         val record = StepRecord("L10 confirm an echo in place", CONFIRM_LOCAL_ID)
         val emotes = ParityCatalogue.emoteCount(ECHO_EMOTES)
-        lateinit var container: LinearLayout
+        lateinit var list: RecyclerView
         lateinit var echo: PendingEchoView
         fun checkKept(suffix: String) {
             val loads = images.loadsOf("L10")
@@ -285,9 +292,9 @@ internal class EmoteLifecycleProof(
         }
         steps += Step(record, listOf(
             {
-                container = newContainer()
-                root.addView(container)
-                val timeline = ChatTimelineController(container, binder)
+                list = page.newList()
+                root.addView(list)
+                val timeline = page.newTimeline(list)
                 images.label = "L10"
                 timeline.insert(messageTimestampSec = CONFIRM_STEP_SEC) { position ->
                     PendingEchoRow(
@@ -301,18 +308,22 @@ internal class EmoteLifecycleProof(
                         status = PendingEchoStatus.SENDING
                     )
                 }
+                page.layOut(list, "L10 insert")
                 images.deliverPending()
-                echo = container.getChildAt(0) as PendingEchoView
+                echo = list.getChildAt(0) as PendingEchoView
                 record.pre("loadsLive", images.loadsOf("L10").count { it.live } == emotes)
                 record.pre("imagesShown", imagesShownBy(echo.messageView).size == emotes)
                 record.pre("sending", echo.alpha < 1f)
                 record.check("statusChanged", timeline.applyEchoEvent(CONFIRM_LOCAL_ID, PendingEchoEvent.USERSTATE))
+                /* The list rebinds the row at its next layout pass, with ECHO_STATUS as the payload. */
+                page.layOut(list, "L10 confirm")
+                record.check("sameView", list.getChildAt(0) === echo)
                 record.check("confirmedLook", echo.alpha == 1f)
-                checkKept("AtTheCall")
+                checkKept("AtTheLayout")
             },
             {
                 checkKept("AfterALoopTurn")
-                record.check("pixelsEqualTheReference", pixelsEqual(container, echoReference()))
+                record.check("pixelsEqualTheReference", pixelsEqual(list, echoReference()))
             }
         ))
     }
@@ -322,22 +333,26 @@ internal class EmoteLifecycleProof(
         val record = StepRecord("L8 clear", null)
         steps += Step(record, listOf(
             {
-                val container = newContainer()
-                root.addView(container)
-                val timeline = ChatTimelineController(container, binder)
+                val list = page.newList()
+                root.addView(list)
+                val timeline = page.newTimeline(list)
                 images.label = "L8"
                 ParityCatalogue.emoteRows.forEachIndexed { index, id ->
                     timeline.insert(messageTimestampSec = CLEAR_STEP_SEC + index) { position ->
                         rowData.getValue(id).copy(position = position)
                     }
                 }
+                page.layOut(list, "L8 insert")
                 images.deliverPending()
                 val emotes = ParityCatalogue.emoteRows.sumOf { id -> ParityCatalogue.emoteCount(rowData.getValue(id).emotesRaw) }
                 record.pre("loadsLive", images.loadsOf("L8").count { it.live } == emotes)
-                record.pre("rows", container.childCount == ParityCatalogue.emoteRows.size)
+                record.pre("rows", list.childCount == ParityCatalogue.emoteRows.size)
                 timeline.clear()
-                record.check("removed", container.isEmpty())
-                record.check("everyLoadClearedAtTheCall", images.loadsOf("L8").all { it.cleared })
+                /* As for L7: the list removes the views at its next layout pass. */
+                record.check("noLoadClearedAtTheCall", images.loadsOf("L8").none { it.cleared })
+                page.layOut(list, "L8 clear")
+                record.check("removed", list.isEmpty())
+                record.check("everyLoadClearedAtTheNextLayout", images.loadsOf("L8").all { it.cleared })
             }
         ))
     }

@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.fs.twitchminichat.ChatRowViewBinder
+import com.fs.twitchminichat.ChatTimelineAdapter
 import com.fs.twitchminichat.PendingEchoView
 import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.ChatTimelineChange
@@ -26,9 +27,11 @@ import org.json.JSONObject
  * list ChatRowViewBinder's KDoc gives, while every pair is what tests that the list is complete.
  *
  * Production against production: both views come from the page's own ChatRowViewBinder, and each
- * row's data is the tag the row's producer gave its view. An echo is rebuilt the way production
- * builds one - bound as sending, then its events as rebinds - because an echo's hidden status text
- * depends on the statuses it passed through (item 5 of the binder's list).
+ * row's data is the tag the row's producer gave its view. Since 5d every view is created and bound
+ * through the chat list's adapter, as a holder back from the pool is ([AdapterBinding]). An echo is
+ * rebuilt the way production builds one - bound as sending, then its events as payload binds -
+ * because an echo's hidden status text depends on the statuses it passed through (item 5 of the
+ * binder's list).
  *
  * The emote rows take part. The page's loader draws from [images], which delivers every image inside
  * the load, and every load is recorded with the bind that asked for it. So each pair also asks what
@@ -40,10 +43,24 @@ import org.json.JSONObject
  * C-R, create against the producer, is the control that keeps the proof from being
  * self-referential: comparing the binder with itself would pass for a binder that built every row
  * wrongly the same way. C-R requires each fresh build to equal what the row's producer built, which
- * the parity pass compares with the frozen copy, so the chain reaches the frozen code.
+ * the parity pass compares with the frozen copy, so the chain reaches the frozen code. The hidden
+ * row's subject is produced with its user shown: in a list a hidden row has no view to read its data
+ * from, and the row is the same either way; the parity pass compares that shown row with the frozen
+ * copy too ("rowsBeforeHiding"). So C-R has no declared exception since 5d: the one it had, the
+ * hidden row's visibility, was the sync's GONE on a view the list no longer has.
  *
- * Production does not bind a view to a second row before 5d. This proof is what shows that doing so
- * is correct; 5d, which turns it on, must run it again rather than inherit its result.
+ * The direct-bind check (5d): every echo bound at once at its last status, as the list binds an echo
+ * that comes back from the pool, against the same echo built through its history. The pixels must
+ * match for every echo, and the state for all but [DIRECT_BIND_EXCEPTION], whose hidden status line
+ * keeps a different text (ChatRowViewBinder, item 5). Both sides are production's.
+ *
+ * Every view is snapshotted [Settled], after the layout that renders it: the fresh builds, both views
+ * of every pair, and the direct binds. On 2026-11-02 the direct binds were snapshotted after their
+ * layout and the fresh builds before theirs, and every echo differed by one span. What each first
+ * layout adds to a row's spans is recorded, by class, for the direct binds and their fresh builds.
+ *
+ * Since 5d production binds a view to a second row whenever a holder comes back from the pool. This
+ * proof is what shows that doing so is correct.
  */
 internal class RebindProof(
     private val production: ProductionRowViews,
@@ -53,12 +70,13 @@ internal class RebindProof(
     private val render: (ViewGroup) -> Bitmap
 ) {
 
-    /** One difference C-R allows between the binder's build of a row and its producer's, named, with its reason. */
-    data class DeclaredException(val rowId: String, val field: String, val value: Int, val reason: String)
+    /** One difference a check allows, named, with its reason. */
+    data class DeclaredException(val rowId: String, val field: String, val reason: String)
 
     private val binder: ChatRowViewBinder = production.binder
+    private val binding = AdapterBinding(binder)
 
-    /* A catalogue row taking part, with the data its producer gave its view and that view's container. */
+    /* A catalogue row taking part, with the data its producer gave its view and the list that view is in. */
     private class Subject(val row: ParityRow, val data: ChatTimelineRow, val produced: ViewGroup) {
         /** How many emote images the row's text holds, from the emote tag its producer gave it. */
         val emotes: Int = ParityCatalogue.emoteCount(
@@ -70,7 +88,7 @@ internal class RebindProof(
         )
     }
 
-    /** Runs the proof, C-R and the precondition controls, and reports all of them. */
+    /** Runs the proof, C-R, the direct-bind check and the precondition controls, and reports all of them. */
     fun run(): JSONObject {
         val result = JSONObject()
         check(production.emoteLoader != null) { "the rebind proof's page has no emote loader" }
@@ -81,6 +99,12 @@ internal class RebindProof(
         result.put("emoteRows", JSONArray(subjects.filter { it.emotes > 0 }.map { it.row.id }))
 
         val freshBuilds = subjects.associate { subject -> subject.row.id to fresh(subject, "fresh ${subject.row.id}") }
+        /* Laid out by a render before they are read, as every snapshot must be; what that first layout added to their spans is kept. */
+        val freshLayoutAdded = freshBuilds.mapValues { (_, container) ->
+            val before = spanClassesOf(container.getChildAt(0))
+            render(container).recycle()
+            spanClassesOf(container.getChildAt(0)).without(before)
+        }
         val freshStates = freshBuilds.mapValues { (_, container) -> snapshot.of(container.getChildAt(0)) }
 
         val createVersusProducer = createVersusProducer(subjects)
@@ -89,36 +113,39 @@ internal class RebindProof(
         val pairs = pairs(subjects, freshBuilds, freshStates)
         result.put("pairs", pairs)
 
+        val directBind = directBind(subjects, freshBuilds, freshStates, freshLayoutAdded)
+        result.put("directBind", directBind)
+
         val preconditions = preconditions(subjects)
         result.put("preconditions", preconditions)
 
         val passed = pairs.getBoolean("passed") && createVersusProducer.getBoolean("passed") &&
-            preconditions.getBoolean("passed")
+            directBind.getBoolean("passed") && preconditions.getBoolean("passed")
         result.put("passed", passed)
         return result
     }
 
-    /* The row through its producer, into a container of its own: the data the binder is given. */
+    /* The row through its producer, into a list of its own, its user shown: the data the binder is given. */
     private fun subjectOf(row: ParityRow): Subject {
-        val container = newContainer()
+        val list = production.newList()
         images.label = "produced ${row.id}"
-        ParityCatalogue.produce(row, ParityCatalogue.rows.indexOf(row), production, container)
-        check(container.childCount == 1) {
-            "the producer of ${row.id} gave ${container.childCount} views, not 1: a catalogue user hidden on the device?"
+        ParityCatalogue.produce(row, ParityCatalogue.rows.indexOf(row), production, list, hide = false)
+        check(list.childCount == 1) {
+            "the producer of ${row.id} gave ${list.childCount} views, not 1: a catalogue user hidden on the device?"
         }
-        val data = checkNotNull(container.getChildAt(0).tag as? ChatTimelineRow) {
+        val data = checkNotNull(list.getChildAt(0).tag as? ChatTimelineRow) {
             "the producer of ${row.id} left no row as its view's tag"
         }
-        return Subject(row, data, container)
+        return Subject(row, data, list)
     }
 
-    /* [subject] built fresh by the binder: created from its first data, then its events. Its loads carry [label]. */
+    /* [subject] built fresh through the adapter: created from its first data, then its events. Its loads carry [label]. */
     private fun fresh(subject: Subject, label: String): LinearLayout {
         val container = newContainer()
         images.label = label
-        val view = binder.create(firstData(subject))
-        container.addView(view)
-        replayEvents(view, subject)
+        val holder = binding.create(firstData(subject), container)
+        container.addView(holder.itemView)
+        replayEvents(holder, subject)
         return container
     }
 
@@ -128,50 +155,36 @@ internal class RebindProof(
         return if (data is PendingEchoRow) data.copy(status = PendingEchoStatus.SENDING) else data
     }
 
-    /* An echo's events, each a rebind when it changes the status, as ChatTimelineViewSync.applyEchoEvent applies them. */
-    private fun replayEvents(view: View, subject: Subject) {
+    /* An echo's events, each a payload bind when it changes the status, as the list delivers ECHO_STATUS. */
+    private fun replayEvents(holder: ChatTimelineAdapter.RowHolder, subject: Subject) {
         val row = subject.row as? ParityRow.Echo ?: return
         var echo = firstData(subject) as PendingEchoRow
         for (event in row.events) {
             val status = echo.status.after(PendingEchoEvent.valueOf(event))
             if (status == echo.status) continue
             echo = echo.copy(status = status)
-            binder.rebind(view, echo, ChatTimelineChange.ECHO_STATUS)
+            binding.rebind(holder, echo, ChatTimelineChange.ECHO_STATUS)
         }
     }
 
-    /* Binds [subject]'s first data to [view], which shows a row of the same kind, then replays its events. */
-    private fun bindAgain(view: View, subject: Subject) {
-        when (val data = firstData(subject)) {
-            is ChatMessageRow -> binder.bindMessage(view as TextView, data)
-            is SystemLineRow -> binder.bindSystemLine(view as TextView, data)
-            is PendingEchoRow -> binder.bindEcho(view as PendingEchoView, data)
-        }
-        replayEvents(view, subject)
+    /* Binds [subject]'s first data to [holder], which shows a row of the same kind, then replays its events. */
+    private fun bindAgain(holder: ChatTimelineAdapter.RowHolder, subject: Subject) {
+        binding.bindAgain(holder, firstData(subject))
+        replayEvents(holder, subject)
     }
 
     /*
      * C-R: every fresh build against its producer's build, in pixels and in state. Its builds are its
-     * own, not the pairs' references, because a declared exception sets its one field on the fresh
-     * build first; anything else that differs fails.
+     * own, not the pairs' references; anything that differs fails.
      */
     private fun createVersusProducer(subjects: List<Subject>): JSONObject {
         val out = JSONObject()
-        out.put("declaredExceptions", DECLARED_EXCEPTIONS.size)
-        out.put("declaredExceptionsExpected", EXPECTED_DECLARED_EXCEPTIONS)
-        out.put("declared", JSONArray(DECLARED_EXCEPTIONS.map { e ->
-            JSONObject().put("row", e.rowId).put("field", e.field).put("value", e.value).put("reason", e.reason)
-        }))
-        var applied = 0
+        out.put("declaredExceptions", 0)
+        out.put("declaredExceptionsExpected", 0)
         var identical = 0
         val failures = JSONArray()
         for (subject in subjects) {
             val fresh = fresh(subject, "create-versus-producer ${subject.row.id}")
-            for (exception in DECLARED_EXCEPTIONS.filter { e -> e.rowId == subject.row.id }) {
-                check(exception.field == "visibility") { "a declared exception names a field C-R cannot set: ${exception.field}" }
-                fresh.getChildAt(0).visibility = exception.value
-                applied++
-            }
             val pixels = compare(fresh, subject.produced)
             val state = snapshot.diff(snapshot.of(fresh.getChildAt(0)), snapshot.of(subject.produced.getChildAt(0)))
             if (pixels.identical && state.isEmpty() && fresh.childCount == 1) {
@@ -181,19 +194,17 @@ internal class RebindProof(
                     .put("stateDiff", JSONArray(state.take(8))))
             }
         }
-        out.put("exceptionsApplied", applied)
         out.put("rows", subjects.size)
         out.put("identical", identical)
         out.put("failures", failures)
-        out.put("passed", identical == subjects.size && DECLARED_EXCEPTIONS.size == EXPECTED_DECLARED_EXCEPTIONS &&
-            applied == EXPECTED_DECLARED_EXCEPTIONS)
+        out.put("passed", identical == subjects.size)
         return out
     }
 
     /*
-     * Every ordered pair of the same kind: A bound, then B bound to the same view, against B fresh, in
-     * pixels and state; then what the loads say of the view's sessions, and whether its text holds B's
-     * images.
+     * Every ordered pair of the same kind: A bound and laid out, as a row on screen is, then B bound to
+     * the same view and laid out, against B fresh, in pixels and state; then what the loads say of the
+     * view's sessions, and whether its text holds B's images.
      */
     private fun pairs(
         subjects: List<Subject>,
@@ -229,18 +240,22 @@ internal class RebindProof(
                     val bLabel = "pair $pairs B ${b.row.id}"
                     val container = newContainer()
                     images.label = aLabel
-                    val view = binder.create(firstData(a))
+                    val holder = binding.create(firstData(a), container)
+                    val view = holder.itemView
                     container.addView(view)
-                    replayEvents(view, a)
+                    replayEvents(holder, a)
+                    render(container).recycle()
                     val before = snapshot.of(view)
 
                     images.label = bLabel
-                    bindAgain(view, b)
+                    bindAgain(holder, b)
 
                     val fresh = freshBuilds.getValue(b.row.id)
                     if (container.childCount == 1 && fresh.childCount == 1) oneChildEach++
                     if (container.childCount == 1 && container.getChildAt(0) === view) sameView++
 
+                    /* Drawn first: the bind asked for a layout, and the view is read only once it has run. */
+                    val pixels = compare(container, fresh)
                     val after = snapshot.of(view)
                     if (a !== b) {
                         differentRows++
@@ -254,7 +269,6 @@ internal class RebindProof(
                         }
                     }
 
-                    val pixels = compare(container, fresh)
                     val state = snapshot.diff(after, freshStates.getValue(b.row.id))
                     if (pixels.identical) bitmapIdentical++
                     if (state.isEmpty()) stateIdentical++
@@ -328,6 +342,84 @@ internal class RebindProof(
         return out
     }
 
+    /*
+     * Every echo bound at once at its last status, through the adapter, against the same echo built
+     * through its history. Pixels for every echo; state for every echo but the declared one, whose one
+     * difference must be exactly the one declared: the text of the hidden status line. Recorded, and
+     * decided by nothing: the spans each side's first layout added, by class.
+     */
+    private fun directBind(
+        subjects: List<Subject>,
+        freshBuilds: Map<String, LinearLayout>,
+        freshStates: Map<String, Map<String, Any?>>,
+        freshLayoutAdded: Map<String, List<String>>
+    ): JSONObject {
+        val out = JSONObject()
+        val echoes = subjects.filter { subject -> subject.data is PendingEchoRow }
+        var pixelsIdentical = 0
+        var stateIdentical = 0
+        var exceptionsMet = 0
+        var layoutsAddedOnlyTheWatcher = 0
+        val rows = JSONArray()
+        for (echo in echoes) {
+            val last = echo.data as PendingEchoRow
+            val container = newContainer()
+            images.label = "direct ${echo.row.id}"
+            val view = binding.create(last, container).itemView
+            container.addView(view)
+            val before = spanClassesOf(view)
+            /* Drawn first, as the fresh build was: the view is read only once its layout has run. */
+            val pixels = compare(container, freshBuilds.getValue(echo.row.id))
+            val layoutAdded = spanClassesOf(view).without(before)
+            val freshAdded = freshLayoutAdded.getValue(echo.row.id)
+            if (layoutAdded == listOf(LAYOUT_WATCHER) && freshAdded == listOf(LAYOUT_WATCHER)) layoutsAddedOnlyTheWatcher++
+            val state = snapshot.diff(snapshot.of(view), freshStates.getValue(echo.row.id))
+            if (pixels.identical) pixelsIdentical++
+            val declared = echo.row.id == DIRECT_BIND_EXCEPTION.rowId
+            if (state.isEmpty()) {
+                stateIdentical++
+            } else if (declared && state.size == 1 && state[0].startsWith(DIRECT_BIND_EXCEPTION.field + ":")) {
+                exceptionsMet++
+            }
+            rows.put(JSONObject().put("row", echo.row.id).put("status", last.status.name)
+                .put("bitmapIdentical", pixels.identical).put("bitmap", pixels.describe())
+                .put("stateDiff", JSONArray(state.take(8)))
+                .put("spansItsLayoutAdded", JSONArray(layoutAdded))
+                .put("spansTheFreshBuildsLayoutAdded", JSONArray(freshAdded)))
+        }
+        out.put("echoes", echoes.size)
+        out.put("expectedEchoes", EXPECTED_ECHOES)
+        out.put("pixelsIdentical", pixelsIdentical)
+        out.put("stateIdentical", stateIdentical)
+        out.put("declaredException", JSONObject().put("row", DIRECT_BIND_EXCEPTION.rowId)
+            .put("field", DIRECT_BIND_EXCEPTION.field).put("reason", DIRECT_BIND_EXCEPTION.reason))
+        out.put("declaredExceptionsMet", exceptionsMet)
+        out.put("layoutsAddedOnlyTheWatcher", layoutsAddedOnlyTheWatcher)
+        out.put("rows", rows)
+        out.put("passed", echoes.size == EXPECTED_ECHOES && pixelsIdentical == echoes.size &&
+            stateIdentical == echoes.size - 1 && exceptionsMet == 1)
+        return out
+    }
+
+    /*
+     * The class of every span in the text of [view] and of each view inside it, after the path of the
+     * view that shows it, as the snapshot writes paths: what a layout adds is read by comparing two of
+     * these. Read on a view in any layout state, so never compared with a snapshot.
+     */
+    private fun spanClassesOf(view: View, path: String = ""): List<String> {
+        val own = ((view as? TextView)?.text as? Spanned)?.let { text ->
+            text.getSpans(0, text.length, Any::class.java).map { span -> "$path ${span.javaClass.name}" }
+        }.orEmpty()
+        val inside = (view as? ViewGroup)?.let { group ->
+            (0 until group.childCount).flatMap { index -> spanClassesOf(group.getChildAt(index), "$path/children[$index]") }
+        }.orEmpty()
+        return own + inside
+    }
+
+    /* This list less one of each element of [other]: what a layout added, duplicates kept. */
+    private fun List<String>.without(other: List<String>): List<String> =
+        toMutableList().apply { other.forEach { element -> remove(element) } }
+
     /* The drawables of the image spans in the text [view] shows. */
     private fun imageDrawablesOf(view: View): List<Any> {
         val text = (view as? TextView)?.text as? Spanned ?: return emptyList()
@@ -335,8 +427,8 @@ internal class RebindProof(
     }
 
     /*
-     * Each precondition the binder and the echo view hold, made to fire once on purpose: a
-     * precondition that never fails in a test is as untested as the guard it replaced.
+     * Each precondition the binder, the echo view and the adapter hold, made to fire once on purpose:
+     * a precondition that never fails in a test is as untested as the guard it replaced.
      */
     private fun preconditions(subjects: List<Subject>): JSONObject {
         val echo = subjects.first { subject -> subject.data is PendingEchoRow }
@@ -354,17 +446,21 @@ internal class RebindProof(
             if (outcome) fired++
             out.put(name, outcome)
         }
-        record("echoBoundAsNotSending", "an echo is bound as it enters the timeline") {
-            binder.bindEcho(binder.create(echoRow) as PendingEchoView, echoRow.copy(status = PendingEchoStatus.CONFIRMED))
-        }
         record("rebindOfAViewThatCannotBe", "only an echo is rebound in place") {
             binder.rebind(messageView, echoRow, ChatTimelineChange.ECHO_STATUS)
         }
-        record("echoRebindWithAnotherRow", "ChatTimelineViewSync.applyEchoEvent is the only source of ECHO_STATUS") {
+        record("echoRebindWithAnotherRow", "ChatTimelineListSync.applyEchoEvent is the only source of ECHO_STATUS") {
             (binder.create(echoRow) as PendingEchoView).rebind(message.data, ChatTimelineChange.ECHO_STATUS)
         }
-        record("unbindOfAViewCreateNeverBuilds", "create builds three kinds of view") {
+        record("unbindOfAViewNewViewNeverBuilds", "newView builds three kinds of view") {
             EmoteOwnership.unbind(binder, LinearLayout(messageView.context))
+        }
+        record("viewOfATypeThereIsNot", "ChatRowViewType is the only source of view types") {
+            binder.newView(UNKNOWN_VIEW_TYPE)
+        }
+        record("bindWithAPayloadThatIsNotAChange", "the only payload is a ChatTimelineChange") {
+            val container = newContainer()
+            binding.bindWithPayload(binding.create(echoRow, container), NOT_A_CHANGE)
         }
         out.put("made", made)
         out.put("fired", fired)
@@ -400,20 +496,32 @@ internal class RebindProof(
         /** The pairs whose A, or whose B, is one of the 2 emote rows: 2 * 24 each. */
         const val EXPECTED_EMOTE_PAIRS = 48
 
-        /** C-R's declared exceptions. There is one; the run fails if there are ever more or fewer. */
-        val DECLARED_EXCEPTIONS = listOf(
-            DeclaredException(
-                rowId = "msg.hidden",
-                field = "visibility",
-                value = View.GONE,
-                reason = "visibility belongs to the sync, not the bind: the producer's timeline hides the row " +
-                    "after its view is built, and the binder never sets visibility"
-            )
+        /** The catalogue's echoes, which the direct-bind check binds at their last status. */
+        const val EXPECTED_ECHOES = 9
+
+        /**
+         * The direct-bind check's one declared exception: an echo that passed through unconfirmed before
+         * it was confirmed hides "unconfirmed" in its status line when rebound through its history, and
+         * "sending" when bound at once. The line is hidden in both, so no pixel differs.
+         */
+        val DIRECT_BIND_EXCEPTION = DeclaredException(
+            rowId = "echo.unconfirmed-confirmed",
+            field = "/children[1]/text",
+            reason = "a hidden status line keeps the text it last showed (ChatRowViewBinder, item 5); a full bind " +
+                "shows sending before the row's status, a history passes through unconfirmed"
         )
 
-        const val EXPECTED_DECLARED_EXCEPTIONS = 1
+        /**
+         * The preconditions the proof makes fire: two of the binder's and the echo view's from 5a-2, unbind's
+         * from 5c, and two from 5d, the adapter's payload and the binder's view type. 5a-2's third, an echo
+         * bound at a status other than sending, is gone: 5d binds an echo from the pool at any status.
+         */
+        const val EXPECTED_PRECONDITIONS = 5
 
-        /** The binder's and the echo view's preconditions the proof makes fire: three from 5a-2, and unbind's from 5c. */
-        const val EXPECTED_PRECONDITIONS = 4
+        /** The span a TextView's first layout attaches to a Spannable text, as [spanClassesOf] writes it for an echo's message view. */
+        private const val LAYOUT_WATCHER = "/children[0] android.text.DynamicLayout\$ChangeWatcher"
+
+        private const val UNKNOWN_VIEW_TYPE = 99
+        private const val NOT_A_CHANGE = "not a change"
     }
 }
