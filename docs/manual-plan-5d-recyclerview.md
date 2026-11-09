@@ -731,11 +731,27 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         first connect of 400 rows on the same channel.
         - **Its reason, kept as given:** one growing timeline gives R = 2.71 with bands at 1.43 and
           1.90, against R = 1.92 with 1.20 and 1.60 for two pages with one idle.
-      - **How it runs:** both pages' counts are read at every reading, by a long-press on each, and
-        the swipes between the pages fall only outside the refresh bracket.
-      - **R = 2.85 with C = 67,** better discrimination than one page's 2.71 at no cost: more rows
-        dominate C better. Whether C = 67 holds for this configuration is open (*C's configuration*,
-        below).
+      - **Only the page on screen can be pressed.** A's page is on screen at every reading, so B's
+        page writes no `user.marker` unless it is brought on screen; left alone, it grows unread.
+      - **B's count is MEASURED, not assumed,** by the owner's ruling of 2026-11-09, declared before
+        any poll. R depends on the total rows: at the planned counts, B growing as A does gives
+        R = 2.776 with bands at 1.442 and 1.924, and B held at 400 gives R = 1.888 with bands at
+        1.190 and 1.587 (C = 101). Those are two different criteria. That B grows is well founded,
+        since it stays STARTED with its IRC connection open, but well founded is not measured.
+        - **The method, at the FIRST and at the LAST reading only:** after A's long-press and dump,
+          with A on screen, swipe to B's page, long-press B's refresh, and swipe back to A. Outside any
+          refresh bracket. Every dump is taken with A's page on screen, as at the other readings, so
+          that the attached pages are the same at every dump.
+        - **Recorded with it:** B's `shownRows`; the backfill each swipe triggers, its `source` and
+          `messageCount`, for B coming on screen and for A coming back; and whether B, a page never
+          before on screen or paused, triggers one at all.
+        - **The fallback,** used only if the first reading's press on B writes no line, or its line
+          cannot be told from A's: the verdict is reported under both bounds, N_B = N_A and
+          N_B = 400, and it is INCONCLUSIVE if they disagree. It then holds for the whole session.
+        - **Declared by the agent before the session: the measurement is what will be done.** The
+          fallback stands behind it, in the case above only.
+      - **R = 2.776 with C = 101, primary, and 2.845 with C = 67 beside it,** better discrimination
+        than one page's 2.71 at no cost: more rows dominate C better (*C's configuration*, below).
       - **"A second page", below, stays,** as the text this configuration now uses.
   - **How long:** until the timeline holds at least 1,200 rows, 800 live rows past the history, with
     messages still arriving. The owner kept that bound on 2026-11-06: past Chatterino2's limit of
@@ -1017,7 +1033,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         Taken on 5d from the session's own dumps, C and k would place the bands from the very quantity
         they judge, and the criterion would be circular. Step 3 took them on `dea38cc`, correctly. Do
         not "improve" them with the session's dumps.
-      - **C's configuration, read from the records on 2026-11-09: OPEN.**
+      - **C's configuration, read from the records on 2026-11-09, and settled the same day: C = 101
+        is primary, and C = 67 is reported beside it** (the pre-registration at the end of this
+        block).
         - **Step 3's dumps were taken with one chat page:** the accounts page on screen, A's page
           attached beside it, and no second chat page. *Recorded results*, the instrument's sitting,
           read it from the hierarchy: `LoginFragment` and one `ChatFragment`. The phone's journal
@@ -1032,10 +1050,38 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
             containers make 58. That leaves about 9 for the window's own frame views and the widgets'
             internal children.
         - **What it would move, for two pages from 400 to 1,200 rows each:** with C = 101, R = 2.776
-          and the bands are at 1.443 and 1.924; with C = 67 they are 2.845, 1.460 and 1.948. So 67
+          and the bands are at 1.4425 and 1.924; with C = 67 they are 2.845, 1.460 and 1.948. So 67
           overstates R by 2.5% and each edge by about 0.02. Recycling's 1.0 and no-recycling's 2.78
-          fall in their own bands under either.
-        - **Whether a control-build re-measurement is worth it** is the owner's.
+          fall in their own bands under either. (The pass edge at C = 101 was first written 1.443, by
+          rounding up; it is 1.442 at three decimals.)
+        - **PRE-REGISTERED on 2026-11-09, before any poll, by the owner's ruling: the view criterion
+          is judged under C = 101 and under C = 67.**
+          - **The primary verdict uses C = 101,** 67 plus the 34 the static count gives B's page. The
+            count's range, 100 to 102, moves the edges by under 0.001. **The verdict under C = 67 is
+            reported beside it.**
+          - **If the two AGREE,** that is the verdict, and there is nothing to discuss. **If they
+            DISAGREE,** the reading sits in one of the two slivers between their edges, and it is
+            reported INCONCLUSIVE.
+          - **So the judgement does not depend on which estimate anyone prefers.**
+          - **Why 101 is primary, the owner's reason: the direction, not the 2.5%.** At C = 67 the
+            pass edge is 1.460 against 1.442, so a reading of 1.45 passes under 67 and is inconclusive
+            under 101. The configuration error FLATTERS the hypothesis: it makes the wanted conclusion
+            easier to reach. An error that pulls toward the hypothesis is not kept for convenience.
+          - **What makes 101 usable rather than a guess: the method check.** Counting the same
+            layouts for step 3's configuration gives 58 against the measured 67. The shortfall of
+            about 9 is the window's own frame and the widgets' internal children, so the count's
+            offset is consistent, and B's page is counted by the same method.
+          - **No re-measurement,** by the owner: half an hour and an install swap, to move a band
+            edge by 0.02, is not justified.
+          - **The edges are computed from the formula on the actual counts and not rounded,** with k
+            = 1.00 and N the two pages' `shownRows` summed.
+          - **With B's count under the fallback** (*Setup*), the verdict is taken under each C and each
+            bound, four in all; it stands only if all four agree, and is otherwise INCONCLUSIVE. That
+            composition is the agent's reading of the two rulings, for the owner to confirm.
+          - **The abandon floor under each C,** at the planned N_start of 800 summed rows: 1,101 rows
+            summed at C = 101, and 1,090 at C = 67. An end between the two drops the criterion under
+            the primary, and that is reported with the other beside it: the agent's proposal, for the
+            owner to confirm, since the higher floor is the primary's and the stricter.
   - **At each reading:**
     - **Scroll:** fling far up, then back to the bottom.
     - **Follow the bottom:** at the bottom, new messages keep the list there. Scrolled up, the list
@@ -1105,8 +1151,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         channel, and R changes. Which applies is fixed with the session's page setup, before it runs.
         - **Fixed on 2026-11-09: the second page shares the channel** (*Setup*, above). N_start and
           N_end are both pages' `shownRows`, summed, at the first and at the last reading that has a
-          dump. For 400 to 1,200 rows each, R = (C + 2,400k) / (C + 800k), 2.85 with C = 67. C's
-          configuration is open (the instrument, above).
+          dump. For 400 to 1,200 rows each, R = (C + 2,400k) / (C + 800k): 2.776 with C = 101,
+          primary, and 2.845 with C = 67, beside it (the instrument, above). B's rows are measured at
+          the first and the last reading (*Setup*, above).
   - **Not a failure: memory growing.** The timeline's data grows with every row, because nothing caps
     it. That predates 5d and is not a 5d regression. PSS and the Java heap are recorded as figures,
     not judged.
@@ -5368,3 +5415,17 @@ was done on the phone.
   and hashes to `d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402` after the copy.
 - **The session's two tools are to be committed,** by the owner's ruling: their being on one disk
   only is work that gets lost. They had not reached `DESKTOP-BCT68L9` when this entry was written.
+
+**2026-11-09, later: three rulings, pre-registered before any poll.** Nothing was done on the phone.
+- **C = 101 primary, C = 67 beside it,** INCONCLUSIVE if they disagree (section M, the view count's
+  instrument, *C's configuration*).
+- **The tools go to both `experiment/startup-5d-control` and `experiment/startup-5d-treatment`,**
+  where the five host scripts are identical, so that no divergence is created. **Their identity is
+  their FULL sha256 from then on,** since eight hex characters are too few for a frozen tool and full
+  ones cost nothing: this project has been bitten by a prefix before.
+- **B's count is measured at the first and the last reading,** with the two-bound fallback (section
+  M, *Setup*).
+- **`sitting.sh` may be changed, and that is not washing,** under three conditions: declared before
+  any poll, the old and the new full hashes both recorded, and the change touching only how pages
+  are read. No threshold, band or verdict rule moves. The file is read, and what it does with page
+  identity reported, before anything is changed.
