@@ -835,18 +835,41 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
             labels and the saved extract.
           - **Demonstrated only by the P cases:** LIVE as the rows less the history before them, and
             the target reached at exactly the target.
-          - **NOT DEMONSTRATED:** the bound pid's start time; the live pid equal to the bound one; the
-            front read again 2.2 s later; the six sources; and the extractor's exit on an empty input.
-          - **What the session rests on that is not demonstrated:**
-            - **An unreadable journal on the phone.** `adb exec-out` exits 0 on a failed read, with the
-              error on stdout, as measured on the phone. There the extractor's exit 5 is the only
-              guard, and C6 and C14 do not demonstrate it: the stand-in exits 1 instead, and the pipe's
-              own check catches that first. Without that guard, an unreadable journal would read as
-              nothing new, silently.
-            - **A process restarted during the session,** with the same pid or a new one.
-            - **The rate's 2.2 s rule,** should the dev app leave the front between its two reads.
-            - **The six sources.** An injected source would still be stopped loudly by the grammar,
-              which is demonstrated.
+          - **Demonstrated since, later on 2026-11-09** (*Recorded results*, the stand-in corrected):
+            - **the extractor's exit on an empty input, the guard an unreadable journal on the phone
+              relies on.** `adb exec-out` exits 0 on a failed read, with the error on stdout, as
+              measured on the phone; the stand-in exited 1, so C6 and C14 never reached that guard.
+              Corrected to the measured behaviour, they kill M11.
+            - **a process replaced during the session,** by a new pid (M26, killed by R1) or by the
+              same pid started again (M09, killed by R2).
+          - **NOT DEMONSTRATED, and accepted with its reason, by the owner's ruling of 2026-11-09:**
+            - **The front read again 2.2 s later.** In this session the refresh rate is not a void
+              condition but a parameter recorded with its moment, so a spurious 60 Hz reading would be a
+              wrong parameter, not a wrong verdict.
+            - **The six sources.** Defence in depth with one layer proven: an injected source would
+              pass the extractor and be stopped loudly by the grammar, whose check is demonstrated (M13,
+              killed by C4).
+          - **The cap's kill belongs to the harness, not to a case.** M20, the cap removed, was killed
+            because C7 never ended and the driver timed it out. C7 asserts the cap, exit 4 and
+            `CAP REACHED`, only once the poll returns, which with no cap it never does, so it cannot
+            make this a case-level kill without being rewritten. A broken cap in the real session
+            would show as a session that never ends, which Federico would see: not silent.
+          - **A decided exception: the extractor's `\d` stays as frozen, matching non-ASCII digits, on
+            purpose, not a guard left out.** By the owner's ruling of 2026-11-09, refused on the
+            project's own rule and not on scope: an impossible case is not guarded against, it is
+            proved impossible.
+            - **The proof, from the code at `00c1e78`:** the four count fields are `Int` and `Long`
+              values. `messageCount` is `result.messages.size`, `firstTs` and `lastTs` are `toLong()`
+              values (`ChatFragment.kt:2959-2961`), and `shownRows` is `shownRowCount: Int`
+              (`ChatFragment.kt:1426`, `ChatTimelineController.kt:91`). Each is written with
+              `value.toString()` (`HistoryDiagnosticsLog.kt:108`), which is ASCII whatever the locale,
+              and `sanitize` keeps a digit as it is (`:272`).
+            - **The proof, from the data:** the phone's journal through the committed extractor, 3,201
+              lines read, 1,380 kept, none outside the grammar, and not one non-ASCII byte in 403,784.
+            - **And if it happened anyway,** the grammar would stop the poll loudly with
+              `INVARIANT VIOLATED [extract]`.
+            - **So the proof and the loud stop stand in place of a guard.** Changing `\d` to `[0-9]`
+              would break the frozen hash for a case shown not to arise.
           - **Not in the suite at all:** `rows`, `dump`, `state` and `poll`. Of them only `rows` runs
             Python, and the long session does not use it.
       - **The worst-case note above goes with them, as corrected:** the screen held awake on animated
@@ -994,6 +1017,11 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       `standin_adb.sh` `17dfbfca806b0830e049b5ff198301106ffafe1c9ecc780c12520a4988a61b1d`. A rebuild
       from the descriptions, not the suite of 2026-11-06 (*Recorded results*, 2026-11-09, the poll
       counted per page).
+      - **As the session runs it, since 2026-11-09 at 11:59:** with the stand-in corrected to the
+        phone's exit 0 on a failed read, and the replaced-process cases R1 and R2 added, 24 cases:
+        `sitting_suite.sh` `99dd85509f62bb2d0f61b09aefaef81e0092a9068f5c0bd82d361f8a64e33e3e` and
+        `standin_adb.sh` `84c8205e23bcf68a264b7d957eccf841bccd63361c5a2107a90e2fddc99f5405`, at
+        `e519a56` and `e4d953f`. Their mutation check is in `experiment/startup-5d/mutation/`.
     - **Shown to work offline, against a stand-in for adb, in 15 cases,** each ending with the exit and
       the message expected:
       - a healthy session, with an earlier session's lines in the journal that the mark excludes;
@@ -5797,3 +5825,49 @@ Federico copied both files from `nbpromec1`'s `%USERPROFILE%\tmc-5d-round\V` int
 **Queued, not now and not blocking:** whether the original suite survives on `nbpromec1`. If it turns
 up, it is a cross-check on the rebuild, nothing more: the rebuild and its mutation check are what the
 session rests on.
+
+**2026-11-09, 11:45 to 12:00: the stand-in corrected, the replaced process covered, and three rulings,
+before any poll.** On `DESKTOP-BCT68L9`, offline. No poll has run, and the tools did not change.
+- **M11 was the finding that justified the pass, the owner's reading.** An unreadable journal would
+  have read as "nothing new", silently, for up to 140 minutes. It was found by a mutant that SURVIVED,
+  which is a mutant doing its job exactly.
+- **The stand-in corrected, by the owner's authorisation:** a failed `exec-out` read exits 0 with the
+  error on stdout, as measured on the phone. That is a change to the test instrument, not to a case,
+  justified by a measurement on the device. `standin_adb.sh` went from `17dfbfca…` to
+  `18de908d2533adde5b2e6ffd0f686ecc00abd6f7f094475385e8ca00e497245c`.
+  - **Predicted before the runs:** 22 of 22 on each version, and M10 and M11 killed by C6 and C14.
+  - **Run, 11:49 to 11:53:** 22 of 22 on the per-page tools and on the frozen ones. **M11 now dies, by
+    C6 and C14,** and M10 still does.
+  - **Under M11, C6 showed the silent failure:** the unreadable journal read as nothing new, with
+    `HISTORY_NOT_YET_RECORDED_SINCE_THE_MARK LIVE=none`, and the poll ran on to `CAP REACHED`, exit 4.
+    Unmutated, C6 stops with `INVARIANT VIOLATED [journal]`, "the read or the extraction exited 5":
+    the guard the phone relies on, now seen to fire.
+- **The replaced process, two NEW cases, no existing one changed** (by the owner's ruling, M09
+  included as cheap): R1, a new pid at the second poll, and R2, the same pid started again. The
+  stand-in answers the start time from `start[.N]`. `sitting_suite.sh` went from `dcb47e98…` to
+  `99dd85509f62bb2d0f61b09aefaef81e0092a9068f5c0bd82d361f8a64e33e3e`, and `standin_adb.sh` from
+  `18de908d…` to `84c8205e23bcf68a264b7d957eccf841bccd63361c5a2107a90e2fddc99f5405`.
+  - **Predicted:** R1 kills M26 and R2 kills M09.
+  - **Run, 11:54 to 11:59:** 24 of 24 on each version. **M26 was killed by R1 alone, and M09 by R2
+    alone.** Under each mutant the poll followed the replaced process for 8 polls, to its cap.
+  - **Unmutated, each case stops at once with its reason:** "returns '888', not 777: the process was
+    restarted", and "pid 777 is alive but started at '5555', not 4242".
+  - **The owner's reason for the case:** over 65 to 140 minutes with the screen awake a restart is
+    plausible, and a poll following a new pid would read the new process's history as a continuation,
+    with the count collapsing to 400: visible in the data but easy to misread.
+- **Two behaviours stay NOT DEMONSTRATED, accepted with their reasons:** the 2.2 s rule and the six
+  sources (section M, the interpreter).
+- **The cap's kill is the harness's,** and recorded as such so that nobody reads it as a case-level
+  kill (section M, the interpreter).
+- **The digit check is NOT changed: a decided exception,** with its proof beside it (section M, the
+  interpreter).
+- **U1, a finding in its own right: the "unreachable" state was reachable.** The real extractor, fed a
+  hostile journal, emitted lines outside the grammar, for non-ASCII digits. Going to look produced a
+  better answer than a guard would have: a proof that the app cannot write such a digit, an empirical
+  check that its journal holds none, and the knowledge that the grammar stops one loudly if it ever
+  appears.
+- **Committed on both branches, two commits each,** so that each carries the instrument its evidence
+  was made with: the stand-in fix at `c33051b` on `experiment/startup-5d-control` and `d180859` on
+  `experiment/startup-5d-treatment`; then R1, R2, `start[.N]` and the results at `e519a56` and
+  `e4d953f`. The whole `experiment/startup-5d` tree is identical on the two branches. Every added line
+  was scanned before the push.
