@@ -1370,6 +1370,21 @@ case only if the app still runs as before it.
      bar names that row's user. `CHAT_LONG_PRESS: message actions opened`.
    - **Failure:** a title, a copied text or a reply naming another row's user or text; no menu; a swipe
      that does not arm, or leaves the row displaced.
+   - **Result, 2026-11-09 (*Recorded results*, the hands-on pass): PASS, three rows of three,** on A at
+     2,393 shown rows (the marker at 16:28:41).
+     - **Where the rows were:** row 1 mid-screen after a far fling; row 2 near the top, further up;
+       row 3 just scrolled in from the bottom edge.
+     - **What each showed:** the title, the pasted text and the reply bar named that row; the swipe
+       armed, and the row came back aligned. In Federico's words, row 2: "titolo corrispondeva, reply
+       presente, message copied ok, testo corrispondeva, risposta corrispondeva e tornata allineata".
+     - **Log:** `CHAT_LONG_PRESS: message actions opened hasMessageId=true` at 16:33:00.410,
+       16:42:05.615 and 16:46:45.676. The identities and the alignment rest on what he saw; no log
+       line carries them.
+     - **Recorded beside it:**
+       - row 1's cleanup tap left no `close_composer_keyboard` line, though his re-check at
+         16:37:18.735 did;
+       - the channel dropdown closed and reopened on the paste tap;
+       - row 3's cleanup tap was on another message, because the row lay behind the keyboard.
 2. **The stable flavour.** No part of this round has exercised `com.fs.twitchminichat`, and it is what
    every user installs. **NOT skipped: MOVED to the 5.6.0 device round,** by the owner's ruling of
    2026-11-09, where a release-signed build is installed over the published one and its checks run
@@ -1392,6 +1407,17 @@ case only if the app still runs as before it.
      hidden-user rule updated`.
    - **Failure:** a hidden user's row still shown; another user's row gone; rows out of order,
      duplicated or blank; the list jumping away from where it was; a crash.
+   - **Result, 2026-11-09: PASS; the neighbour page NOT REACHED.** On A, about 3,200 rows, estimated
+     from 2,393 at 16:28:41.
+     - **Hidden:** both of that user's on-screen rows left, and the others kept their order and place
+       with no jump: "c'erano 2 righe e sono sparite, le altre righe sono rimaste in ordine, la lista
+       non è saltata". Log: `CHAT_ACTION: hidden-user rule updated added=true` at 16:52:50.930.
+     - **Shown again,** through Safety & Privacy › Blocked Users › Unblock: "le righe sono tornate al
+       loro posto insieme, la lista non si è mossa". No log line decides it.
+     - **The neighbour page** was on a channel with no rows of that user. Rows off screen were not
+       looked at.
+     - **The guide's error:** it listed the toast "User blocked in app: @…" among the pass criteria,
+       and withdrew it as soon as it noticed. The toast decides nothing here.
 4. **Send a message, and watch its echo through to CONFIRMED, including its full bind (U5).** Long.
    **FEDERICO performs the send, not the driver.** The message is public: send it where a test message
    is acceptable.
@@ -1403,6 +1429,13 @@ case only if the app still runs as before it.
      with its emote. `TWITCH_IRC`, and `outgoing message reconciled` if canonical data arrives.
    - **Failure:** stuck sending; back to the sending style after the return; shown twice; missing;
      another row's content in its place; its emote missing.
+   - **Result, 2026-11-09: PASS; the opacity while sending UNCLEAR.** Sent by Federico on A at 17:01, on
+     a channel where a test message was acceptable.
+     - **The echo:** "Sending…" showed for "una frazione di secondo", then the row was confirmed.
+     - **After far up, 10 s and back:** one copy, no "Sending…", the emote present and moving.
+     - **Log:** `TWITCH_IRC: outgoing message confirmed` at 17:01:10.354; no `reconciled` line.
+     - **The opacity:** "sending è durato troppo poco ma sembrava più trasparente". What would settle
+       it is a slower confirmation, which cannot be produced on demand.
 5. **Rotation, and the keyboard.** Long. Turning auto-rotate on is a phone setting: record it, and set
    it back to 0 after. `MainActivity` declares no `configChanges`, so each rotation recreates it.
    - **Do:** with animated emotes on screen, rotate to landscape and back. Then open the keyboard in
@@ -1411,6 +1444,20 @@ case only if the app still runs as before it.
      recorded as figures; emotes show and play; the keyboard's state after each turn.
    - **Failure:** a crash, `An emote session was released twice` or `A load was started for a released
      emote session` in the log; a blank list; rows out of order; emotes missing.
+   - **Result, 2026-11-09: PASS.** Six rotations, 17:49:58 to 17:59:33. Auto-rotate was on from 17:50 and
+     back to 0 by 18:00.
+     - **The criteria:** no crash (the crash buffer stayed empty, and the process was 25051
+       throughout); rows shown and in order; emotes visible and moving.
+     - **Each rotation rebuilt both pages from `first_connect`:** `session ready generation=1`, and a
+       fresh `messageCount=400`. The timeline went from 5,358 shown rows (17:43:34) to 482 (17:58:07),
+       as this case anticipated.
+     - **Keyboard, recorded only:**
+       - in the channel field, opened by mistake in the first run ("ho toccato type channel"), it
+         closed with the rotation;
+       - in the message field, in the redo (`composer focus guard armed` at 17:59:24.815), it stayed
+         open, but the cursor was lost and did not come back in portrait.
+     - **Not from #97:** it changes neither the manifest nor `MainActivity`, and `main-v5` declares no
+       `configChanges`.
 6. **Scrolling, follow-the-bottom and the jump button, and a row taller than the list (U2/U3).** Long.
    - **Do:** at the bottom, watch new messages arrive. Scroll up a little and wait; tap the jump button.
      Fling far up and back. Find a row taller than the list, which is likelier in landscape, and scroll
@@ -1420,6 +1467,15 @@ case only if the app still runs as before it.
    - **Failure:** a new message at the bottom without the list following; the count disagreeing with
      the rows that arrived; the tap not returning; a tall row showing its middle or bottom with its top
      out of reach; a jump in the scroll. If no tall row appears, that sub-case is recorded NOT REACHED.
+   - **Result, 2026-11-09: PASS on four parts; the count UNCLEAR; the tall row NOT REACHED.**
+     - **PASS, by observation:** the list follows at the bottom; it stays put while the count grows;
+       the tap returns it to the bottom and clears the count; there was no jump far up, to the first
+       row, and back. No log line covers scrolling.
+     - **The count:** "il numero non lo ricordo, forse 6 … erano troppi da contare". A short retry was
+       offered and skipped. What would settle it is the number read just before the tap, with few
+       enough arrivals to count.
+     - **The tall row:** none in portrait ("non ne ho mai visto uno così lungo"). The keyboard method
+       was not tried, and landscape was not looked at.
 7. **Emote animation at the detach boundary, an off-screen page included.** Long.
    - **Do:** scroll an animated emote's row just out of view and back. Swipe to page B for 10 s and back.
      Home for 10 s and back.
@@ -1427,9 +1483,39 @@ case only if the app still runs as before it.
      frames cannot be seen by eye: that is B1's measurement, not this pass's.
    - **Failure:** an emote frozen on screen; an emote animating in a row that is not its own; a blank
      marker; a crash with the ownership messages above. `TWITCH_EMOTES`.
+   - **Result, 2026-11-09: PASS,** by observation: "le emote ripartite senza problemi, nessuna emote
+     ferma".
+     - **Page B:** about 14 s (B's `resume` at 17:16:12.216, A's at 17:16:26.231).
+     - **Home:** about 10 s (17:16:33 to 17:16:43).
+     - **No crash,** and neither ownership message.
 8. **TalkBack, with `reason=outside_click` as the decider.** Long, a full list. As written above (*The
    same click, through TalkBack*): turning it on is a phone setting and the owner's say-so, and it is
    turned off again before anything else.
+   - **Result, 2026-11-09: NOT DONE, blocked by TalkBack's own tutorial.**
+     - **The exit was not established at first.** Secure-settings writes were refused
+       (`WRITE_SECURE_SETTINGS`), and the volume-key shortcut had no target.
+     - **Then proven both ways.** Federico turned on the developer option "Disable permission
+       monitoring", off before the pass and off again at 18:11.
+       - **On:** `settings put secure enabled_accessibility_services
+         com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService`, with
+         `accessibility_enabled 1`.
+       - **Off:** `settings delete secure enabled_accessibility_services`, with
+         `accessibility_enabled 0`.
+       - Each was confirmed with `dumpsys accessibility`.
+     - **Every activation brought TalkBack's `TrainingActivity` to the front,** 4 of 4: at 17:33:57,
+       17:38:43, 17:42:06 and 17:48:24.
+       - It came back after Federico closed it with "Finish", and after he believed he had
+         completed it.
+       - It takes focus from the app, so the setup (the field focused, the keyboard open) was lost
+         before any gesture.
+       - TalkBack was off again each time within 23 s. No double tap was made.
+     - **Read beside it, before acting.** `clearChannelFocusClickListener`, the only writer of
+       `reason=outside_click`, is set on four views: the fragment's root, `chatList`, `textStatus` and
+       `replyBar` (`ChatFragment.kt:1773-1778`).
+       - So the line shows that one of the four was clicked.
+       - What ties it to the list is "Chat messages", the list's spoken label, heard just before the
+         double tap.
+     - **What would settle it** is an owner's decision on reaching the list past the tutorial.
 9. **A tap on empty space on a SHORT chat, with the keyboard open (U1's side effect).** Short: B's page,
    switched to a channel with few rows.
    - **Do:** focus the channel field, so that the keyboard is open; tap between rows, on a system line,
@@ -1438,6 +1524,28 @@ case only if the app still runs as before it.
      composer focus guard disarmed reason=outside_click`.
    - **Failure:** the keyboard stays; the tap below the last row does nothing (the old container ended
      at its last row, so that one is new); a tap on a row taken for empty space, or the reverse.
+   - **Result, 2026-11-09: PASS on the second run; the first run UNCLEAR.**
+     - **Run 1,** with B on a channel with 44 history rows:
+       - below the last row: NOT REACHED, because the list reached the bottom;
+       - on a system line: NOT DONE, because the line was not found and the chat was tapped instead;
+       - between rows: UNCLEAR.
+       - There were four click events for three reported taps: `outside_click` at 15:42:35.134 and
+         15:42:41.952, and message-row clicks (`close_composer_keyboard` alone) at 15:42:08.755 and
+         15:43:05.979.
+     - **Run 2,** with B on an uncached channel with no history, one tap per message:
+       - **between rows: PASS,** `outside_click` at 15:59:11.183 and 15:59:28.265 (two taps, by
+         Federico's recollection);
+       - **on the system line: PASS at the fourth attempt,** `outside_click` at 16:21:58.127.
+         Attempts 1 and 2 were NOT DONE: the line was covered by the channel dropdown, then had
+         scrolled away. Attempt 3 was UNCLEAR, because a stray tap on the status text had already
+         closed the keyboard.
+       - **below the last row: PASS,** `outside_click` at 16:25:04.261. This is the new part.
+     - **Found beside it, pre-existing:** while the channel field is focused, the channel dropdown
+       covers the top of the chat.
+       - A second tap on the field closes the dropdown and reopens it, although the code reads as
+         closing it (`onChannelFieldTapped`). Back closes it.
+       - #97 changes neither `ChannelAutoCompleteTextView.kt` nor any line naming the dropdown's
+         functions.
 
 **Grouped, so that the long timeline is built once:**
 - **Before, about 5 minutes:** the records and Logcat above; launch; A's page on a busy channel; B's
@@ -6511,3 +6619,112 @@ stretch, not figures from the plan.
   - **The cost:** their reuse means re-applying the mutants every round.
   - **The open ruling:** qualifying them on stable would be by proxy on dev, which the owner rules on
     then, not now.
+
+**2026-11-09, 15:29 to 18:13: the hands-on pass, run with Federico on `ba1f88e3…`.** It followed the
+owner's guided prompt.
+- **Who did what:** Federico acted and looked. The agent drove only the Logcat capture, the adb reads
+  and the TalkBack toggle. Nothing was pressed by adb, and nothing was uninstalled.
+- **Where the verdicts are:** each case's verdict, Federico's words and the deciding log lines sit
+  beside that case's criteria (section M, *The hands-on pass*). His words are quoted in Italian, as he
+  wrote them, with only his typing slips corrected.
+- **Where the captures are:** outside the repository, in the round's tools folder.
+  - Logcat, the plan's seven tags: 253 lines.
+  - The crash buffer: 0 lines.
+  - `CHAN_DROPDOWN`, outside the plan's tags: 0 lines.
+  - A watcher of the focused package and the process id: 33 changes.
+  - The journal extract from the session mark: 89 kept lines.
+- **Phase 1, read from the phone at 15:29:50:**
+  - `accelerometer_rotation` 0, `user_rotation` 0;
+  - `accessibility_enabled` 0, `enabled_accessibility_services` null, `touch_exploration_enabled` 0,
+    with TalkBack 17.1.0.1003738110 installed;
+  - battery saver 0; USB power, status 5, level 100; 27.1 °C; thermal status 0;
+  - 90.0 Hz, read with the launcher in front;
+  - `screen_off_timeout` 1,800,000; `stay_on_while_plugged_in` 7; `show_touches` 1.
+  - **The build:** `base.apk` sha256 `ba1f88e3347382f76e4d5d1c0661602e2a24e187fcbdcfc2440e64ea88f16e4a`,
+    5.5.1-dev (8).
+  - **The pages,** compared in-process with no name printed: A stayed on one channel; B was switched,
+    its last channel different from A's.
+
+| Case | Verdict | One line of evidence |
+|---|---|---|
+| 1 | PASS | three recycled rows: title, copy and reply named their row; `message actions opened` ×3 |
+| 3 | PASS (neighbour page NOT REACHED) | two on-screen rows hidden and back in place; `hidden-user rule updated added=true` |
+| 4 | PASS (opacity UNCLEAR) | confirmed (`outgoing message confirmed` 17:01:10.354); one copy with its emote after the far trip |
+| 5 | PASS | six rotations, no crash, rows in order, emotes moving; each rotation reloaded the history |
+| 6 | PASS (count UNCLEAR, tall row NOT REACHED) | follows, stays put, the jump tap returns and clears, no jump |
+| 7 | PASS | emotes restart at the edge, after B and after Home; no crash |
+| 8 | NOT DONE | TalkBack's tutorial took the front on 4 of 4 activations; no double tap made |
+| 9 | PASS (run 2); UNCLEAR (run 1) | `outside_click` between rows, on a system line and below the last row |
+| 2 | not in this pass | moved to the 5.6.0 round, BLOCKING there |
+
+- **Nothing FAILED, and nothing observed is a 5d regression.**
+  - **How "not 5d" was established:** by reading #97's diff against `origin/main-v5`, not by running
+    the old build. The rotation reload, the channel dropdown and the report menu all sit in code #97
+    does not touch: the report menu's functions are byte-identical, and the manifest, `MainActivity`
+    and `ChannelAutoCompleteTextView.kt` are unchanged.
+  - **The merge of #97 is the owner's decision,** with case 8 NOT DONE.
+- **The interruption:** an incoming phone call, 16:16:50 to 16:17:21. The dialer, then the launcher,
+  were in front, with the same process (25051).
+  - Federico: "chiamata in corso … non ho toccato nulla".
+  - Recorded, and the pass resumed after his answer, at case 9's second tap.
+  - Every other change of the front was a checklist action or its setup: Home in case 7, Safety &
+    Privacy in case 3, Settings and the shade for the developer option and auto-rotate, and
+    TalkBack's tutorial.
+  - One more happened after the look had ended: the shade at 18:09:22, "ho controllato le notifiche di
+    altre app".
+- **Nine reconnects, each when the app came back to the front.** Every one was `reconnect_offline` on
+  both pages: 16:17:19, 16:56:59, 17:16:42, 17:33:02, 17:35:08, 17:39:12, 17:42:53, 17:49:00 and
+  18:11:59.
+  - A filled the gap with 8 to 34 messages each time.
+  - So A's long timeline went through eight of them before case 5.
+- **Recorded, not classified:**
+  - **The channel dropdown** covers the top of the chat while the channel field is focused, and a
+    second tap on the field closes and reopens it (case 9).
+  - **A rotation reloads the history** from `first_connect`, 400 messages, on every rotation: six of
+    six (case 5).
+  - **`CHAT_IME` wrote no line in the whole pass,** though the keyboard opened many times.
+    - Its log calls read as unconditional (`ChatFragment.kt:1883`, `ChatKeyboardLayoutController.kt:74`).
+    - `log.tag.CHAT_IME` is unset, and #97 changes no line naming it.
+    - The cause is not established.
+  - **The keyboard on rotation:** in the channel field it closes; in the message field it stays open
+    but loses the cursor.
+  - **With the list scrolled up,** the row at the bottom edge goes behind the keyboard when the
+    channel field takes focus.
+  - **The keyboard field datapoint:** `mInputShown=true` at 18:01:00, with the keyboard open by
+    Federico's report. The inventory read it as `false` earlier the same afternoon, with the keyboard
+    closed and the dev app not running. One datapoint each way; this is not a qualification.
+- **The unstructured look:** 18:02 to 18:08, six minutes rather than ten, by Federico's own times.
+  - It ran on the reloaded timeline, 482 rows at 17:58:07, not on the long one.
+  - Federico: "non ho trovato comportamenti strani o inattesi, l'app sembra funzionare bene".
+  - He sent two messages on A, confirmed at 18:02:42.161 and 18:07:01.378.
+  - **The drip-in look,** observed during it as a scope decision for batching: "i messaggi arrivano
+    fluidi, in modo naturale".
+- **The agent's own corrections, made during the pass:**
+  - **It predicted from the code** that a second tap on the channel field would close the dropdown.
+    The dropdown closed and reopened.
+  - **It withdrew two "cross-checks against the phone's buffer"** (15:59 to 16:05). The main buffer
+    is a 256 KiB ring that, by 16:17, no longer held lines two minutes old, so an absence in it shows
+    nothing.
+  - **It listed the case-3 toast as a criterion,** and withdrew it.
+  - **It ran one extract with a later starting instant,** which labelled B's account "A". From then
+    on it labelled only from the session mark.
+  - **It asked one either/or question in case 5,** which a "sì" could not answer. The answer was
+    recorded and not interpreted.
+- **Federico's departures from the steps, recorded as he described them:**
+  - case 9, run 1: he tapped in the chat when the system line could not be found;
+  - case 9, run 2, tap 1: two taps where one was asked;
+  - case 5, part 2: the first run opened the keyboard in the channel field, and the step was redone in
+    the message field;
+  - case 8: he closed the tutorial after TalkBack was already off, without being asked.
+- **Phase 4, read from the phone at 18:12:39:**
+  - every Phase 1 setting is back at its starting value: `accelerometer_rotation` 0,
+    `user_rotation` 0, accessibility 0 / null / 0, the shortcut target empty, battery saver 0,
+    `zen_mode` 0;
+  - TalkBack: no process and no bound service;
+  - "Disable permission monitoring" is off again, set by Federico. A same-value secure write was
+    refused with `SecurityException … WRITE_SECURE_SETTINGS`, which confirms it;
+  - 26.8 °C, thermal status 0, 90.0 Hz with the dev app in front;
+  - the dev app was force-stopped at 18:13:07 and not uninstalled; its APK sha256 is unchanged,
+    `ba1f88e3…`;
+  - all captures were stopped;
+  - **left set, as at the start:** `show_touches` 1 and `stay_on_while_plugged_in` 7.
