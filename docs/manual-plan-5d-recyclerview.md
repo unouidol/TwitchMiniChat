@@ -829,6 +829,16 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
   - **The session's poll, once a minute, by the round's `sitting.sh`,** with `journal_extract.py`, in
     `%USERPROFILE%\tmc-5d-round\V`, outside this repository, frozen at sha256 `854dca02…` and
     `f5abb492…`. Written on 2026-11-06. Nothing of it has run on the phone.
+    - **Committed unchanged on 2026-11-09, and on one disk only until then** (*Recorded results*,
+      2026-11-09, the tools committed). Their identity is the full sha256 from then on:
+      - `sitting.sh` `854dca023884bc3dfe6f643d28b019fe0bda4f95f5df1bf4ec17d02a28d93164`, blob
+        `e952ac23924f5bab51c3511a37a6a3e9eb3fae9b`;
+      - `journal_extract.py` `f5abb4920daaccd9d9a9f1a9448fb705ae47d1ce28ba55dc71f778253c2cc678`,
+        blob `b39667635d6f94892a241e8acd57001280a37b9c`;
+      - on `experiment/startup-5d-control` at `613ff07` and `experiment/startup-5d-treatment` at
+        `d467f2e`, in `experiment/startup-5d/`.
+    - **It runs from `tmc-5d-round\V`, never from a clone:** `sitting.sh` writes its outputs beside
+      itself (`sitting.sh:35`).
     - **The order:**
       1. `state` before;
       2. `session-start <label>`, with the dev app not running: the mark;
@@ -875,10 +885,32 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         deduplicator can only remove rows, so `shownRows` less the sum is a lower bound on the live
         rows. A result whose `messageCount` was rejected makes it no bound, and the poll prints it
         UNKNOWN. The target is 800 live rows by that bound.
-      - **Open, with two pages (raised on 2026-11-09):** the extract's fields above carry no page
-        identity, so with two pages the poll can attribute a `shownRows` or a `backfill.result` to
-        its page only by order. The bound and the target of 800 were written for one page. What the
-        frozen `sitting.sh` does with two is read once it is committed.
+      - **With two pages, what the frozen tools do: read on 2026-11-09, once committed, and not
+        changed.**
+        - **The extract carries no page identity:** `journal_extract.py` keeps `source`,
+          `messageCount`, `firstTs`, `lastTs` and `shownRows`, and drops the account and the channel
+          (`journal_extract.py:22-26`).
+        - **The poll counts the two pages as one** (`sitting.sh:262-281`). Its history is every
+          `backfill.result` since the mark, both pages'. Its row count is the LAST `user.marker`,
+          whichever page wrote it. Its LIVE is that count less all the history before it.
+        - **So LIVE, at A's press, is A's rows less both pages' history.** It is still a lower bound
+          on A's live rows, but low by B's first connect, 400, and by every backfill B and the swipes
+          bring. The target of 800 is reached near 1,600 rows on A instead of 1,200: about 33 minutes
+          later at 12.3 a minute, and not before the cap at 6 a minute. The session still ends on its
+          target or its cap, never on a `Views:` reading.
+        - **After a press on B,** the last marker is B's, so LIVE is computed on B's rows until A's
+          next press. While both pages' history exceeds B's rows, it is negative and cannot reach
+          the target.
+        - **The pages' markers can still be told apart by order.** The extract keeps every line's
+          order and moment, and the procedure fixes A's press before B's at the first and the last
+          reading. So N_A and N_B can be read from it without a change, provided nothing else
+          presses between them.
+        - **A backfill of B's inside the refresh bracket** cannot be attributed, but shows as a second
+          triggered and result pair inside it, which makes the bracket VOID.
+        - **A change that would touch only how pages are read, proposed and not made:** the extract
+          prints a page label, A or B by first appearance since the mark and never the account, and
+          the poll counts history and LIVE per page. Whether to make it is the owner's, under the
+          three conditions recorded on 2026-11-09.
       - **A read that fails is never "nothing new":** an unreadable journal, an empty extraction, or a
         line outside the grammar stops the poll with `INVARIANT VIOLATED`.
     - **The refresh rate, at every poll, with its moment. Not a void condition,** by the owner's ruling
@@ -909,8 +941,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     - **Not yet exercised on the phone:** reading the journal with `run-as`. The mark is its first
       read, and fails loudly if it reads nothing.
       - **The read itself was exercised on 2026-11-09,** by the agent's `run-as … cat` on
-        `DESKTOP-BCT68L9`, not by the session's tooling. That tooling is not on that machine: the
-        two files above are on `nbpromec1`.
+        `DESKTOP-BCT68L9`, not by the session's tooling. That tooling was then on `nbpromec1` only;
+        since 2026-11-09 it is committed, and in `C:\Users\Fede\StudioProjects\tmc-5d-round\V` on
+        `DESKTOP-BCT68L9` (above).
     - **Duplicates:** what this session can say about them is pre-registered (*Recorded results*,
       2026-11-06, "the long session's tooling, and its duplicate prediction").
       - **Eviction is closed by reading,** the owner's of 2026-11-09: the backend returns the newest
@@ -5466,3 +5499,45 @@ Nothing was done on the phone.
   against a judgement that does not decide. "Goes unjudged" became DROPPED.
 - **The rounding correction is recorded as a correction:** 1.4425 had been rounded up to 1.443.
 - **Open, the agent's proposal:** the floor under the fallback's two bounds.
+
+**2026-11-09: the session's tools committed, on one disk only until then.** On `DESKTOP-BCT68L9`.
+Federico copied both files from `nbpromec1`'s `%USERPROFILE%\tmc-5d-round\V` into
+`C:\Users\Fede\StudioProjects\tmc-5d-round\V`.
+- **Verified against the recorded prefixes: both MATCH.**
+
+  | File | Recorded | Computed, full sha256 | Blob |
+  |---|---|---|---|
+  | `sitting.sh` | `854dca02…` | `854dca023884bc3dfe6f643d28b019fe0bda4f95f5df1bf4ec17d02a28d93164` | `e952ac23924f5bab51c3511a37a6a3e9eb3fae9b` |
+  | `journal_extract.py` | `f5abb492…` | `f5abb4920daaccd9d9a9f1a9448fb705ae47d1ce28ba55dc71f778253c2cc678` | `b39667635d6f94892a241e8acd57001280a37b9c` |
+
+  - **From here on the identity is the full sha256,** by the owner's ruling: eight hex characters are
+    too few for a frozen tool.
+  - Both files are LF-only ASCII, of 18,921 and 2,829 bytes, last modified on 2026-11-06 at 12:45 and
+    12:44, as frozen.
+- **Committed unchanged, the same two blobs on both branches,** beside `run.sh`, `analyze.py`,
+  `qualify5d.py`, `decide.py` and `launchcheck.py`, which are identical there too:
+  - `experiment/startup-5d-control`: `613ff07bdc3953c175cfa65c2fcfd6d606e1d90e`, on `d942bd9`;
+  - `experiment/startup-5d-treatment`: `d467f2e174fcc6c72923d5d1bec061590f015040`, on `10572a5`.
+  - Staged with `core.autocrlf=false`, so each blob's content hashes to the frozen sha256. A Windows
+    checkout with `core.autocrlf=true` writes CRLF, so the identity is checked on the blob, `git show
+    <commit>:experiment/startup-5d/sitting.sh`, not on a checked-out copy.
+- **Scanned before the push, the repository being public:** all 409 added lines on each branch, for
+  credential words and shapes, emails, URLs, addresses, personal names, machines and paths, the
+  phone's serial, the account and channel fingerprints, the Firebase identifiers and long hex. One
+  hit, a false positive: a drive-path pattern matched `d:\d` in the extractor's line grammar. Both
+  files were also read in full.
+- **They were on one disk only, `nbpromec1`'s, from 2026-11-06 until these commits on 2026-11-09.**
+- **For running them, read and not run:**
+  - `sitting.sh` writes its outputs beside itself (`sitting.sh:35`): the dumps, the row counts, the
+    binding, the mark, the extracts and the rates. So it runs from
+    `C:\Users\Fede\StudioProjects\tmc-5d-round\V`, whose copies are the committed bytes, never from a
+    clone.
+  - **Its default Python is `py -3.10` (`sitting.sh:37`), which `DESKTOP-BCT68L9` does not have.** Its
+    only Python is 3.14.0, and `py -3.10` answers "No suitable Python runtime found". So the default
+    would stop at the first journal read with `INVARIANT VIOLATED [journal]`. Running here needs `PY`
+    set, or Python 3.10 installed: the owner's to decide, since the Python version is part of the
+    instrument.
+  - **`adb` from `PATH`** is `%LOCALAPPDATA%\Android\Sdk\platform-tools`, the same 37.0.1 binary as
+    `D:\Android\SDK`'s, by full sha256 (`b4a6b455…`), so no adb server is restarted between them.
+- **What `sitting.sh` does with page identity** is in section M, *History counted apart from live
+  rows*. Nothing was changed.
