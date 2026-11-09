@@ -5871,3 +5871,59 @@ before any poll.** On `DESKTOP-BCT68L9`, offline. No poll has run, and the tools
   `experiment/startup-5d-treatment`; then R1, R2, `start[.N]` and the results at `e519a56` and
   `e4d953f`. The whole `experiment/startup-5d` tree is identical on the two branches. Every added line
   was scanned before the push.
+
+**2026-11-09, recorded by the owner before the session: three things done right.**
+- **M11's kill.** Under the mutant, C6's unreadable journal read as `LIVE=none` and the poll ran to its
+  cap with exit 4; unmutated, it stops with `INVARIANT VIOLATED [journal]`, the exit 5 that is the
+  phone's only guard, now seen to fire. That was the difference between a sitting and 140 minutes of
+  nothing that looked like something.
+- **M20 recorded as a HARNESS kill** rather than passed off as a case kill, because C7 cannot assert the
+  cap without being rewritten. Declaring an accidental kill accidental is the discipline.
+- **Each branch carries two commits,** one holding only the stand-in's bytes that the 22-of-22 and
+  M10/M11 runs used, so that every piece of evidence points at the exact instrument version that
+  produced it.
+
+**2026-11-09, 12:00 to 12:40, STEP 0 before the mark: a press only with the dev app in front.**
+- **The read:** the poll does not verify the foreground before a press, because the poll never presses.
+  `sitting.sh` only reads; the presses of the qualification launch came from an ad-hoc script in the
+  agent's scratch directory, which checked nothing.
+- **So the check lives in `press.sh`, the round's only input tool,** committed beside the others. Before
+  every press, two loud preconditions, in the form of the `pages` check: `[front]`, the dev app's window
+  has focus, read immediately before the press; `[target]`, exactly one refresh button on screen and the
+  press, or a swipe's start, inside it. Either failing presses nothing, exit 3. Focus is read again
+  after the press; another window then prints `INTERRUPTED [front-after]`, exit 4.
+  - **Why a swipe starts on the refresh button:** on a message row a drag from the right edge to the
+    left arms swipe-to-reply (`ChatFragment.kt:415-452`), which would take the gesture from the pager.
+  - **From the accounts page,** where a launch opens: `swipe-from-accounts`, whose target is no refresh
+    button and the accounts list on screen, the swipe inside the list, whose rows have no swipe action.
+  - **Only the button's or the list's bounds are read** from the screen's hierarchy; no text is printed
+    or saved.
+- **Exercised against the stand-in,** which now records each `input` instead of executing it:
+  `press_suite.sh`, 14 of 14. Mutants, one per precondition: front, killed by T2; exactly one refresh
+  button, by T3; no refresh button on the accounts page, by T14, a new case added after the mutant
+  survived T12, whose screen held no accounts list; T12 is unchanged. The hierarchy-read check, removed,
+  survives: the next check refuses the same screen, a redundant layer. The suite's own exit had ignored
+  survivors, a flag set inside `$( )`; fixed before it counted. `sitting_suite.sh` still 24 of 24 on both
+  tool versions with the extended stand-in.
+- **Hashes:** `press.sh` new, `ef1cd5e50d0bdff25083b215e3f3bc13c63f18c7835d93f7aae1a048dd1eae74`;
+  `press_suite.sh` new, `e7f790b078516fb829727d3a78c817d63981acd9c07d5dcebb823f32e1261b96`;
+  `standin_adb.sh` `84c8205e…` to `b6ad46472925ef7239678f26098306db5ef06543f988685be9ee89cff20fb018`;
+  `sitting.sh` and `journal_extract.py` unchanged. At `269acc2` on `experiment/startup-5d-control` and
+  `faed125` on `experiment/startup-5d-treatment`, the trees identical. One cherry-pick onto control first
+  failed, refusing a working file that an override of `core.autocrlf` made look modified; it was redone
+  without the override, and the trees compared.
+- **Declared before the mark, for this sitting:**
+  - **The refresh bracket comes after the reading at about 800 rows,** as section M pre-registers.
+    Today's instruction says "after the third reading", which is the same moment if the rate's second
+    long-press is counted as a reading; the pre-registered rule is followed.
+  - **The rows are read by a long-press on A every few minutes,** each followed at once by a dump, so
+    that the poll's target can be reached, since LIVE moves only at a long-press. The three readings are
+    those at about 400, about 800, and the one that reaches the target.
+  - **Section M's checks by hand are NOT performed in this sitting:** at each reading the scroll, follow,
+    jump and emote checks, and once at 1,200 rows hiding and showing a user and sending a message. They
+    need Federico's hands and eyes; the send posts a chat message under his account, which the agent
+    does not automate; and today's instruction counts a touch on the phone as an interruption. Their
+    scheduling is the owner's. Duplicates are not identified by eye; the refresh bracket is the count.
+  - **Interruptions are watched by:** `press.sh`'s front reads, the poll's invariants and its rate
+    lines, and a `getevent` recorder of the touchscreen, which records touches by hand but not `adb
+    input`.
