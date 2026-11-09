@@ -1334,6 +1334,115 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
   on Chatterino's `addMessagesAtStart` both leave the release's path. Recorded here: his words, the
   build, the channel and the time.
 
+### The hands-on pass, written on 2026-11-09 before it runs
+
+The automated session gave the numbers (*Recorded results*, `L5D2`). This pass is the feature parity
+that no unit test reaches by construction, run by Federico on the dev build `ba1f88e3…` of `00c1e78`,
+with the timeline well past 400 rows: that is the regime no automated test covers. Nothing is pressed
+by adb. #97 is not merged until this pass is done and reported.
+
+**Before:** record `accelerometer_rotation` (0 on 2026-11-09), TalkBack off, `show_touches` (1) and
+`stay_on_while_plugged_in` (7), and restore each one changed before the pass ends. Run Logcat with the
+tags `CHAT_LONG_PRESS`, `CHAT_ACTION`, `CHAT_FOCUS`, `CHAT_IME`, `TWITCH_IRC`, `TWITCH_EMOTES` and
+`TMC_HISTORY`. On a failure, stop that case, record what was seen and the time, and go on to the next
+case only if the app still runs as before it.
+
+**In order of risk,** worst to ship broken first. "Long" means the case needs A's timeline past about
+1,000 rows; "short" means it needs a short chat.
+
+1. **A long-press and a swipe-to-reply on a RECYCLED row.** Long. The path no unit test reaches. The
+   long-press menu offers Reply, Copy message, Block user in app and Report message
+   (`showMessageActions`, `ChatFragment.kt:3352`), so a stale binding would act on another person.
+   - **Do:** fling far up so that rows are recycled, then long-press a message row; read the dialog's
+     title, then choose Copy message and paste it into the channel field without sending; cancel.
+     Swipe a row with an id from its right edge to the left; read the reply bar; cancel the reply.
+     Three rows, at three scroll positions, one of them just scrolled into view. Never tap Report
+     message or Block user in this case.
+   - **Look for:** the title is `@` and that row's user; the pasted text is that row's text; the reply
+     bar names that row's user. `CHAT_LONG_PRESS: message actions opened`.
+   - **Failure:** a title, a copied text or a reply naming another row's user or text; no menu; a swipe
+     that does not arm, or leaves the row displaced.
+2. **The stable flavour.** No part of this round has exercised `com.fs.twitchminichat`, and it is what
+   every user installs. **BLOCKED on a decision of the owner's:** the phone's stable app is the
+   published 5.5.1, signed with the release key, so a debug-signed stable build cannot replace it
+   without an uninstall, which would destroy that app's data. The routes: a release-signed stable build
+   of `00c1e78`'s production code, made where the signing material is and never committed; another
+   device or an emulator; or no stable run in this pass.
+   - **Do, once installed:** launch, sign in, open a page on a busy channel, scroll and follow, watch an
+     animated emote.
+   - **Failure:** a crash at launch or on the page; a blank list; a missing resource; an emote that
+     never shows.
+3. **Hide a user, then show them again, while the list is long.** Long.
+   - **Do:** pick a user with several rows on screen; long-press one, Block user in app; then show them
+     again from the blocked-users screen.
+   - **Look for:** hidden, all that user's rows leave the list and every other row keeps its order and
+     place; shown again, their rows return to their places in the timeline, together. Expected and
+     intended (#71): messages that arrived while they were hidden do not come back; on the neighbour
+     page, not resumed since, their rows show together at its `onResume`. `CHAT_ACTION:
+     hidden-user rule updated`.
+   - **Failure:** a hidden user's row still shown; another user's row gone; rows out of order,
+     duplicated or blank; the list jumping away from where it was; a crash.
+4. **Send a message, and watch its echo through to CONFIRMED, including its full bind (U5).** Long.
+   **FEDERICO performs the send, not the driver.** The message is public: send it where a test message
+   is acceptable.
+   - **Do:** send one message with an animated emote from the dev app's emote picker. Watch it until it
+     is confirmed. Then fling far up so that the echo's row is recycled, wait 10 s, and come back to the
+     bottom.
+   - **Look for:** sending, with a status line at reduced opacity; then CONFIRMED in place, with no
+     status line at full opacity; after the return, the row rebound in full, once, still CONFIRMED,
+     with its emote. `TWITCH_IRC`, and `outgoing message reconciled` if canonical data arrives.
+   - **Failure:** stuck sending; back to the sending style after the return; shown twice; missing;
+     another row's content in its place; its emote missing.
+5. **Rotation, and the keyboard.** Long. Turning auto-rotate on is a phone setting: record it, and set
+   it back to 0 after. `MainActivity` declares no `configChanges`, so each rotation recreates it.
+   - **Do:** with animated emotes on screen, rotate to landscape and back. Then open the keyboard in
+     the message field and rotate again.
+   - **Look for:** no crash; the list shows rows, its count and any backfill after the recreation
+     recorded as figures; emotes show and play; the keyboard's state after each turn.
+   - **Failure:** a crash, `An emote session was released twice` or `A load was started for a released
+     emote session` in the log; a blank list; rows out of order; emotes missing.
+6. **Scrolling, follow-the-bottom and the jump button, and a row taller than the list (U2/U3).** Long.
+   - **Do:** at the bottom, watch new messages arrive. Scroll up a little and wait; tap the jump button.
+     Fling far up and back. Find a row taller than the list, which is likelier in landscape, and scroll
+     to it.
+   - **Look for:** at the bottom the list follows; scrolled up it stays put while the jump button counts
+     the new rows; the tap returns to the bottom and clears the count; the tall row shows its TOP.
+   - **Failure:** a new message at the bottom without the list following; the count disagreeing with
+     the rows that arrived; the tap not returning; a tall row showing its middle or bottom with its top
+     out of reach; a jump in the scroll. If no tall row appears, that sub-case is recorded NOT REACHED.
+7. **Emote animation at the detach boundary, an off-screen page included.** Long.
+   - **Do:** scroll an animated emote's row just out of view and back. Swipe to page B for 10 s and back.
+     Home for 10 s and back.
+   - **Look for:** each emote plays again at once, in its own row. Whether a page off screen decodes
+     frames cannot be seen by eye: that is B1's measurement, not this pass's.
+   - **Failure:** an emote frozen on screen; an emote animating in a row that is not its own; a blank
+     marker; a crash with the ownership messages above. `TWITCH_EMOTES`.
+8. **TalkBack, with `reason=outside_click` as the decider.** Long, a full list. As written above (*The
+   same click, through TalkBack*): turning it on is a phone setting and the owner's say-so, and it is
+   turned off again before anything else.
+9. **A tap on empty space on a SHORT chat, with the keyboard open (U1's side effect).** Short: B's page,
+   switched to a channel with few rows.
+   - **Do:** focus the channel field, so that the keyboard is open; tap between rows, on a system line,
+     and below the last row.
+   - **Look for:** each tap closes the keyboard and clears the channel field's focus; `CHAT_FOCUS:
+     composer focus guard disarmed reason=outside_click`.
+   - **Failure:** the keyboard stays; the tap below the last row does nothing (the old container ended
+     at its last row, so that one is new); a tap on a row taken for empty space, or the reverse.
+
+**Grouped, so that the long timeline is built once:**
+- **Before, about 5 minutes:** the records and Logcat above; launch; A's page on a busy channel; B's
+  page switched to a quiet channel.
+- **The short stretch, about 10 minutes, while A grows:** case 9, on B. At the 2026-11-09 rates of 22 to
+  56 rows a minute, A passes 1,000 rows about 15 to 25 minutes after its first connect.
+- **The long stretch, in one go, about 50 to 60 minutes:** a long-press on A to record its `shownRows`
+  first; then cases 1, 3, 4, 6, 7 and 8; case 5, rotation, last, since a recreation may reload the
+  timeline; a long-press on A again to record where it ended.
+- **After, about 5 minutes:** auto-rotate back to 0, TalkBack off, the settings read again, the dev app
+  force-stopped.
+- **The stable flavour, case 2,** separately, once its route is decided: about 20 minutes.
+- **In all, about 1 hour 20 minutes to 1 hour 40 minutes** for the dev build, and about 20 minutes more
+  for the stable one.
+
 ## B. The background measurement
 
 B1 is re-run exactly as `docs/manual-plan-5c-emotes.md` writes it: the dev app's pid, a positive
@@ -2920,6 +3029,10 @@ Started on 2026-11-03: this plan had no backlog before the entry below. An entry
 not classified. Nothing here is fixed, and nothing is called a defect, until what the entry names
 has been read.
 
+- **The message actions' labels are hardcoded,** "Reply", "Copy message", "Block user in app",
+  "Report message" and the `@` title (`ChatFragment.kt` `showMessageActions`), against AGENTS.md's rule
+  that user-visible text lives in `strings.xml`. Found on 2026-11-09 while writing the hands-on pass.
+  Present on `main-v5` since `418399c` (2026-04-10), so not a 5d defect, and not in 5.6.0's scope.
 - **No Kotlin version is declared anywhere, so the compiler is whatever AGP carries.** Recorded on
   2026-11-09, by the owner's ruling. On `DESKTOP-BCT68L9`, AGP 9.2.1 carries 2.2.10.
   - **An AGP bump can change the compiler silently.** That is the same shape as the RecyclerView
@@ -6136,3 +6249,36 @@ under C = 101 and under C = 67, and the refresh bracket is consistent with no mi
 - **The outcomes, in section M's words:** the view criterion PASSES; the mismatch test is consistent
   with no mismatch; no reading of this session is VOID; nothing is DROPPED or INCONCLUSIVE. The checks
   by hand remain for the hands-on pass.
+
+**2026-11-09: what `L5D2` establishes, and its bounds, by the owner's reading.** The result is recorded
+as it stands; no further automated work on the phone.
+- **The headline, as a ratio of ratios:** the rows grew 3.58 times, from 841 to 3,009 across both pages,
+  while the view count grew 1.02 times, from 163 to 167. Four views for 2,168 rows. A build keeping one
+  view per row would have read about 3.30.
+- **PASS under both C, the two agreeing, and NOT a marginal result.** The observed 1.0245 lies 0.55
+  below the pass edge under C = 101, 1.5732, and 0.57 below it under C = 67, 1.5936, and nowhere near
+  either fail edge, 2.0986 and 2.1258. R, at 3.30 and 3.39, is far above 1.334, and N_end, 3,009, far
+  above its floor of 1,156.
+- **The duplicate question is closed from two independent sides.**
+  - **Eviction, by reading:** the backend's query returns the newest 400, which holds at any rate.
+  - **Mismatch, by OBSERVATION:** the refresh returned 47 messages, and the timeline grew by 4 rows in a
+    bracket that expected about 6 live ones. So no history copy was keyed differently from its live
+    row. The band was a statistical test; the copies suppressed are the mechanism seen working, which
+    is the stronger evidence.
+  - **The agent's precision on the count:** Δ = 4 proves at least 43 of the 47 suppressed whatever the
+    live rows. It proves all 47 if at least 4 live rows arrived in those 11.6 s, as about 6 were
+    expected.
+- **The fixed bands' counterfactual:** at this rate the first bands, 0-3 / 4-7 / 8+, would have read a
+  false mismatch 15 to 16% of the time. That is why the bands are tied to a measured E.
+- **What it establishes: recycling holds at scale.**
+- **What it does NOT establish:**
+  - **feature parity,** which has no unit tests by construction and rests on the hands-on pass (section
+    M, *The hands-on pass*);
+  - **any figure in megabytes:** this measures views, not memory. The PSS and Java heap of each dump
+    are recorded as figures and not judged.
+- **The owner's `claude/architecture-debt.md`** says the cost of a timeline grown past 400 rows "was
+  never measured". For its view part that is now SUPERSEDED by this session, and the owner will correct
+  it in the project's document. The numbers live here, in the repository plan, which is the durable
+  home.
+- **The hands-on pass's checklist is written,** before it runs (section M, *The hands-on pass*). #97 is
+  not merged until that pass is done and reported.
