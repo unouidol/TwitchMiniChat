@@ -801,6 +801,27 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       read, and fails loudly if it reads nothing.
     - **Duplicates:** what this session can say about them is pre-registered (*Recorded results*,
       2026-11-06, "the long session's tooling, and its duplicate prediction").
+      - **Eviction is closed by reading,** the owner's of 2026-11-09: the backend returns the newest
+        messages of a window (*Recorded results*, 2026-11-09). No tap or window of this session can
+        produce a duplicate by eviction.
+      - **The mismatch refresh, added by the owner on 2026-11-09.** Mismatch is now the only open
+        route, so this one tap is the session's whole duplicate test, not an extra.
+        - **What:** one tap on refresh, between two long-presses, with nothing else touched. It counts
+          only if its `backfill.result` falls between them.
+        - **When:** once, at any time after the first reading, so that the bracket is clean.
+        - **What it measures:** the rows the refresh added, that is the change in `shownRows` across
+          the bracket, less the live rows of the bracket, taken as the session's rate times its
+          length. While the connection holds, the refresh's 120 s are all rows already shown, so every
+          row it adds is a duplicate.
+        - **Predicted: 0 rows added.** More than a few means history copies keyed differently from
+          their live rows: the mismatch, found.
+        - **Not set, and the owner's:** a number for "a few", and the bracket's length, which sizes the
+          live-row correction. At 12.3 rows a minute a 10 s bracket holds about 2 live rows, and a
+          refresh whose every copy mismatched would add about 25, its 120 s of rows.
+        - **What it costs the target, by reading the rule above, not run:** its `messageCount` enters
+          the history sum, so the bound on live rows drops by the copies it suppresses, up to about 25
+          rows, 2 minutes at 12.3 a minute.
+        - **What it cannot show:** eviction, which is closed by reading anyway.
   - **The view count's instrument: `Views:` in `dumpsys meminfo`. It is not qualified.**
     - **What it counts.** This was read in Android 12's platform source (AOSP `android12-release`),
       not in this phone's OnePlus build.
@@ -841,8 +862,17 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         - R = (C + 1,200k) / (C + 400k), the no-recycling prediction for one timeline;
         - M = √R;
         - pass at or below M/1.155, fail at or above M·1.155, and inconclusive between.
-      - **The abandon condition,** declared by the owner before step 1: if R is below 1.3, the bands
-        do not separate the two predictions, and the view criterion is DROPPED, not stretched.
+      - **The abandon condition: R below 1.334,** set by the owner on 2026-11-09, replacing 1.3. Below
+        it the view criterion is DROPPED, not stretched.
+        - **The reason, the owner's:** below R = 1.334 the pass edge √R/1.155 falls below 1.0, so the
+          pass band is EMPTY, and a criterion that cannot return "pass" is not a criterion.
+        - **The old value, kept:** 1.3, declared by the owner before step 1, on the ground that below
+          it the bands do not separate the two predictions.
+        - **The agent's arithmetic, beside it:** 1.334 is 1.155² = 1.334025 at three decimals. At that
+          R both predictions sit on their band's edge, 1.0 on the pass edge and R on the fail edge;
+          below it, neither reaches its own band. No whole row count at C = 67, k = 1.00 and
+          N_start = 400 gives an R between 1.334 and 1.334025, so the floor (below) is the same under
+          either.
       - **Until steps 1 and 2 pass,** the view criterion goes unjudged.
   - **At each reading:**
     - **Scroll:** fling far up, then back to the bottom.
@@ -860,41 +890,46 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     - hiding or showing a user leaving a row in the wrong place, or the echo not confirming in place;
     - a crash, an ANR (Application Not Responding) dialog, or an `OutOfMemoryError` in Logcat;
     - **`Views:` growing with the rows,** judged by bands placed from the app's own C and k (settled on
-      2026-11-06). The ratio is the count at 1,200 rows over the count at 400.
+      2026-11-06). The ratio is the count at the last reading that has a dump over the count at the
+      first: as planned, at 1,200 rows over at 400.
       - **The bands,** with R and M from the instrument's steps: the ratio passes at or below M/1.155
         and fails at or above M·1.155. Between them it is INCONCLUSIVE, which is reported as such and
         not explained.
       - **Until R is measured, the bands are provisional:** 1.5x and 2.0x, as for R = 3.
       - **Measured on 2026-11-06, for one growing timeline:** R = 2.71, so pass at or below 1.43 and
-        fail at or above 1.90 (*Recorded results*, the instrument's sitting). Another page setup gives
-        other bands, recorded there too.
-      - **If the session ends below 1,200 rows,** by the owner's rule of 2026-11-06, written before
-        the run, the bands are RECOMPUTED from the same formula on the actual counts.
+        fail at or above 1.90 (*Recorded results*, the instrument's sitting). Those are the bands for
+        the planned counts, 400 and 1,200. Another page setup gives other bands, recorded there too.
+      - **The bands are computed from the two actual row counts, whatever they are:** above 1,200 rows
+        or below, and with a first reading at 400 or away from it. This is the owner's rule, made
+        general on 2026-11-09. The rule of 2026-11-06 covered only an end below 1,200 rows; its special
+        cases are removed by the owner, whose they were.
         - R = (C + k·N_end) / (C + k·N_start), where N_start and N_end are the row counts at the first
           and at the last reading that has a dump. With k = 1.00 that is (67 + N_end) / (67 + N_start).
         - M = √R; pass at or below M/1.155, fail at or above M·1.155, inconclusive between.
         - **Not washing:** C, k and the two row counts are all fixed independently of the outcome.
           So the end must be too: the session ends at its target or at its cap, never on a `Views:`
-          reading. That condition is the agent's addition.
+          reading. That condition is the agent's addition, and it stands, by the owner's record of
+          2026-11-09.
         - **The worked example, checked:** 400 to 900 rows gives R = 967/467 = 2.07, M = 1.44, and
           bands at 1.25 and 1.66. Computed: 2.0707, 1.4390, 1.2459 and 1.6620.
-      - **The floor, from the abandon condition already declared:** R below 1.3 drops the view
-        criterion, and R ≥ 1.3 needs N_end ≥ (1.3 × (C + k·N_start) − C) / k.
-        - **With C = 67, k = 1.00 and N_start = 400:** 540.1, so **541 rows**, the first whole count,
-          where R = 1.302. At 540, R = 1.2998.
+      - **The floor, from the abandon condition:** R ≥ 1.334 needs
+        N_end ≥ (1.334 × (C + k·N_start) − C) / k. It moves with N_start, so it is computed at the
+        first reading that has a dump. Computed with `py -3` on 2026-11-09.
+        - **With C = 67, k = 1.00 and N_start = 400:** 555.98, so **556 rows**, the first whole count,
+          where R = 1.33405. At 555, R = 1.33191.
         - **Over the recorded ranges,** C from 66 to 68 and k from 1.000 to 1.003, the floor runs from
-          539.7 to 540.4.
-        - **So the session has a useful minimum, 541 rows, as well as its cap.**
+          555.6 to 556.3, so 556 or 557 rows.
+        - **Away from 400,** with C = 67 and k = 1.00: N_start = 300 gives 423 rows, and 500 gives 690.
+        - **So the session has a useful minimum, 556 rows from a first reading at 400, as well as its
+          cap.**
         - **If it ends below the floor,** the view criterion is DROPPED, not stretched, and reported as
           dropped. The case's other criteria are judged on what was seen. The session is recorded as
           short of the case's length, and whether to run it again is the owner's.
-      - **Between 541 and 555 rows, by the same arithmetic, a pass cannot happen.** R there is below
-        1.155² = 1.334, so the pass edge M/1.155 is below 1.0, and a count that does not grow at all
-        reads inconclusive. From 556 rows on, a ratio of 1.00 passes. The abandon condition stays at
-        1.3, as declared. Whether 1.334 should replace it is the owner's.
-      - **Not covered by the rule as given:** a session ending at 1,200 rows or more, and a first
-        reading away from 400. The same formula covers both. Whether it applies to them is the
-        owner's.
+        - **The floor at the old threshold, kept:** at 1.3 it was 541 rows (540.1 computed; R = 1.302
+          at 541 and 1.2998 at 540), and 539.7 to 540.4 over the ranges. From 541 to 555 rows a pass
+          could not happen, since R there is below 1.155², and that band is why the threshold was
+          raised. At 1.334 it lies below the floor, where the criterion is dropped. From 556 rows on, a
+          ratio of 1.00 passes.
       - **The derivation, from the mechanism:**
         - **Recycling** holds views only for the rows laid out, plus a cache and a pool of fixed size.
           Its count stays roughly constant as rows grow: about 1.0x from 400 to 1,200.
@@ -4987,3 +5022,53 @@ pre-registration is not edited; where this narrows it, the last item says so.
 - **The extractor's fault was not new either.** A Git Bash path given to Windows' Python voided
   `Qc-base-1` on 2026-11-02, and the account came back empty then too (*The qualification,
   2026-11-02*).
+
+**2026-11-09: the owner's four records, before the long session.** Written on `DESKTOP-BCT68L9`, on
+this branch at `b52ab74`. Nothing was run on the phone for them. The pre-registration
+(`docs/5d-long-session-duplicates-prereg-2026-11-06.md`) is NOT edited; where these settle or change
+it, this entry says so.
+1. **The eviction route to duplicates is CLOSED, by the owner's reading** in the backend clone.
+   - **What was read:** `chat_history_store.py:184-199` is `ORDER BY ts DESC, id DESC LIMIT ?`,
+     followed by `rows.reverse()`. So the backend returns the newest `limit` messages in the window,
+     in chronological order. The backend is not in this repository, and this was not read here.
+   - **Why that closes it:** it is the condition the entry of 2026-11-06 named as closing it. The
+     newest 400 are, by construction, the last keys into the 800 kept, so eviction cannot produce a
+     duplicate at any rate.
+   - **What it rests on, the agent's static reading, not run:** the backend's store holding the
+     messages the app showed. A message among a response's newest 400 has at most 399 newer ones
+     there. Each later response's older part is a run of messages just before it, at most 400 long,
+     so together they insert at most 400 older keys after it. That is at most 799 keys after it,
+     short of the 800 that would evict it. The margin is one key at its narrowest, so only a store
+     missing messages the app showed could close it. Nothing read says the store misses any.
+   - **Section 3 of the pre-registration's eviction case is thereby settled by reading.** Its three
+     "Not read" items:
+     - which 400 a window holding more returns: the newest;
+     - in which order: chronological, after the reverse;
+     - whether anything outside the requested window comes back: the owner's reading says "in the
+       window". It does not bear on eviction, since every window ends at its request.
+2. **The mismatch refresh IS added,** by the owner. Section M, *Duplicates*, carries it.
+   - **What:** one refresh between two long-presses, any time after the first reading.
+   - **Predicted:** 0 rows added. More than a few means history copies are keyed differently from
+     their live rows.
+   - **It is now the ONLY open route,** so that tap is the whole duplicate test, not an extra.
+   - **Section 9 stays not taken.** It was one refresh at 1,000 rows or more, for eviction; this one is
+     for mismatch and needs no row count.
+   - **Left open, for the owner:** a number for "a few", and the bracket's length. Section M gives the
+     sizes they would be set against.
+3. **The abandon threshold is 1.334, replacing 1.3.**
+   - **The reason, the owner's:** below R = 1.334 the pass edge √R/1.155 falls below 1.0, so the pass
+     band is EMPTY, and a criterion that cannot return "pass" is not a criterion.
+   - **The old value, 1.3, is kept** beside the new one in section M.
+   - **The floor, recomputed at 1.334 with `py -3`:** with C = 67, k = 1.00 and N_start = 400, 555.98,
+     so **556 rows**. R = 1.33405 at 556 and 1.33191 at 555. Over C from 66 to 68 and k from 1.000 to
+     1.003, 555.6 to 556.3. At 1.3 it was 541.
+   - **The agent's check beside it** is in section M: 1.334 is 1.155² at three decimals, and no whole
+     row count falls between the two.
+4. **The recompute rule is GENERAL.** The bands are computed from the two actual row counts, whatever
+   they are: above 1,200, below it, and with a first reading away from 400.
+   - **The special cases are removed,** "if the session ends below 1,200 rows" and "not covered by the
+     rule as given". They were the owner's.
+   - **The agent's added condition stands, as the owner reads it:** the session ends at its target or
+     its cap and NEVER on a `Views:` reading, since ending on the judged quantity would break the
+     not-washing argument.
+   - **Section M's 2.71, 1.43 and 1.90 stay,** as the values for the planned counts, 400 and 1,200.
