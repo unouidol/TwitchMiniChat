@@ -1,0 +1,29 @@
+# The stand-in corrected, M10 and M11 re-run, and the replaced process - 2026-11-09, DESKTOP-BCT68L9
+# PY=py -3.14 -I -X utf8 (3.14.0). Tools: sitting.sh 13cb9ff5..., journal_extract.py 340e263f..., at 6dc2351.
+#
+# 1. standin_adb.sh corrected to the phone's measured behaviour: a failed exec-out read exits 0 with the
+#    error on stdout (sha256 17dfbfca... -> 18de908d2533adde5b2e6ffd0f686ecc00abd6f7f094475385e8ca00e497245c).
+#    With it and sitting_suite.sh dcb47e98..., 11:49 to 11:53:
+#    suite (new expectations, new tools, PY=py -3.14 -I -X utf8): 22 passed, 0 failed, of 22; L read 115 files, 451 lines
+#    suite (old expectations, old tools, PY=py -3.14 -I -X utf8): 22 passed, 0 failed, of 22; L read 115 files, 448 lines
+M10 suite_exit=1 cases_reported=22 killed_by=[C6 C14] | restored: both sha256 equal the blob
+M11 suite_exit=1 cases_reported=22 killed_by=[C6 C14] | restored: both sha256 equal the blob
+#    M11 under C6: the unreadable journal read as nothing new (LIVE=none) and the poll ran to its cap, exit 4.
+#
+# 2. R1 and R2 added for the replaced process, and the stand-in given start.N (sha256 18de908d... ->
+#    84c8205e23bcf68a264b7d957eccf841bccd63361c5a2107a90e2fddc99f5405); sitting_suite.sh dcb47e98... ->
+#    99dd85509f62bb2d0f61b09aefaef81e0092a9068f5c0bd82d361f8a64e33e3e. Predicted: R1 kills M26, R2 kills M09.
+#    11:54 to 11:59:
+#    R1  the process replaced: a new pid at the second poll               exit 3, expected 3  PASS
+#    R2  the same pid, started again, at the second poll                  exit 3, expected 3  PASS
+#    suite (new expectations, new tools, PY=py -3.14 -I -X utf8): 24 passed, 0 failed, of 24; L read 129 files, 503 lines
+#    R1  the process replaced: a new pid at the second poll               exit 3, expected 3  PASS
+#    R2  the same pid, started again, at the second poll                  exit 3, expected 3  PASS
+#    suite (old expectations, old tools, PY=py -3.14 -I -X utf8): 24 passed, 0 failed, of 24; L read 129 files, 500 lines
+M26 suite_exit=1 cases_reported=24 killed_by=[R1] | restored: both sha256 equal the blob
+M09 suite_exit=1 cases_reported=24 killed_by=[R2] | restored: both sha256 equal the blob
+#    Under each mutant the poll followed the replaced process for 8 polls, to its cap, exit 4.
+#
+# 3. M20, the cap removed, was killed by the HARNESS, not by a case: C7 asserts the cap (exit 4, CAP
+#    REACHED) only once the poll returns, and with no cap it never returns, so only the driver's timeout
+#    ended it. C7 cannot make that a case-level kill without being rewritten.
