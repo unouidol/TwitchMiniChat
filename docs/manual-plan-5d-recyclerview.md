@@ -5927,3 +5927,61 @@ before any poll.** On `DESKTOP-BCT68L9`, offline. No poll has run, and the tools
   - **Interruptions are watched by:** `press.sh`'s front reads, the poll's invariants and its rate
     lines, and a `getevent` recorder of the touchscreen, which records touches by hand but not `adb
     input`.
+
+**2026-11-09, 12:31 to 12:44: the long session `L5D1`, INTERRUPTED at its 8th poll by `INVARIANT
+VIOLATED [kept]`, a defect of the tools on Windows, not a change in the journal.** On
+`DESKTOP-BCT68L9`, with the build `ba1f88e3…` on the phone. Not continued and not restarted. Every
+output, uncut, is in `C:\Users\Fede\StudioProjects\tmc-5d-round\V`: `session-L5D1.log`,
+`rates-L5D1.txt`, `dumps.txt` with its two meminfo files, `presses.txt`, `journal-extract-L5D1.txt`
+and `getevent-L5D1.txt`.
+- **Before the mark, 12:31:29:** battery saver 0; USB power, AC and wireless off; status 5, full, level
+  100; 25.8 °C; thermal status 0; `stay_on_while_plugged_in` 7, `mStayOn=true`, awake;
+  `screen_off_timeout` 1,800,000; the dev app not running; `PY="py -3.14 -I -X utf8"`, `3.14.0
+  (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]`; adb 37.0.1; the tools
+  `13cb9ff5…`, `340e263f…` and `ef1cd5e5…`. The display read 90.0 Hz with the launcher in front, which
+  is not the session's rate reading.
+- **The mark,** 12:31:49, at the journal's last line, 08:43:46.267. A cold launch, 1,496 ms; one
+  `swipe-from-accounts` to A's page; the process bound, pid 32178, start 2418583.
+- **Both pages on one channel:** A's first connect, 400 rows, at 12:31:56.320, at the launch; B's, 400
+  rows, at 12:32:08.719, when A came on screen; A's `resume_no_pause`, 9.
+- **The rate before,** read after the dev app had been in front 2.2 s: 90.0 Hz, range [0 90].
+- **Reading 1, 12:32:49 to 12:33:13:** A's long-press, `shownRows=414` at 12:32:52.811; the dump with
+  A on screen, `Views: 158`, 0.66 s; B's swipe-press-swipe, B's `resume_no_pause` of 5 as it came on
+  screen, B's long-press `shownRows=412` at 12:33:09.397, and A's `resume` of 5 on coming back. So N =
+  826 rows at the first reading, both pages summed.
+- **The polls,** 12:33:43 to 12:41:43, eight: the process invariant held at each, the rate was read at
+  each, 90.0 Hz with the dev app in front at both reads, and LIVE was 5, then 226 from the count below.
+- **A count, 12:39:59:** A's long-press, `shownRows=640` at 12:40:02.803, and a dump, `Views: 144`. From
+  414 to 640 in 430 s, with A's 5 history messages between, the live rate was **30.8 to 31.5 rows a
+  minute**, two and a half times the planned 12.3.
+- **The 8th poll stopped with `INVARIANT VIOLATED [kept]`** at 12:41:43: the 13 saved lines no longer
+  came first.
+- **No interruption of another kind:** 0 touches recorded by hand; every press passed `[front]` and
+  `[target]`, with focus on the dev app after it; no process replacement; no rate line found another
+  app in front.
+- **At the interruption, 12:43:47:** battery saver 0; USB power; status 5, level 100; 26.1 °C; thermal
+  status 0; 90.0 Hz, read with the dev app in front 2.2 s; `stay_on_while_plugged_in` 7, awake; the
+  same build; pid 32178, the bound process; the same interpreter.
+- **The cause, executed and not reasoned.** Windows' Python writes each line with CRLF, and this
+  shell's command substitution strips the carriage return of the LAST line it captures only. So a
+  line's saved bytes depend on whether it was the last of its read: poll 1 saved 12 lines, the 12th
+  without its CR; once a 13th followed, line 12 came back with its CR. Poll 7 still matched, since it
+  compared 12 lines and the substitution stripped line 12's CR as the last again. Poll 8 compared 13.
+  - **Reproduced offline,** with the session's very tools against the stand-in and a journal growing
+    over three polls: as the session ran, `[kept]` at the third poll; with the interpreter's output
+    stripped of CRs, the polls ran on to their cap, LIVE 100, 200, 300, and the saved extract held no CR.
+  - **Two of the agent's instruments in that diagnosis failed first,** and neither counts: a wrapper
+    meant to strip the CRs held a literal CR byte, which this shell drops from scripts, so it stripped
+    nothing; and the explanation, first stated before that run, was retracted until the corrected run
+    confirmed it.
+- **Not caught offline because no case looks there:** no case of the suite runs three polls with the
+  journal growing after a saved line; C13 has two. By their descriptions, the cases of 2026-11-06 had
+  the same gap. `session-poll` had never run on the phone before this session.
+- **The outcome, in section M's words.** Reading 2, the refresh bracket, reading 3 and B's last count
+  did not happen: those readings are **VOID**, absent. So the view criterion has no last reading and
+  was not judged. It is not DROPPED, which would say the instrument does not separate at this size,
+  and not INCONCLUSIVE, which would say judgements were made and do not decide. No duplicate was
+  counted, since no bracket happened.
+- **Left as it stood:** the dev app still running on A's page, bound pid 32178, the screen held on by USB
+  power; the touch recorder still running. Nothing was pressed or polled after 12:43:47. Whether to end
+  it, or what to do next, is the owner's.
