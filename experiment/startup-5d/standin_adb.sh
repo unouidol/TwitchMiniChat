@@ -8,7 +8,9 @@
 # higher-numbered file exists; without one, the file "stem" answers.
 #   pid[.N]      the answer of `pidof`; empty means no process
 #   start[.N]    the process's start time, field 22 of /proc/<pid>/stat
-#   front        "dev" when the dev app's window has focus, anything else otherwise
+#   front[.N]    "dev" when the dev app's window has focus, anything else otherwise
+#   ui.xml       the screen's hierarchy, for press.sh; absent, uiautomator's failure
+#   INPUT        written, not read: every `input` press.sh sends, one per line
 #   rate, range  the display's refresh rate and its primary range, as "90.0" and "0 90"
 #   journal[.N]  the current journal file; the content "@UNREADABLE" makes the read fail, as on the
 #                phone: the error on stdout, and exit 0
@@ -61,7 +63,7 @@ case "$kind" in
       "date +%s")
         date +%s ;;
       "dumpsys window")
-        if [ "$(cat "$D/front" 2>/dev/null)" = dev ]; then
+        if [ "$(cat "$(pick front "$(count front)")" 2>/dev/null)" = dev ]; then
           w="$PKG/com.fs.twitchminichat.MainActivity"
         else
           w="com.example.other/.Main"
@@ -70,6 +72,9 @@ case "$kind" in
       "dumpsys display")
         printf '  mActiveSfDisplayMode=DisplayMode{id=1, width=1080, height=2400, xDpi=402.0, yDpi=401.0, refreshRate=%s, appVsyncOffsetNanos=0}\n' "$(cat "$D/rate")"
         printf '  mDesiredDisplayModeSpecs: primaryRefreshRateRange=[%s]\n' "$(cat "$D/range")" ;;
+      "input "*)
+        # press.sh's presses: recorded, never executed, since there is no phone.
+        echo "$cmd" >> "$D/INPUT" ;;
       *) refuse shell "$cmd" ;;
     esac ;;
   exec-out)
@@ -91,6 +96,9 @@ case "$kind" in
         else
           cat "$f"
         fi ;;
+      "uiautomator dump /dev/tty")
+        # press.sh's read of the screen: the hierarchy in ui.xml, or uiautomator's failure.
+        if [ -e "$D/ui.xml" ]; then cat "$D/ui.xml"; else echo "ERROR: null root node returned by UiTestAutomationBridge."; fi ;;
       *) refuse exec-out "$cmd" ;;
     esac ;;
   *) refuse "$kind" "$cmd" ;;
