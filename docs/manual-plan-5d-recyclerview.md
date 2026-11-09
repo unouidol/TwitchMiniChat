@@ -1360,6 +1360,12 @@ case only if the app still runs as before it.
      Swipe a row with an id from its right edge to the left; read the reply bar; cancel the reply.
      Three rows, at three scroll positions, one of them just scrolled into view. Never tap Report
      message or Block user in this case.
+   - **Menu items are chosen BY EXACT LABEL, read from the screen as it stands at that moment, never
+     by position** (added on 2026-11-09 by the owner; no criterion changed). "Report message" files a
+     report at once and "Block user in app" acts at once, neither with a confirmation, and the items'
+     positions shift: without a message id, "Reply" is absent and every item moves up one place
+     (*Backlog*). The guide repeats to Federico at that moment that "Report message" and "Block user
+     in app" act immediately and are never tapped in this case.
    - **Look for:** the title is `@` and that row's user; the pasted text is that row's text; the reply
      bar names that row's user. `CHAT_LONG_PRESS: message actions opened`.
    - **Failure:** a title, a copied text or a reply naming another row's user or text; no menu; a swipe
@@ -1441,11 +1447,16 @@ case only if the app still runs as before it.
 - **The long stretch, in one go, about 50 to 60 minutes:** a long-press on A to record its `shownRows`
   first; then cases 1, 3, 4, 6, 7 and 8; case 5, rotation, last, since a recreation may reload the
   timeline; a long-press on A again to record where it ended.
+- **The unstructured look, about 10 minutes, on the long timeline,** immediately before the closing
+  step (added on 2026-11-09 by the owner): Federico simply uses the chat and says what seems off. It
+  cannot be automated, because it tests what nobody thought to assert. The drip-in look is observed
+  during it, as a scope decision for batching and not as a criterion.
 - **After, about 5 minutes:** auto-rotate back to 0, TalkBack off, the settings read again, the dev app
   force-stopped.
 - **The stable flavour, case 2,** is not in this pass: it runs in the 5.6.0 device round, as a blocking
   check.
-- **In all, about 1 hour 20 minutes to 1 hour 40 minutes,** for the dev build.
+- **In all, about 1 hour 30 minutes to 1 hour 50 minutes,** for the dev build, the unstructured look
+  included (1 hour 20 minutes to 1 hour 40 minutes before it was added).
 
 ## B. The background measurement
 
@@ -3037,6 +3048,24 @@ has been read.
   "Report message" and the `@` title (`ChatFragment.kt` `showMessageActions`), against AGENTS.md's rule
   that user-visible text lives in `strings.xml`. Found on 2026-11-09 while writing the hands-on pass.
   Present on `main-v5` since `418399c` (2026-04-10), so not a 5d defect, and not in 5.6.0's scope.
+- **"Report message" files a report at once, with no confirmation, in a menu whose positions shift.**
+  Found on 2026-11-09 by the agent's inventory before any automation of the hands-on pass, and recorded
+  by the owner's ruling as a product defect, not a test concern. Read in the code, not run.
+  - **What it does:** the item calls `onReportMessageRequested`, which calls
+    `FcmRegistrationUploader.reportMessage` at once (`ChatFragment.kt:3378` to `:3428`, at #97's head).
+    That uploads the reported user and the message text, with the channel, the message's id and time,
+    and the reporter's profile id. Nothing asks for confirmation between the tap and the upload. "Block
+    user in app" (`:3373`) also acts at once, through `onHideUserRequested`.
+  - **The positions shift:** `showMessageActions` adds "Reply" only for a message with an id. With one,
+    the order is Reply, Copy message, Block user in app, Report message; without one, Reply is absent
+    and every item moves up one place.
+  - **So an irreversible action visible to a third party, a report filed against a real person, has no
+    confirmation, in a menu whose positions are not fixed.**
+  - **PRE-EXISTING, not a 5d defect.** On `origin/main-v5` the menu and its "Report message" item come
+    from `418399c` (2026-04-10) and the upload call from `0f60388` (2026-04-14). `showMessageActions`,
+    `onHideUserRequested` and `onReportMessageRequested` are byte-identical there and at #97's head
+    `00c1e78`: 100 lines each, compared on 2026-11-09.
+  - **Not in 5.6.0's scope** unless the owner decides otherwise.
 - **No Kotlin version is declared anywhere, so the compiler is whatever AGP carries.** Recorded on
   2026-11-09, by the owner's ruling. On `DESKTOP-BCT68L9`, AGP 9.2.1 carries 2.2.10.
   - **An AGP bump can change the compiler silently.** That is the same shape as the RecyclerView
@@ -6328,3 +6357,157 @@ as it stands; no further automated work on the phone.
    without taking the destructive action.
 6. **The checklist's setup now says** that auto-rotate and TalkBack are both off, are switched on for
    cases 5 and 8, and are restored afterwards.
+
+**2026-11-09: the inventory before any automation of the hands-on pass, and the owner's decision:
+BY HAND.** The owner asked for the inventory before anything was automated, and no check was written.
+The phone was only read: `am help`, `pm list packages`, `dumpsys package` and `input_method`,
+`settings get`, `cmd window help`, `cmd clipboard help`, and one `uiautomator dump` that printed
+attribute names only. In this entry, *executed* means run on the phone that day, *read* means read in
+source and not run, and *unread* means not confirmed. Every effort figure is the agent's ESTIMATE, as it
+was labelled. Federico's per-case minutes are the agent's split of the plan's 50-to-60-minute long
+stretch, not figures from the plan.
+- **The decision, the owner's:** this pass stays BY HAND, and no automation is written. "No further
+  automated work on the phone" stands, and so does the checklist's "Nothing is pressed by adb".
+  - **The reason is the inventory's arithmetic:** about 20 hours of the agent's effort to save about 35
+    minutes of Federico's, or 8 to 10 hours for about 20 minutes with cases 1 and 9 alone.
+  - **The reuse is partial:** mutants are re-applied every round, and cannot be installed over the
+    release-signed stable app at all.
+- **What the inventory paid for, by the owner's record: not saved time.**
+  1. **It stopped case 8's automation before it was built: the most valuable result of the
+     inventory.** An injected tap does not travel through TalkBack. Read in Android 12's sources,
+     `android12-release`; this phone's OnePlus build was not read.
+     - `input` is a script that runs `cmd input`. `InputShellCommand` calls
+       `InputManager.injectInputEvent(…, INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH)` (lines 69 and 138).
+       The client's binder call into `InputManagerService` was not read.
+     - `InputManagerService.injectInputEventInternal` gives `nativeInjectInputEvent` the policy flag
+       `FLAG_DISABLE_KEY_REPEAT` only (line 869). It never gives `FLAG_FILTERED`, which marks an event
+       sent back by the input filter: `InputFilterHost.sendInputEvent` adds that one (line 3221).
+     - `InputDispatcher::injectInputEvent` (line 3997) runs `interceptMotionBeforeQueueing` and queues
+       the event. The input filter is offered events only in `notifyKey` (line 3791) and `notifyMotion`
+       (line 3878), the path of the events the input reader produces. Nothing in the dispatcher calls
+       `notifyMotion`.
+     - **So an injected tap skips the accessibility input filter and TalkBack's `TouchExplorer`.** A
+       double `input tap` is two ordinary taps on whatever lies under the point, and TalkBack's swipe
+       navigation is out of reach the same way.
+     - **And the check would have passed.** An ordinary tap on empty space writes
+       `reason=outside_click` through CASE 9's path. The automated check would have PASSED without ever
+       exercising the accessibility click, on the one case that tests the `ClickableViewAccessibility`
+       suppression decided with the owner (*The same click, through TalkBack*).
+     - **It is the sixth or later instance in this round of an instrument that would not have looked,**
+       and the first caught before construction rather than after.
+     - **Beside it, read:** `TouchExplorer.onDoubleTap` first asks for `ACTION_CLICK` on the
+       accessibility-focused item, and simulates touches only if that fails (lines 385 to 389). The
+       framework lets a service take the double tap itself (`FLAG_SERVICE_HANDLES_DOUBLE_TAP`); whether
+       TalkBack 17.1.0.1003738110 sets it is unread.
+     - **No screen dump while TalkBack is on.** `uiautomator dump` connects through
+       `UiAutomationShellWrapper.connect()` to `UiAutomation.connect()`, flags 0, and UiAutomation's
+       documentation says it "suppresses accessibility services by default". The accessibility
+       service's side of that was not read.
+     - **The only adb route to an accessibility click is a stand-in:** an instrumentation APK sending
+       `ACTION_CLICK` through `getUiAutomation(FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)`. It reaches
+       the same click in the app, but not TalkBack, so it cannot show whether TalkBack reaches the list
+       at all.
+  2. **The keyboard field: a wrong instrument avoided.** Executed with the keyboard closed:
+     `mInputShown=false`, `mIsInputViewShown=true`, `mShowRequested=false`.
+     - `mIsInputViewShown` reads true with the keyboard CLOSED, so a check built on that field would
+       have been wrong.
+     - Whether `mInputShown` tracks the keyboard is unread: it needs a reading with the keyboard known
+       to be open.
+     - **The hands-on pass avoids an unqualified instrument here,** which is a reason for it, not a
+       concession.
+  3. **The effort figures are ESTIMATES,** as the agent labelled them, and the per-case minutes are the
+     agent's split of the plan's long stretch rather than figures from it.
+- **The inventory's other general findings:**
+  - **The long-press menu's "Report message" and "Block user in app" act at once, and its positions
+    shift** (*Backlog*). A driver tapping by position could file a real report against a real person.
+  - **A mutant's install ends the long timeline.** `install -r` restarts the app, and a timeline past
+    1,000 rows regrows in 15 to 25 minutes at that day's rates; `am crash` does the same. A mutant would
+    have had to be shown before the timeline was grown.
+  - **The screen dump carries no opacity.** Executed: a node's attributes on this phone are `bounds,
+    checkable, checked, class, clickable, content-desc, enabled, focusable, focused, index,
+    long-clickable, package, password, resource-id, scrollable, selected, text`.
+  - **The clipboard cannot be read from adb.** Executed: `cmd clipboard` answers "No shell command
+    implementation."
+  - **Executed:** `am crash [--user <USER_ID>] <PACKAGE|PID>` and `cmd window user-rotation [free|lock]
+    [rotation]` exist; `user_rotation` is 0; TalkBack is `com.google.android.marvin.talkback`
+    17.1.0.1003738110; `enabled_accessibility_services` is null.
+  - **Read:** `app/src/androidTest` exists, with `AndroidJUnitRunner` and Espresso declared.
+- **Case by case: the decider, the drive, the mutant, the judgement, and the estimates.**
+  1. **Recycled long-press and swipe.**
+     - **Decider, partly exact:** the dialog's `@user` title (`ChatFragment.kt:3389`), `txtReplyInfo`,
+       the paste read back from `editChannel`, and `CHAT_LONG_PRESS`, each compared in-process and
+       printed as match or mismatch only.
+     - **Unread:** the title's resource id, the row text's layout, whether a paste survives intact, and
+       whether an injected swipe arms `SwipeReplyTextView`. The long-press is qualified by `press.sh`.
+     - **Mutants:** production only.
+     - **Estimate:** about 3 to 4 hours, saving about 10 minutes. Its real gain would be breadth:
+       dozens of recycled rows rather than three.
+  2. **Stable flavour, in the 5.6.0 round.**
+     - **Decider:** the crash buffer, `pidof`, the row count, and `Resources$NotFoundException`. There
+       is no `run-as` on a release build. Sign-in stays Federico's.
+     - **Mutants:** the crash detector through `am crash`, with the owner's say-so; the others only by
+       proxy on dev.
+     - **Estimate:** about 2 hours, saving about 3 minutes, in 5.6.0 only.
+  3. **Hide and show.**
+     - **Decider:** `CHAT_ACTION hidden-user rule updated` (`:3399`). Within the screen, the hidden
+       rows gone, and the others' order and an anchor row's top kept.
+     - **Unread or out of reach:** off-screen rows are unread, and `shownRows` mixes in arrivals. The
+       neighbour page is likely NOT REACHED. The way to the blocked-users screen is unread.
+     - **Mutants:** production only.
+     - **Estimate:** about 3 hours, saving about 8 minutes.
+  4. **The echo.**
+     - **Decider:** the status line's node, `TWITCH_IRC outgoing message confirmed` and `reconciled`,
+       and one row with the sent text.
+     - **Not decidable from adb:** the opacity cannot be read, and the emote is visual. The send is
+       Federico's.
+     - **Estimate:** about 2.5 hours, saving about 3 minutes.
+  5. **Rotation.**
+     - **Decider:** the crash buffer, the row count, and the journal's figures. The two ownership
+       messages are `check(...)` failures (`TwitchEmoteImageLoader.kt:311` and `:451`), so they arrive
+       as crashes.
+     - **Drive:** `cmd window user-rotation` would rotate without auto-rotate, and is still a phone
+       setting.
+     - **Estimate:** about 2.5 to 3 hours, saving about 3 minutes.
+  6. **Scrolling.**
+     - **Exact across dumps:** following the bottom, staying put, and the jump button's tap clearing
+       the count.
+     - **Unread:** the count against the rows that arrived (`countAsUnread`, `:3274`). A jump between
+       two dumps is not seen.
+     - **Judgements:** the tall row and the drip-in look.
+     - **Estimate:** about 3 hours, saving about 4 minutes.
+  7. **Emote animation.**
+     - **No decider:** `EmoteAnimationGate` logs nothing, and `TWITCH_EMOTES` logs metadata only
+       (`:2376`). The animation would need a frame-comparison instrument of its own.
+     - **Estimate:** 5 hours or more, saving about 5 minutes.
+  8. **TalkBack.**
+     - **Decider, exact:** `reason=outside_click`.
+     - **Drive:** the activation cannot be driven (item 1 above), so the case is wholly Federico's.
+     - **Estimate:** a stand-in of about 3 hours, saving nothing.
+  9. **Empty space.**
+     - **Decider:** wholly exact and drivable. A tap on a row is a built-in negative.
+     - **Mutant:** production, but cheap on a short chat.
+     - **Estimate:** about 1.5 to 2 hours, saving about 10 minutes of attention and no elapsed time.
+  - **A base shared by any automation:** about 3 to 4 hours.
+- **Judgements no automation decides:**
+  - the tall row's top (U2/U3);
+  - the drip-in look, a scope decision for batching;
+  - a jump in the scroll;
+  - rows returning "together";
+  - the echo's opacity;
+  - TalkBack announcing the list;
+  - the unstructured look.
+- **The checklist's two additions, the owner's, with no case or criterion changed:**
+  - case 1 chooses menu items by exact label, and the guide repeats the two immediate actions at that
+    moment;
+  - the 10-minute unstructured look is its own step, immediately before the closing step.
+  - The total duration moved to 1 hour 30 to 1 hour 50 minutes as a consequence.
+- **During the pass, the agent's role, by the owner's guided prompt:**
+  - **Federico acts:** the agent guides, and Federico's hands and eyes are the instrument.
+  - **What the agent drives:** only the Logcat capture, the adb reads and the TalkBack toggle.
+  - **What the agent reports:** the plan's Logcat tags and the crash buffer, VERBATIM with times, and
+    never a verdict from them alone. Federico looks and describes; the agent captures and correlates.
+- **Carried forward, decided later and not now:** cases 1 and 9 as automation candidates for the 5.6.0
+  round.
+  - **The cost:** their reuse means re-applying the mutants every round.
+  - **The open ruling:** qualifying them on stable would be by proxy on dev, which the owner rules on
+    then, not now.
