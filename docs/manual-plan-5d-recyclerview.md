@@ -1027,7 +1027,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
           inside their bands. Exactly, the infimum is 1.155² = 1.334025, whose three-decimal value is
           1.334; between the two neither prediction is strictly inside, and at N_start = 400 no whole
           row count falls there.
-      - **Until steps 1 and 2 pass,** the view criterion goes unjudged.
+      - **Until steps 1 and 2 pass,** the view criterion is DROPPED: an abstention, since an
+        unqualified instrument cannot be said to separate the predictions. First written "goes
+        unjudged"; the section's own word replaces it on 2026-11-09.
       - **C and k come from the CONTROL build, never from the session.** Binding, by the owner's ruling
         of 2026-11-09. The no-recycling prediction is a property of the build that does not recycle.
         Taken on 5d from the session's own dumps, C and k would place the bands from the very quantity
@@ -1052,8 +1054,10 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         - **What it would move, for two pages from 400 to 1,200 rows each:** with C = 101, R = 2.776
           and the bands are at 1.4425 and 1.924; with C = 67 they are 2.845, 1.460 and 1.948. So 67
           overstates R by 2.5% and each edge by about 0.02. Recycling's 1.0 and no-recycling's 2.78
-          fall in their own bands under either. (The pass edge at C = 101 was first written 1.443, by
-          rounding up; it is 1.442 at three decimals.)
+          fall in their own bands under either.
+        - **A correction, 2026-11-09:** the pass edge at C = 101 is 1.4425, and it was first written
+          1.443, rounded up. A rounded edge is a threshold nobody derived. So the edges are
+          pre-registered as computed from the formula, unrounded (below).
         - **PRE-REGISTERED on 2026-11-09, before any poll, by the owner's ruling: the view criterion
           is judged under C = 101 and under C = 67.**
           - **The primary verdict uses C = 101,** 67 plus the 34 the static count gives B's page. The
@@ -1076,12 +1080,25 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
           - **The edges are computed from the formula on the actual counts and not rounded,** with k
             = 1.00 and N the two pages' `shownRows` summed.
           - **With B's count under the fallback** (*Setup*), the verdict is taken under each C and each
-            bound, four in all; it stands only if all four agree, and is otherwise INCONCLUSIVE. That
-            composition is the agent's reading of the two rulings, for the owner to confirm.
+            bound, four in all. It stands only if all four agree, and is otherwise INCONCLUSIVE. The
+            agent's composition of the two rulings, confirmed by the owner on 2026-11-09.
+            - **Why it rarely bites, the owner's reading:** the two C values move the edges by 0.02,
+              and the two B bounds move them a lot, 1.44 and 1.92 against 1.19 and 1.59. But the
+              predictions sit at about 1.0 and 2.8, outside all four intervals, so a reading near 1.0
+              passes on all four, and one near 2.8 fails on all four. Only a middling reading splits
+              them, and a split is exactly when no verdict should be given.
+            - **The agent's precision on the 2.8:** it is the no-recycling ratio with B growing. Had B
+              in fact stayed at 400, a build that does not recycle would read about 1.89. That fails
+              under the two 400 bounds and falls between the edges under the two N_B = N_A bounds: a
+              split, rightly, since B's size is then the unknown. A recycling build reads about 1.0
+              either way, so the build this session judges is not affected.
           - **The abandon floor under each C,** at the planned N_start of 800 summed rows: 1,101 rows
-            summed at C = 101, and 1,090 at C = 67. An end between the two drops the criterion under
-            the primary, and that is reported with the other beside it: the agent's proposal, for the
-            owner to confirm, since the higher floor is the primary's and the stricter.
+            summed at C = 101, and 1,090 at C = 67. **The primary governs,** as the agent proposed and
+            the owner confirmed on 2026-11-09: an end between the two is DROPPED under the primary, and
+            the judgement under C = 67 is reported beside it. The outcome is DROPPED, not INCONCLUSIVE.
+            - **Under the fallback, the agent's proposal, not yet confirmed:** each bound's floor is
+              computed at C = 101 from its own N_start, and the criterion is DROPPED if either bound's
+              total is below its floor, since B's size is then the unknown.
   - **At each reading:**
     - **Scroll:** fling far up, then back to the bottom.
     - **Follow the bottom:** at the bottom, new messages keep the list there. Scrolled up, the list
@@ -1103,6 +1120,16 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       - **The bands,** with R and M from the instrument's steps: the ratio passes at or below M/1.155
         and fails at or above M·1.155. Between them it is INCONCLUSIVE, which is reported as such and
         not explained.
+      - **Two outcomes that are neither pass nor fail, with two words that are never swapped,** by the
+        owner's ruling of 2026-11-09. A reader a month on must not take them for the same outcome.
+        - **DROPPED means an ABSTENTION:** no judgement was made, because the instrument does not
+          separate the predictions at this size (below the abandon floor), or is not qualified to.
+        - **INCONCLUSIVE means a judgement was made and does not decide:** a reading between its pass
+          and fail edges, or judgements that disagree (C = 101 against C = 67, or the four under the
+          fallback). It is reported with which of the two it was.
+        - **VOID is not an outcome of a criterion:** a reading that did not happen as specified, such
+          as a refresh bracket whose result falls outside it. A void reading is neither judged nor
+          dropped; it is absent.
       - **Until R is measured, the bands are provisional:** 1.5x and 2.0x, as for R = 3.
       - **Measured on 2026-11-06, for one growing timeline:** R = 2.71, so pass at or below 1.43 and
         fail at or above 1.90 (*Recorded results*, the instrument's sitting). Those are the bands for
@@ -5429,3 +5456,13 @@ was done on the phone.
   any poll, the old and the new full hashes both recorded, and the change touching only how pages
   are read. No threshold, band or verdict rule moves. The file is read, and what it does with page
   identity reported, before anything is changed.
+
+**2026-11-09, later: the two compositions confirmed, and the outcome words fixed, before any poll.**
+Nothing was done on the phone.
+- **Four verdicts under the fallback,** standing only if all four agree, otherwise INCONCLUSIVE, with
+  the owner's reading of why it rarely bites (section M, *C's configuration*).
+- **An end between the two floors:** the primary governs, and the outcome is DROPPED.
+- **DROPPED and INCONCLUSIVE are defined and kept apart** (section M, *The bands*): an abstention
+  against a judgement that does not decide. "Goes unjudged" became DROPPED.
+- **The rounding correction is recorded as a correction:** 1.4425 had been rounded up to 1.443.
+- **Open, the agent's proposal:** the floor under the fallback's two bounds.
