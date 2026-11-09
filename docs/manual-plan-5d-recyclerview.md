@@ -24,6 +24,15 @@ results file, or a results file without its counts is a failure of that stage.
 | C, measurement, control, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-control-measurement` | `5b09932` | `5b5333f7480c5899068f913dd53b1b0dbd29ff4631198bd4e729ad60e2e220cc` |
 | C, measurement, 5d, built on `DESKTOP-BCT68L9`; superseded on 2026-11-03, see below | `experiment/startup-5d-treatment-measurement` | `888489a` | `b7000916196cb85e8f259a66a5f016c5f6b5d11c630f484c67b3a2bde834b5e1` |
 
+**Since 2026-11-09 08:40 the long session's build is this one.** It was #97's head when it was built,
+on `DESKTOP-BCT68L9`, under *one toolchain, not one machine* (below, 2026-11-09). No `nbpromec1` build
+of this commit exists. Its build, install and the long-press's qualification are under *Recorded
+results*, 2026-11-09, 08:34 to 08:44.
+
+| Step | Branch | Commit | APK (dev, arm64) sha256, `DESKTOP-BCT68L9` |
+|---|---|---|---|
+| M, the long session | `feature/5d-recyclerview-timeline` | `00c1e78` | `ba1f88e3347382f76e4d5d1c0661602e2a24e187fcbdcfc2440e64ea88f16e4a` |
+
 **Since 2026-11-03 14:39 the four builds of section C are these.** Each is its branch's tip merged
 with `main-v5` at `ed41de1` (#94, *The window decided before the name is resolved*). Each is built
 on `nbpromec1` under the same toolchain; the details are in *The fix on the four branches,
@@ -711,6 +720,19 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
   most.
   - **Setup:** the final build, on a busy channel whose history arrives at the cap of 400 rows. The
     page stays current with the screen on, and no user is hidden, so `shownRows` counts every row.
+    - **One page, account A: the owner's ruling of 2026-11-09,** made on the reading that account B
+      has not connected since 2026-11-05 and that every launch since 2026-11-06 starts only A's page.
+      The owner's reason: one growing timeline gives R = 2.71 with bands at 1.43 and 1.90, against
+      R = 1.92 with 1.20 and 1.60 for two pages with one idle. So it discriminates better, carries one
+      confound fewer, and asks the same question.
+    - **Its premise does not hold for this session, by the phone on 2026-11-09 at 08:42.** A launch
+      opens the accounts page, beside which only A's page is attached. The long-press needs A's page
+      on screen, and the pager keeps one page attached on each side (`offscreenPageLimit = 1`,
+      `MainActivity.kt:88`). So B's page, beside A's, was attached and connected 157 ms after the
+      swipe, with a first connect of 400 rows on the same channel. With A's page on screen, the
+      session holds two pages sharing the channel, for which R = 2.85 (*Recorded results*, the
+      instrument's sitting).
+    - **So "A second page", below, is kept and not removed** until the owner rules on this.
   - **How long:** until the timeline holds at least 1,200 rows, 800 live rows past the history, with
     messages still arriving. The owner kept that bound on 2026-11-06: past Chatterino2's limit of
     1,000 is the mark that means something. That limit, and what Chatterino2 does at it, is recorded
@@ -774,6 +796,10 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     takes:
     - **The row count:** long-press refresh. It writes `shownRows` into the journal's `user.marker`
       event, which the session's poll reads from the journal (below).
+      - **Qualified on 2026-11-09, on `00c1e78`, before the session was committed:** four presses
+        wrote four lines with `shownRows` and no `renderedRows`. Each line was in the file within
+        0.12 s of its own instant, the polling's resolution, and presses 4.2 s apart each wrote one
+        (*Recorded results*, 2026-11-09, 08:34 to 08:44).
     - **Memory:** `adb shell dumpsys meminfo` for the package of the build on the phone. It records
       the total PSS (proportional set size), the Java heap, and the `Views:` count under Objects. It
       reads and changes nothing.
@@ -845,6 +871,9 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         text field.
     - **Not yet exercised on the phone:** reading the journal with `run-as`. The mark is its first
       read, and fails loudly if it reads nothing.
+      - **The read itself was exercised on 2026-11-09,** by the agent's `run-as … cat` on
+        `DESKTOP-BCT68L9`, not by the session's tooling. That tooling is not on that machine: the
+        two files above are on `nbpromec1`.
     - **Duplicates:** what this session can say about them is pre-registered (*Recorded results*,
       2026-11-06, "the long session's tooling, and its duplicate prediction").
       - **Eviction is closed by reading,** the owner's of 2026-11-09: the backend returns the newest
@@ -857,7 +886,10 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         - **What:** one tap on refresh, between two long-presses 10 s apart, with nothing else
           touched. It counts only if its `backfill.result` falls between them.
         - **When:** once, after AT LEAST TWO readings, not after the first, so that the rate the
-          threshold rests on is measured rather than planned.
+          threshold rests on is measured rather than planned. "Readings" are this section's three
+          readings (settled on 2026-11-09), so the refresh comes after the reading at about 800 rows.
+        - **Nothing else in the bracket, a page change included:** a page coming on screen triggers
+          a `resume_no_pause` backfill (seen on 2026-11-09 at 08:42:07).
         - **The bracket, 10 s, provided it contains a refresh's response. On the records it does:**
           - **No refresh is recorded.** The phone's journal, 3,185 lines from 2026-10-05, holds no
             `manual_refresh`. A refresh uses the same history client as every recorded source
@@ -877,22 +909,27 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
           expected from the MEASURED live rate over the bracket's length. With no mismatch Δ is live
           rows alone. A refresh whose every copy mismatched adds its 120 s of rows on top, about 25 at
           12.3 a minute.
-        - **The threshold, the owner's:** the case FAILS if Δ exceeds 4E. At the planned 12.3 a minute
-          a 10 s bracket expects about 2 rows, so the figure is 8.
-        - **The bands, the owner's, at the planned rate:** 0 to 3 is consistent with no mismatch; 8 or
-          more is mismatch; 4 to 7 is INCONCLUSIVE, reported as inconclusive and not argued either way.
-        - **Reported:** the threshold computed from the measured rate at the moment of the refresh,
-          and the planned figure, both.
+        - **The bands, settled by the owner on 2026-11-09 and tied to the measured rate.** With E
+          unrounded: Δ below 2E is consistent with no mismatch; from 2E to below 4E it is
+          INCONCLUSIVE, reported as inconclusive and not argued either way; at 4E or more it is
+          mismatch, and the case FAILS.
+          - **The check:** at E = 2 these are the owner's first bands, 0 to 3, 4 to 7 and 8 or more.
+            At the planned E = 2.05 they are 0 to 4, 5 to 8 and 9 or more.
+          - **Why a rule and not numbers:** fixed bands break as soon as the rate moves. At 24 rows a
+            minute, a 10 s bracket with no mismatch reaches 4 rows in 57% of brackets.
+          - **They replace** the first form of the same day: FAIL if Δ exceeds 4E, with 0 to 3, 4 to 7
+            and 8 or more at the planned rate.
+        - **E's rate:** the live rows between the two readings before the refresh, over the time between
+          them, from the poll's live-row bound.
+        - **What "the case FAILS" means:** the test's verdict, mismatch found. It is recorded under the
+          pre-registration's item 7 as a candidate pre-existing defect, not as a 5d failure. At
+          `00c1e78` the deduplicator, the backfill policy, the history client and the channel binding
+          have the blobs item 7 recorded on `main-v5`: `4532635`, `711eb3e`, `75b05d6` and `693562b`.
+        - **Reported:** the bands computed from the measured rate at the moment of the refresh, and the
+          planned figures, both.
         - **The noise, the agent's arithmetic under a Poisson model, which bursts would widen:** at
-          E = 2.05, Δ reaches 4 in 15% of brackets with no mismatch, and 8 in 0.13%. A total mismatch
-          falls below 8 with a probability of 7 × 10⁻⁶.
-        - **Not yet settled, raised on 2026-11-09 and the owner's:**
-          - at E = 2.05, "exceeds 4E" puts mismatch at 9 or more, while the bands put it at 8 or more;
-          - the edge between 3 and 4 is given as a number, with no rule at a measured rate;
-          - "readings" may mean this section's three readings or any long-press;
-          - which span the measured rate is taken over;
-          - "the case FAILS" against the pre-registration's item 7, where a duplicate in the timeline's
-            data is a candidate pre-existing defect, recorded there and not as a 5d failure.
+          E = 2.05 with no mismatch, Δ reaches the inconclusive band, 5, in 5.7% of brackets and the
+          mismatch band, 9, in 0.03%. A total mismatch falls below 9 with a probability of 2 × 10⁻⁵.
         - **What it costs the target, by reading the rule above, not run:** its `messageCount` enters
           the history sum, so the bound on live rows drops by the copies it suppresses, up to about 25
           rows, 2 minutes at 12.3 a minute.
@@ -2625,10 +2662,10 @@ has been read.
   - **An AGP bump can change the compiler silently.** That is the same shape as the RecyclerView
     premise that #99 now guards: a version the code relies on, left to resolution.
   - **Not in 5.6.0's scope.**
-  - **The project instructions state "Kotlin 2.2.10" as though it were pinned,** and the owner will
-    correct them. On 2026-11-09 the statement was not found in this repository's instructions on any
-    branch (`AGENTS.md`, `CLAUDE.md`, `README.md`, `RELEASE-STATE.md`, `.github/`), so where it stands
-    is the owner's to name.
+  - **The project instructions state "Kotlin 2.2.10" as though it were pinned.** They are the
+    claude.ai project's instructions, not this repository's, which is why no branch here holds the
+    statement. The owner will correct them there to say the version is UNDECLARED and carried by AGP
+    9.2.1.
 - **`CurrentSpawnStore.load` returns a future-dated stored spawn with no skew limit.** At
   `CurrentSpawnStore.kt:77` a negative age returns the snapshot, while `decide` rejects an incoming
   spawn dated more than 5 s ahead.
@@ -5205,4 +5242,66 @@ written or shown raw.
   Each page's 400 rows come from the backend's history at every first connect, as every excluded
   launch of the round found. So no row count exists to be read with the app stopped, and an install
   cannot remove one. The nearest reading is each page's first connect at the next launch.
-- **The refresh's two values** are in section M, *Duplicates*, with the points still open there.
+  - **The prohibition on uninstalling the dev app stands, with its reason corrected** by the owner
+    on 2026-11-09. The reason given before, cached rows, was wrong: there are none to lose. What an
+    uninstall would destroy is the Keystore-encrypted account store, so two Twitch accounts would
+    need authorising again, and the journal's lines back to 2026-10-05.
+- **The refresh's two values** are in section M, *Duplicates*. The points left open there were
+  settled by the owner the same day, as the agent recommended them.
+
+**2026-11-09, 08:34 to 08:44: the long session's build, its install, and the long-press qualified.**
+On `DESKTOP-BCT68L9` and the OnePlus AC2003. By the owner's instruction, the instrument was qualified
+on one short launch before the session was committed: no `user.marker` had ever been journaled on
+this phone.
+- **The build:** `:app:assembleDevDebug` in `TwitchMiniChat-wt-5d` at `00c1e78`, #97's head. Before it,
+  and again after it, `git status --porcelain --untracked-files=all` printed nothing. No toolchain file
+  differs from `main-v5`, the git-ignored inputs hash as recorded above, `gradlew --version` printed
+  the same three lines, and Android Studio's log shows no upgrade prompt. Nothing was cleaned, so no
+  resync was needed.
+  - 4 min 42 s, 43 of 43 tasks executed, one Kotlin warning (an annotation's target, at
+    `PcgMostWantedSelectionReviewDialog.kt:26`).
+  - **sha256 `ba1f88e3347382f76e4d5d1c0661602e2a24e187fcbdcfc2440e64ea88f16e4a`,** signed by
+    `9b3a523b…5c51` in full, `com.fs.twitchminichat.dev`, versionCode 8, `5.5.1-dev`, arm64-v8a. Its 12
+    dex files embed `00c1e78` twice, with no `+`, and none of the round's other commits.
+  - Kept, with its log, in `C:\Users\Fede\StudioProjects\tmc-5d-round\apks`. This entry's own commit
+    is documentation on top of `00c1e78`.
+- **The install:** `adb install -r` of that kept file, from 08:40:21 to 08:40:31, `Success`. No
+  uninstall. Read back from the phone: sha256 `ba1f88e3…6e4a`, `firstInstallTime` 2026-10-05 11:42:01
+  unchanged, `lastUpdateTime` 2026-11-09 08:40:33.
+- **The data survived, by hash.** Every file of the app's data outside `cache/` and `code_cache/` was
+  hashed on the phone at 08:34, again at 08:40 just before the install, and after it.
+  - The 16 preference files and the journal: 17 unchanged, none changed, removed or added.
+  - The 398 other files: unchanged, by one combined digest over their paths and hashes.
+  - The journal: 3,185 lines, sha256 `e93b0cf7…484e`, before and after.
+  - This replaces the row-count check, which asked for something that does not exist.
+- **The long-press, qualified.** One launch, `am start -W`, cold, 1,647 ms, at 08:41:02. It opened the
+  accounts page, and one swipe brought A's page on screen. The refresh button was located from the
+  screen's hierarchy, of which only its bounds were read, and each press was `input swipe` held
+  1,000 ms on it. The lines, verbatim, with the account and channel replaced by labels:
+
+  ```
+  2026-11-09 08:42:23.592 user.marker account=<A> channel=<c2> resumed=true shownRows=416
+  2026-11-09 08:42:43.975 user.marker account=<A> channel=<c2> resumed=true shownRows=418
+  2026-11-09 08:43:39.925 user.marker account=<A> channel=<c2> resumed=true shownRows=427
+  2026-11-09 08:43:44.133 user.marker account=<A> channel=<c2> resumed=true shownRows=427
+  ```
+
+  - **`shownRows` is present and `renderedRows` absent.** Beside it each line carries the account,
+    the channel and `resumed`.
+  - **How long until the line appears:** 91, 30, 119 and 19 ms after its own instant, all on the
+    phone's clock, polling about every 0.11 s. So within 0.12 s, the polling's resolution. Each instant
+    fell 0.45 s after the press began: the input tool's start and the hold to the long-press timeout.
+  - **A second press writes a second line,** 20.4 s apart and 4.2 s apart alike.
+  - **No press started a refresh:** no `manual_refresh` line.
+- **Two things the launch showed.**
+  - **B's page attached when A's came on screen,** at 08:42:07.110, 157 ms after the swipe, with a
+    first connect of 400 rows on the same channel (section M, *Setup*).
+  - **A page coming on screen triggers a backfill:** A's `resume_no_pause` at 08:42:07.523, 1 row.
+- **Left as the round leaves it:** Home at 08:43:45, both pages' `lifecycle.stop`, then
+  `am force-stop` at 08:43:48. The dev app is not running. The journal has 3,202 lines, and its first
+  401,770 bytes still hash to `e93b0cf7…484e`.
+- **The phone holds `00c1e78`'s build, `ba1f88e3…`,** since 2026-11-09 08:40:33. `d005e901…`, pulled off
+  it, stays in the agent's scratch directory on `DESKTOP-BCT68L9` as the way back.
+- **Not on `DESKTOP-BCT68L9`: the session's tooling.** `sitting.sh` and `journal_extract.py`
+  (section M) are in `%USERPROFILE%\tmc-5d-round\V` on `nbpromec1`, and neither is anywhere under
+  `C:\Users\Fede`.
