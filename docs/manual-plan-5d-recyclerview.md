@@ -1532,13 +1532,16 @@ case only if the app still runs as before it.
        - There were four click events for three reported taps: `outside_click` at 15:42:35.134 and
          15:42:41.952, and message-row clicks (`close_composer_keyboard` alone) at 15:42:08.755 and
          15:43:05.979.
+       - **What settles it:** a run on a short chat, one tap per message, with the log read between
+         taps. Run 2 was that run.
      - **Run 2,** with B on an uncached channel with no history, one tap per message:
        - **between rows: PASS,** `outside_click` at 15:59:11.183 and 15:59:28.265 (two taps, by
          Federico's recollection);
        - **on the system line: PASS at the fourth attempt,** `outside_click` at 16:21:58.127.
          Attempts 1 and 2 were NOT DONE: the line was covered by the channel dropdown, then had
          scrolled away. Attempt 3 was UNCLEAR, because a stray tap on the status text had already
-         closed the keyboard.
+         closed the keyboard. What settled it was attempt 4: one tap on the line, with the keyboard
+         open and nothing else touched.
        - **below the last row: PASS,** `outside_click` at 16:25:04.261. This is the new part.
      - **Found beside it, pre-existing:** while the channel field is focused, the channel dropdown
        covers the top of the chat.
