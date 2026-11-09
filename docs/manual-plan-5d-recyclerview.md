@@ -820,10 +820,35 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         - **A parameter, not a tool edit:** `sitting.sh:37` reads `PY` from the environment with a
           default, `PY="${PY:-py -3.10 -I -X utf8}"`, so setting it leaves the tool's bytes as they
           are.
-        - **Qualified for the behaviours the offline suite covers, and only those** (the cases,
-          below): the mark, the binding, the poll's invariants, its counts and target, the rate rule,
-          failed journal reads, and the whitelist. `rows`, `dump`, `state` and `poll` are not in the
-          suite; of them only `rows` runs Python, and the long session does not use it.
+        - **Qualified for the behaviours the suite's cases are DEMONSTRATED to look at, and only
+          those.** Restated on 2026-11-09 after the mutation check (*Recorded results*, 2026-11-09,
+          the mutation check), replacing "the behaviours the offline suite covers", which claimed
+          more than was shown.
+          - **Demonstrated by C1 to C15, each by a mutant they killed:** the mark excludes an earlier
+            session's lines and is taken in the journal's own clock; it refuses a running app, and is
+            exactly one instant; a label is never reused; a poll needs a mark; the process is bound
+            after the mark, and is alive at every poll; a failed read stops the poll, at
+            `sitting.sh`'s check of the pipe; the lines saved earlier must come first; a line outside
+            the grammar stops the poll, and the extractor prints only whitelisted fields; the shape of
+            `messageCount`; a rejected `messageCount` leaves no bound; the cap; no rate is read with
+            another app in front; the rate is recorded with its range; a second call continues the
+            labels and the saved extract.
+          - **Demonstrated only by the P cases:** LIVE as the rows less the history before them, and
+            the target reached at exactly the target.
+          - **NOT DEMONSTRATED:** the bound pid's start time; the live pid equal to the bound one; the
+            front read again 2.2 s later; the six sources; and the extractor's exit on an empty input.
+          - **What the session rests on that is not demonstrated:**
+            - **An unreadable journal on the phone.** `adb exec-out` exits 0 on a failed read, with the
+              error on stdout, as measured on the phone. There the extractor's exit 5 is the only
+              guard, and C6 and C14 do not demonstrate it: the stand-in exits 1 instead, and the pipe's
+              own check catches that first. Without that guard, an unreadable journal would read as
+              nothing new, silently.
+            - **A process restarted during the session,** with the same pid or a new one.
+            - **The rate's 2.2 s rule,** should the dev app leave the front between its two reads.
+            - **The six sources.** An injected source would still be stopped loudly by the grammar,
+              which is demonstrated.
+          - **Not in the suite at all:** `rows`, `dump`, `state` and `poll`. Of them only `rows` runs
+            Python, and the long session does not use it.
       - **The worst-case note above goes with them, as corrected:** the screen held awake on animated
         emotes is a condition of the session, and nothing here tests #69.
   - **Three readings:** after the history (about 400 rows), at about 800, and at 1,200 or more. Each
@@ -5666,3 +5691,109 @@ Federico copied both files from `nbpromec1`'s `%USERPROFILE%\tmc-5d-round\V` int
     change, with no hit.
 - **`C:\Users\Fede\StudioProjects\tmc-5d-round\V` now holds the new tools,** written from the committed
   blobs and hashed after: `13cb9ff5…` and `340e263f…`.
+
+**2026-11-09, 10:50 to 11:40: whether the rebuilt suite's cases look, checked by mutation.** On
+`DESKTOP-BCT68L9`, offline, with three read-only reads of the phone. No poll has run.
+- **The owner accepted the rebuilt suite conditionally, and not for haste:** a rebuild can carry more
+  evidence than the original did. The six P cases are demonstrated to look, since they fail on the
+  frozen tools and pass on the new ones. C1 to C15 pass on both, so they discriminated nothing until
+  shown to, and they are what the interpreter qualification rests on. A wrong extractor there would
+  make the session not void but WRONG, silently.
+- **The method.** 26 exact mutants of the per-page tools (`apply_mutant.py`), one per behaviour the
+  qualification claimed. Each is applied only if its text occurs exactly once, to a fresh copy taken
+  from `6dc2351`. The whole suite then runs on it, with the "new" expectations, and the tools are
+  restored from the commit and verified by sha256 against the blob: 26 of 26. The predictions were
+  written into the table before any run. M26 was added after M01 to M25, which had missed the pid
+  check, and was predicted before its own run.
+
+  | Mutant | Family | Predicted | Killed by |
+  |---|---|---|---|
+  | M01 | the mark excludes an earlier session's lines | C1 | C1, C2, C5, C7, C13, and P1-P6 |
+  | M02 | the mark is taken in the journal's own clock | C1 | C1, C2, C4, C5, C7, C8, C13, C14, C15, and P1-P6 |
+  | M03 | the mark refuses a running app | C9 | C9 |
+  | M04 | the mark is exactly one instant | C15 | C15 |
+  | M05 | a label is never reused | C11 | C11 |
+  | M06 | a poll needs a mark | C12 | C12 |
+  | M07 | the process is bound after the mark | C10 | C10 |
+  | M08 | every poll checks the bound process is alive | C3 | C3 |
+  | M09 | the bound pid keeps its start time | SURVIVES | **none: NOT DEMONSTRATED** |
+  | M10 | a failed journal read stops the poll (`sitting.sh`) | C6, C14 | C6, C14 |
+  | M11 | an empty journal input is an error (extractor) | C6, C14 | **none: NOT DEMONSTRATED** |
+  | M12 | the lines saved by earlier polls come first | C8 | C8 |
+  | M13 | a line outside the grammar stops the poll | C4 | C4, L |
+  | M14 | the extractor prints only whitelisted fields | C1 | C1, C2, C3, C5, C7, C8, C13, and P1-P6 |
+  | M15 | a value matches its field's shape (`messageCount`) | C7 | C7, P5 |
+  | M16 | a source is one of the six values | SURVIVES | **none: NOT DEMONSTRATED** |
+  | M17 | a rejected `messageCount` leaves no bound | C7 | C7 |
+  | M18 | LIVE is the rows less the history before them | SURVIVES | not by C; P1, P2, P5, P6 |
+  | M19 | the target is reached at exactly the target | SURVIVES | not by C; P1, P2, P3, P5 |
+  | M20 | the session ends at its cap | C7 | C7, which never ended: the suite timed out in it |
+  | M21 | no rate is read with another app in front | C2 | C2 |
+  | M22 | the front is read again 2.2 s later | SURVIVES | **none: NOT DEMONSTRATED** |
+  | M23 | the rate is recorded with its range | C5 | C5 |
+  | M24 | a second call continues the labels | C13 | C13 |
+  | M25 | a second call continues the saved extract | C13, C8 | C8, C13 |
+  | M26 | the live pid is the bound pid | SURVIVES | **none: NOT DEMONSTRATED** |
+
+  - **How each died:** an exit other than the case's expected one, or its expected message missing, or
+    one of its file checks failing, as each case line records in the run's output. M20 died because C7
+    never ended: the suite timed out at 900 s inside it.
+  - **M02 depends on the hour:** a mark from the host clock excludes the cases' synthetic lines,
+    dated 10:00 to 10:40, only when run after 10:40. It was run at 11:02.
+  - **No case was adjusted, and nothing in the tools was changed.**
+- **24 of the first 25 predictions held. M11 did not, and why is the finding of the check.**
+  - **Measured on the phone:** `adb exec-out run-as … cat` on a missing file exits 0 and writes the
+    error on stdout. `adb shell` exits 1 for the same read.
+  - **`standin_adb.sh` exits 1 for that read,** so in C6 and C14 the pipe's own check catches the
+    failure before the extractor's exit 5 is needed. On the phone that exit 5 is the only guard.
+  - **So C6 and C14 model a failure the phone does not produce,** and the guard the phone relies on is
+    not demonstrated. Correcting the stand-in to the measured exit 0 would be a change to the
+    instrument, not to a case. It is the owner's to authorise.
+- **U1, whether the state C4 reaches with a test double is reachable with the real extractor: it is,
+  from non-ASCII digits.** The committed extractor, fed a hostile journal of 6,000 lines, emitted 24
+  lines outside `sitting.sh`'s grammar, and 10 with the mark at 10:05. All were
+  `messageCount=٤٠٠`: Python's `\d` matches non-ASCII digits, which the grammar's `[0-9]` does not.
+  - **The consequence is loud, never silent:** the grammar stops the poll with
+    `INVARIANT VIOLATED [extract]`.
+  - **Unreachable from what the app writes, by reading and by the data.** The four count fields are
+    `Int` and `Long` values written with `toString`, which is ASCII whatever the locale
+    (`ChatFragment.kt:1426`, `:2959-2961` at `00c1e78`). The phone's journal through the committed
+    extractor: 3,201 lines read, 1,380 kept, 0 outside the grammar, and 0 non-ASCII bytes in 403,784.
+  - **The extractor's shapes are wider than the code's.** Making them ASCII would be a change beyond
+    how pages are read, so it was not made; it is the owner's.
+- **Instruments of mine that did not look, today, caught and not counted:** the stand-in's syntax
+  error, which made the first suite run measure nothing (recorded above); the hostile-journal
+  generator, which crashed after 18 lines on Windows' console encoding; a `since` that lay past every
+  instant of that journal, so that its second run read nothing; and the stand-in's exit status for
+  `exec-out`, which made C6 and C14 test the wrong guard. Each was re-run, or is reported here, before
+  any result rests on it.
+- **Committed beside the suite, on both branches:** `experiment/startup-5d/mutation/`, at `99750a8` on
+  `experiment/startup-5d-control` and `db4d701` on `experiment/startup-5d-treatment`. It holds the
+  mutant table, the driver, the hostile-journal generator and its check, and the results with every
+  line above.
+- **The qualification is restated** in section M, with its demonstrated coverage, and what the session
+  rests on that is not demonstrated.
+
+**2026-11-09: things done right in qualifying the tools, recorded as such by the owner.**
+- **a. `PY` is an environment variable** (`sitting.sh:37`, `PY="${PY:-py -3.10 -I -X utf8}"`), so the
+  interpreter is a recorded PARAMETER and the tool stays byte-identical. Of the two possibilities,
+  that was the better one.
+- **b. The invariant was EXECUTED, not reasoned.** With `PY` unset, the `py -3.10` default applied, and
+  the tool stopped at its first read with `INVARIANT VIOLATED [journal]`, exit 3, no mark written: a
+  loud precondition whose firing was actually seen.
+- **c. The interpreter was kept out of `state`,** because adding it would have been an edit beyond
+  page reading. Declining to improve something because it is outside the authorised change is harder
+  than doing it, and it is recorded as such.
+- **d. The `pages` check is approved.** It stops the poll when the first press is not on page A,
+  instead of silently measuring the wrong page. It is within the carve-out, since it reads pages, and
+  it has the right shape: a loud precondition naming its invariant.
+- **e. The process finding: a suite that qualifies a frozen tool must be COMMITTED WITH IT.** It was
+  not, which is why the original does not exist today. Committing the rebuilt suite before the change
+  it tests, `209af66` and `c78c52d` before `bff7379` and `6dc2351`, is the fix for that defect, and is
+  named as the fix.
+- **f. The uncounted first run,** which measured nothing because the stand-in had a syntax error,
+  stays recorded as uncounted. It is of the same family as the four others of the day.
+
+**Queued, not now and not blocking:** whether the original suite survives on `nbpromec1`. If it turns
+up, it is a cross-check on the rebuild, nothing more: the rebuild and its mutation check are what the
+session rests on.
