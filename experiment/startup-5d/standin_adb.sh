@@ -10,8 +10,10 @@
 #   start        the process's start time, field 22 of /proc/<pid>/stat
 #   front        "dev" when the dev app's window has focus, anything else otherwise
 #   rate, range  the display's refresh rate and its primary range, as "90.0" and "0 90"
-#   journal[.N]  the current journal file; the content "@UNREADABLE" makes the read fail
-#   previous     the previous journal file, absent unless this file exists
+#   journal[.N]  the current journal file; the content "@UNREADABLE" makes the read fail, as on the
+#                phone: the error on stdout, and exit 0
+#   previous     the previous journal file, absent unless this file exists; absent reads as the error
+#                on stdout, and exit 0
 set -u
 D=${STANDIN:?STANDIN must name the directory of the stand-in files}
 PKG=com.fs.twitchminichat.dev
@@ -70,21 +72,24 @@ case "$kind" in
       *) refuse shell "$cmd" ;;
     esac ;;
   exec-out)
+    # A failed read EXITS 0, with the error on stdout, as adb exec-out does on the phone: measured on
+    # 2026-11-09 on the OnePlus AC2003, where `adb exec-out run-as ... cat <missing file>` exited 0 and
+    # `adb shell` exited 1 for the same read. This stand-in exited 1 until then, which let the pipe's
+    # own check catch a failed read before the extractor's exit 5, the guard the phone relies on.
     case "$cmd" in
       "run-as $PKG cat files/diagnostics/history-diagnostics-previous.log")
         if [ -e "$D/previous" ]; then
           cat "$D/previous"
         else
           echo "cat: files/diagnostics/history-diagnostics-previous.log: No such file or directory"
-          exit 1
         fi ;;
       "run-as $PKG cat files/diagnostics/history-diagnostics.log")
         f=$(pick journal "$(count journal)")
         if [ ! -e "$f" ] || [ "$(cat "$f")" = "@UNREADABLE" ]; then
-          echo "run-as: couldn't open files/diagnostics/history-diagnostics.log"
-          exit 1
-        fi
-        cat "$f" ;;
+          echo "cat: files/diagnostics/history-diagnostics.log: Permission denied"
+        else
+          cat "$f"
+        fi ;;
       *) refuse exec-out "$cmd" ;;
     esac ;;
   *) refuse "$kind" "$cmd" ;;
