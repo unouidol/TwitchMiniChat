@@ -1342,7 +1342,9 @@ with the timeline well past 400 rows: that is the regime no automated test cover
 by adb. #97 is not merged until this pass is done and reported.
 
 **Before:** record `accelerometer_rotation` (0 on 2026-11-09), TalkBack off, `show_touches` (1) and
-`stay_on_while_plugged_in` (7), and restore each one changed before the pass ends. Run Logcat with the
+`stay_on_while_plugged_in` (7), and restore each one changed before the pass ends. **Auto-rotate and
+TalkBack are both OFF now** (read on 2026-11-09): auto-rotate is switched on for case 5 and TalkBack
+for case 8, and each is turned off again when its case ends. Run Logcat with the
 tags `CHAT_LONG_PRESS`, `CHAT_ACTION`, `CHAT_FOCUS`, `CHAT_IME`, `TWITCH_IRC`, `TWITCH_EMOTES` and
 `TMC_HISTORY`. On a failure, stop that case, record what was seen and the time, and go on to the next
 case only if the app still runs as before it.
@@ -1363,11 +1365,13 @@ case only if the app still runs as before it.
    - **Failure:** a title, a copied text or a reply naming another row's user or text; no menu; a swipe
      that does not arm, or leaves the row displaced.
 2. **The stable flavour.** No part of this round has exercised `com.fs.twitchminichat`, and it is what
-   every user installs. **BLOCKED on a decision of the owner's:** the phone's stable app is the
-   published 5.5.1, signed with the release key, so a debug-signed stable build cannot replace it
-   without an uninstall, which would destroy that app's data. The routes: a release-signed stable build
-   of `00c1e78`'s production code, made where the signing material is and never committed; another
-   device or an emulator; or no stable run in this pass.
+   every user installs. **NOT skipped: MOVED to the 5.6.0 device round,** by the owner's ruling of
+   2026-11-09, where a release-signed build is installed over the published one and its checks run
+   anyway. The phone's stable app is the published 5.5.1, signed with the release key, so a
+   debug-signed stable build cannot replace it here without an uninstall, which would destroy that
+   app's data. **In that round its chat checks are BLOCKING:** the phone's stable app is 5.5.1, before
+   5d, so that round is the first and only time the stable flavour executes 5d before users do (*Recorded
+   results*, 2026-11-09, the owner's six records, items 2 and 3).
    - **Do, once installed:** launch, sign in, open a page on a busy channel, scroll and follow, watch an
      animated emote.
    - **Failure:** a crash at launch or on the page; a blank list; a missing resource; an emote that
@@ -1439,9 +1443,9 @@ case only if the app still runs as before it.
   timeline; a long-press on A again to record where it ended.
 - **After, about 5 minutes:** auto-rotate back to 0, TalkBack off, the settings read again, the dev app
   force-stopped.
-- **The stable flavour, case 2,** separately, once its route is decided: about 20 minutes.
-- **In all, about 1 hour 20 minutes to 1 hour 40 minutes** for the dev build, and about 20 minutes more
-  for the stable one.
+- **The stable flavour, case 2,** is not in this pass: it runs in the 5.6.0 device round, as a blocking
+  check.
+- **In all, about 1 hour 20 minutes to 1 hour 40 minutes,** for the dev build.
 
 ## B. The background measurement
 
@@ -6282,3 +6286,45 @@ as it stands; no further automated work on the phone.
   home.
 - **The hands-on pass's checklist is written,** before it runs (section M, *The hands-on pass*). #97 is
   not merged until that pass is done and reported.
+
+**2026-11-09: six records of the owner's, before the hands-on pass.** No automated work was done.
+1. **The release build type does NOT minify.** Read by the owner in `app/build.gradle.kts` on
+   `origin/main-v5`, and read again by the agent there and at #97's head: `isMinifyEnabled = false`
+   and `isShrinkResources = false`, with `proguardFiles` declared but inert.
+   - **What it closes:** 5d has never been built with R8, and a RecyclerView adapter is exactly what R8
+     touches, by stripping or renaming what reflection and binding rely on. That was a larger risk than
+     the question asked about the stable flavour. With minification off, that class of defect does not
+     exist.
+2. **The stable flavour is NOT skipped; it MOVES to the 5.6.0 device round,** where a release-signed
+   build is installed over the published one and its checks run anyway. Why the remaining risk is low,
+   the owner's reasons:
+   - 5d's code is in `app/src/main`; the dev harness cannot be called from main, since a flavour's
+     source set is not visible from main, so main's behaviour is flavour-independent;
+   - unit tests and lint pass on both flavours. That is the owner's statement; no test or lint task was
+     run in this session;
+   - what differs is the application id's suffix, `google-services.json` and the debuggable flag, and
+     debug is the stricter of the two, the safe direction.
+   - **The agent's precision, by reading `app/build.gradle.kts` at #97's head:** the flavours also
+     differ in `app_name`, in the OAuth callback scheme, `ircminichat` against `ircminichatdev`
+     (`authScheme`, `AUTH_SCHEME`), and in `FCM_REGISTER_URL`, which only stable defines; the dev
+     flavour also carries its own resources and the harness. None of it reaches 5d: of the 12 main
+     files #97 changes, none reads a flavour-dependent `BuildConfig` field. So the argument holds for 5d's
+     code, which is its claim; the login and alert paths do differ by flavour, outside 5d.
+3. **The consequence that changes that round's weight:** the phone's stable app is 5.5.1, from before 5d,
+   so **the 5.6.0 device round is the FIRST AND ONLY time the stable flavour executes 5d** before users
+   do. Its chat checks are the gate, not a formality: they are marked BLOCKING in `RELEASE-STATE.md`
+   (*5.6.0 in progress*) and in `docs/manual-plan-5.5.2.md` (*Which build this round applies to*), the
+   round that is to be re-run on the final 5.6.0 build. A 5.6.0 plan written as a file of its own has to
+   carry the mark over.
+4. **The narrowing of Δ = 4 is accepted, and both forms stand:** it proves at least 43 of the 47 copies
+   suppressed, and all 47 only if at least 4 live rows arrived in those 11.6 s, with about 6 expected.
+   - **It does not weaken the conclusion in substance:** 43 of 47 suppressed, with no duplicate
+     observed, closes mismatch either way.
+   - **But the difference between "at least 43" and "all 47" is the kind of thing that gets miscited
+     later.** Cite the first as the proof, and the second only with its condition.
+5. **Case 1's design is right, and was not asked for.** The long-press menu offers Report and Block, so
+   a stale binding would act on another person. Verifying the binding by the dialog's `@user` title,
+   the Copy pasted unsent and the reply bar, without ever tapping Report or Block, establishes it
+   without taking the destructive action.
+6. **The checklist's setup now says** that auto-rotate and TalkBack are both off, are switched on for
+   cases 5 and 8, and are restored afterwards.

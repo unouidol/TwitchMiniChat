@@ -540,6 +540,16 @@ release is **5.6.0**, which carries everything 5.5.2 set out to do plus the chat
 So "5.5.2" elsewhere in this file - "the first 5.5.2 change", "the 5.5.2 device round" - names
 this work as it was planned. It reaches users as 5.6.0.
 
+**BLOCKING before the 5.6.0 release: the stable flavour's chat checks, on the release-signed
+build.** Recorded on 2026-11-09, by the owner's ruling, from 5d's device round (#97,
+`docs/manual-plan-5d-recyclerview.md`, *Recorded results*, the owner's six records). That round
+ran the dev flavour only. The phone's stable app is 5.5.1, from before 5d, so the 5.6.0 device
+round - where a release-signed stable build is installed over the published one, the release
+procedure's steps 4 and 5 - is the first and only time the stable flavour executes 5d before
+users do. Its chat checks are the gate, not a formality: launch, sign in, a page on a busy
+channel, scroll and follow, an animated emote (5d's plan, section M, *The hands-on pass*, case
+2). The release waits on them. A 5.6.0 plan written as a file of its own carries this over.
+
 **This table is a list of objectives. It records no state.** It answers *what did 5.5.2 set out
 to do*, which is now part of what 5.6.0 sets out to do; the chat work is not in it. What has
 landed is a different question, and git already answers it:
