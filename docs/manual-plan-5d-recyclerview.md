@@ -1231,13 +1231,21 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
             - **Under the fallback, the agent's proposal, not yet confirmed:** each bound's floor is
               computed at C = 101 from its own N_start, and the criterion is DROPPED if either bound's
               total is below its floor, since B's size is then the unknown.
-  - **At each reading:**
+  - **Two passes, in this order, by the owner's ruling of 2026-11-09:** the automated session first,
+    which delivers the numbers, and then a separate hands-on pass, with Federico driving and its own
+    checklist: the checks at each reading below, and the hide, show and send at 1,200 rows. They stay
+    out of the automated session for two reasons.
+    - **An action with effect outside this machine:** the send posts a chat message under Federico's
+      account, which the agent does not automate.
+    - **A measurement reason:** every touch by hand is an input event that can move the scroll and the
+      row count, and so contaminate the `Views:` readings.
+  - **At each reading** (the hands-on pass):
     - **Scroll:** fling far up, then back to the bottom.
     - **Follow the bottom:** at the bottom, new messages keep the list there. Scrolled up, the list
       stays put and the jump button counts, and tapping it returns to the bottom.
     - **Emotes:** animated emotes on screen animate. Scrolled away and back, they animate again.
-  - **Once, at 1,200 rows or more:** hide a user and show them again. Then send a message, and watch
-    its echo confirm.
+  - **Once, at 1,200 rows or more** (the hands-on pass): hide a user and show them again. Then send a
+    message, and watch its echo confirm.
   - **What counts as a failure, written before the run:**
     - a row out of timeline order, duplicated, missing, blank, or showing another row's content;
     - at the bottom, a new message arriving without the list following it;
@@ -5985,3 +5993,76 @@ and `getevent-L5D1.txt`.
 - **Left as it stood:** the dev app still running on A's page, bound pid 32178, the screen held on by USB
   power; the touch recorder still running. Nothing was pressed or polled after 12:43:47. Whether to end
   it, or what to do next, is the owner's.
+
+**2026-11-09, 12:56 to 13:10: L5D1 closed, the line-ending fix at the source, and the new session
+recomputed, before its mark.** By the owner's four rulings.
+- **Closed:** the dev app force-stopped at 12:56:19, pid 32178 gone; the touch recorder stopped.
+  - **The recorder had caught two taps by hand, after the session:** at 12:42:24, at (1026, 196) on the
+    header's right end and not on refresh, and at 12:42:26, at (329, 2344) near the bottom. Both came
+    after the last poll, at 12:41:43, so they touch none of `L5D1`'s readings. What they did is not
+    known.
+- **What stays set on the phone after this sitting, read and not changed,** written down so that nobody
+  finds it in a month and wonders who set it, which is the lesson of the probe flag that survived for
+  days and was found by accident:
+  - **"Stay awake while charging", `stay_on_while_plugged_in` = 7, STAYS ON:** the next session needs
+    it. It has read 7 since 2026-11-02; the agent did not set it.
+  - **"Show taps", `show_touches` = 1, ON.** A developer option, not set by the agent; it draws touch
+    markers in a system layer, not in the app.
+  - USB debugging 1, developer options 1, wireless debugging 0; `screen_off_timeout` 1,800,000, which
+    changed on 2026-11-06 and not by the agent; battery saver 0; Do not disturb 0; animation scales
+    1.0, 1.0 and the default; automatic brightness, 556.
+  - **The start-up probe's flag: absent.** Its directory still holds `latest` and the 211 run files,
+    about 40 MB, for the queued cleanup.
+  - The dev app, `5.5.1-dev`, build `ba1f88e3…` of `00c1e78`, not running, with no battery-optimisation
+    exemption.
+- **The fix, at the source, by the owner's authorisation: the extractor writes LF.**
+  - **Not in `sitting.sh`:** two places normalising line endings are two places that can disagree, the
+    lesson of `strictly()`. **And no second layer:** it exists already, the `[kept]` invariant,
+    demonstrated on the phone today. A CR that came back would stop the poll again.
+  - **`[kept]` was NOT a false positive on its own terms.** The bytes of that line genuinely differed,
+    and it said so; the defect was upstream. The alternative is a comparison that accepts misaligned
+    bytes, and a session that ends with wrong numbers instead of an error.
+  - **One line,** `sys.stdout.reconfigure(newline="\n")`, with its reason.
+    `journal_extract.py` `340e263f1397e8c441d80090aca5d3b383187ef267466c471e182787deaa6e43` to
+    `63ec6b914eac8efa7abb27c71c0d743a7b4946815a2fb867aba13d7750e3196b`; `sitting.sh` unchanged,
+    `13cb9ff5…`.
+  - **The new case, K1,** three polls with the journal growing (`sitting_suite.sh` `99dd8550…` to
+    `3bb0a0505278097886ac527023a0fe4161ecfd41d0b74c89274c513d0654c646`). Predicted before the runs, and
+    so run, 12:58 to 13:04: **on today's per-page tools K1 FAILS,** 24 of 25, with `[kept]` at its third
+    poll and a CR in the saved extract; **on the fixed tools it PASSES,** 25 of 25, polling through to
+    its cap with LIVE 100, 200, 300 and no CR saved; and the frozen tools, with the old expectations,
+    pass 25 of 25, K1 recording today's behaviour.
+  - **The same gap was in the case descriptions of 2026-11-06,** none of which runs three polls with the
+    journal growing. So it is not a weakness of the rebuilt suite: the original would not have caught
+    it either.
+  - **Committed, two commits each, the case before the fix:** `7f4be02` then `6c74ed3` on
+    `experiment/startup-5d-treatment`, and the same on `experiment/startup-5d-control` ending at
+    `85a1314`, the trees identical. The session's folder holds `sitting.sh` `13cb9ff5…`,
+    `journal_extract.py` `63ec6b91…` and `press.sh` `ef1cd5e5…`.
+  - **The mutation check of the extractor ran on the version before this line,** and the line changes
+    none of the texts its mutants change; it was not re-run.
+- **The new session is a new session, with a fresh mark,** not a resume: `L5D1`'s saved extract carries
+  the carriage returns, so a resume would compare clean bytes against dirty ones.
+- **Recomputed before the mark, from the MEASURED 30.8 to 31.5 rows a minute,** not the planned 12.3:
+  - **To the target:** 800 live rows on A take 25.4 to 26.0 minutes, not 65, so the 140-minute cap is no
+    longer the binding constraint.
+  - **The refresh bracket's E, for 10 s:** 5.13 to 5.25 rows; 2E is 10.27 to 10.50 and 4E 20.53 to
+    21.00. In whole rows: consistent 0 to 10, inconclusive 11 to 20, mismatch 21 or more. The bands of
+    the session are computed again at the refresh, from the live rate between its two readings and the
+    bracket's measured length. With no mismatch, a Poisson model gives 1.6 to 1.9% INCONCLUSIVE and no
+    false mismatch.
+  - **A total mismatch would now add about 62 rows,** 61.6 to 63.0 over the refresh's 120 s window, not
+    25.
+  - **The floors on N_A, unchanged at 551 and 701** (the planned N_start of 800, C = 101), are reached
+    4.3 to 4.4 and 9.1 to 9.3 minutes after a first reading at 414. The floor is computed again at the
+    first reading, from its measured N_start.
+- **The owner's first fixed bands would have been useless at this rate:** with no mismatch at all, 0-3 /
+  4-7 / 8+ would have read 4 or more in 75 to 77% of brackets, and a false mismatch in 15 to 16%. Tying
+  them to a measured E, computed against a 24-rows-a-minute case when the rate arrived at 31, is what
+  makes the criterion survive it.
+- **What does NOT change, and why:** at 31 rows a minute the 800 kept keys span 26 minutes, not 65, so
+  the RATE-BASED argument against duplicates by eviction would have fallen: a 3600 s window outlasts
+  them. The closure does not rest on it. It comes from the backend's query returning the newest 400,
+  which holds at any rate. Reading the code was worth more than doing the arithmetic.
+- **The checks by hand stay OUT of the automated session,** in a separate pass after it (section M, the
+  long session).
