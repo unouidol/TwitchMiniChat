@@ -14,6 +14,8 @@
 #           since the suite that first ran them was not committed. Same expectations for both.
 #   R1-R2   the replaced process, added on 2026-11-09 by the owner's ruling, after the mutation
 #           check found the pid and its start time undemonstrated. Same expectations for both.
+#   K1      the journal growing over three polls, added on 2026-11-09 after the long session L5D1
+#           stopped on a CR. Under "old" it expects today's behaviour, wrong.
 #   P1-P6   the two-page cases of 2026-11-09. Under "old" each expects today's behaviour, wrong
 #           where the case says so; under "new", the corrected one.
 #   L       nothing the cases saved or printed holds an account, a channel, a text field or any
@@ -235,6 +237,23 @@ start_case R2 "the same pid, started again, at the second poll"
 mark_and_bind; echo 5555 > "$S/start.3"; sit session-poll 800 1
 check 3 "INVARIANT VIOLATED \[process\]" "first poll did not run" "$(has "$C/out.$STEP" '^L1-1 ')" \
   "no reason given" "$(has "$C/out.$STEP" "started at '5555', not 4242")"
+
+# ---------------------------------------------------------------------------------------------
+# K1: the journal growing over three polls, added on 2026-11-09 after the long session L5D1 stopped
+# at its 8th poll with INVARIANT VIOLATED [kept]. On Windows the extractor wrote CRLF, and the
+# shell's command substitution strips only the last captured line's CR, so a saved line's bytes
+# depended on whether it was the last of its read. No case had three polls with the journal growing,
+# nor had the cases of 2026-11-06, by their descriptions. Under "old", today's behaviour.
+
+start_case K1 "the journal growing over three polls: saved lines first, byte for byte"
+{ earlier; first_connect 00 acct_zed 400; marker 10:00 acct_zed 500; } > "$S/journal.2"
+{ earlier; first_connect 00 acct_zed 400; marker 10:00 acct_zed 500; marker 20:00 acct_zed 600; } > "$S/journal.3"
+{ earlier; first_connect 00 acct_zed 400; marker 10:00 acct_zed 500; marker 20:00 acct_zed 600; marker 30:00 acct_zed 700; } > "$S/journal.4"
+mark_and_bind; sit session-poll 800 1
+if [ "$EXPECT" = old ]; then check 3 "INVARIANT VIOLATED \[kept\]" "not at the third poll" "$(has "$C/out.$STEP" '^L1-2 ')"
+else check 4 "^L1-3 .*LIVE=300$" "a kept violation" "$(hasnt "$C/out.$STEP" 'INVARIANT VIOLATED')" \
+  "the saved extract holds a CR" "$([ "$(tr -cd '\r' < "$(EX)" | wc -c)" = 0 ] && echo 0 || echo 1)" \
+  "the saved extract is not the 5 lines" "$([ "$(lines "$(EX)")" = 5 ] && echo 0 || echo 1)"; fi
 
 # ---------------------------------------------------------------------------------------------
 # P1-P6: two pages on one channel. A is the page the session measures, the first to connect.

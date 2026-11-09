@@ -18,7 +18,7 @@ mkdir -p "$WORK"
 want_s=$(git -C "$REPO" show "$COMMIT:$TP/sitting.sh" | sha256sum | cut -d' ' -f1)
 want_j=$(git -C "$REPO" show "$COMMIT:$TP/journal_extract.py" | sha256sum | cut -d' ' -f1)
 if [ $# -gt 0 ]; then ids=("$@"); else mapfile -t ids < <($PY "$HERE/apply_mutant.py" list | cut -f1); fi
-CASES="C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 R1 R2 P1 P2 P3 P4 P5 P6 L"
+CASES="C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 R1 R2 K1 P1 P2 P3 P4 P5 P6 L"
 
 one() {
   local id=$1 d="$WORK/$1" rc s j restored failed last next ran
@@ -33,10 +33,10 @@ one() {
   for f in sitting.sh journal_extract.py; do git -C "$REPO" show "$COMMIT:$TP/$f" > "$d/tools/$f"; done
   s=$(sha256sum < "$d/tools/sitting.sh" | cut -d' ' -f1); j=$(sha256sum < "$d/tools/journal_extract.py" | cut -d' ' -f1)
   if [ "$s" = "$want_s" ] && [ "$j" = "$want_j" ]; then restored="restored: both sha256 equal the blob"; else restored="RESTORE MISMATCH"; fi
-  failed=$(grep -E '^(C[0-9]+|R[0-9]|P[0-9]|L) ' "$d/suite.txt" | grep -F ' FAIL' | awk '{print $1}' | tr '\n' ' ')
-  ran=$(grep -cE '^(C[0-9]+|R[0-9]|P[0-9]|L) ' "$d/suite.txt")
+  failed=$(grep -E '^(C[0-9]+|R[0-9]|K[0-9]|P[0-9]|L) ' "$d/suite.txt" | grep -F ' FAIL' | awk '{print $1}' | tr '\n' ' ')
+  ran=$(grep -cE '^(C[0-9]+|R[0-9]|K[0-9]|P[0-9]|L) ' "$d/suite.txt")
   if [ "$rc" = 124 ]; then
-    last=$(grep -E '^(C[0-9]+|R[0-9]|P[0-9]|L) ' "$d/suite.txt" | tail -1 | awk '{print $1}')
+    last=$(grep -E '^(C[0-9]+|R[0-9]|K[0-9]|P[0-9]|L) ' "$d/suite.txt" | tail -1 | awk '{print $1}')
     next=$(echo "$CASES" | tr ' ' '\n' | grep -A1 -x "${last:-NONE}" | tail -1)
     [ -n "$last" ] || next=C1
     failed="${failed}TIMEOUT-in-$next "
