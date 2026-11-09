@@ -23,7 +23,7 @@ check() {  # expected exit, regex on out, expected INPUT content ("" = none)
   got=$(cat "$S/INPUT" 2>/dev/null)
   [ "$got" = "$3" ] || { ok=0; why="${why:+$why; }input [$got], expected [$3]"; }
   [ ! -e "$S/UNMODELED" ] || { ok=0; why="${why:+$why; }unmodelled: $(head -1 "$S/UNMODELED")"; }
-  grep -q secret_chat_text "$C/out" "$C/V/presses.txt" 2>/dev/null && { ok=0; why="${why:+$why; }hierarchy text leaked"; }
+  grep -q -E "secret_chat_text|secret_account_name" "$C/out" "$C/V/presses.txt" 2>/dev/null && { ok=0; why="${why:+$why; }hierarchy text leaked"; }
   if [ $ok = 1 ]; then PASSED=$((PASSED + 1)); r=PASS; else FAILED=$((FAILED + 1)); r="FAIL: $why"; fi
   printf '%-4s %-60s exit %s, expected %s  %s\n' "$CASE" "$TITLE" "$RC" "$1" "$r"
 }
@@ -49,6 +49,24 @@ cases() {
   check 0 "front_after=dev" "input swipe 773 189 60 189 150"
   start T10 "swipe-right starts inside the button"; run swipe-right s2
   check 0 "front_after=dev" "input swipe 773 189 1061 189 150"
+  start T11 "swipe-from-accounts on the accounts page, inside the list"; ui_accounts; run swipe-from-accounts a1
+  check 0 "front_after=dev" "input swipe 945 1200 60 1200 150"
+  start T12 "swipe-from-accounts with a refresh button on screen: nothing pressed"; run swipe-from-accounts a1
+  check 3 "PRECONDITION VIOLATED \[target\]" ""
+  start T13 "swipe-from-accounts with no accounts list on screen: nothing pressed"; ui; run swipe-from-accounts a1
+  check 3 "PRECONDITION VIOLATED \[target\]" ""
+  # Added after MP4 survived T12, whose screen has no accounts list, so the list's check refused
+  # first: this screen holds both, as mid-way between the two pages. T12 is left as it was.
+  start T14 "swipe-from-accounts with the list AND a refresh button on screen: nothing pressed"; ui_accounts "716 132 831 247"; run swipe-from-accounts a1
+  check 3 "PRECONDITION VIOLATED \[target\]" ""
+}
+
+ui_accounts() {  # the accounts page: its list on screen, and any refresh buttons given, each "l t r b"
+  { echo '<?xml version="1.0"?><hierarchy rotation="0"><node index="0" class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'
+    echo '<node index="1" text="secret_account_name" resource-id="com.fs.twitchminichat.dev:id/recyclerAccounts" class="androidx.recyclerview.widget.RecyclerView" bounds="[0,400][1080,2000]" />'
+    for b in "$@"; do read -r l t r bt <<< "$b"
+      echo "<node index=\"2\" resource-id=\"com.fs.twitchminichat.dev:id/btnRefreshChat\" class=\"android.widget.ImageButton\" bounds=\"[$l,$t][$r,$bt]\" />"; done
+    echo '</node></hierarchy>'; } > "$S/ui.xml"
 }
 
 TOOL="$PRESS"; cases
@@ -64,8 +82,15 @@ mutant() {  # id, old text, new text, the case that must kill it
   TOOL="$m/press.sh"; WORK0=$WORK; WORK="$m/work"; mkdir -p "$WORK"; PASSED=0; FAILED=0
   cases > "$m/result.txt"; WORK=$WORK0
   killed=$(grep FAIL "$m/result.txt" | awk '{print $1}' | tr '\n' ' ')
-  echo "$1 killed by [${killed% }], required $4: $([[ " $killed" == *" $4 "* ]] && echo KILLED || { ALL_OK=1; echo SURVIVED; })"
+  # The verdict is set here, outside any $( ): a flag set inside one never reaches the exit status.
+  if [[ " $killed" == *" $4 "* ]]; then verdict=KILLED; else verdict=SURVIVED; ALL_OK=1; fi
+  echo "$1 killed by [${killed% }], required $4: $verdict"
 }
 mutant MP1 '[ "$f0" = dev ] || violated front' ': || violated front' T2
-mutant MP2 'case "$b" in NONE*|'"''"') violated target' 'case "$b" in IMPOSSIBLE) violated target' T3
+mutant MP2 '[ "$n" = 1 ] || violated target "exactly one refresh button' ': || violated target "exactly one refresh button' T3
+mutant MP4 '[ "$n" = 0 ] || violated target "no refresh button on screen' ': || violated target "no refresh button on screen' T14
+# MP3, the hierarchy-read check removed, is not run as a requirement: it survived on 2026-11-09
+# because the next check, exactly one refresh button, refuses the same unreadable screen, so its
+# outcome cannot differ. A redundant layer, recorded as such; it is shown here, not required.
+ALL0=$ALL_OK; mutant MP3 'case "$b" in NONE*|'"''"') violated target' 'case "$b" in IMPOSSIBLE) violated target' T6; ALL_OK=$ALL0
 [ "$ALL_OK" = 0 ]
