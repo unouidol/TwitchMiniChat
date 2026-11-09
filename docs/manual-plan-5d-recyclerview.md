@@ -720,19 +720,23 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
   most.
   - **Setup:** the final build, on a busy channel whose history arrives at the cap of 400 rows. The
     page stays current with the screen on, and no user is hidden, so `shownRows` counts every row.
-    - **One page, account A: the owner's ruling of 2026-11-09,** made on the reading that account B
-      has not connected since 2026-11-05 and that every launch since 2026-11-06 starts only A's page.
-      The owner's reason: one growing timeline gives R = 2.71 with bands at 1.43 and 1.90, against
-      R = 1.92 with 1.20 and 1.60 for two pages with one idle. So it discriminates better, carries one
-      confound fewer, and asks the same question.
-    - **Its premise does not hold for this session, by the phone on 2026-11-09 at 08:42.** A launch
-      opens the accounts page, beside which only A's page is attached. The long-press needs A's page
-      on screen, and the pager keeps one page attached on each side (`offscreenPageLimit = 1`,
-      `MainActivity.kt:88`). So B's page, beside A's, was attached and connected 157 ms after the
-      swipe, with a first connect of 400 rows on the same channel. With A's page on screen, the
-      session holds two pages sharing the channel, for which R = 2.85 (*Recorded results*, the
-      instrument's sitting).
-    - **So "A second page", below, is kept and not removed** until the owner rules on this.
+    - **Two pages on one channel, accounts A and B,** by the owner's ruling of 2026-11-09, later that
+      day. Two timelines are the architecture, not a choice: the owner's architecture-debt entry B,
+      in the owner's `claude/architecture-debt.md`, which is not in this repository.
+      - **The owner's earlier ruling, one page, account A, FALLS.** It rested on every launch since
+        2026-11-06 starting only A's page. Why it falls, by the phone on 2026-11-09 at 08:42: a launch
+        opens the accounts page, beside which only A's page is attached. The long-press needs A's page
+        on screen, and the pager keeps one page attached on each side (`offscreenPageLimit = 1`,
+        `MainActivity.kt:88`). So B's page was attached and connected 157 ms after the swipe, with a
+        first connect of 400 rows on the same channel.
+        - **Its reason, kept as given:** one growing timeline gives R = 2.71 with bands at 1.43 and
+          1.90, against R = 1.92 with 1.20 and 1.60 for two pages with one idle.
+      - **How it runs:** both pages' counts are read at every reading, by a long-press on each, and
+        the swipes between the pages fall only outside the refresh bracket.
+      - **R = 2.85 with C = 67,** better discrimination than one page's 2.71 at no cost: more rows
+        dominate C better. Whether C = 67 holds for this configuration is open (*C's configuration*,
+        below).
+      - **"A second page", below, stays,** as the text this configuration now uses.
   - **How long:** until the timeline holds at least 1,200 rows, 800 live rows past the history, with
     messages still arriving. The owner kept that bound on 2026-11-06: past Chatterino2's limit of
     1,000 is the mark that means something. That limit, and what Chatterino2 does at it, is recorded
@@ -796,10 +800,13 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     takes:
     - **The row count:** long-press refresh. It writes `shownRows` into the journal's `user.marker`
       event, which the session's poll reads from the journal (below).
-      - **Qualified on 2026-11-09, on `00c1e78`, before the session was committed:** four presses
-        wrote four lines with `shownRows` and no `renderedRows`. Each line was in the file within
-        0.12 s of its own instant, the polling's resolution, and presses 4.2 s apart each wrote one
-        (*Recorded results*, 2026-11-09, 08:34 to 08:44).
+      - **The instrument PASSES,** qualified on 2026-11-09 on `00c1e78` before the session was
+        committed: four presses wrote four lines with `shownRows` and no `renderedRows` (*Recorded
+        results*, 2026-11-09, 08:34 to 08:44).
+        - **Its timing:** each line was in the file 19 to 119 ms after its own instant, within one
+          polling interval of about 0.11 s. The true delay is below what the polling resolves, so the
+          poll waits for nothing.
+        - **Repeated presses:** presses 4.2 s apart each wrote a line.
     - **Memory:** `adb shell dumpsys meminfo` for the package of the build on the phone. It records
       the total PSS (proportional set size), the Java heap, and the `Views:` count under Objects. It
       reads and changes nothing.
@@ -817,6 +824,16 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
     - **The session's cap: 140 minutes,** approved by the owner on 2026-11-06. It is past the 133
       that 6 rows a minute would take. The session ends at its target or at its cap, never on a
       `Views:` reading (the agent's addition, under the bands below).
+    - **Expected input: exactly the session's own presses,** by the owner's ruling of 2026-11-09.
+      - **The "0 input events" rule is the start-up measurement's** (section C), where any touch is a
+        confound. Here the press is the instrument.
+      - **The session's own presses:** each reading's long-presses and the swipes between its two
+        pages, the refresh's one tap, each reading's scroll, follow and jump checks, and the hide,
+        show and send once at 1,200 rows. Only input beyond them counts.
+      - **By how `getevent` reads, not tested here:** it reads the kernel's input devices, so presses
+        injected with `adb shell input` do not appear in it, and presses by hand do. With presses
+        driven over adb, any `getevent` event is beyond the session's own. With presses by hand, the
+        expected ones appear, and are matched to the procedure's moments.
     - **First, at every poll, the invariant:** the bound process is alive, with the pid and start time
       bound (*Recorded results*, "the poll's silence, and its invariant").
     - **The row counts and the journal, read in one pass.**
@@ -842,6 +859,10 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         deduplicator can only remove rows, so `shownRows` less the sum is a lower bound on the live
         rows. A result whose `messageCount` was rejected makes it no bound, and the poll prints it
         UNKNOWN. The target is 800 live rows by that bound.
+      - **Open, with two pages (raised on 2026-11-09):** the extract's fields above carry no page
+        identity, so with two pages the poll can attribute a `shownRows` or a `backfill.result` to
+        its page only by order. The bound and the target of 800 were written for one page. What the
+        frozen `sitting.sh` does with two is read once it is committed.
       - **A read that fails is never "nothing new":** an unreadable journal, an empty extraction, or a
         line outside the grammar stops the poll with `INVARIANT VIOLATED`.
     - **The refresh rate, at every poll, with its moment. Not a void condition,** by the owner's ruling
@@ -991,6 +1012,30 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
           1.334; between the two neither prediction is strictly inside, and at N_start = 400 no whole
           row count falls there.
       - **Until steps 1 and 2 pass,** the view criterion goes unjudged.
+      - **C and k come from the CONTROL build, never from the session.** Binding, by the owner's ruling
+        of 2026-11-09. The no-recycling prediction is a property of the build that does not recycle.
+        Taken on 5d from the session's own dumps, C and k would place the bands from the very quantity
+        they judge, and the criterion would be circular. Step 3 took them on `dea38cc`, correctly. Do
+        not "improve" them with the session's dumps.
+      - **C's configuration, read from the records on 2026-11-09: OPEN.**
+        - **Step 3's dumps were taken with one chat page:** the accounts page on screen, A's page
+          attached beside it, and no second chat page. *Recorded results*, the instrument's sitting,
+          read it from the hierarchy: `LoginFragment` and one `ChatFragment`. The phone's journal
+          agrees: on 2026-11-06 only A's page wrote lines, and B's page next wrote on 2026-11-09.
+        - **The session's configuration has one chat page more:** A's on screen, with the accounts page
+          and B's attached. So C = 67 lacks B's page's views that are not rows.
+        - **How many, by the agent's static count of `dea38cc`'s layouts, not measured:** about 33 to
+          35. That is its `fragment_chat`, 32 views, its page's container, and at most about two
+          internal children.
+          - **The same count reproduces step 3's 67:** `fragment_chat` 32, `fragment_login` 10, two
+            `row_account` rows of 6, the pager 1, and about 3 for the pager's list and the pages'
+            containers make 58. That leaves about 9 for the window's own frame views and the widgets'
+            internal children.
+        - **What it would move, for two pages from 400 to 1,200 rows each:** with C = 101, R = 2.776
+          and the bands are at 1.443 and 1.924; with C = 67 they are 2.845, 1.460 and 1.948. So 67
+          overstates R by 2.5% and each edge by about 0.02. Recycling's 1.0 and no-recycling's 2.78
+          fall in their own bands under either.
+        - **Whether a control-build re-measurement is worth it** is the owner's.
   - **At each reading:**
     - **Scroll:** fling far up, then back to the bottom.
     - **Follow the bottom:** at the bottom, new messages keep the list there. Scrolled up, the list
@@ -1058,6 +1103,10 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       - **A second page:** R as written is for one growing timeline. If the long session holds a
         second page, its rows enter C if they do not grow, or the growth if the page shares the
         channel, and R changes. Which applies is fixed with the session's page setup, before it runs.
+        - **Fixed on 2026-11-09: the second page shares the channel** (*Setup*, above). N_start and
+          N_end are both pages' `shownRows`, summed, at the first and at the last reading that has a
+          dump. For 400 to 1,200 rows each, R = (C + 2,400k) / (C + 800k), 2.85 with C = 67. C's
+          configuration is open (the instrument, above).
   - **Not a failure: memory growing.** The timeline's data grows with every row, because nothing caps
     it. That predates 5d and is not a 5d regression. PSS and the Java heap are recorded as figures,
     not judged.
@@ -5305,3 +5354,17 @@ this phone.
 - **Not on `DESKTOP-BCT68L9`: the session's tooling.** `sitting.sh` and `journal_extract.py`
   (section M) are in `%USERPROFILE%\tmc-5d-round\V` on `nbpromec1`, and neither is anywhere under
   `C:\Users\Fede`.
+
+**2026-11-09, after the qualification: the owner's rulings, and C's configuration read.** Nothing
+was done on the phone.
+- **The instrument passes** (section M, *Three readings*).
+- **Two pages on one channel; the one-page ruling falls** (section M, *Setup*).
+- **Expected input is exactly the session's own presses** (section M, after the cap).
+- **C and k come from the control build only; step 3's configuration was one chat page, so C may be
+  understated by about 34 views** (section M, the view count's instrument). Open, and the owner's.
+- **Open: whether the frozen poll can tell two pages apart** (section M, *History counted apart*).
+- **The way back is kept beside the round's builds.** `d005e901…`, pulled off the phone, was copied to
+  `C:\Users\Fede\StudioProjects\tmc-5d-round\apks\dea38cc-app-dev-arm64-v8a-debug.nbpromec1-build.pulled-from-phone-2026-11-09.apk`
+  and hashes to `d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402` after the copy.
+- **The session's two tools are to be committed,** by the owner's ruling: their being on one disk
+  only is work that gets lost. They had not reached `DESKTOP-BCT68L9` when this entry was written.
