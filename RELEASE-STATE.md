@@ -551,12 +551,17 @@ channel, scroll and follow, an animated emote (5d's plan, section M, *The hands-
 2). The release waits on them. A 5.6.0 plan written as a file of its own carries this over.
 
 **Also queued to the 5.6.0 device round, from 5d's hands-on pass of 2026-11-09**, by the owner's
-ruling (5d's plan, section M, cases 6 and 8; `docs/manual-plan-5.5.2.md`, *Which build this round
-applies to*):
+ruling (5d's plan, section M, case 6, with case 8 closed beside it; `docs/manual-plan-5.5.2.md`,
+*Which build this round applies to*):
 - **The row taller than the list (U2/U3), SHIPPING UNEXAMINED until then.** It was not reached on
   2026-11-09. Federico sends one very long message and looks.
-- **Case 8, TalkBack, retried.** TalkBack's tutorial must be completed or marked as seen before
-  TalkBack is activated for the case: it took the screen on all four activations.
+- **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry is cancelled** (the owner's
+  ruling, 2026-11-09). The read in 5d's plan closes that if the list is activated the dismissal
+  runs, through the list's click listener, RecyclerView's and androidx's accessibility delegates
+  and `View`'s `ACTION_CLICK`. It does not close whether TalkBack can place its focus on the empty
+  area at all. That leaves no question a user faces, and this is REASONING, not proof: a screen
+  reader moves between elements and empty space is not one, so a screen-reader user would dismiss
+  with Back.
 
 **This table is a list of objectives. It records no state.** It answers *what did 5.5.2 set out
 to do*, which is now part of what 5.6.0 sets out to do; the chat work is not in it. What has

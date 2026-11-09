@@ -1524,9 +1524,16 @@ case only if the app still runs as before it.
        - `performClick()` reaches `clearChannelFocusClickListener`, which is set on the list itself
          (`ChatFragment.kt:1775`). An accessibility click reaches `performClick()`.
        - So case 8 was a confirmation, not a gate, and the merge is not blocked by it.
-     - **Queued to the 5.6.0 device round** (the owner's ruling). TalkBack's tutorial must be
-       completed or marked as seen BEFORE TalkBack is activated for the case: it took the screen on
-       all four attempts.
+     - **CLOSED BY READING, not forgotten; its 5.6.0 retry is cancelled** (the owner's ruling,
+       2026-11-09).
+       - **What the read closes:** if the list is activated, the dismissal runs, by the six-step
+         path in *Recorded results*: clickable through `setOnClickListener`, `ACTION_CLICK` offered,
+         RecyclerView's delegate, `AccessibilityDelegateCompat`, the platform delegate, then `View`'s
+         `ACTION_CLICK`, `performClick` and `clearChannelFocusClickListener`.
+       - **What it does not close:** whether TalkBack can place its focus on the empty area at all.
+       - **Why no question is left for users, as REASONING, not proof:** a screen reader moves
+         between elements and empty space is not one, so the gesture is probably not a
+         screen-reader user's, who would dismiss with Back.
 9. **A tap on empty space on a SHORT chat, with the keyboard open (U1's side effect).** Short: B's page,
    switched to a channel with few rows.
    - **Do:** focus the channel field, so that the keyboard is open; tap between rows, on a system line,
@@ -6832,3 +6839,23 @@ records.** Nothing was done on the phone.
   - **"Disable permission monitoring" was verified by its consequence,** a secure-setting write
     refused with `WRITE_SECURE_SETTINGS`, not by re-reading the flag. A negative confirmed by its
     effect is stronger than one confirmed by its own value.
+
+**2026-11-09: the merge authorised, and case 8's 5.6.0 retry cancelled, CLOSED BY READING.** These
+are the owner's rulings; the read was accepted as reported.
+- **The retry is cancelled, as the owner had pre-committed** if the read came back clean, and it did.
+  - **Where it is removed:** the three places it had been queued, beside case 8 above,
+    `docs/manual-plan-5.5.2.md` and `RELEASE-STATE.md`. Each now holds one CLOSED BY READING line.
+  - **What it supersedes:** item (b) of the previous entry. That entry stays as it was written.
+- **What the read closes:** if activated, the dismissal runs, by the six-step path of the previous
+  entry.
+- **What it does not close:** whether TalkBack can place its focus on the empty area at all.
+- **Why that leaves no question a user faces, as REASONING, not proof:** a screen reader moves
+  between elements and empty space is not one, so the gesture is probably not a screen-reader
+  user's, who would dismiss with Back.
+- **The comment at the suppression is kept as corrected,** including that the check was not done.
+- **CI on `4058aa8`:** run 42668071340, `pull_request`, success on every step: check-out, JDK 17,
+  Gradle, the non-production Firebase configuration, unit tests, Android lint and the debug APKs.
+  - It is superseded: this record is a commit on #97 after it.
+  - **The owner's choice, when asked:** commit this record on #97 and gate the merge on the head
+    that carries it ("STEP 1 on #97, gate new head"). That is the same rule as #95, #98 and #99,
+    green on exactly the SHA merged, applied to the SHA actually merged.

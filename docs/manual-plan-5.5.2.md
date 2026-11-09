@@ -30,17 +30,21 @@ is 5.5.1, from before 5d, so that is the first and only time the stable flavour 
 work before users do. The checks are in `docs/manual-plan-5d-recyclerview.md`, section M, *The
 hands-on pass*, case 2; `RELEASE-STATE.md` records the same gate under *5.6.0 in progress*.
 
-**Two more checks are queued to the 5.6.0 re-run, from 5d's hands-on pass of 2026-11-09**, by the
-owner's ruling. Both are in the same section M, as cases 6 and 8.
+**One more check is queued to the 5.6.0 re-run, from 5d's hands-on pass of 2026-11-09**, by the
+owner's ruling. It is case 6 in the same section M; case 8 is closed there instead.
 - **The row taller than the list (U2/U3) is SHIPPING UNEXAMINED until this round, not closed.**
   - It was NOT REACHED on 2026-11-09, so nobody has yet seen the behaviour that now shows a tall
     row's top rather than its bottom.
   - Federico sends one very long message and looks: about two minutes. The message is public.
-- **Case 8, TalkBack with `reason=outside_click` as its decider, is retried here.**
-  - **The operational note:** TalkBack's tutorial takes over the screen when TalkBack is activated,
-    so it must be completed or marked as seen BEFORE activating TalkBack for the case.
-  - On 2026-11-09 it took the screen on all four activations, also after it was closed with
-    "Finish".
+- **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry here is cancelled** (the owner's
+  ruling, 2026-11-09). The read, traced in 5d's plan (*Recorded results*), closes that if the list
+  is activated the dismissal runs: `setOnClickListener` makes the list clickable, so it offers
+  `ACTION_CLICK`, and RecyclerView's delegate, `AccessibilityDelegateCompat` and the platform
+  delegate hand that to `View`, whose `ACTION_CLICK` calls `performClick` and so
+  `clearChannelFocusClickListener`. It does not close whether TalkBack can place its focus on the
+  empty area at all. That leaves no question a user faces, and this is REASONING, not proof: a
+  screen reader moves between elements and empty space is not one, so the gesture is probably not
+  a screen-reader user's, who would dismiss with Back.
 
 While the anchor stood, a build was matched to the round like this:
 
