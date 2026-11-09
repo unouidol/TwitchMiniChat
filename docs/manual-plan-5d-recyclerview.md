@@ -1476,6 +1476,9 @@ case only if the app still runs as before it.
        enough arrivals to count.
      - **The tall row:** none in portrait ("non ne ho mai visto uno così lungo"). The keyboard method
        was not tried, and landscape was not looked at.
+     - **SHIPPING UNEXAMINED until the 5.6.0 device round, not closed** (the owner's ruling,
+       2026-11-09). Nobody has yet seen the behaviour that now shows a tall row's top rather than its
+       bottom. There, Federico sends one very long message and looks: about two minutes.
 7. **Emote animation at the detach boundary, an off-screen page included.** Long.
    - **Do:** scroll an animated emote's row just out of view and back. Swipe to page B for 10 s and back.
      Home for 10 s and back.
@@ -1516,6 +1519,14 @@ case only if the app still runs as before it.
        - What ties it to the list is "Chat messages", the list's spoken label, heard just before the
          double tap.
      - **What would settle it** is an owner's decision on reaching the list past the tutorial.
+     - **Read after the pass, 2026-11-09: the suppression's second link holds** (*Recorded results*,
+       *the one read that decides the merge*).
+       - `performClick()` reaches `clearChannelFocusClickListener`, which is set on the list itself
+         (`ChatFragment.kt:1775`). An accessibility click reaches `performClick()`.
+       - So case 8 was a confirmation, not a gate, and the merge is not blocked by it.
+     - **Queued to the 5.6.0 device round** (the owner's ruling). TalkBack's tutorial must be
+       completed or marked as seen BEFORE TalkBack is activated for the case: it took the screen on
+       all four attempts.
 9. **A tap on empty space on a SHORT chat, with the keyboard open (U1's side effect).** Short: B's page,
    switched to a channel with few rows.
    - **Do:** focus the channel field, so that the keyboard is open; tap between rows, on a system line,
@@ -6731,3 +6742,93 @@ owner's guided prompt.
     `ba1f88e3…`;
   - all captures were stopped;
   - **left set, as at the start:** `show_touches` 1 and `stay_on_while_plugged_in` 7.
+
+**2026-11-09, after the pass: the one read that decides the merge, and three of the owner's
+records.** Nothing was done on the phone.
+- **The question, the owner's:** case 8's NOT DONE does not block by itself, but it leaves the
+  `ClickableViewAccessibility` suppression justified by reading, through two links.
+  1. The touch listener calls `performClick()`. This was already read.
+  2. `performClick()` reaches `clearChannelFocusClickListener`. That holds only if an
+     `OnClickListener` is set on the list.
+- **The outcomes, written by the owner before the read:**
+  - **if the listener is set** and `performClick()` reaches the dismissal, the reasoning holds end to
+    end, case 8 was a confirmation rather than a gate, and the merge is not blocked;
+  - **if it is not set,** 5d has introduced an accessibility regression, which blocks.
+- **Read at #97's head; the code under `app/src/main` is identical to `00c1e78`:**
+  - **The listener is set on the list itself.** `ChatFragment.kt:1775` reads
+    `chatList.setOnClickListener(clearChannelFocusClickListener)`, the line before
+    `attachEmptySpaceTaps(chatList)` at 1776.
+    - The same listener object is also set on the root (1773), `textStatus` (1777) and `replyBar`
+      (1778).
+    - No line in the app sets the list's listener to null or the list to not clickable.
+  - **The touch listener does not dismiss anything itself.** In `ChatListEmptySpaceTaps.kt:34-39`
+    it calls `view.performClick()` on the up that ends a tap, and returns false.
+  - **The dismissal is the listener's body:** `disarmComposerFocusGuard("outside_click")`, then
+    `clearChannelFieldUi`, then `closeComposerKeyboard()` (`ChatFragment.kt:1767-1770`).
+- **Followed through `View.performClick()` and the accessibility click.** Android 12's
+  `View.java`, `android12-release`, is the phone's runtime:
+  - `setOnClickListener` makes the view clickable and stores the listener (7228-7232);
+  - a clickable, enabled view offers `ACTION_CLICK` on its node (10347-10348);
+  - `performAccessibilityAction` goes to the view's delegate when one is set (14072-14077), and the
+    platform's default delegate calls `performAccessibilityActionInternal` (29960-29961);
+  - `ACTION_CLICK` on a clickable view calls `performClickInternal()` (14102-14105), which calls
+    `performClick()` (7412-7418);
+  - `performClick()` calls `li.mOnClickListener.onClick(this)` (7438-7441).
+- **compileSdk 36's sources agree with the comment's citations:** 8083 is
+  `li.mOnClickListener.onClick(this);`, and 16124-16127 handle `ACTION_CLICK`. The same chain is at
+  7870-7874, 8054-8060 and 32907-32909.
+- **The two libraries in between:**
+  - **RecyclerView 1.3.1,** from its sources jar, overrides none of `performClick`,
+    `setOnClickListener` and `setClickable`. Its delegate calls `super.performAccessibilityAction`
+    first, and asks the layout manager only if that fails (`RecyclerViewAccessibilityDelegate.java`,
+    64-68).
+  - **androidx core 1.18.0's `AccessibilityDelegateCompat.performAccessibilityAction`** (352-371)
+    first runs an `AccessibilityActionCompat` registered on the view with that id, and otherwise
+    hands the action to `mOriginalDelegate` (364), the platform's default delegate (133).
+  - The app registers no compat action and no accessibility delegate anywhere.
+- **The comparison with `main-v5`, at `98f235a`:** the same listener, byte-identical over 22 lines,
+  was set on `scrollChat` (1755) and on `chatContainer`, a `LinearLayout` (1756). There was no touch
+  listener and no suppression. 5d moves the same object onto the `RecyclerView`, and the
+  accessibility path there ends in the same `onClick`.
+- **The verdict: the listener IS set, and `performClick()` reaches the dismissal.** By the owner's
+  pre-written outcome:
+  - the suppression's reasoning holds end to end, by reading;
+  - case 8 was a confirmation, not a gate;
+  - the merge is not blocked by it, and there is no 5d accessibility regression on this path.
+  - Case 8 stays NOT DONE, queued to the 5.6.0 round.
+- **The comment at the suppression is updated where it differed** from what was read
+  (`ChatFragment.kt:3722-3730`).
+  - **The delegate's route:** it said RecyclerView's delegate "hands every action to View's handling
+    first". It now names the step in between, `AccessibilityDelegateCompat`, and its condition: a
+    compat action registered with that id. It adds "a click action registered on it" to what would
+    make the suppression wrong.
+  - **The TalkBack check:** it said "the 5d manual plan tests this with TalkBack rather than relying
+    on it". That is not what happened, so it now dates the reading and says the TalkBack check was
+    not done and is queued to 5.6.0.
+  - **The edit is comment only,** 7 lines changed in place, and the file keeps 4,399 lines, so no
+    line number in it moves. The tested build `ba1f88e3…` is of `00c1e78`. #97's head now differs
+    from it under `app/src/main` by this comment alone.
+  - **Checked after the edit, in #97's worktree on `DESKTOP-BCT68L9`,** with `ANDROID_HOME` set to the
+    SDK and no `local.properties`.
+    - **The command:** `:app:compileDevDebugKotlin :app:compileStableDebugKotlin :app:lintDevDebug
+      :app:lintStableDebug`, BUILD SUCCESSFUL in 4 min 6 s, 49 tasks executed and 20 up to date.
+    - **The compile tasks ran;** they were not up to date. Their one warning is in an unrelated file,
+      `PcgMostWantedSelectionReviewDialog.kt:26`.
+    - **Lint, both flavours:** "no new issues", with 38 errors filtered by `lint-baseline.xml`. Each
+      report holds one issue, that baseline Hint. `ClickableViewAccessibility` is 0, and the remote
+      version checks are 0.
+    - **Not run:** the unit tests and the assemble tasks, since the change cannot alter compiled
+      code. No comparison with a `main-v5` lint reference was made.
+    - **A first attempt** stopped before any task, at "SDK location not found".
+- **Queued to the 5.6.0 device round,** recorded there (`docs/manual-plan-5.5.2.md` and
+  `RELEASE-STATE.md`, *5.6.0 in progress*) and beside cases 6 and 8 above:
+  - **(a) the row taller than the list (U2/U3), SHIPPING UNEXAMINED, not closed.** Federico sends
+    one very long message and looks.
+  - **(b) case 8, retried,** with TalkBack's tutorial completed or marked as seen before
+    activation.
+- **Recorded as done right, by the owner:**
+  - **"Pre-existing" was established by reading #97's diff against `origin/main-v5`,** not by
+    running the old build.
+  - **"Disable permission monitoring" was verified by its consequence,** a secure-setting write
+    refused with `WRITE_SECURE_SETTINGS`, not by re-reading the flag. A negative confirmed by its
+    effect is stronger than one confirmed by its own value.

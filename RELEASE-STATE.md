@@ -550,6 +550,14 @@ users do. Its chat checks are the gate, not a formality: launch, sign in, a page
 channel, scroll and follow, an animated emote (5d's plan, section M, *The hands-on pass*, case
 2). The release waits on them. A 5.6.0 plan written as a file of its own carries this over.
 
+**Also queued to the 5.6.0 device round, from 5d's hands-on pass of 2026-11-09**, by the owner's
+ruling (5d's plan, section M, cases 6 and 8; `docs/manual-plan-5.5.2.md`, *Which build this round
+applies to*):
+- **The row taller than the list (U2/U3), SHIPPING UNEXAMINED until then.** It was not reached on
+  2026-11-09. Federico sends one very long message and looks.
+- **Case 8, TalkBack, retried.** TalkBack's tutorial must be completed or marked as seen before
+  TalkBack is activated for the case: it took the screen on all four activations.
+
 **This table is a list of objectives. It records no state.** It answers *what did 5.5.2 set out
 to do*, which is now part of what 5.6.0 sets out to do; the chat work is not in it. What has
 landed is a different question, and git already answers it:

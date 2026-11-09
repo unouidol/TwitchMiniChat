@@ -3720,14 +3720,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      *   View.java:8083 reads `li.mOnClickListener.onClick(this);`.
      *   That line number is API 36's; this rests on the call, so on another API level look for the call.
      * - An accessibility click reaches the same call. View handles ACTION_CLICK on a clickable view
-     *   with performClickInternal, which calls performClick (View.java:16124 to 16127), and RecyclerView
-     *   1.3.1's accessibility delegate hands every action to View's handling first
-     *   (RecyclerViewAccessibilityDelegate.java:64).
+     *   with performClickInternal, which calls performClick (View.java:16124 to 16127); RecyclerView
+     *   1.3.1's delegate passes it to super first (RecyclerViewAccessibilityDelegate.java:64), and
+     *   AccessibilityDelegateCompat.java:364 (core 1.18.0) to View's, unless a compat action has its id.
      * - The touch listener calls the list's performClick on the tap it detects.
-     * The suppression becomes wrong when the inherited performClick stops reaching
-     * clearChannelFocusClickListener: a performClick override on the list that does not call super,
-     * the listener set somewhere other than the list, the click logic moved into the touch listener,
-     * or the list made not clickable. The 5d manual plan tests this with TalkBack rather than relying on it.
+     * It becomes wrong when the inherited performClick stops reaching clearChannelFocusClickListener:
+     * a performClick override that does not call super, the listener set elsewhere, the click logic
+     * moved into the touch listener, the list not clickable, or a click action registered on it.
+     * Read end to end on 2026-11-09; the 5d plan's TalkBack check was not done, queued to 5.6.0.
      */
     @SuppressLint("ClickableViewAccessibility")
     private fun attachEmptySpaceTaps(list: RecyclerView) {
