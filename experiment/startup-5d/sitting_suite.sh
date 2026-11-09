@@ -12,6 +12,8 @@
 # The cases:
 #   C1-C15  the 15 cases of 2026-11-06, REBUILT on 2026-11-09 from their recorded descriptions,
 #           since the suite that first ran them was not committed. Same expectations for both.
+#   R1-R2   the replaced process, added on 2026-11-09 by the owner's ruling, after the mutation
+#           check found the pid and its start time undemonstrated. Same expectations for both.
 #   P1-P6   the two-page cases of 2026-11-09. Under "old" each expects today's behaviour, wrong
 #           where the case says so; under "new", the corrected one.
 #   L       nothing the cases saved or printed holds an account, a channel, a text field or any
@@ -217,6 +219,22 @@ print("not an instant")
 PYEOF
 sit session-start L1
 check 3 "INVARIANT VIOLATED \[extract\]" "a mark was written" "$([ ! -e "$V/session.txt" ] && echo 0 || echo 1)"
+
+# ---------------------------------------------------------------------------------------------
+# R1-R2: the process replaced between two polls. Over a session of 65 to 140 minutes a restart is
+# plausible, and a poll that followed the new process would read its history as a continuation.
+
+start_case R1 "the process replaced: a new pid at the second poll"
+{ earlier; first_connect 00 acct_zed 400; marker 30:00 acct_zed 500; } > "$S/journal.2"
+mark_and_bind; echo 888 > "$S/pid.4"; sit session-poll 800 1
+check 3 "INVARIANT VIOLATED \[process\]" "first poll did not run" "$(has "$C/out.$STEP" '^L1-1 ')" \
+  "no reason given" "$(has "$C/out.$STEP" "returns '888', not 777")"
+
+start_case R2 "the same pid, started again, at the second poll"
+{ earlier; first_connect 00 acct_zed 400; marker 30:00 acct_zed 500; } > "$S/journal.2"
+mark_and_bind; echo 5555 > "$S/start.3"; sit session-poll 800 1
+check 3 "INVARIANT VIOLATED \[process\]" "first poll did not run" "$(has "$C/out.$STEP" '^L1-1 ')" \
+  "no reason given" "$(has "$C/out.$STEP" "started at '5555', not 4242")"
 
 # ---------------------------------------------------------------------------------------------
 # P1-P6: two pages on one channel. A is the page the session measures, the first to connect.

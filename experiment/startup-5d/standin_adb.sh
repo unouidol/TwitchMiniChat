@@ -7,7 +7,7 @@
 # Files in $STANDIN. A file "stem.N" answers the Nth call of its kind and every later one, until a
 # higher-numbered file exists; without one, the file "stem" answers.
 #   pid[.N]      the answer of `pidof`; empty means no process
-#   start        the process's start time, field 22 of /proc/<pid>/stat
+#   start[.N]    the process's start time, field 22 of /proc/<pid>/stat
 #   front        "dev" when the dev app's window has focus, anything else otherwise
 #   rate, range  the display's refresh rate and its primary range, as "90.0" and "0 90"
 #   journal[.N]  the current journal file; the content "@UNREADABLE" makes the read fail, as on the
@@ -54,7 +54,8 @@ case "$kind" in
         echo "$p" ;;
       "cat /proc/"*"/stat")
         p=${cmd#cat /proc/}; p=${p%/stat}
-        echo "$p ($PKG) S 1 1 1 0 -1 4194560 100 0 0 0 1 1 0 0 20 0 30 0 $(cat "$D/start") 100 200" ;;
+        f=$(pick start "$(count start)")
+        echo "$p ($PKG) S 1 1 1 0 -1 4194560 100 0 0 0 1 1 0 0 20 0 30 0 $(cat "$f") 100 200" ;;
       "date '+%Y-%m-%d %H:%M:%S'")
         date '+%Y-%m-%d %H:%M:%S' ;;
       "date +%s")
