@@ -810,6 +810,20 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         on at 7, so read and not changed (above);
       - the display timeout, `screen_off_timeout`, with `dumpsys power`'s wakefulness and `mStayOn`;
       - the build on the phone: its APK's sha256, `versionCode`, `versionName` and last update time.
+      - **The interpreter,** added on 2026-11-09: `PY`'s value and the full version it reports,
+        `$PY -c "import sys; print(sys.version)"`, read before the mark and after the last reading,
+        and recorded like the display and the battery. It is read by the driver, not by `state`:
+        adding it there would be a tool edit outside the carve-out for how pages are read.
+        - **For this session:** `PY="py -3.14 -I -X utf8"`, which reports `3.14.0
+          (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]`, CPython
+          64-bit, `D:\python\python.exe`, on `DESKTOP-BCT68L9`.
+        - **A parameter, not a tool edit:** `sitting.sh:37` reads `PY` from the environment with a
+          default, `PY="${PY:-py -3.10 -I -X utf8}"`, so setting it leaves the tool's bytes as they
+          are.
+        - **Qualified for the behaviours the offline suite covers, and only those** (the cases,
+          below): the mark, the binding, the poll's invariants, its counts and target, the rate rule,
+          failed journal reads, and the whitelist. `rows`, `dump`, `state` and `poll` are not in the
+          suite; of them only `rows` runs Python, and the long session does not use it.
       - **The worst-case note above goes with them, as corrected:** the screen held awake on animated
         emotes is a condition of the session, and nothing here tests #69.
   - **Three readings:** after the history (about 400 rows), at about 800, and at 1,200 or more. Each
@@ -838,7 +852,17 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       - on `experiment/startup-5d-control` at `613ff07` and `experiment/startup-5d-treatment` at
         `d467f2e`, in `experiment/startup-5d/`.
     - **It runs from `tmc-5d-round\V`, never from a clone:** `sitting.sh` writes its outputs beside
-      itself (`sitting.sh:35`).
+      itself (`sitting.sh:35`), which is why that folder sits outside every clone. The `adb` on
+      `PATH` there is a second SDK install's, `%LOCALAPPDATA%\Android\Sdk`, byte-identical to
+      `D:\Android\SDK`'s 37.0.1, so there is no adb server conflict.
+    - **Changed on 2026-11-09 at 10:42, before any poll, only in how pages are read** (*Recorded
+      results*, 2026-11-09, the poll counted per page). The session runs these:
+      - `sitting.sh` `13cb9ff5394f3fddcf3f67e57d3c6befc1a4a28e4357d33c0cb542852e567a8f`, blob
+        `0c7262a306f2c68d9459d4e2f6f73360d8047aa5`, replacing `854dca02…5d93164`;
+      - `journal_extract.py` `340e263f1397e8c441d80090aca5d3b383187ef267466c471e182787deaa6e43`, blob
+        `f6b5e614efdc78f9b190d832c50fa58ed5ce0f63`, replacing `f5abb492…c2cc678`;
+      - on `experiment/startup-5d-control` at `bff7379` and `experiment/startup-5d-treatment` at
+        `6dc2351`. The frozen versions stay at `613ff07` and `d467f2e`.
     - **The order:**
       1. `state` before;
       2. `session-start <label>`, with the dev app not running: the mark;
@@ -911,6 +935,21 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
           prints a page label, A or B by first appearance since the mark and never the account, and
           the poll counts history and LIVE per page. Whether to make it is the owner's, under the
           three conditions recorded on 2026-11-09.
+        - **MADE, on 2026-11-09, by the owner's authorisation, before any poll.** The reason, the
+          owner's: at 6 rows a minute the session would reach the cap without its target, so a
+          bookkeeping error of about 400 rows could produce DROPPED for a reason unrelated to the
+          question.
+          - **Now:** every extracted line carries `page=A`, `page=B`, … by order of appearance after
+            the mark, or `page=?` without an account. Each page's history is set against its own
+            rows; history with no page is set against every page, keeping each bound a lower bound.
+            LIVE, the target, is page A's.
+          - **A new invariant, `pages`:** the first long-press after the mark must be on page A, the
+            first page connected after it, which is the page measured.
+          - **So the target returns to A's live rows reaching 800, A at about 1,200 rows,** and the
+            floors stay as pre-registered: 1,101 rows summed at C = 101, 1,090 at C = 67.
+          - **No threshold, band or verdict rule moved.** Unchanged: the events and fields
+            extracted, the target given to `session-poll`, the cap, the poll's interval, the rate
+            rule, the mark and every other invariant.
       - **A read that fails is never "nothing new":** an unreadable journal, an empty extraction, or a
         line outside the grammar stops the poll with `INVARIANT VIOLATED`.
     - **The refresh rate, at every poll, with its moment. Not a void condition,** by the owner's ruling
@@ -923,6 +962,13 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
         session goes on.
       - **A change of rate** is placed between two polls. Whether the segments around it stand is the
         owner's ruling.
+    - **The suite that ran these cases was never committed,** and was not found on
+      `DESKTOP-BCT68L9` on 2026-11-09. It was REBUILT that day from the descriptions below, as C1 to
+      C15, with the two-page cases P1 to P6 and a whitelist check L, and committed beside the tools:
+      `sitting_suite.sh` `dcb47e983395d61660ec875cc1a490022cbf04aed458200c5f5ee2090bca81bd` and
+      `standin_adb.sh` `17dfbfca806b0830e049b5ff198301106ffafe1c9ecc780c12520a4988a61b1d`. A rebuild
+      from the descriptions, not the suite of 2026-11-06 (*Recorded results*, 2026-11-09, the poll
+      counted per page).
     - **Shown to work offline, against a stand-in for adb, in 15 cases,** each ending with the exit and
       the message expected:
       - a healthy session, with an earlier session's lines in the journal that the mark excludes;
@@ -5541,3 +5587,82 @@ Federico copied both files from `nbpromec1`'s `%USERPROFILE%\tmc-5d-round\V` int
     `D:\Android\SDK`'s, by full sha256 (`b4a6b455…`), so no adb server is restarted between them.
 - **What `sitting.sh` does with page identity** is in section M, *History counted apart from live
   rows*. Nothing was changed.
+
+**2026-11-09, 10:20 to 10:43: the interpreter qualified, and the poll counted per page.** On
+`DESKTOP-BCT68L9`, offline. Nothing was done on the phone, and no poll has run.
+- **The interpreter is a parameter, not a tool edit:** `PY` is an environment variable that
+  `sitting.sh:37` reads with a default, `py -3.10 -I -X utf8`. Setting it leaves the tool
+  byte-identical.
+- **The suite did not exist as a file.** The 15 cases of 2026-11-06 are recorded only as descriptions
+  (section M): no runner and no stand-in for adb was committed, in `V` or under `C:\Users\Fede`. They
+  were REBUILT from those descriptions, C1 to C15, each with the exit and the message the code
+  implies, against `standin_adb.sh`, which answers only the reads `sitting.sh` makes in a session and
+  fails the case on any other. **This is a rebuild, not the freeze's suite;** whether that one survives
+  on `nbpromec1` is not known here.
+- **The first run of the rebuilt suite measured nothing:** the stand-in had a syntax error (an
+  apostrophe inside `${…:?…}`), so every adb call returned empty, and 18 of 22 cases failed at their
+  first step. The error was fixed, and the run is not counted. It did show the checks failing when
+  the stand-in is broken.
+- **Python 3.14.0 is QUALIFIED, for the behaviours the suite covers.** `PY="py -3.14 -I -X utf8"`,
+  `3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]`. On the frozen
+  tools, 10:24 to 10:29: **C1 to C15, 15 of 15.** The bound, recorded beside it: the mark, the binding,
+  the poll's invariants, counts and target, the rate rule, failed journal reads and the whitelist.
+  `rows`, `dump`, `state` and `poll` are not covered.
+- **The invariant did its job, executed and not reasoned.** The frozen `sitting.sh`, with `PY` unset so
+  that its default `py -3.10` applied, taking a mark against the stand-in: "No suitable Python runtime
+  found", then `INVARIANT VIOLATED [journal]`, "the read or the extraction exited 103", exit 3, and no
+  mark written. So a sitting on a missing interpreter would have stopped at its first read rather than
+  run silently on another. A loud precondition is usually noticed only when it fails to fire, which is
+  why this is written down.
+- **The change, by the owner's authorisation, declared before any poll, touching only how pages are
+  read** (section M, *History counted apart from live rows*, MADE):
+
+  | File | Old sha256 (frozen 2026-11-06) | New sha256 (2026-11-09 10:42) |
+  |---|---|---|
+  | `sitting.sh` | `854dca023884bc3dfe6f643d28b019fe0bda4f95f5df1bf4ec17d02a28d93164` | `13cb9ff5394f3fddcf3f67e57d3c6befc1a4a28e4357d33c0cb542852e567a8f` |
+  | `journal_extract.py` | `f5abb4920daaccd9d9a9f1a9448fb705ae47d1ce28ba55dc71f778253c2cc678` | `340e263f1397e8c441d80090aca5d3b383187ef267466c471e182787deaa6e43` |
+
+  - **No threshold, band or verdict rule moved,** read in the diff: only the extract's page token, the
+    grammar check's page token, the per-page counts, page A as LIVE, and the `pages` invariant.
+- **Exercised before the sitting,** every case under `PY="py -3.14 -I -X utf8"`:
+
+  | Case | Frozen tools | New tools |
+  |---|---|---|
+  | C1 a healthy session, an earlier session's lines excluded by the mark | PASS, exit 0 | PASS, exit 0 |
+  | C2 another app in front | PASS, 0 | PASS, 0 |
+  | C3 the process gone at the second poll | PASS, 3 | PASS, 3 |
+  | C4 a poll's line outside the whitelist, nothing saved | PASS, 3 | PASS, 3 |
+  | C5 a rate of 60 with the range [0 60] | PASS, 0 | PASS, 0 |
+  | C6 an unreadable journal at a poll | PASS, 3 | PASS, 3 |
+  | C7 a rejected `messageCount`, no bound until the cap | PASS, 4 | PASS, 4 |
+  | C8 a journal rotated past the lines saved | PASS, 3 | PASS, 3 |
+  | C9 a mark with the app running | PASS, 3 | PASS, 3 |
+  | C10 a process bound before the mark | PASS, 3 | PASS, 3 |
+  | C11 a reused label | PASS, 3 | PASS, 3 |
+  | C12 a poll with no mark | PASS, 3 | PASS, 3 |
+  | C13 two consecutive calls of one session | PASS, 0 | PASS, 0 |
+  | C14 a mark whose journal is unreadable | PASS, 3 | PASS, 3 |
+  | C15 a mark whose extractor returns other than one instant | PASS, 3 | PASS, 3 |
+  | P1 B's history against A's rows, A at 800 live | `LIVE=400`, cap, exit 4: wrong | `A_live=800 LIVE=800`, target, 0 |
+  | P2 B pressed after A | `LIVE=349`, B's count: wrong | `A_live=800`, `B_live=750`, target, 0 |
+  | P3 labels by order of appearance, not the account | `LIVE=400`: wrong | A is the first account to appear, target, 0 |
+  | P4 the first long-press on B | not caught, exit 4: wrong | `INVARIANT VIOLATED [pages]`, 3 |
+  | P5 B's rejected `messageCount` | `LIVE=UNKNOWN` for A: wrong | `LIVE=800`, target, 0 |
+  | P6 a result with no account | `LIVE=395` | `UNATTRIBUTED=2`, `LIVE=795`, against every page, 4 |
+  | L nothing saved or printed outside the whitelist | PASS, 115 files, 448 lines | PASS, 115 files, 451 lines |
+
+  - **The frozen tools' column is 22 of 22 against the expectations of today's behaviour,** and the new
+    tools' is 22 of 22 against the corrected ones.
+  - **The P cases discriminate:** the frozen tools run against the corrected expectations fail all six,
+    and pass the other 16.
+  - **All three runs used copies byte-identical to the committed files,** by sha256.
+- **Committed, both branches, the same blobs,** in two commits each, so that the suite precedes the
+  change it tests:
+  - `experiment/startup-5d-control`: the suite at `209af66`, the change at
+    `bff7379989d85fbb1c0f51514df1a59ba3cfa600`;
+  - `experiment/startup-5d-treatment`: the suite at `c78c52d`, the change at
+    `6dc2351d58d58c996c84d37d409480e8b1c4d5fe`.
+  - Scanned before the push, the repository being public: 364 added lines for the suite and 68 for the
+    change, with no hit.
+- **`C:\Users\Fede\StudioProjects\tmc-5d-round\V` now holds the new tools,** written from the committed
+  blobs and hashed after: `13cb9ff5…` and `340e263f…`.
