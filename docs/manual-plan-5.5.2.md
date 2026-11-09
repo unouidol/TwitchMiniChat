@@ -23,6 +23,13 @@ the anchor to protect, and it is not a constraint on anything any more.
 build**, because the chat work changes the application in between. The two runs under *Status*
 are results for the code they were made against, not for 5.6.0.
 
+**When it is re-run for 5.6.0, the stable flavour's chat checks are part of it, and BLOCKING**
+(2026-11-09, by the owner's ruling). This round, and every chat round, ran the dev flavour. The
+5.6.0 round installs a release-signed stable build over the published one; the phone's stable app
+is 5.5.1, from before 5d, so that is the first and only time the stable flavour executes the chat
+work before users do. The checks are in `docs/manual-plan-5d-recyclerview.md`, section M, *The
+hands-on pass*, case 2; `RELEASE-STATE.md` records the same gate under *5.6.0 in progress*.
+
 While the anchor stood, a build was matched to the round like this:
 
 | | |
