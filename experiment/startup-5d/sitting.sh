@@ -16,7 +16,8 @@
 #                                  the long session's mark, taken with the dev app not running,
 #                                  before the launch whose history the session counts
 #   sitting.sh session-poll <target-live-rows> <max-minutes>
-#                                  the long session's poll: the invariant, the rate, the journal
+#                                  the long session's poll: the invariant, the rate, the journal,
+#                                  counted per page; the target is page A's live rows
 #
 # Every command reads; none sends input to the phone or changes it. What is saved here: the meminfo
 # dumps, the state reads, and the row COUNTS only. The view hierarchy from `dumpsys activity top` is
@@ -47,6 +48,7 @@ fail_invariant() {
     journal) required="the journal is read from the phone and extracted; an empty read is a failure, never 'nothing new'" ;;
     extract) required="every extracted line holds only the whitelisted events and fields" ;;
     kept) required="every journal line an earlier poll extracted is extracted again, first and in order: the journal since the mark only grows" ;;
+    pages) required="the first long-press since the mark is on page A, the first page whose lines appear after the mark: the page the session measures" ;;
   esac
   {
     echo "INVARIANT VIOLATED [$1]"
@@ -230,7 +232,8 @@ journal_last() {
 journal() {
   local out
   out=$(journal_pipe "$1") || exit 3
-  if [ -n "$out" ] && printf '%s\n' "$out" | grep -v -q -E '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} (backfill\.triggered( source=(first_connect|reconnect_offline|reconnect_no_pause_reference|resume|resume_no_pause|manual_refresh))?|backfill\.result( messageCount=[0-9]+)?( firstTs=[0-9]+)?( lastTs=[0-9]+)?|user\.marker( shownRows=[0-9]+)?)$'; then
+  # Every line carries its page, A to Z or "?", first (journal_extract.py).
+  if [ -n "$out" ] && printf '%s\n' "$out" | grep -v -q -E '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} (backfill\.triggered page=([A-Z]|\?)( source=(first_connect|reconnect_offline|reconnect_no_pause_reference|resume|resume_no_pause|manual_refresh))?|backfill\.result page=([A-Z]|\?)( messageCount=[0-9]+)?( firstTs=[0-9]+)?( lastTs=[0-9]+)?|user\.marker page=([A-Z]|\?)( shownRows=[0-9]+)?)$'; then
     fail_invariant extract "a line holds more than the whitelisted fields; nothing of this read was saved"
   fi
   [ -z "$out" ] || printf '%s\n' "$out"
@@ -253,30 +256,52 @@ session_start() {
   echo "session '$label' marked at $mark, the journal's last line. Launch the app, then bind."
 }
 
-# The long session's counts, from every extracted line since the mark, in order: the backfills by
-# source, the history delivered, and at the last long-press the rows shown, the history delivered
-# before it, and their difference. History rows shown are at most the messages delivered, since the
-# deduplicator can only remove rows (ChatFragment.kt:2956 counts the response before it), so the
-# difference is a lower bound on the live rows. A result whose messageCount was rejected makes it
-# no bound, and it is then printed UNKNOWN.
+# The long session's counts, from every extracted line since the mark, in order, PER PAGE: each
+# line's page=<label> names the page that wrote it (journal_extract.py), so the history delivered
+# to a page is set against that page's own rows. Page A is the first page whose lines appear after
+# the mark, the page the session measures. At each page's last long-press: the rows shown, the
+# history delivered to that page before it, and their difference. History rows shown are at most
+# the messages delivered, since the deduplicator can only remove rows (ChatFragment.kt:2956 counts
+# the response before it), so the difference is a lower bound on that page's live rows. History
+# with no page (page=?) is set against every page, which keeps each bound a lower bound. A result
+# whose messageCount was rejected makes its page's bound, or every page's when it has no page, no
+# bound, printed UNKNOWN. The last token, LIVE, is page A's: the target is A's live rows.
+# FIRST_MARKER names the page of the first long-press, which session_poll requires to be A.
+# Until 2026-11-09 this counted every page as one: B's history was set against A's rows, and the
+# last long-press was taken as the count whichever page it came from.
 session_counts() {
   awk '
-    $3 == "backfill.triggered" { nt++; s = "source_rejected"
-      for (i = 4; i <= NF; i++) if ($i ~ /^source=/) s = substr($i, 8); by[s]++ }
-    $3 == "backfill.result" { nr++; m = ""
-      for (i = 4; i <= NF; i++) if ($i ~ /^messageCount=/) m = substr($i, 14)
-      if (m == "") nomc++; else hist += m }
-    $3 == "user.marker" { for (i = 4; i <= NF; i++) if ($i ~ /^shownRows=/) {
-      rows = substr($i, 11); at = $1 " " $2; hb = hist; nomcb = nomc; nm++ } }
+    function field(k,   i) { for (i = 4; i <= NF; i++) if (index($i, k "=") == 1) return substr($i, length(k) + 2); return "" }
+    function page(   p) { p = field("page"); return p == "" ? "?" : p }
+    $3 == "backfill.triggered" { nt++; s = field("source"); if (s == "") s = "source_rejected"; by[s]++
+      p = page(); if (p == "?") unattr++; else seen[p] = 1 }
+    $3 == "backfill.result" { nr++; p = page(); m = field("messageCount")
+      if (m == "") nomc_all++; else all += m
+      if (p == "?") { unattr++; if (m == "") un_nomc++; else un_hist += m }
+      else { seen[p] = 1; if (m == "") nomc[p]++; else hist[p] += m } }
+    $3 == "user.marker" { p = page(); r = field("shownRows")
+      if (p == "?") { unattr++; next }
+      seen[p] = 1
+      if (r == "") next
+      if (first == "") first = p
+      rows[p] = r; at[p] = $1 " " $2; hb[p] = hist[p] + un_hist; nb[p] = nomc[p] + un_nomc; nm[p]++ }
     END {
       n = split("first_connect reconnect_offline reconnect_no_pause_reference resume resume_no_pause manual_refresh source_rejected", o, " ")
       s = ""; for (i = 1; i <= n; i++) if (by[o[i]]) s = s (s == "" ? "" : ",") o[i] ":" by[o[i]]
-      printf "triggered=%d[%s] results=%d history_delivered=%d", nt, s, nr, hist
-      if (nomc) printf " RESULTS_WITHOUT_MESSAGECOUNT=%d", nomc
+      printf "triggered=%d[%s] results=%d history_delivered=%d", nt, s, nr, all
+      if (nomc_all) printf " RESULTS_WITHOUT_MESSAGECOUNT=%d", nomc_all
+      if (unattr) printf " UNATTRIBUTED=%d", unattr
       if (!nr) printf " HISTORY_NOT_YET_RECORDED_SINCE_THE_MARK"
-      if (!nm) { printf " last_marker=none_yet LIVE=none\n"; exit }
-      printf " last_marker=\"%s\" shownRows=%d history_before_it=%d", at, rows, hb
-      if (nomcb) printf " LIVE=UNKNOWN\n"; else printf " LIVE=%d\n", rows - hb
+      if (first != "") printf " FIRST_MARKER=%s", first
+      for (c = 65; c <= 90; c++) {
+        p = sprintf("%c", c)
+        if (!(p in seen)) continue
+        printf " %s_history=%d", p, hist[p]
+        if (!nm[p]) { printf " %s_marker=none_yet", p; continue }
+        printf " %s_marker=\"%s\" %s_shownRows=%d %s_history_before_it=%d", p, at[p], p, rows[p], p, hb[p]
+        if (nb[p]) printf " %s_live=UNKNOWN", p; else printf " %s_live=%d", p, rows[p] - hb[p]
+      }
+      if (!nm["A"]) printf " LIVE=none\n"; else if (nb["A"]) printf " LIVE=UNKNOWN\n"; else printf " LIVE=%d\n", rows["A"] - hb["A"]
     }'
 }
 
@@ -311,6 +336,10 @@ session_poll() {
     [ -z "$new" ] || printf '%s\n' "$new" | tee -a "$ex"
     counts=$(printf '%s\n' "$all" | session_counts)
     echo "$label-$i $counts"
+    # The page pressed first is the page measured; it must be A, the first page after the mark.
+    first=$(printf '%s\n' "$counts" | sed -n 's/.* FIRST_MARKER=\([^ ]*\).*/\1/p')
+    [ -z "$first" ] || [ "$first" = A ] ||
+      fail_invariant pages "the first long-press since the mark is on page $first: the page pressed is not the first page connected after the mark"
     live=${counts##*LIVE=}
     if [[ "$live" =~ ^[0-9]+$ ]] && [ "$live" -ge "$target" ]; then echo "TARGET REACHED: at least $live live rows >= $target"; return 0; fi
     if [ "$(date +%s)" -ge "$deadline" ]; then echo "CAP REACHED: $max min" >&2; return 4; fi
