@@ -7390,37 +7390,42 @@ of the entry above: it is measured here, and the prediction held to the pixel.
 **2026-11-10: the decision, the layout's thresholds, and the simulation blocked.** These are the
 owner's rulings. The decision, a minimum height on the list, is in the *Backlog*, with Federico's
 reasoning and the principle.
-- **The layout's thresholds, by panel combination.** Each is the page height below which the list
-  measures 0 px. The second column is the height below which the composer is entirely off screen;
-  between the two, it is partly off.
+- **The layout's thresholds, by panel combination.** The first column is the page height below which
+  the list measures 0 px. The next two are for the composer's text field, the part a user types in:
+  below the second it is partly off screen, and below the third entirely.
   - **Source:** they come from the children measured on this phone, at 2.3875 px/dp. The bars take
     578 px, 242.1 dp. The stream adds 831 px, 348.1 dp: the player's 300 dp and the mute button's
     48.2 dp. The picker adds 240 dp, the reply bar 56.5 dp, and the composer row is 67.9 dp of the
-    bars.
+    bars. The text field starts 9.6 dp below the row's top, and ends 57.8 dp below it.
   - **What "page height" means:** the display's height less the system bars and the keyboard. The
     thresholds are a property of the layout, not of this phone.
   - **This phone's margins** are given beside them, in dp of page height. Its display is 452 by 1005 dp
     at 2.3875 px/dp. Its page is 914 dp in portrait (2182 px; the phone's own configuration reports
     `h913dp`), 618 dp in portrait with the keyboard up (1475 px), and 405 dp in landscape (967 px).
 
-  | Panels open | List 0 px below | Composer off below | Portrait, 914 | Portrait with keyboard, 618 | Landscape, 405 |
-  |---|---|---|---|---|---|
-  | none | 242 dp | 174 dp | +672 | +376 | +163 |
-  | reply bar | 299 dp | 231 dp | +615 | +319 | +106 |
-  | picker | 482 dp | 414 dp | +432 | +136 | **−77** |
-  | picker, reply bar | 539 dp | 471 dp | +375 | +79 | **−134** |
-  | stream | 590 dp | 522 dp | +324 | +28 | **−185** |
-  | stream, reply bar | 647 dp | 579 dp | +267 | **−29** | **−242** |
-  | stream, picker | 830 dp | 762 dp | +84 | **−212** | **−425** |
-  | stream, picker, reply bar | 887 dp | 819 dp | +27 | **−269** | **−482** |
+  | Panels open | List 0 px below | Field partly off below | Field entirely off below | Portrait, 914 | Portrait with keyboard, 618 | Landscape, 405 |
+  |---|---|---|---|---|---|---|
+  | none | 242 dp | 232 dp | 184 dp | +672 | +376 | +163 |
+  | reply bar | 299 dp | 289 dp | 240 dp | +615 | +319 | +106 |
+  | picker | 482 dp | 472 dp | 424 dp | +432 | +136 | **−77** |
+  | picker, reply bar | 539 dp | 529 dp | 480 dp | +375 | +79 | **−134** |
+  | stream | 590 dp | 580 dp | 532 dp | +324 | +28 | **−185** |
+  | stream, reply bar | 647 dp | 637 dp | 588 dp | +267 | **−29** | **−242** |
+  | stream, picker | 830 dp | 820 dp | 772 dp | +84 | **−212** | **−425** |
+  | stream, picker, reply bar | 887 dp | 877 dp | 828 dp | +27 | **−269** | **−482** |
+
+  - **Corrected on 2026-11-10, during the simulation below.** The table first had a single composer
+    column, giving the composer ROW's edge: 174 to 819 dp. That is not what a user sees leave the
+    screen. At 450 dpi the page was 769.1 dp, between the row's edge (762) and the field's (772), and
+    the field measured entirely off, as its own column says.
 
   - **As statements about the layout:**
     - With the picker open, the chat disappears on any device with less than 482 dp of page height.
     - With the stream player on, the threshold is 590 dp.
     - With the player and the picker, it is 830 dp, and 887 dp with the reply bar as well.
   - **Every negative margin above is a configuration measured at 0 px on this phone,** and every
-    positive one measured exactly that many dp of list. The composer's state matched the second column
-    each time.
+    positive one measured exactly that many dp of list. The text field's state matched the field
+    columns each time.
   - **The thresholds are for font scale 1.15.** The status line's text, 22 dp of the bars' 242, grows
     with the font scale, and so would any button whose text outgrows its 48 dp minimum. Everything
     else is in dp.
@@ -7470,3 +7475,110 @@ reasoning and the principle.
 - **The restore must not be `wm density reset`.** This phone starts with a user override, density 382
   over a physical 450, and `reset` would leave it at 450. The starting state is restored with
   `wm density 382` and `wm size reset`, and then read back from the phone.
+
+**2026-11-10, the thresholds verified on simulated geometries: the model holds.** These are the
+owner's rulings. Federico switched "Disable permission monitoring" on for this step. The step ran over
+adb from 17:56 to 18:10, with the dev build `00c1e78`, on page A, and no message was sent. It
+supersedes the "blocked" and "computed and not measured" points of the entry above.
+- **The geometries,** set with `wm size` and `wm density`, each modelled on a device in the SDK's
+  catalogue:
+
+  | Geometry | Size, density | Display | Page measured | Bars measured |
+  |---|---|---|---|---|
+  | This phone as set, the reference | physical, 382 | 452 × 1005 dp | 913.9; 617.8 with keyboard; 405.0 landscape | 242.1 dp |
+  | This phone at its default display size | physical, 450 | 384 × 853 dp | 769.1; 514.1 with keyboard | 243.2 dp |
+  | Compact phone, the catalogue's Small Phone | 720x1280, 320 | 360 × 640 dp | 539.5; 303.5 landscape | 242.5 dp |
+  | Typical phone, Pixel 6 to 8 | physical, 420 | 411 × 914 dp | 827.0; 535.6 with keyboard | 243.0 dp |
+  | Large phone, Pixel 9 Pro XL | 1344x2992, 480 | 448 × 997 dp | 915.7; 630.3 with keyboard | 242.4 dp |
+  | Tablet, the catalogue's Medium Tablet | 1600x2560, 320 | 800 × 1280 dp | 1179.5; 889.5 with keyboard; 699.5 landscape | 242.5 dp |
+
+- **Every reading, predicted from the thresholds and measured,** in dp. "Field" is the composer's text
+  field.
+
+  | Geometry | Configuration | Page | List, predicted | List, measured | Field, predicted | Field, measured |
+  |---|---|---|---|---|---|---|
+  | Default size, 450 | none | 769.1 | 527.0 | 525.9 | on | on |
+  | Default size, 450 | picker | 769.1 | 287.0 | 285.9 | on | on |
+  | Default size, 450 | stream | 769.1 | 178.9 | 177.8 | on | on |
+  | Default size, 450 | stream, picker | 769.1 | **0** | **0** | **off** | **off** |
+  | Default size, 450 | stream, picker, keyboard | 514.1 | **0** | **0** | **off** | **off** |
+  | Default size, 450 | stream, keyboard | 514.1 | **0** | **0** | **off** | **off** |
+  | Compact | none | 539.5 | 297.4 | 297.0 | on | on |
+  | Compact | picker | 539.5 | 57.4 | 57.0 | on | on |
+  | Compact | stream | 539.5 | **0** | **0** | **partly** | **partly** |
+  | Compact | stream, picker | 539.5 | **0** | **0** | **off** | **off** |
+  | Compact, landscape | none | 303.5 | 61.4 | 61.0 | on | on |
+  | Compact, landscape | picker | 303.5 | **0** | **0** | **off** | **off** |
+  | Compact, landscape | stream, picker | 303.5 | **0** | **0** | **off** | **off** |
+  | Typical | none | 827.0 | 584.9 | 584.0 | on | on |
+  | Typical | picker | 827.0 | 344.9 | 344.0 | on | on |
+  | Typical | stream | 827.0 | 236.8 | 235.8 | on | on |
+  | Typical | stream, picker | 827.0 | **0** | **0** | on | on |
+  | Typical | stream, picker, keyboard | 535.6 | **0** | **0** | **off** | **off** |
+  | Typical | stream, keyboard | 535.6 | **0** | **0** | **partly** | **partly** |
+  | Large | none | 915.7 | 673.6 | 673.3 | on | on |
+  | Large | picker | 915.7 | 433.6 | 433.3 | on | on |
+  | Large | stream | 915.7 | 325.5 | 325.3 | on | on |
+  | Large | stream, picker | 915.7 | 85.5 | 85.3 | on | on |
+  | Large | stream, picker, keyboard | 630.3 | **0** | **0** | **off** | **off** |
+  | Large | stream, keyboard | 630.3 | 40.1 | 40.0 | on | on |
+  | Tablet | none | 1179.5 | 937.4 | 937.0 | on | on |
+  | Tablet | picker | 1179.5 | 697.4 | 697.0 | on | on |
+  | Tablet | stream | 1179.5 | 589.3 | 589.0 | on | on |
+  | Tablet | stream, picker | 1179.5 | 349.3 | 349.0 | on | on |
+  | Tablet | none, keyboard | 889.5 | 647.4 | 647.0 | on | on |
+  | Tablet, landscape | none | 699.5 | 457.4 | 457.0 | on | on |
+  | Tablet, landscape | picker | 699.5 | 217.4 | 217.0 | on | on |
+  | Tablet, landscape | stream | 699.5 | 109.3 | 109.0 | on | on |
+  | Tablet, landscape | stream, picker | 699.5 | **0** | **0** | **off** | **off** |
+
+- **Where measurement and arithmetic disagree: nowhere beyond 1.1 dp.**
+  - Every list measured 0.1 to 1.1 dp shorter than predicted. The bars measured 242.4 to 243.2 dp
+    against the reference's 242.1, from each view's dp being rounded to whole pixels at that density.
+  - Every 0 px and every field state was as predicted. That includes four readings inside the narrow
+    bands where a small error would have shown:
+    - the typical phone with stream and picker, at 827.0 dp, between the field's 820 and the list's
+      830: chat gone, field on screen;
+    - this phone at 450 with stream and picker, at 769.1 dp, below the field's 772: field off;
+    - the compact phone with the stream, at 539.5 dp, between 532 and 580: field partly off;
+    - the typical phone with the stream and the keyboard, at 535.6 dp, between 532 and 580: field
+      partly off.
+  - **No simulated geometry reproduced the defect where the arithmetic said it should not occur, and
+    none spared one where it said it should.** The threshold model is not shown wrong.
+- **What the numbers say, by geometry, with the keyboard down:**
+  - **Portrait:** the chat disappears with the stream alone on the compact phone, and with stream and
+    picker on the compact phone, on this phone at its default size and on the typical phone. It
+    survives on the large phone, on this phone as set and on the tablet.
+  - **Landscape:** on the compact phone with the picker alone. On the tablet, a 10-inch device, with
+    stream and picker.
+- **With the keyboard up, in portrait:** stream alone leaves no chat on this phone at its default
+  size and on the typical phone, and 40 dp on the large phone. On this phone as set it leaves 66 px,
+  27.6 dp.
+- **The owner's claim, revisited:** "worse on them" is now MEASURED for this phone at its default
+  display size and for the typical phone class. "Above average" stays unverified, as recorded above.
+- **Not read, with the reason:**
+  - **The reply bar in the simulated geometries:** it is 56.5 dp and additive on the reference.
+  - **The compact phone's keyboard configurations.** The search field was at the page's edge and
+    raised no keyboard. The composer's centre fell under the navigation bar: with the stream on,
+    16 px of it were on screen, so it could not be tapped.
+  - **The compact phone's stream alone in landscape:** a tap on the picker's close button missed, so
+    that reading had both panels open. It is implied by the clamp: a shorter page than the
+    reference's 405 dp, where it was 0 px.
+- **How it was read.** uiautomator stopped answering at times on the tablet, while animated emotes
+  ran in the picker, and two taps missed. Those readings were relabelled by the visibility they
+  recorded, and the rest of the tablet was driven by taps placed from `dumpsys` frames.
+- **The restore, with values read from the phone before and after:**
+  - **Before, at 17:56:41:** `Physical size: 1080x2400` with no override, and `display_size_forced`
+    `null`; density 450 physical, 382 override (`display_density_forced` 382); rotation `lock 0`,
+    `accelerometer_rotation` 0, font scale 1.15. Settings on Developer options was in front.
+  - **The restore:** `cmd window user-rotation lock 0`, `wm size reset` and `wm density 382`.
+    - `wm size reset` left `display_size_forced` as an empty key, where it had been absent.
+      `settings delete global display_size_forced` returned it to `null`.
+    - The size and density changes had closed the Developer options screen, which was reopened with
+      `android.settings.APPLICATION_DEVELOPMENT_SETTINGS`.
+  - **After, at 18:09 to 18:11:** every value above is identical, with Developer options in front. The
+    reference reading is identical too: page 913.9 dp, list 671.8 dp.
+  - **No crash in any of the changes:** five geometries, four rotations. The dev app kept pid 22577
+    throughout, and no crash entry was written after 17:50.
+  - **Left as Federico set it for this step:** "Disable permission monitoring" is on. Switching it
+    back off is his, and a refused same-value write confirms it, as before.
