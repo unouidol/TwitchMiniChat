@@ -6859,3 +6859,26 @@ are the owner's rulings; the read was accepted as reported.
   - **The owner's choice, when asked:** commit this record on #97 and gate the merge on the head
     that carries it ("STEP 1 on #97, gate new head"). That is the same rule as #95, #98 and #99,
     green on exactly the SHA merged, applied to the SHA actually merged.
+
+**2026-11-10: #97 merged to the gate's standard, and the suppression comment corrected.** These are
+the owner's rulings. This entry is recorded in #101.
+- **#97 merged as `5238077`, on 2026-11-09 at 18:10Z, from its head `a193a50`,** by the gate every
+  merge of this round has used:
+  - **CI green on exactly `a193a50`:** run 42669823103, `pull_request`, success on every step.
+  - **Completed, not just the first "success":** for a few minutes the run read success while its
+    job and the pull request's check still read in progress. The merge waited until all three read
+    completed (18:03:32Z).
+  - **The head re-checked immediately before merging:** still `a193a50`, with that green run on it,
+    and `main-v5` (`98f235a`) its ancestor.
+  - **The squash pinned to that head,** with `--match-head-commit`.
+  - **The merged tree verified byte-identical** to the tested head's: both are `15298f60…`.
+  - **The branch kept,** so `feature/5d-recyclerview-timeline` still reaches `00c1e78`, the build the
+    round tested. The push run the merge triggered on `main-v5`, 42671588354, is green as well.
+- **The comment at the suppression is corrected again.** This supersedes "kept as corrected" in the
+  previous entry, which stays as it was written.
+  - **Why:** its last line said the TalkBack check was "not done, queued to 5.6.0". The retry is
+    cancelled, so "queued" had become false.
+  - **Now:** "TalkBack check NOT DONE, CLOSED BY READING: the 5d plan, case 8". It points at case 8's
+    CLOSED BY READING line in *The hands-on pass*, which holds the reasoning.
+  - **One line, changed in place, comment only.** The file keeps 4,399 lines, so no line number cited
+    from it moves.

@@ -931,6 +931,29 @@ and succeeds with it, so flight mode is a valid way to produce the token debt. A
 prints no timestamps - the authoritative time of a registry change is `updated_at` in
 `registered_devices.json`.
 
+## Branches: one that must be kept, one that only looks unfinished
+
+Two facts that a list of branches does not show, recorded on 2026-11-10 by the owner's ruling.
+
+- **On `origin`, `experiment/startup-5d-treatment-measurement` is the only ref that reaches
+  `a2f12f1`,** the after build of *Closing start-up measurement of the conversion*. Do not delete or
+  rewrite it while that record cites the commit.
+  - **Read on 2026-11-10:** `git for-each-ref --contains a2f12f1`, over local branches, remote-tracking
+    branches and tags, lists `refs/remotes/origin/experiment/startup-5d-treatment-measurement` and
+    nothing else. On `origin` that branch's tip is `a2f12f1` itself. No tag on `origin` contains it:
+    the two not fetched into this clone, `c1380af`'s and `d56812b`'s, were compared through GitHub's
+    API and have diverged from it. No pull request was opened from the branch.
+  - **The local branch of the same name in the clone on `DESKTOP-BCT68L9` does not reach it.** It is
+    at `888489a`, three commits behind, so a forced push from it would drop `a2f12f1` from `origin`.
+- **`work/fix-mojibake-fe1638f` is empty. No mojibake work is waiting on it.** It exists only in the
+  clone on `DESKTOP-BCT68L9`.
+  - It sits at `cd441e1`, #73's squash commit on `main-v5`, which is also its merge-base with
+    `main-v5`. Its diff against that merge-base is empty, and `origin/main-v5..` lists no commit.
+  - Its reflog holds one entry, its creation from `cd441e1` on 2026-10-06. Nothing has been committed
+    on it since.
+  - It is not on `origin` and is not pushed: pushing an empty branch insures nothing.
+  - Whether to delete it locally is Federico's housekeeping.
+
 ## Test device
 
 **Refreshed on 2026-11-09, at the end of 5d's device round.** This resolves the stale marker #92
@@ -966,6 +989,9 @@ manager reports.
   - **The tag was pushed on 2026-11-09 after #97 merged,** not before, as this section asks. The
     branch is kept, so it still reaches the commit, and `git ls-remote --tags origin` confirmed the
     tag.
+    - **The owner accepted the deviation as recorded, on 2026-11-10.** The rule's purpose, that the
+      tested commit stays findable, is met, because the kept branch reaches it.
+    - **The rule's wording below is left as it is.** Whether to relax it is deferred, not settled.
   - **What it replaced:** before `00c1e78`, the phone held the round's control measurement build,
     `dea38cc`, sha256 `d005e901…`. Before the round, it held #89's `d56812b`, sha256 `8519b894…`,
     tag `device-test/5.5.1-dev-8-d56812b`.
