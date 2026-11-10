@@ -3727,7 +3727,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * It becomes wrong when the inherited performClick stops reaching clearChannelFocusClickListener:
      * a performClick override that does not call super, the listener set elsewhere, the click logic
      * moved into the touch listener, the list not clickable, or a click action registered on it.
-     * Read end to end on 2026-11-09; the 5d plan's TalkBack check was not done, queued to 5.6.0.
+     * Read end to end on 2026-11-09. TalkBack check NOT DONE, CLOSED BY READING: the 5d plan, case 8.
      */
     @SuppressLint("ClickableViewAccessibility")
     private fun attachEmptySpaceTaps(list: RecyclerView) {

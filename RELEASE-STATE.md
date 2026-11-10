@@ -428,7 +428,12 @@ conversion to a recycling list is complete, 5d included: read from the clone, th
 while `chatContainer` in `app/src/main/res/layout/fragment_chat.xml` is a `LinearLayout` inside a
 `ScrollView`, holding a view for each row.
 
-## Deferred — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade
+## Deferral closed — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade, after 5.6.0
+
+**Closed on 2026-11-09: both halves of the condition below are met** (*The deferral of the
+toolchain upgrade (#84)*, at the end of this section). The upgrade and the JDK pin are unlocked,
+and scheduled after the release that ships the conversion, 5.6.0, not inside it. What follows
+keeps the condition as it was written.
 
 Not on any branch, by decision. The upgrade from Android Gradle Plugin (AGP) 9.2.1 and Gradle
 9.4.1 waits until the conversion that shows the chat's rows in a recycling list is complete -
@@ -454,7 +459,7 @@ https://developer.android.com/build/releases/agp-9-4-0-release-notes. The pressu
 repository is smaller than that sounds. No build script here uses either Variant API, so AGP
 10 would reach it through the plugins it applies (Google services and Crashlytics), if at all.
 Android Studio's Upgrade Assistant recommends the upgrade; decline it until the condition above
-holds.
+holds. Since 2026-11-09 it holds, so decline it until 5.6.0 has shipped.
 
 ### Closing start-up measurement of the conversion
 
@@ -513,21 +518,26 @@ checks. The launch data are published in `experiment/startup-5d/closing-measurem
   control's window reaches compiled code while 5d's does not, so the measured ratio is conservative
   relative to a cold-against-cold comparison." It does not say which phase 5d improves.
 
-**The deferral of the toolchain upgrade (#84), above: whether its condition is met.** Its condition
-has two halves, both read from the clone.
-- **The measurement half is met.** The rule decided before the measurement asks for the measurement
-  to be taken and recorded in this file, not for any outcome. It was taken on 2026-11-04 and is
-  recorded here. On `main-v5` this half holds once this entry merges.
-- **The conversion half is not met on `main-v5`.** At `ed41de1`, `chatContainer` in
-  `app/src/main/res/layout/fragment_chat.xml` is still a `LinearLayout` inside a `ScrollView`, which
-  is the entry's own test. On `feature/5d-recyclerview-timeline` that container is gone, and the
-  layout holds a `RecyclerView`, `chatList`, in its place. So this half holds once 5d merges.
-- **So the deferral is not lifted yet.** It lifts when 5d merges, with nothing further to measure.
-- **Once it lifts,** the AGP 9.4 / Gradle 9.6 upgrade and the JDK pin are unlocked, and they are
-  scheduled after the release that ships the conversion, not inside it. "Unlocked" does not read as
-  "do it now".
-  - This is as the 5d plan records it, by the owner's reading of #84. The plan notes that this
-    sentence is not in #84's description or in the entry.
+**The deferral of the toolchain upgrade (#84), above: CLOSED on 2026-11-09, both halves met.** Both
+halves were read from the clone.
+- **The measurement half, met on 2026-11-04.**
+  - **The rule asks for the measurement to be taken and recorded in this file,** not for any
+    outcome. That rule was decided before the measurement.
+  - It was taken on 2026-11-04 and recorded above. It is on `main-v5` since #95 (`baef242`).
+  - **Its verdicts were weak HOLDS.** They stand under the limits L1 to L4 that 5d's plan records,
+    with the confound bounded as above.
+  - **That has no bearing on this half:** the deferral required the measurement taken and
+    recorded, not a particular result.
+- **The conversion half, met by #97's merge, `5238077`, on 2026-11-09.** The entry's own test, read
+  in `app/src/main/res/layout/fragment_chat.xml`:
+  - at `98f235a`, the commit before it, the file holds a `ScrollView` (line 135) around
+    `chatContainer` (line 143), a `LinearLayout`;
+  - at `5238077` it holds a `RecyclerView`, `chatList` (lines 140 and 141), and neither of those.
+- **So the AGP 9.4 / Gradle 9.6 upgrade and the JDK pin are unlocked.**
+  - **When:** they are scheduled after the release that ships the conversion, 5.6.0, not inside it.
+    "Unlocked" does not read as "do it now".
+  - **Where that rule comes from:** 5d's plan records it, by the owner's reading of #84. The plan
+    notes that this sentence is not in #84's description or in the entry.
 
 ## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
@@ -921,34 +931,70 @@ and succeeds with it, so flight mode is a valid way to produce the token debt. A
 prints no timestamps - the authoritative time of a registry change is `updated_at` in
 `registered_devices.json`.
 
+## Branches: one that must be kept, one that only looks unfinished
+
+Two facts that a list of branches does not show, recorded on 2026-11-10 by the owner's ruling.
+
+- **On `origin`, `experiment/startup-5d-treatment-measurement` is the only ref that reaches
+  `a2f12f1`,** the after build of *Closing start-up measurement of the conversion*. Do not delete or
+  rewrite it while that record cites the commit.
+  - **Read on 2026-11-10:** `git for-each-ref --contains a2f12f1`, over local branches, remote-tracking
+    branches and tags, lists `refs/remotes/origin/experiment/startup-5d-treatment-measurement` and
+    nothing else. On `origin` that branch's tip is `a2f12f1` itself. No tag on `origin` contains it:
+    the two not fetched into this clone, `c1380af`'s and `d56812b`'s, were compared through GitHub's
+    API and have diverged from it. No pull request was opened from the branch.
+  - **The local branch of the same name in the clone on `DESKTOP-BCT68L9` does not reach it.** It is
+    at `888489a`, three commits behind, so a forced push from it would drop `a2f12f1` from `origin`.
+- **`work/fix-mojibake-fe1638f` is empty. No mojibake work is waiting on it.** It exists only in the
+  clone on `DESKTOP-BCT68L9`.
+  - It sits at `cd441e1`, #73's squash commit on `main-v5`, which is also its merge-base with
+    `main-v5`. Its diff against that merge-base is empty, and `origin/main-v5..` lists no commit.
+  - Its reflog holds one entry, its creation from `cd441e1` on 2026-10-06. Nothing has been committed
+    on it since.
+  - It is not on `origin` and is not pushed: pushing an empty branch insures nothing.
+  - Whether to delete it locally is Federico's housekeeping.
+
 ## Test device
 
-**Stale, marked 2026-11-02:** the dev row below no longer describes the phone. A device round is in
-progress on `feature/5d-recyclerview-timeline`, and its builds replace the dev app until it ends.
-Each one installed is recorded in that branch's `docs/manual-plan-5d-recyclerview.md`, *Recorded
-results*, and none gets a device-test tag: a tag names a tested build, and nothing is tested until
-the round ends. Refreshing this needs the round's end: the build it leaves on the phone, read back
-from the phone as the table below was read, with its tag.
+**Refreshed on 2026-11-09, at the end of 5d's device round.** This resolves the stale marker #92
+(`a3c6c7f`) set on 2026-11-02. The dev row below is the build the round left on the phone.
 
-**Read from the device on 2026-10-23,** over adb, from a OnePlus AC2003 on Android 12 (API 31).
-Each commit below was read from the APK installed on the phone, pulled back off it, with the
-build identity read from its code; the version and build number are what the phone's package
+**Read from the device over adb,** from a OnePlus AC2003 on Android 12 (API 31): the Stable row on
+2026-10-23, the Dev row on 2026-11-09. The version and build number are what the phone's package
 manager reports.
+- **The Stable row's commit** was read from the APK installed on the phone, pulled back off it,
+  with the build identity read from its code.
+- **The Dev row's APK was not pulled on 2026-11-09:** the phone had been disconnected after the
+  hands-on pass.
+  - Its sha256, its version and its last update were read on the phone during that pass: the
+    version and the update at 15:29:50, the sha256 at 18:13:07.
+  - Its commit was read from the code of the APK built here whose sha256 is that same value:
+    `00c1e78-app-dev-arm64-v8a-debug.apk`, in the round's APK folder. Its `BuildConfig.GIT_SHA` is
+    `00c1e78`, with no `+`.
 
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.5.1 (8) | `007ee55` | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` | 2026-09-18 14:08 |
-| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `d56812b`, tag `device-test/5.5.1-dev-8-d56812b`, #89 | `8519b89435331cb920c7852972ad9e0fba866f1bd8c958b3c82fc5582aa5e6ce` | 2026-10-23 09:23 |
+| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `00c1e78`, tag `device-test/5.5.1-dev-8-00c1e78`, #97 | `ba1f88e3347382f76e4d5d1c0661602e2a24e187fcbdcfc2440e64ea88f16e4a` | 2026-11-09 08:40 |
 
 - **The stable app is the published 5.5.1.** Its APK's sha256 is the arm64 checksum recorded
   under *Published* above, as listed in the release's `SHA256SUMS.txt`, and its code carries
   `007ee55`, the commit `v5.5.1` points at.
-- **The dev app is #89 as it was tested on the device, at `d56812b`:** the build its last harness
-  run ran on, which reported `d56812b` itself at run time. The round's manual checks and its
-  background measurement ran on `ef95c63`, whose production code `d56812b` shares: `git diff
-  ef95c63 d56812b -- app/src/main gradle build.gradle.kts settings.gradle.kts gradle.properties
-  app/build.gradle.kts` prints nothing. Before #89 it was #86's `c1380af`, sha256 `c4cc57f8…`,
-  read from its APK on 2026-10-21 before it was replaced.
+- **The dev app is #97 as it was tested in its device round, at `00c1e78`.** The long session
+  `L5D2` and the hands-on pass both ran on this build (`docs/manual-plan-5d-recyclerview.md`,
+  *Recorded results*).
+  - **#97 merged as `5238077`** from its head `a193a50`. Under `app/src/main`, that head differs from
+    `00c1e78` only by the comment at the `ClickableViewAccessibility` suppression: 7 lines, changed
+    in place.
+  - **The tag was pushed on 2026-11-09 after #97 merged,** not before, as this section asks. The
+    branch is kept, so it still reaches the commit, and `git ls-remote --tags origin` confirmed the
+    tag.
+    - **The owner accepted the deviation as recorded, on 2026-11-10.** The rule's purpose, that the
+      tested commit stays findable, is met, because the kept branch reaches it.
+    - **The rule's wording below is left as it is.** Whether to relax it is deferred, not settled.
+  - **What it replaced:** before `00c1e78`, the phone held the round's control measurement build,
+    `dea38cc`, sha256 `d005e901…`. Before the round, it held #89's `d56812b`, sha256 `8519b894…`,
+    tag `device-test/5.5.1-dev-8-d56812b`.
 - **Not read: the login screen's line and a journal export's `# app` line,** the two places this
   section otherwise reads a build from. Both need the app operated by hand. #86's first manual
   check reads the dev app's login screen.
