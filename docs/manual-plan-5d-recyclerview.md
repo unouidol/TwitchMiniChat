@@ -3347,8 +3347,25 @@ has been read.
     context lines, and every bar and the player's 300 dp lie outside the hunk
     (`git diff 98f235a 5238077`). The 300 dp player and the weighted frame are both in `8b99e08`
     (2026-04-07), the first commit of the tracked V4 sources.
-  - **The fix family, not chosen:** a minimum height on the list. The panels that compete for space
-    yield instead of the chat reducing to nothing, by collapsing, by scrolling, or by not opening.
+  - **DECIDED on 2026-11-10: the fix is a MINIMUM HEIGHT on the chat list.** The panels that compete
+    for space give way, by collapsing, by scrolling or by not opening, instead of the chat reducing to
+    nothing. Not written yet.
+    - **Two things are still to be chosen, from numbers and not before them:** the floor's value, and
+      how the panels give way. The layout's thresholds are in *Recorded results* (the decision and the
+      thresholds, 2026-11-10).
+    - **The reasoning is Federico's own.** He does not use the stream and the chat together much
+      himself, but will not guess what others do, and he observes that the defect may depend on screen
+      size. Those two statements decide between the options:
+      - locking portrait is correct only if nobody uses landscape, which is unknown;
+      - constraining the player is correct only if the player is little used, which is unknown;
+      - a minimum height is correct either way, because it depends on neither.
+    - **The principle, recorded by the owner's ruling:** when the cheaper option is correct only given
+      a fact that cannot be known, and the complete option is correct regardless, the complete one is
+      the cheaper of the two. The other's saving is conditional on a bet.
+    - **On the merits:** with a floor, the failure becomes "a panel will not open, or shrinks" instead
+      of "the chat disappears", and the first is something a user can understand.
+  - **The options as weighed before the decision,** kept as the record of what was weighed. The
+    decision above supersedes them.
   - **The options, restated by the owner on 2026-11-10, replacing the earlier framing.**
     - **The earlier framing** offered three ways: the player adapting instead of a fixed 300 dp, the
       picker not pushing the composer off screen, and locking portrait. It called the last the
@@ -3467,8 +3484,9 @@ has been read.
        crash is loud.
     2. **It is not a new guard.** It restores a pattern already in the file to a sibling that lacked
        it.
-  - **Not written yet.** It waits on Federico's landscape decision (the options in the entry above),
-    since both may land together.
+  - **Not written yet.** It waited on Federico's landscape decision, since both may land together.
+    That decision is made: a minimum height on the list (the entry above). The guard is still not
+    written, and may land with that fix.
   - **The test that would exercise it: DEFERRED, WITH ITS COST WRITTEN, not forgotten.** It would be
     an instrumented test in `androidTest`, where Espresso is configured.
     - It brings a chat page up and causes one `scrollToBottom` post through an ordinary path.
@@ -7368,3 +7386,87 @@ of the entry above: it is measured here, and the prediction held to the pixel.
       was not running: the process that had come back after the crash had already ended.
     - The stable app's process, from 16:21:46, is not this step's, and was not touched.
   - **No new crash entry** since 15:37.
+
+**2026-11-10: the decision, the layout's thresholds, and the simulation blocked.** These are the
+owner's rulings. The decision, a minimum height on the list, is in the *Backlog*, with Federico's
+reasoning and the principle.
+- **The layout's thresholds, by panel combination.** Each is the page height below which the list
+  measures 0 px. The second column is the height below which the composer is entirely off screen;
+  between the two, it is partly off.
+  - **Source:** they come from the children measured on this phone, at 2.3875 px/dp. The bars take
+    578 px, 242.1 dp. The stream adds 831 px, 348.1 dp: the player's 300 dp and the mute button's
+    48.2 dp. The picker adds 240 dp, the reply bar 56.5 dp, and the composer row is 67.9 dp of the
+    bars.
+  - **What "page height" means:** the display's height less the system bars and the keyboard. The
+    thresholds are a property of the layout, not of this phone.
+  - **This phone's margins** are given beside them, in dp of page height. Its display is 452 by 1005 dp
+    at 2.3875 px/dp. Its page is 914 dp in portrait (2182 px; the phone's own configuration reports
+    `h913dp`), 618 dp in portrait with the keyboard up (1475 px), and 405 dp in landscape (967 px).
+
+  | Panels open | List 0 px below | Composer off below | Portrait, 914 | Portrait with keyboard, 618 | Landscape, 405 |
+  |---|---|---|---|---|---|
+  | none | 242 dp | 174 dp | +672 | +376 | +163 |
+  | reply bar | 299 dp | 231 dp | +615 | +319 | +106 |
+  | picker | 482 dp | 414 dp | +432 | +136 | **−77** |
+  | picker, reply bar | 539 dp | 471 dp | +375 | +79 | **−134** |
+  | stream | 590 dp | 522 dp | +324 | +28 | **−185** |
+  | stream, reply bar | 647 dp | 579 dp | +267 | **−29** | **−242** |
+  | stream, picker | 830 dp | 762 dp | +84 | **−212** | **−425** |
+  | stream, picker, reply bar | 887 dp | 819 dp | +27 | **−269** | **−482** |
+
+  - **As statements about the layout:**
+    - With the picker open, the chat disappears on any device with less than 482 dp of page height.
+    - With the stream player on, the threshold is 590 dp.
+    - With the player and the picker, it is 830 dp, and 887 dp with the reply bar as well.
+  - **Every negative margin above is a configuration measured at 0 px on this phone,** and every
+    positive one measured exactly that many dp of list. The composer's state matched the second column
+    each time.
+  - **The thresholds are for font scale 1.15.** The status line's text, 22 dp of the bars' 242, grows
+    with the font scale, and so would any button whose text outgrows its 48 dp minimum. Everything
+    else is in dp.
+- **The owner's claim about 1005 dp: checked against what is readable, and only partly
+  established.**
+  - **The claim** was that 1005 dp of portrait height is above average, because dp tracks physical
+    size, and many phones have a higher density at the same physical size, so the defect would be
+    worse on them.
+  - **What is readable: the SDK's device catalogue.** Android Studio's `sdklib.jar` holds
+    `com/android/sdklib/devices/devices.xml` and `nexus.xml`. Their phones' portrait display heights,
+    in dp:
+    - Small Phone 640;
+    - Pixel 4 829;
+    - Pixel 4a and 5 851;
+    - Pixel 4 XL 869;
+    - Pixel 6 Pro and 7 Pro 891;
+    - Medium Phone, and Pixel 6, 6a, 7, 7a, 8 and 8a 914;
+    - Pixel 9, 9a, 10 and 10a 923;
+    - Pixel 9 Pro and 10 Pro 952;
+    - Pixel 8 Pro, 9 Pro XL and 10 Pro XL 997.
+    - The SDK's emulator skins give pixel sizes only, and no system image is installed.
+  - **Established, for the catalogue only:** at 1005 dp this phone is taller than every phone in the
+    catalogue, whose tallest is 997 dp. The catalogue is Google's reference devices, not a sample of
+    phones in use. So "above average" for phones people actually have is **the owner's unverified
+    claim.**
+  - **"dp tracks physical size": not as stated.** dp tracks the configured density, which the
+    manufacturer sets and the user can override. This phone shows it on one screen: its physical
+    density is 450, which gives 384 by 853 dp, and the override of 382 that its user chose gives 452
+    by 1005 dp.
+  - **"Worse on them": it follows from the thresholds** for any device with less page height. That
+    includes this phone at its own default display size, where the display is 853 dp. This is
+    computed and not measured, since the simulation below was blocked.
+  - **A conditional, not a measurement:** on this phone the system bars take 91 dp, so the
+    stream-and-picker threshold of 830 dp of page corresponds to 921 dp of display. If other phones'
+    bars took the same, only the catalogue's phones of 923 dp or more would clear it. The catalogue
+    gives no bar heights.
+- **The simulation is BLOCKED on this phone, and nothing was changed.**
+  - `wm density 382`, the current value, was refused with
+    `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`.
+  - `wm size 1080x2400`, the physical size, was refused as well.
+  - Read afterwards: `Physical size: 1080x2400`, `Physical density: 450`, `Override density: 382`. No
+    override was created, and none was lost.
+  - This is the restriction the round recorded: "Disable permission monitoring" is off, set by
+    Federico. The refused writes confirm it, by the same effect the round used.
+  - **What running it takes:** Federico switches "Disable permission monitoring" on for the step, and
+    off again after it, confirmed by a refused same-value write.
+- **The restore must not be `wm density reset`.** This phone starts with a user override, density 382
+  over a physical 450, and `reset` would leave it at 450. The starting state is restored with
+  `wm density 382` and `wm size reset`, and then read back from the phone.
