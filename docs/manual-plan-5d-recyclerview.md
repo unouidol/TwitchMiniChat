@@ -7580,5 +7580,11 @@ supersedes the "blocked" and "computed and not measured" points of the entry abo
     reference reading is identical too: page 913.9 dp, list 671.8 dp.
   - **No crash in any of the changes:** five geometries, four rotations. The dev app kept pid 22577
     throughout, and no crash entry was written after 17:50.
-  - **Left as Federico set it for this step:** "Disable permission monitoring" is on. Switching it
-    back off is his, and a refused same-value write confirms it, as before.
+  - **"Disable permission monitoring" restored and confirmed, at 18:20.**
+    - Federico switched it off, and at 18:17 a same-value write (`wm density 382`) was still accepted,
+      with `remote exit=0`.
+    - **On this phone the toggle takes effect only after a restart.** Federico rebooted it, and at
+      18:20, 94 s after boot, the same write was refused with
+      `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`.
+    - Every value read back is still as it was before the step. The reboot ended the processes that
+      had been running, the dev app's among them.
