@@ -35,7 +35,12 @@ owner's ruling. It is case 6 in the same section M; case 8 is closed there inste
 - **The row taller than the list (U2/U3) is SHIPPING UNEXAMINED until this round, not closed.**
   - It was NOT REACHED on 2026-11-09, so nobody has yet seen the behaviour that now shows a tall
     row's top rather than its bottom.
-  - Federico sends one very long message and looks: about two minutes. The message is public.
+  - **The reason, narrowed on 2026-11-10 by the owner's ruling:** what is unknown is the list's real
+    height in the tight configurations, and the text's line metrics at the phone's font scale. Both
+    are measured first, with the phone. Then the tall row is built in the dev harness against a
+    measured list height.
+  - **Nothing is sent to any channel,** so the long public message this line used to ask for is
+    withdrawn (5d's plan, *Recorded results*, the entry of 2026-11-10).
 - **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry here is cancelled** (the owner's
   ruling, 2026-11-09). The read, traced in 5d's plan (*Recorded results*), closes that if the list
   is activated the dismissal runs: `setOnClickListener` makes the list clickable, so it offers

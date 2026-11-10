@@ -1479,6 +1479,10 @@ case only if the app still runs as before it.
      - **SHIPPING UNEXAMINED until the 5.6.0 device round, not closed** (the owner's ruling,
        2026-11-09). Nobody has yet seen the behaviour that now shows a tall row's top rather than its
        bottom. There, Federico sends one very long message and looks: about two minutes.
+     - **2026-11-10: still SHIPPING UNEXAMINED, with the reason narrowed, and the long message
+       withdrawn** (the owner's ruling). What is unknown is the list's real height in the tight
+       configurations and the text's line metrics. Nothing is sent to any channel (*Recorded
+       results*, the entry of 2026-11-10).
 7. **Emote animation at the detach boundary, an off-screen page included.** Long.
    - **Do:** scroll an animated emote's row just out of view and back. Swipe to page B for 10 s and back.
      Home for 10 s and back.
@@ -3251,6 +3255,59 @@ has been read.
       (`follow`).
   - These were read from the published outputs and recomputed from the run's records. Nothing here
     is interpreted.
+- **In landscape with the stream player on, the chat list is 0 px and the composer is below the
+  screen: a CANDIDATE DEFECT, by the layout's arithmetic, not yet observed.** Found on 2026-11-10
+  while reading whether U2/U3 can be reached, and recorded as a candidate defect by the owner's
+  ruling. Read in the code, not run.
+  - **The arithmetic.** `fragment_chat.xml` is one vertical `LinearLayout`. The list's frame is `0dp`
+    with weight 1 (`:130-133`), so it gets the window's height less every other child, clamped at 0:
+    `remainingExcess = heightSize - mTotalLength`, then `Math.max(0, childHeight)` (`LinearLayout.java`
+    in the android-36 sources, `:991`, `:1019`, `:1026-1027`). The other children, at their declared
+    minimums:
+
+    | Child | At least | Where |
+    |---|---|---|
+    | Channel bar | 64 dp, plus the status bar's inset as a top margin | `:17`, `:28`; `SystemBarsInsetHelper.kt:73-81` |
+    | Action buttons | 56 dp | `:78`, `:86` |
+    | Status line | 24 dp of padding, plus its text | `:104` |
+    | Stream controls | 8 dp, plus the mute button the player shows | `:114`; `ChatFragment.kt:3502` |
+    | Stream player | 300 dp, fixed | `:127` |
+    | Composer row | 56 dp | `:190` |
+    | **Total** | **508 dp, 1213 px** | at 2.3875 px/dp |
+
+    In landscape the window is at most the display's short side: 1080 px, 452 dp (`wm size` 1080 ×
+    2400 and density 382, in *Recorded results*). 508 dp against 452 dp leaves the list nothing, before
+    the inset, the status text and the mute button are counted.
+  - **What the user sees, by reading:**
+    - **The chat is ABSENT, not empty or clipped.** The list's frame is measured at 0 px, so no row is
+      laid out and no part of the list is on screen.
+    - **The composer is off screen, so nothing can be typed either.** Every child without a weight is
+      measured against the whole height (`usedHeight` is 0 once a weight exists, `:877-878`) and placed
+      below the one before it, with nothing fitted (`:1729-1731`). The bars above the composer already
+      come to 452 dp, the display's own height, before the inset, the status text and the mute button.
+    - **The player's lower part is cut off too.** It starts below at least 152 dp of bars, so it reaches
+      the bottom edge before those three are counted.
+  - **How it is reached, reasoned from the code:** the player is off on every new page
+    (`streamEnabled = false`, `ChatFragment.kt:617`) and only the stream button turns it on
+    (`:1853-1854`). `MainActivity` declares no `configChanges` and nothing saves the player's state, so
+    a rotation brings it back off. The configuration is reached by turning the player on while already
+    in landscape, and left by rotating back or tapping the stream button, which stays on screen.
+  - **The cause, by reading: the player is a fixed 300 dp in both orientations.** There is one
+    `fragment_chat.xml` and no `layout-land` or other qualified variant. No code sets the player's size
+    or reads the orientation: no `onConfigurationChanged`, no orientation check, no change to
+    `geckoStreamView`'s layout parameters. 300 dp is 30% of the portrait height, 1005 dp, and 66% of
+    the landscape height. Nothing locks the orientation.
+  - **The same shape, smaller: landscape with the emote picker open.** The picker is a fixed 240 dp
+    (`view_twitch_emote_picker.xml:6`), so the bars come to at least 448 dp and the list to at most
+    4 dp, 10 px, before the inset and the status text.
+  - **Never exercised.** Case 5's six rotations do not turn the player on, and its record does not say
+    it was on. One screenshot in landscape with the player on would observe this.
+  - **PRE-EXISTING, not a 5d defect.** #97's only hunk in `fragment_chat.xml` is inside the frame: the
+    `ScrollView` and `chatContainer` replaced by `chatList`. The frame's `0dp` and weight 1 are context
+    lines, and every bar and the player's 300 dp lie outside the hunk (`git diff 98f235a 5238077`). The
+    300 dp player and the weighted frame are both in `8b99e08` (2026-04-07), the first commit of the
+    tracked V4 sources.
+  - **Whether it belongs in 5.6.0 is not decided.**
 
 ## Recorded results
 
@@ -6882,3 +6939,44 @@ the owner's rulings. This entry is recorded in #101.
     CLOSED BY READING line in *The hands-on pass*, which holds the reasoning.
   - **One line, changed in place, comment only.** The file keeps 4,399 lines, so no line number cited
     from it moves.
+
+**2026-11-10: whether U2/U3 can be reached, read; still SHIPPING UNEXAMINED, with the reason
+narrowed.** These are the owner's rulings. Everything here was read in the code and the platform's
+sources, not run: the phone was not connected.
+- **What the reading established:**
+  - **The app sets no length limit on a message it receives or shows.** `readLine` has no bound
+    (`TwitchChatClient.kt:109`), the parser keeps all of the message after its colon
+    (`TwitchIrcProtocolParser.kt:254`), the history keeps its text whole (`BackendHistoryClient.kt:69`),
+    the row is built from all of it (`ChatRowText.kt:168-169`), and no row has `maxLines` or
+    `ellipsize`. Twitch documents 500 characters for its Send Chat Message API's request body. The
+    three pages read (the IRC guide, the API reference, the send and receive guide) state no limit for
+    a message delivered over IRC.
+  - **An emote is sized from the text, not from the line, and it makes its line taller.** Its size is
+    `(textSizePx * 1.5f).toInt()` (`ChatFragment.kt:3743-3744`). It is set as its bounds and placed
+    `ALIGN_BOTTOM` (`TwitchEmoteImageLoader.kt:380`, `:384`), which claims the whole emote above the
+    baseline: `fm.ascent = -rect.bottom; fm.descent = 0;` (`DynamicDrawableSpan.java:147-152`,
+    android-36). At the phone's font scale it is 57 px, against text of 38.0 px, as measured in 5c
+    (`docs/manual-plan-5c-emotes.md`, A18's table).
+  - **The list has no fixed height.** It takes what the window leaves, and that reaches 0 px in
+    landscape with the stream player on (*Backlog*, the candidate defect).
+- **Why that does not examine U2/U3.** A 0 px list shows nothing, so whether a tall row shows its top
+  or its bottom means nothing there. The case that matters is a visible list shorter than a real row.
+- **What is actually unknown, and nothing else:**
+  - **The list's real height in the tight configurations.** Portrait with the stream and the picker
+    open, landscape with both closed, landscape with the picker open, and each of these with the
+    keyboard up. Only upper bounds exist, from the layout: 614 px, 583 px and 10 px, before system
+    bars, the status text and the keyboard. No dump with the list's bounds was ever saved.
+  - **The text's line metrics at the phone's font scale:** a line's height, and how many characters
+    it holds. The emote's size is measured; these are not.
+  - **Not among them: a growing composer.** The composer is single-line, `singleLine="true"`
+    (`fragment_chat.xml:207`), which sets one line and horizontal scrolling (`TextView.java:12405-12411`,
+    android-36). No code changes it. So a long message scrolls inside the composer and does not shorten
+    the list. This is by reading; the phone has not shown it.
+- **The method changes.** Nothing is sent to any channel, so the earlier "Federico sends one very long
+  message" is withdrawn.
+  - Once the two quantities are measured, the tall row is built in the dev harness or an instrumented
+    test. Its height is chosen against a measured list height, not the harness's fixed 160 dp, and the
+    check is the row's bounds against the list's.
+  - Federico's only part is to look at one screenshot and say whether showing the top is acceptable.
+    That decision is his.
+- **On hold until the phone is connected:** the measurement step, and after it the harness row.

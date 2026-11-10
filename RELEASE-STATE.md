@@ -564,7 +564,9 @@ channel, scroll and follow, an animated emote (5d's plan, section M, *The hands-
 ruling (5d's plan, section M, case 6, with case 8 closed beside it; `docs/manual-plan-5.5.2.md`,
 *Which build this round applies to*):
 - **The row taller than the list (U2/U3), SHIPPING UNEXAMINED until then.** It was not reached on
-  2026-11-09. Federico sends one very long message and looks.
+  2026-11-09. Narrowed on 2026-11-10: what is unknown is the list's real height in the tight
+  configurations and the text's line metrics. Both are measured first; then the row is built in the
+  dev harness, and nothing is sent to any channel.
 - **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry is cancelled** (the owner's
   ruling, 2026-11-09). The read in 5d's plan closes that if the list is activated the dismissal
   runs, through the list's click listener, RecyclerView's and androidx's accessibility delegates
