@@ -30,17 +30,16 @@ is 5.5.1, from before 5d, so that is the first and only time the stable flavour 
 work before users do. The checks are in `docs/manual-plan-5d-recyclerview.md`, section M, *The
 hands-on pass*, case 2; `RELEASE-STATE.md` records the same gate under *5.6.0 in progress*.
 
-**One more check is queued to the 5.6.0 re-run, from 5d's hands-on pass of 2026-11-09**, by the
-owner's ruling. It is case 6 in the same section M; case 8 is closed there instead.
-- **The row taller than the list (U2/U3) is SHIPPING UNEXAMINED until this round, not closed.**
-  - It was NOT REACHED on 2026-11-09, so nobody has yet seen the behaviour that now shows a tall
-    row's top rather than its bottom.
-  - **The reason, narrowed on 2026-11-10 by the owner's ruling:** what is unknown is the list's real
-    height in the tight configurations, and the text's line metrics at the phone's font scale. Both
-    are measured first, with the phone. Then the tall row is built in the dev harness against a
-    measured list height.
-  - **Nothing is sent to any channel,** so the long public message this line used to ask for is
-    withdrawn (5d's plan, *Recorded results*, the entry of 2026-11-10).
+**Nothing from 5d's hands-on pass of 2026-11-09 is still queued to the 5.6.0 re-run as a check of
+its own**, by the owner's rulings. Case 6's tall row (section M) is subsumed, and case 8 is closed:
+- **The row taller than the list (U2/U3): SUBSUMED by the layout defect, not a separate check**
+  (2026-11-10).
+  - The device step measured the list at 200 px with the stream and the picker open, and at 66 px
+    with the stream on and the keyboard up. An ordinary two-line message is taller than that.
+  - The configurations the fixed panels squeeze are recorded as a defect in 5d's plan, *Backlog*,
+    and the case goes with it.
+  - The harness row is cancelled, and nothing is sent to any channel. Whether a tall row should show
+    its top rather than its bottom stays open, attached to that defect.
 - **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry here is cancelled** (the owner's
   ruling, 2026-11-09). The read, traced in 5d's plan (*Recorded results*), closes that if the list
   is activated the dismissal runs: `setOnClickListener` makes the list clickable, so it offers

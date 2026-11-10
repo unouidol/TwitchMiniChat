@@ -1483,6 +1483,10 @@ case only if the app still runs as before it.
        withdrawn** (the owner's ruling). What is unknown is the list's real height in the tight
        configurations and the text's line metrics. Nothing is sent to any channel (*Recorded
        results*, the entry of 2026-11-10).
+     - **2026-11-10, after the device step: SUBSUMED by the layout defect, and the harness row
+       CANCELLED** (the owner's ruling; *Backlog*). In the configurations the fixed panels squeeze,
+       an ordinary two-line message is taller than the list. The taste question stays open, attached
+       to that defect.
 7. **Emote animation at the detach boundary, an off-screen page included.** Long.
    - **Do:** scroll an animated emote's row just out of view and back. Swipe to page B for 10 s and back.
      Home for 10 s and back.
@@ -3255,11 +3259,28 @@ has been read.
       (`follow`).
   - These were read from the published outputs and recomputed from the run's records. Nothing here
     is interpreted.
-- **In landscape with the stream player on, the chat list is 0 px and the composer is below the
-  screen: a CANDIDATE DEFECT, by the layout's arithmetic, not yet observed.** Found on 2026-11-10
-  while reading whether U2/U3 can be reached, and recorded as a candidate defect by the owner's
-  ruling. Read in the code, not run.
-  - **The arithmetic.** `fragment_chat.xml` is one vertical `LinearLayout`. The list's frame is `0dp`
+- **Landscape with the stream player on, or with the emote picker open, leaves no chat and no
+  composer: OBSERVED on 2026-11-10.** Found the same day, while reading whether U2/U3 can be
+  reached. It was first recorded as a candidate defect from the layout's arithmetic, then measured
+  on the phone with the dev build `00c1e78` (*Recorded results*, the device step of 2026-11-10).
+  Recorded by the owner's rulings.
+  - **Observed, landscape with the stream player on.** The frames come from `dumpsys activity top`,
+    in screen pixels. The window ends at y=1080.
+    - The list is 0 px tall, and it is placed below the window, at y=1360.
+    - The player runs from y=644 to y=1360, so 280 of its 716 px are past the bottom edge.
+    - The composer is at y=1383 to y=1498, entirely off screen.
+    - **One screenshot** shows the channel bar, the action buttons, the status line, the mute button
+      and the top of the player, cut at the bottom edge. There is no chat and no composer. It is kept
+      outside the repository, in `tmc-5d-round/device-step-2026-11-10/` on `DESKTOP-BCT68L9`,
+      because it shows the account and the channel.
+  - **Observed, landscape with the emote picker open, with no player involved. This is the more
+    easily reached of the two:** opening the picker is an ordinary action, one tap on the emote
+    button.
+    - The list is 0 px, at y=529. The picker runs from y=529 to y=1102, past the edge, and the
+      composer is at y=1125 to y=1240, off screen.
+    - Bringing the keyboard up from the picker's own search field changes nothing. On this phone the
+      landscape keyboard floats and reserves no space, so the list stays at 0 px.
+  - **The arithmetic that predicted it, by reading.** `fragment_chat.xml` is one vertical `LinearLayout`. The list's frame is `0dp`
     with weight 1 (`:130-133`), so it gets the window's height less every other child, clamped at 0:
     `remainingExcess = heightSize - mTotalLength`, then `Math.max(0, childHeight)` (`LinearLayout.java`
     in the android-36 sources, `:991`, `:1019`, `:1026-1027`). The other children, at their declared
@@ -3278,7 +3299,7 @@ has been read.
     In landscape the window is at most the display's short side: 1080 px, 452 dp (`wm size` 1080 ×
     2400 and density 382, in *Recorded results*). 508 dp against 452 dp leaves the list nothing, before
     the inset, the status text and the mute button are counted.
-  - **What the user sees, by reading:**
+  - **What the reading predicted for the stream case, all of it observed:**
     - **The chat is ABSENT, not empty or clipped.** The list's frame is measured at 0 px, so no row is
       laid out and no part of the list is on screen.
     - **The composer is off screen, so nothing can be typed either.** Every child without a weight is
@@ -3287,27 +3308,115 @@ has been read.
       come to 452 dp, the display's own height, before the inset, the status text and the mute button.
     - **The player's lower part is cut off too.** It starts below at least 152 dp of bars, so it reaches
       the bottom edge before those three are counted.
-  - **How it is reached, reasoned from the code:** the player is off on every new page
+  - **How the stream case is reached:** the player is off on every new page
     (`streamEnabled = false`, `ChatFragment.kt:617`) and only the stream button turns it on
     (`:1853-1854`). `MainActivity` declares no `configChanges` and nothing saves the player's state, so
-    a rotation brings it back off. The configuration is reached by turning the player on while already
-    in landscape, and left by rotating back or tapping the stream button, which stays on screen.
+    a rotation brings it back off, which the device step observed. The configuration is reached by
+    turning the player on while already in landscape, and left by rotating back or tapping the stream
+    button, which stays on screen.
   - **The cause, by reading: the player is a fixed 300 dp in both orientations.** There is one
     `fragment_chat.xml` and no `layout-land` or other qualified variant. No code sets the player's size
     or reads the orientation: no `onConfigurationChanged`, no orientation check, no change to
     `geckoStreamView`'s layout parameters. 300 dp is 30% of the portrait height, 1005 dp, and 66% of
     the landscape height. Nothing locks the orientation.
-  - **The same shape, smaller: landscape with the emote picker open.** The picker is a fixed 240 dp
-    (`view_twitch_emote_picker.xml:6`), so the bars come to at least 448 dp and the list to at most
-    4 dp, 10 px, before the inset and the status text.
-  - **Never exercised.** Case 5's six rotations do not turn the player on, and its record does not say
-    it was on. One screenshot in landscape with the player on would observe this.
+  - **The picker's cause is of the same kind:** it is a fixed 240 dp (`view_twitch_emote_picker.xml:6`).
+    So in landscape the bars come to at least 448 dp, and the list to at most 4 dp, 10 px, before the
+    inset and the status text. Measured, it is 0 px.
+  - **Not looked at before 2026-11-10.** Case 5's six rotations do not turn the player on, and its
+    record does not say it was on.
   - **PRE-EXISTING, not a 5d defect.** #97's only hunk in `fragment_chat.xml` is inside the frame: the
     `ScrollView` and `chatContainer` replaced by `chatList`. The frame's `0dp` and weight 1 are context
     lines, and every bar and the player's 300 dp lie outside the hunk (`git diff 98f235a 5238077`). The
     300 dp player and the weighted frame are both in `8b99e08` (2026-04-07), the first commit of the
     tracked V4 sources.
   - **Whether it belongs in 5.6.0 is not decided.**
+  - **U2/U3 is SUBSUMED by this defect, not a separate item** (the owner's ruling).
+    - **Measured:** with the stream and the picker open, the list is 200 px, and a five-line message,
+      232 px, is taller. With the stream on and the keyboard up, it is 66 px, and any two-line
+      message, 97 px, is taller. So a row taller than the list is routine there.
+    - **Both of those measurements are in portrait.** Those configurations are squeezed by the same
+      fixed panels as the landscape defect: the player's 300 dp and the picker's 240 dp.
+    - **The owner's reasoning:** fix the configurations the panels shape, and the case leaves normal
+      use.
+    - **The harness row is CANCELLED.** An ordinary two-line message produces the case, and it can be
+      looked at directly.
+    - **The taste question stays open, attached to this defect:** whether a tall row should show its
+      top rather than its bottom. It is Federico's question, and seeing the row is what lets him
+      answer it.
+  - **Three ways landscape could be addressed, recorded for the owner's decision. None is
+    recommended here.**
+    1. The player adapts to the space it has, instead of a fixed 300 dp. This addresses the stream
+       case.
+    2. The picker does not push the composer off screen. This addresses the picker case.
+    3. Landscape is not supported: portrait is locked. This is the cheapest, and it closes both
+       landscape defects, at the cost of a capability some users may use. It leaves the portrait
+       configurations above as they are: 200 px with the stream and the picker open, 66 px with the
+       stream on and the keyboard up.
+    - Only Federico knows whether anyone uses TMC in landscape.
+- **The dev app crashed when the phone was rotated from landscape back to portrait: OBSERVED once,
+  on 2026-11-10 at 15:36:03, phone time.** It was seen on the dev build `00c1e78`, 5.5.1-dev (8),
+  sha256 `ba1f88e3…`, the build *Test device* records. Its code under `app/src/main` differs from
+  `main-v5` by one comment line. Recorded by the owner's ruling.
+  - **The sequence:** in landscape, the stream player was turned on, measured and turned off. Within
+    seconds the phone was rotated back to portrait (`cmd window user-rotation lock 0`). The app
+    closed, and the launcher came to the front.
+  - **The stack, from the phone's crash log:**
+
+    ```
+    java.lang.IllegalStateException: Fragment ChatFragment{f505160} (…) not attached to a context.
+        at androidx.fragment.app.Fragment.requireContext(Fragment.java:977)
+        at androidx.fragment.app.Fragment.getResources(Fragment.java:1041)
+        at androidx.fragment.app.Fragment.getString(Fragment.java:1063)
+        at com.fs.twitchminichat.ChatFragment.updateJumpToBottomButton(ChatFragment.kt:3069)
+        at com.fs.twitchminichat.ChatFragment.scrollToBottom$lambda$112(ChatFragment.kt:3704)
+        at android.os.Handler.handleCallback(Handler.java:938)
+        at android.os.Looper.loop(Looper.java:344)
+        at android.app.ActivityThread.main(ActivityThread.java:8212)
+    ```
+
+  - **What it shows:** `scrollToBottom` posts a runnable on `chatList` (`:3697`). The runnable calls
+    `updateJumpToBottomButton`, whose `getString` (`:3069`) needs the page attached to its activity.
+    The runnable was posted while the list was attached, and it ran after the rotation had detached
+    the page.
+  - **Provenance: PRE-EXISTING, established from the call sites, not by running the old build.**
+    - **The same five callers on both sides.** `scrollToBottom` is called at `98f235a` and at `main-v5`
+      from the same five places, in the same functions and under the same conditions:
+      `scheduleComposerLayoutRefresh` (`:931`, was `:914`), the keyboard controller's
+      `onKeyboardShown` in `onViewCreated` (`:1620`, was `:1601`), the jump button's click (`:1850`,
+      was `:1830`), `sendMessageText` (`:2761`, was `:2752`) and `appendChatView` (`:3271`, was
+      `:3250`). None is new, none is gone and none moved to another function; only the line numbers
+      shifted. No other file calls it.
+    - **One step further back, the same.** `appendChatView`'s three callers, and their callers
+      (`joinChannelFromChat`, `manualRefresh`, `sendMessageText`, `loadHistoryFromBot`,
+      `openIrcClient`), are the same functions, with the same number of calls.
+    - **The crashing code is unchanged.** The runnable did the same before 5d
+      (`scrollChat.post { … updateJumpToBottomButton() }`, `98f235a:3668-3673`), and
+      `updateJumpToBottomButton` is byte-identical.
+    - **What 5d did change, and why it is not a regression:** 5d rewrote `isNearBottom`, and moved the
+      writer of `stickToBottom` into a RecyclerView scroll listener.
+      - That listener ignores layout reports with no movement (`:208`), as the ScrollView's listener
+        saw only offset changes.
+      - `appendChatView` reads `isNearBottom` only when `stickToBottom` is false.
+      - So 5d's changes can alter how often `appendChatView` scrolls, but not whether the crash path
+        exists. No scroll was made during the sequence.
+    - **Not established:** which caller posted this time. The stack ends at the runnable. The crashed
+      process's log holds no line from the app before the crash, only a window-decoration line at
+      15:36:03.040, as the rotation began. Whether `98f235a` crashes in this exact sequence was not
+      run.
+  - **The provenance changes the RECORD, not the decision to fix.** Rotating the phone is something
+    people do, and a crash is a crash.
+  - **The smallest fix, not written:** a guard at the head of the posted runnable that returns when
+    the page is no longer attached or its view is gone (`if (!isAdded || view == null) return@post`).
+    It has the same shape as the guard the composer refresh's runnable already has (`:923`).
+    - **The usual objection to a guard does not apply.** It is not protecting a case reasoned to be
+      unreachable: this case was observed.
+  - **The test that would exercise it, not written:** an instrumented test in `androidTest`, where
+    Espresso is configured.
+    - It brings a chat page up and causes one `scrollToBottom` post through an ordinary path.
+    - In the same main-thread message it recreates the activity, then lets the main looper run.
+    - Without the guard it fails with this exception.
+    - Bringing a chat page up in a test needs a signed-in account, or a seam that stands in for one,
+      and this repository has neither yet.
 
 ## Recorded results
 
@@ -6980,3 +7089,71 @@ sources, not run: the phone was not connected.
   - Federico's only part is to look at one screenshot and say whether showing the top is acceptable.
     That decision is his.
 - **On hold until the phone is connected:** the measurement step, and after it the harness row.
+
+**2026-11-10, the device step: the list measured, two layouts with no chat, a crash, and U2/U3
+subsumed.** These are the owner's rulings. The step ran over adb on the phone of *Test device*, with
+the dev build `00c1e78`, on page A, and no message was sent. It supersedes the open points of the
+entry above, which stays as written.
+- **How it was read.**
+  - Frames come from `dumpsys activity top`, which prints no view's text. uiautomator's bounds were
+    used only to find controls by resource id and tap them.
+  - **uiautomator clips bounds on this phone.** In portrait they stop at y=2182, 113 px above the
+    page's real bottom at y=2295. In landscape they stop at x=2163, 113 px short of the real right
+    edge at x=2276. Its numbers are not measurements here.
+  - `settings put system user_rotation` was refused, because the shell is not granted
+    `WRITE_SETTINGS`. Rotation went through `cmd window user-rotation lock <n>` instead.
+- **The list's height, measured, against the bounds of the reading:**
+
+  | Configuration | Bound | Measured |
+  |---|---|---|
+  | Portrait, both panels closed | ≤ 1903 px | 1604 px (672 dp) |
+  | Portrait, both closed, keyboard up | not computed | 897 px (376 dp) |
+  | Portrait, stream on | ≤ 1187 px | 773 px (324 dp) |
+  | Portrait, stream and picker open | ≤ 614 px | 200 px (84 dp) |
+  | Portrait, stream on, keyboard up from the composer, which closes the picker | not computed | 66 px (28 dp) |
+  | Portrait, stream and picker open, keyboard up from the picker's search field | not computed | not measured: the crash came first |
+  | Landscape, both closed | ≤ 583 px | 389 px (163 dp) |
+  | Landscape, both closed, keyboard up | not computed | 389 px, with a floating keyboard over the list's right side |
+  | Landscape, picker open, with or without the keyboard | ≤ 10 px | 0 px, with the composer below the screen |
+  | Landscape, stream on | 0 px | 0 px, below the window, with the composer off screen |
+
+  - In portrait the page spans y=113 to y=2295: the status bar is 113 px and the navigation bar 105
+    px. In landscape it spans y=113 to y=1080.
+  - In portrait the keyboard covers y=1588 to y=2400. In landscape it floats: its touchable region is
+    an 813 by 701 px panel, and its inset is zero, so it covers the list instead of shrinking it.
+- **Recorded as done right, by the owner: the bounds reconciled to the digit.** The bound of 614 px
+  for portrait with the stream and the picker open came out at 200 px. Four omissions account for
+  exactly the difference:
+  - the system bars, 113 px of status bar and 105 px of navigation bar: 218;
+  - the status line's text: 53, since it measured 110 px against the 24 dp, 57 px, of padding the
+    bound counted;
+  - the mute button the player shows: 115;
+  - the Send button, which makes the composer row 162 px rather than its 56 dp, 134 px: 28.
+  - 614 − 218 − 53 − 115 − 28 = 200. An arithmetic error explained to the digit is worth more than a
+    corrected number.
+- **The line metrics, measured from the 28 rows on screen in portrait:**
+  - A one-line row is 52 px, and each further line adds 45 px. The rows were 52 px (23 of them), 97
+    (2), 142 (1) and 68 (1). The line counts are inferred from the 45 px step, not read from the
+    text.
+  - A single line holding an emote is 68 px: the 57 px emote above the baseline, and about 11 px of
+    the text's below it.
+  - Rows are 1022 px wide in portrait. Characters per line were not measured, because they depend on
+    text that was not read.
+- **The composer does not grow, so that contributor is closed.** It is `singleLine="true"`. With 300
+  characters typed it stayed 115 px tall, and the list stayed 897 px. The characters were deleted
+  before the next step.
+- **Observed rather than reasoned: a rotation turns the player off.** The player was on in portrait,
+  and after the rotation to landscape the page came back with it gone.
+- **Two layouts with no chat and no composer, and a crash on rotating back:** all three are in the
+  *Backlog*, with their numbers.
+- **U2/U3 is SUBSUMED by the layout defect, and the harness row is CANCELLED** (*Backlog*). The
+  earlier "what is actually unknown" is answered by the table above, and the earlier method is
+  withdrawn with the harness row.
+- **The phone's end state:**
+  - **As at the start:** rotation `lock 0`, `accelerometer_rotation` 0, `user_rotation` 0, font scale
+    1.15, the launcher in front, the keyboard hidden. The player and the picker are off, because the
+    crash ended the page.
+  - **Different from the start:**
+    - The dev app's process is running. It came back on its own after the crash; nothing launched it.
+      At the start it was not running, since the step's launch was cold.
+    - The crash's entry remains in the phone's crash log.
