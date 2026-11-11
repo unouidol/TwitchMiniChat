@@ -3360,6 +3360,11 @@ has been read.
     - **The numbers for both are in *Recorded results* (2026-11-11, the layout fix, a design
       proposal),** with the owner's principles, the variants for the top of the page and the stream
       button's labels. Nothing there is chosen: the floor, the arrangement and the words are Federico's.
+    - **The player's documented minimum, checked on the phone the same day:** today's app already
+      runs the embed below Twitch's documented 400 by 300, and it plays. It does so at 360 and 384 dp
+      of width, and at 298 CSS px of height on this phone as set. Twitch's documentation states the
+      minimum as a requirement, not a recommendation (*Recorded results*, 2026-11-11, the player below
+      Twitch's minimum).
     - **The reasoning is Federico's own.** He does not use the stream and the chat together much
       himself, but will not guess what others do, and he observes that the defect may depend on screen
       size. Those two statements decide between the options:
@@ -7694,11 +7699,17 @@ documented minimum is 400 by 300 px, so it has no room to yield.**
   not recorded; it is inferred from the match.
 - **One CSS pixel is taken as one dp.** The page's `width=device-width` viewport is what gives that.
   NOT VERIFIED on the phone: `displayResolution` would read it.
+  - **Read since, on the phone, later on 2026-11-11** (*Recorded results*, the player below Twitch's
+    minimum): a CSS pixel is within 1.6% of a dp. Today's 300 dp gives the embed 298 CSS px on this
+    phone as set, and 295 at its default size.
   - The stream session is built with `USER_AGENT_MODE_DESKTOP` (`GeckoSessionManager.kt:1691`). That
     sets the user agent, not the viewport mode, and is not verified either.
 - **Today's width is already below the documented 400 on two geometries in portrait:** 360 dp (the
   compact phone) and 384 dp (this phone at its default size). That is today's state, not the
   proposal's.
+  - **Observed since, later on 2026-11-11:** on both, the embed received 360 × 300 and 378 × 295 CSS
+    px, and played, with no error and no message about its size (*Recorded results*, the player
+    below Twitch's minimum).
 - **Smallest useful height, by the documentation: 300 px, today's.** Below it, the embed's behaviour is
   neither documented nor observed.
 
@@ -8274,6 +8285,11 @@ inventoried. Both read-only.** These are the owner's rulings. Nothing was change
 on this machine or on the phone, and the phone was not touched.
 
 **The original 15-case suite: found, outside the repository, and never a file of its own.**
+- **CLOSED, by the owner's ruling later on 2026-11-11.** The original suite exists. Its expected exit
+  codes agree with the rebuilt suite's, case for case. The rebuilt suite is the stricter of the two:
+  - it checks more than the exit code;
+  - its stand-in matches the phone's exit status;
+  - it adds R1, R2, K1, P1 to P6 and L.
 - **Where:** `%LOCALAPPDATA%\Temp\claude\5f4e4a46f49477fa\e1b06764-32f4-46a1-83c9-251038ddd4b8\scratchpad\sitting-test\`,
   the scratch folder of the session that wrote it here on 2026-11-06. It holds 485 files.
   - **The stand-ins**, by sha256:
@@ -8351,5 +8367,177 @@ on this machine or on the phone, and the phone was not touched.
       name.
     - `V/probedir-before.txt`, by its name a listing of the phone's probe directory.
   - Reading them is a later step's, with its own ruling.
+  - **Read since, later on 2026-11-11, by the owner's ruling, names and sizes only.** They do list the
+    phone's probe files. The comparison is in *Recorded results* (the phone's probe files compared)
+    and in `docs/inventory/nbpromec1-probe-compare-2026-11-11.tsv`.
 - **Scanned before commit:** the list's paths hold no account name, channel name, token or message
   text. The only "channel" in it is a launch label, `X-excluded-channel-check`.
+
+**2026-11-11, 09:49 to 10:35, on `nbpromec1`: the player below Twitch's documented minimum,
+observed; the phone's probe files compared.** These are the owner's rulings. The step only observed:
+the player's height was not changed, nothing was installed or uninstalled, and no message was sent.
+- **The question.** The proposal says the player cannot shrink, because Twitch documents a minimum of
+  400 by 300 and today's 300 dp is that height. But the minimum is also a width. The compact phone
+  is 360 dp wide and this phone at its default size is 384, so on both the embed already ran below
+  it. If it works there, the minimum is not a rendering wall.
+- **The app:** the dev app as installed, `versionName` 5.5.1-dev, not reinstalled. It was cold-launched
+  at the step's start and opened on the first account's chat page, whose channel was live. The
+  stream was turned on with the stream button, and played muted from the player's own play button.
+
+**Before anything changed, at 09:49.**
+- **Read from the phone:**
+  - `Physical size: 1080x2400` with no size override, and `display_size_forced` `null`;
+  - density 450 physical, 382 override, and `display_density_forced` 382;
+  - rotation `lock 0`, `accelerometer_rotation` 0, font scale 1.15;
+  - the launcher in front, with neither TMC app running.
+- **"Disable permission monitoring" was still off.** A same-value write (`wm density 382`) was
+  refused with `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`.
+  Federico switched it on.
+- **Switching it ON took effect without a restart.** At 09:51, with the phone's uptime still 4:02,
+  the same write was accepted with `remote exit=0`. Switching it OFF needs a restart, as below and as
+  on 2026-11-10.
+
+**The size the embed receives, in CSS px: read, through the player's own statistics.**
+- **How it was read.** The app does not enable GeckoView's remote debugging: no
+  `remoteDebuggingEnabled` anywhere in the code. So the page could not be inspected from the
+  computer. The Twitch player itself offers a read-only display: settings, then *Advanced*, then
+  *Video Stats*. That overlay reports a "Viewport Resolution".
+  - The toggle was found off each time, and was switched on only to read the overlay.
+  - It is not kept across a page load: after each recreation it was off again.
+- **The readings,** one for each geometry:
+
+  | Geometry | Density | GeckoView, device px | GeckoView, dp | Viewport Resolution, CSS px | Device px per CSS px | Device px per dp |
+  |---|---|---|---|---|---|---|
+  | This phone as set, the reference | 382 | 1080 × 716 | 452.4 × 299.9 | 450 × 298 | 2.400 | 2.3875 |
+  | This phone at its default size | 450 | 1080 × 844 | 384.0 × 300.1 | 378 × 295 | 2.857 | 2.8125 |
+  | Compact phone, 720x1280 | 320 | 720 × 600 | 360.0 × 300.0 | 360 × 300 | 2.000 | 2.000 |
+
+- **So one CSS pixel is within 1.6% of one dp.** Today's 300 dp player gives the embed 298 CSS px of
+  height on this phone as set, and 295 at its default size. Both are already below the documented
+  300.
+- **Why the ratio is not exactly the density: INFERRED.** All three readings fit one rule: device px
+  per CSS px = 60 / round(60 / (dpi / 160)). That is Gecko's integer count of app units per device
+  pixel, at 60 app units to the CSS pixel. It is inferred from the fit, and was not read in Gecko's
+  source in this step.
+- **The figures are the player's own.** Twitch prints whole pixels, and does not say what its
+  "Viewport Resolution" measures beyond the name. Its ratio, 1.51 at the reference, is the whole
+  box's, not the 16:9 video's.
+
+**Below the minimum width, the player plays: no error and no message about its size.** One capture of
+each geometry answers the question. They are kept on this machine only, in
+`%USERPROFILE%\tmc-5d-round\player-width-2026-11-11\`, because they show the account and the channel.
+- **The screenshots:** `12-d450-after-ad.png` and `21-compact-playing.png`. The other 16 in that
+  folder show the reference geometry, and how the player's menus were reached.
+- **This phone at density 450, 384 dp wide, the embed 378 × 295 CSS px:**
+  - the player loaded its paused frame with the channel's overlay;
+  - from its play button, it played the channel's advert break first ("Commercial break in
+    progress"), then the stream;
+  - Auto quality chose 1280 × 720.
+- **The compact phone, 360 dp wide, the embed 360 × 300 CSS px:**
+  - the same paused frame, then the stream from the play button;
+  - again 1280 × 720.
+- **At the reference, 450 × 298 CSS px,** the same, at 1920 × 1080.
+- **The one visible effect of the width:** the paused overlay's row of buttons runs past the right
+  edge at 384 and 360 dp, and "Subscribe" is cut off. Nothing else was seen to differ.
+- **Not observed:** a height well below 295 CSS px. The step was forbidden to change the player's
+  height, so the embed's behaviour there is still unread.
+- **The app, through three density changes:**
+  - the activity was recreated each time, in the same process (pid 31752), and the stream was off
+    again each time, since `streamEnabled` is not kept;
+  - no crash entry was written, and the newest is still 2026-11-10's;
+  - with the stream on, the compact phone's list was 0 px and the composer pushed down, as the
+    simulation table predicts.
+
+**What Twitch's documentation says below the minimum: nothing.** Read on 2026-11-11 through a fetch,
+not recalled.
+- **`https://dev.twitch.tv/docs/embed/video-and-clips/`:**
+  - "Embedded video windows must be at least 400x300 pixels."
+  - The attribute tables give height "Minimum: 300" and width "Minimum: 400", for the iframe, the
+    interactive player and clips.
+  - The only size-linked consequence on the page is the autoplay one. "Minimum size requirements
+    and visibility are necessary for autoplay to begin." Then: "The exception is mobile devices, on
+    which video cannot be played without user interaction." TMC sets `autoplay: false`.
+- **`https://dev.twitch.tv/docs/embed/`, "Embedded Experiences Requirements":**
+  - "The use of any Twitch embeddable experience must comply with the requirements below and the
+    Twitch Developer Services Agreement."
+  - "Embeds must adhere to the minimum height and width requirements outlined in their respective
+    attribute tables."
+  - "Twitch may revoke embed usage for domains that are not in compliance."
+  - The page states two other consequences. A missing `parent` "will trigger a playback error
+    message". An obscured embed may have features "disabled", for example "the ability to send chat
+    messages". Neither concerns size.
+- **So the minimum is a REQUIREMENT, not a rendering recommendation.**
+  - It is phrased as "must".
+  - It sits in a list the page ties to the Twitch Developer Services Agreement.
+  - Its stated enforcement is revocation for non-compliant domains.
+  - No page states what happens to an embed below it.
+- **The agreement itself: NOT READ.** Its pages, `https://legal.twitch.com/legal/developer-agreement/`
+  and its `/en/` path, returned only the site's navigation to the fetch tool, without the
+  agreement's text. Whether the agreement states a size rule, or incorporates the documentation's,
+  is unknown.
+- **What this means for the proposal, recorded and not decided:**
+  - **Technically, the minimum is not a wall on this phone.** The app has been running the embed
+    below it in width at 360 and 384 dp, and below it in height on this phone as set and at its
+    default size (298 and 295 CSS px), and the embed plays.
+  - **By the documentation, it is still a requirement.** The proposal's principle 3 stands as written
+    there: going below 300 dp, and how far, is the owner's and Federico's decision. That decision
+    now also covers the width the app already uses, which the 300 dp alone never addressed.
+
+**The restore, exactly as this plan records it.**
+- **At 10:19,** `wm size reset` and `wm density 382`, each with `exit=0`. The rotation was never
+  changed.
+- **Read back:** `Physical size: 1080x2400` with no override, density 450 physical and 382 override,
+  `display_density_forced` 382, `lock 0`, `accelerometer_rotation` 0, font scale 1.15.
+- **The residue, as on 2026-11-10:**
+  - `wm size reset` left `display_size_forced` as an empty key where it had been `null`;
+  - `settings delete global display_size_forced`, run as a step of its own after that read, printed
+    "Deleted 1 rows";
+  - it then read `null`.
+- **The reference reading, identical:** with the app on its chat page and the stream off, the list
+  is 1604 px, 671.8 dp. Then Home, with the launcher in front, as before.
+- **"Disable permission monitoring" restored and confirmed.**
+  - Federico switched it off. At 10:32, with no restart and an uptime of 4:44, the same-value write
+    was still accepted with `remote exit=0`.
+  - Federico restarted the phone. At 10:35, under a minute after boot, the same write was refused
+    with `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`.
+  - Every value read then is as it was before the step. The restart ended the dev app's process.
+
+**The phone's probe files compared, by name and size only.**
+- **The ruling** opened `V/probedir-before.txt` and the 131 `dump-name.txt` files for their names and
+  sizes. What each holds was read first from the code that writes it, `C/run.sh` and
+  `V/sitting.sh`. No other field was read.
+  - **`dump-name.txt`** holds one line: the base name of the dump `run.sh` copied from the phone's
+    `files/startup-probe/<name>.json` into `probe.json`. For a calibration run it also copied
+    `<name>-calibration.json` into `calibration.json`.
+  - **`V/probedir-before.txt`** is `sitting.sh probedir`'s output: a label, "before", then
+    `run-as … ls -la files/startup-probe`. **So it lists the phone's probe files,** as they stood when
+    it was written. Its file is dated 2026-11-06 09:21 (+01:00).
+- **The listing holds 213 entries:** 211 dumps, plus the probe's `flag` and `latest`.
+  - The 211 dumps are 208 `run-<ms>.json` and 3 `run-<ms>-calibration.json`.
+  - That is the 211 the owner cites for the phone today. Whether the phone changed since 2026-11-06
+    was not read: the phone's directory was not listed in this step.
+- **`run.sh` never deletes the phone's dumps.** Its only `rm` removes `flag` and `latest`, although its
+  header comment says the dumps are deleted after a checked copy. That is why the phone still holds
+  them.
+- **The comparison,** in `docs/inventory/nbpromec1-probe-compare-2026-11-11.tsv`. It has one row per
+  name, giving the status, the phone's name and bytes, and the local path and bytes:
+
+  | Status | Count | Bytes on the phone | Names dated (local time) |
+  |---|---|---|---|
+  | Match: same name, same size | 133 dumps: 131 probes, 2 calibrations | 30,805,808 | 2026-11-03 08:57 to 2026-11-05 09:32 |
+  | Same name, different size | 0 | | |
+  | On the phone only | 78 dumps: 77 probes, 1 calibration; plus `flag` and `latest` | 9,994,153, plus 32 | 2026-11-02 14:36 to 2026-11-05 08:59 |
+  | On this machine only | 0 | | |
+
+  - **Every copy on this machine is on the phone, byte for byte in size,** and every one of the 131
+    launches with a dump name cites a different dump.
+  - **The 78 found only on the phone:**
+    - 34 are named on 2026-11-02, before this machine's first copy.
+    - 41 are named on 2026-11-04 and 3 on 2026-11-05, among this machine's own. In all, 44 fall
+      inside the span of the matched ones.
+    - By names and sizes alone, where they were driven from cannot be told. The other machine's
+      folder is the other half of the comparison. One launch here, `K5-1`, has no copy and no dump
+      name, so its dump, if one was written, would be among them.
+- **Nothing was deleted,** here or on the phone.
+- **Scanned before commit:** the comparison holds dump names, local launch paths and sizes only. It
+  has no account name, channel name, token or message text.
