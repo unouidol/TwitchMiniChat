@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prototype 5d-layout-b. A problem: a triangle with an exclamation mark cut out of it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+
+    <path
+        android:fillColor="@color/tmc_status_problem"
+        android:fillType="evenOdd"
+        android:pathData="M8,1L15.5,14.5H0.5Z M7.1,5.5H8.9V10H7.1Z M7.1,11.2H8.9V13H7.1Z" />
+
+</vector>

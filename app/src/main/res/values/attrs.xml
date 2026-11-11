@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Prototype 5d-layout-b: the chat page's yielding children, named by id. -->
+    <declare-styleable name="ChatPageLayout">
+        <attr name="chatPageListId" format="reference" />
+        <attr name="chatPagePlayerId" format="reference" />
+        <attr name="chatPagePickerId" format="reference" />
+        <attr name="chatPagePickerMinHeight" format="dimension" />
+    </declare-styleable>
+</resources>

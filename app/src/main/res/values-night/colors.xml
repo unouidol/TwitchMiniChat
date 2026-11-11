@@ -2,4 +2,9 @@
 <resources>
     <color name="tmc_on_surface_strong">#FFFFFF</color>
     <color name="tmc_on_surface_muted">#F1F1F1</color>
+    <!-- Prototype 5d-layout-b: the connection indicator's colours, for a dark bar. -->
+    <color name="tmc_status_connected">#66BB6A</color>
+    <color name="tmc_status_in_progress">#FFB74D</color>
+    <color name="tmc_status_disconnected">#9E9E9E</color>
+    <color name="tmc_status_problem">#EF5350</color>
 </resources>

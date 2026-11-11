@@ -11,8 +11,6 @@
     <string name="chat_messages">Chat messages</string>
     <string name="stream_off">Video ON</string>
     <string name="stream_on">Video OFF</string>
-    <string name="mute">Mute</string>
-    <string name="unmute">Unmute</string>
     <string name="stream_player">Stream player</string>
     <string name="account_not_found">Account not found</string>
     <string name="status_connecting">Connecting as @%1$s on #%2$s…</string>
@@ -24,6 +22,19 @@
     <string name="status_read_error">Read error: %1$s</string>
     <string name="status_send_error">Send error: %1$s</string>
     <string name="status_disconnected_account">Disconnected (@%1$s)</string>
+    <!-- Prototype 5d-layout-b: the status in the channel bar, and the stream controls. -->
+    <string name="status_state_connected">Connected</string>
+    <string name="status_state_in_progress">Connecting</string>
+    <string name="status_state_disconnected">Disconnected</string>
+    <string name="status_state_problem">Connection problem</string>
+    <string name="status_user_name">\@%1$s</string>
+    <string name="status_channel_name">#%1$s</string>
+    <string name="stream_watch">Watch stream</string>
+    <string name="stream_hide">Hide stream</string>
+    <string name="mute_stream">Mute stream</string>
+    <string name="unmute_stream">Unmute stream</string>
+    <string name="chat_page_player_refused">Not enough room for the stream player. It comes back when there is room.</string>
+    <string name="chat_page_picker_refused">Not enough room for the emote picker. It comes back when there is room.</string>
     <string name="delete_account">Delete account</string>
     <string name="reauthorize_account">Reauthorize account</string>
     <string name="reauthorize_account_description">Reauthorize Twitch account @%1$s</string>

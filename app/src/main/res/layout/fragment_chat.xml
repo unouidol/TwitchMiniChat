@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+    Prototype 5d-layout-b, not for merging. The root shares its height at measure time
+    (ChatPageLayout, ChatPagePolicy): the composer row always stays on screen, the player keeps
+    its full height or is refused, and the picker shrinks toward its minimum before the list
+    goes below its floor.
+-->
+<com.fs.twitchminichat.ui.page.ChatPageLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootChat"
     android:layout_width="match_parent"
@@ -7,12 +13,17 @@
     android:orientation="vertical"
     android:clickable="true"
     android:focusable="true"
-    android:focusableInTouchMode="true">
+    android:focusableInTouchMode="true"
+    app:chatPageListId="@+id/chatListFrame"
+    app:chatPagePlayerId="@+id/geckoStreamView"
+    app:chatPagePickerId="@+id/emotePickerPanel"
+    app:chatPagePickerMinHeight="@dimen/chat_page_picker_min_height">
 
     <LinearLayout
         android:id="@+id/channelSwitchBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
         android:padding="8dp">
 
@@ -28,6 +39,71 @@
             android:minHeight="48dp"
             android:paddingStart="12dp"
             android:paddingEnd="12dp" />
+
+        <!-- The connection: an indicator, then the user name and the channel, read as one item. -->
+        <LinearLayout
+            android:id="@+id/statusCluster"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="4dp"
+            android:focusable="true"
+            android:contentDescription="@string/status_state_disconnected">
+
+            <ImageView
+                android:id="@+id/imgStatusIndicator"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:importantForAccessibility="no"
+                android:contentDescription="@string/status_state_disconnected"
+                android:src="@drawable/ic_status_disconnected" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/textStatusUser"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:importantForAccessibility="no"
+                    android:maxLines="1"
+                    android:maxWidth="@dimen/chat_status_names_max_width"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/textStatusChannel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:importantForAccessibility="no"
+                    android:maxLines="1"
+                    android:maxWidth="@dimen/chat_status_names_max_width"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btnMuteStream"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/unmute_stream"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:src="@drawable/ic_volume_off_24"
+            android:visibility="gone"
+            app:tint="?attr/colorOnSurface" />
 
 
         <ImageButton
@@ -67,6 +143,17 @@
 
     </LinearLayout>
 
+    <!-- Shown only for the problem states, with their words: what happened, and what to do. -->
+    <TextView
+        android:id="@+id/textStatusProblem"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="4dp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <LinearLayout
         android:id="@+id/topActionsRow"
         style="?android:attr/buttonBarStyle"
@@ -97,30 +184,6 @@
             android:text="@string/stream_off" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/textStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="12dp"
-        android:text="@string/status_disconnected"
-        android:textStyle="bold" />
-    <LinearLayout
-        android:id="@+id/streamControlsBox"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingBottom="8dp">
-
-        <Button
-            android:id="@+id/btnMuteStream"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/unmute"
-            android:visibility="gone" />
-    </LinearLayout>
-
     <org.mozilla.geckoview.GeckoView
         android:id="@+id/geckoStreamView"
         android:layout_width="match_parent"
@@ -128,6 +191,7 @@
         android:visibility="gone"
         android:contentDescription="@string/stream_player" />
     <FrameLayout
+        android:id="@+id/chatListFrame"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -244,4 +308,4 @@
 
         </LinearLayout>
 
-</LinearLayout>
+</com.fs.twitchminichat.ui.page.ChatPageLayout>

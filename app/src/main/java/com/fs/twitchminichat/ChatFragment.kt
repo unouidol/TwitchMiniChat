@@ -65,6 +65,13 @@ import com.fs.twitchminichat.chat.HistoryBackfillState
 import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.chat.ChatMentionSuggestions
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
+import com.fs.twitchminichat.ui.page.ChatConnectionStatusPresenter
+import com.fs.twitchminichat.ui.page.ChatPageAllocation
+import com.fs.twitchminichat.ui.page.ChatPageLayout
+import com.fs.twitchminichat.ui.page.ChatPagePolicy
+import com.fs.twitchminichat.ui.page.ChatRowHeightMeter
+import com.fs.twitchminichat.ui.page.PrototypeKnobs
+import android.content.BroadcastReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -179,7 +186,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private val mentionDropdownMaxVisibleRows = 5
 
     private lateinit var channelSwitchBox: LinearLayout
-    private lateinit var textStatus: TextView
+    /** Prototype 5d-layout-b: the connection's state in the channel bar, and its problem row. */
+    private lateinit var connectionStatus: ChatConnectionStatusPresenter
+    /** Prototype 5d-layout-b: the page root, which shares the height at measure time. */
+    private lateinit var chatPage: ChatPageLayout
+    /** Prototype 5d-layout-b: the floor, label and demo-name switches, dev flavour only. */
+    private var prototypeKnobs: PrototypeKnobs? = null
+    private var prototypeKnobsReceiver: BroadcastReceiver? = null
     /** The chat timeline's list: only the shown rows, each with a view while the list lays it out. */
     private lateinit var chatList: RecyclerView
     /** Orders asynchronous history and live rows by Twitch timestamp. */
@@ -243,7 +256,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private lateinit var geckoStreamView: GeckoView
     private lateinit var btnToggleStream: Button
-    private lateinit var btnMuteStream: Button
+    private lateinit var btnMuteStream: ImageButton
 
     private lateinit var replyBar: LinearLayout
     private lateinit var txtReplyInfo: TextView
@@ -1492,7 +1505,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         channelSwitchBox = view.findViewById(R.id.channelSwitchBox)
-        textStatus = view.findViewById(R.id.textStatus)
+        connectionStatus = ChatConnectionStatusPresenter(
+            cluster = view.findViewById(R.id.statusCluster),
+            indicator = view.findViewById(R.id.imgStatusIndicator),
+            userText = view.findViewById(R.id.textStatusUser),
+            channelText = view.findViewById(R.id.textStatusChannel),
+            problemRow = view.findViewById(R.id.textStatusProblem)
+        )
+        chatPage = view.findViewById(R.id.rootChat)
         chatList = view.findViewById(R.id.chatList)
         chatTimelineController = ChatTimelineController(chatList, rowViewBinder)
         val animationGate = EmoteAnimationGate<AnimatedEmoteRow>(
@@ -1742,9 +1762,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         cfg?.channel?.let { channelHistory.add(accountId, it) }
         refreshChannelsDropdown()
 
-        textStatus.text = cfg?.let {
-            getString(R.string.status_loading, it.username, it.channel)
-        } ?: getString(R.string.account_not_found)
+        /* Prototype 5d-layout-b: loading is the in-progress state; no account is a problem. */
+        cfg?.let {
+            connectionStatus.showLoading(it.username, it.channel)
+        } ?: connectionStatus.showProblem(getString(R.string.account_not_found), null, null)
+
+        setUpPrototypePage()
 
 
         val clearChannelFocusClickListener = View.OnClickListener {
@@ -1774,7 +1797,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         /* A tap no row takes, between, around or below the rows: RecyclerView would never click on its own. */
         chatList.setOnClickListener(clearChannelFocusClickListener)
         attachEmptySpaceTaps(chatList)
-        textStatus.setOnClickListener(clearChannelFocusClickListener)
+        view.findViewById<View>(R.id.statusCluster).setOnClickListener(clearChannelFocusClickListener)
+        view.findViewById<View>(R.id.textStatusProblem).setOnClickListener(clearChannelFocusClickListener)
         replyBar.setOnClickListener(clearChannelFocusClickListener)
 
         editMessage.setOnClickListener {
@@ -1994,6 +2018,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     override fun onStart() {
         super.onStart()
 
+        prototypeKnobsReceiver = prototypeKnobs?.register(requireContext()) { applyPrototypeKnobs() }
+
         /*
          * Started, and current only if the pager's owner says so: a neighbour page is
          * started too, and is never resumed or paused while it is not current.
@@ -2063,6 +2089,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     override fun onStop() {
         super.onStop()
 
+        prototypeKnobs?.unregister(requireContext(), prototypeKnobsReceiver)
+        prototypeKnobsReceiver = null
+
         /* The app went to the background, or something covers it: nothing runs. */
         (activity as? CurrentChatPageSource)?.removeCurrentChatPageListener(currentChatPageListener)
         emoteAnimationGate?.onStopped()
@@ -2077,9 +2106,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         streamSession?.setActive(false)
         closeIrcClient(resetBackoff = true)
 
-        textStatus.text = cfg?.let {
-            getString(R.string.status_disconnected_account, it.username)
-        } ?: getString(R.string.status_disconnected)
+        /* Prototype 5d-layout-b: both disconnected texts are the disconnected state. */
+        connectionStatus.showDisconnected(cfg?.username, cfg?.channel)
     }
 
     /** Cancels one pending reconnect callback. */
@@ -2203,14 +2231,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     ircReconnectBackoff.reset()
                     sendReady = true
 
-                    val ctx = context
-                        ?: return@runUiIfAlive
+                    if (context == null) return@runUiIfAlive
 
-                    textStatus.text = ctx.getString(
-                        R.string.status_connected,
-                        chatUsername,
-                        ch
-                    )
+                    connectionStatus.showConnected(chatUsername, ch)
 
                     Log.d(
                         "TWITCH_IRC",
@@ -2301,9 +2324,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     val ctx = context
                         ?: return@runUiIfAlive
 
-                    textStatus.text = ctx.getString(
-                        R.string.status_read_error,
-                        error.message ?: "unknown"
+                    connectionStatus.showProblem(
+                        ctx.getString(R.string.status_read_error, error.message ?: "unknown"),
+                        chatUsername,
+                        ch
                     )
                 }
             },
@@ -2329,9 +2353,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                             )
 
                             closeIrcClient(resetBackoff = true)
-                            textStatus.text = getString(
-                                R.string.status_backend_session_reauthorize,
-                                chatUsername
+                            connectionStatus.showProblem(
+                                getString(R.string.status_backend_session_reauthorize, chatUsername),
+                                chatUsername,
+                                ch
                             )
                         }
 
@@ -2409,14 +2434,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         applyBackfillDecision(c, HistoryBackfillPolicy::onConnect)
 
         val ch = c.channel.trim().removePrefix("#").lowercase()
-        textStatus.text = getString(R.string.status_connecting, c.username, ch)
+        connectionStatus.showConnecting(c.username, ch)
 
         val profileId = c.profileId.trim()
         val localToken = c.accessToken.trim()
 
         if (profileId.isBlank()) {
             if (localToken.isBlank()) {
-                textStatus.text = getString(R.string.status_missing_token, c.username)
+                connectionStatus.showProblem(getString(R.string.status_missing_token, c.username), c.username, ch)
                 return
             }
 
@@ -2461,17 +2486,19 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                     BackendIrcTokenResult.ReauthorizationRequired -> {
                         val ctx = context ?: return@runUiIfAlive
-                        textStatus.text = ctx.getString(
-                            R.string.status_backend_session_reauthorize,
-                            c.username
+                        connectionStatus.showProblem(
+                            ctx.getString(R.string.status_backend_session_reauthorize, c.username),
+                            c.username,
+                            ch
                         )
                     }
 
                     BackendIrcTokenResult.Failed -> {
                         val ctx = context ?: return@runUiIfAlive
-                        textStatus.text = ctx.getString(
-                            R.string.status_backend_auth_failed,
-                            c.username
+                        connectionStatus.showProblem(
+                            ctx.getString(R.string.status_backend_auth_failed, c.username),
+                            c.username,
+                            ch
                         )
                     }
                 }
@@ -3492,20 +3519,58 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun updateStreamUi() {
         if (!this::btnToggleStream.isInitialized) return
 
-        btnToggleStream.text = if (streamEnabled) {
-            getString(R.string.stream_on)
-        } else {
-            getString(R.string.stream_off)
-        }
+        /* Prototype 5d-layout-b: the label set is a dev switch; today's is the default. */
+        val labels = prototypeKnobs?.streamLabels ?: PrototypeKnobs.StreamLabels.TODAY
+        btnToggleStream.text = getString(if (streamEnabled) labels.whenOn else labels.whenOff)
 
         geckoStreamView.visibility = if (streamEnabled) View.VISIBLE else View.GONE
         btnMuteStream.visibility = if (streamEnabled) View.VISIBLE else View.GONE
 
-        btnMuteStream.text = if (streamMuted) {
-            getString(R.string.unmute)
-        } else {
-            getString(R.string.mute)
+        /* The icon shows the sound's state; the description names the action a tap takes. */
+        btnMuteStream.setImageResource(if (streamMuted) R.drawable.ic_volume_off_24 else R.drawable.ic_volume_up_24)
+        btnMuteStream.contentDescription = getString(if (streamMuted) R.string.unmute_stream else R.string.mute_stream)
+    }
+
+    /**
+     * Prototype 5d-layout-b: gives the page its floor from a measured row at the user's font
+     * scale, tells the user when a panel is refused, and applies the dev switches.
+     */
+    private fun setUpPrototypePage() {
+        val knobs = if (PrototypeKnobs.ENABLED) PrototypeKnobs(requireContext()) else null
+        prototypeKnobs = knobs
+        chatPage.onRefusalChanged = { allocation -> onChatPageRefusalChanged(allocation) }
+        applyPrototypeKnobs()
+    }
+
+    private var lastPageRefusal: ChatPageAllocation? = null
+
+    /** Says once, each time it starts, that a panel was refused for lack of room. */
+    private fun onChatPageRefusalChanged(allocation: ChatPageAllocation) {
+        val ctx = context ?: return
+        val previous = lastPageRefusal
+        lastPageRefusal = allocation
+        if (allocation.playerRefused && previous?.playerRefused != true) {
+            Toast.makeText(ctx, R.string.chat_page_player_refused, Toast.LENGTH_SHORT).show()
         }
+        if (allocation.pickerRefused && previous?.pickerRefused != true) {
+            Toast.makeText(ctx, R.string.chat_page_picker_refused, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Applies the floor, the stream labels and the demo names. */
+    private fun applyPrototypeKnobs() {
+        if (!this::chatPage.isInitialized || context == null) return
+        val rows = prototypeKnobs?.floorRows ?: PrototypeKnobs.DEFAULT_FLOOR_ROWS
+        val rowPx = ChatRowHeightMeter.emoteRowHeightPx(requireContext())
+        chatPage.listFloorPx = ChatPagePolicy.listFloorPx(rows, rowPx, chatList.paddingBottom)
+        Log.d(
+            "CHAT_PAGE",
+            "floor rows=$rows rowPx=$rowPx listBottomPadding=${chatList.paddingBottom} " +
+                    "floorPx=${chatPage.listFloorPx} density=${resources.displayMetrics.density} " +
+                    "fontScale=${resources.configuration.fontScale}"
+        )
+        connectionStatus.setDemoNames(prototypeKnobs?.demoUser, prototypeKnobs?.demoChannel)
+        updateStreamUi()
     }
 
     private fun enableStream() {

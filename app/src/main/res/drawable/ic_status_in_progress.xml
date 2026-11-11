@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prototype 5d-layout-b. In progress, loading or connecting: an open ring. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+
+    <path
+        android:strokeColor="@color/tmc_status_in_progress"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M8,2.25A5.75,5.75 0,1 1,2.25,8" />
+
+</vector>

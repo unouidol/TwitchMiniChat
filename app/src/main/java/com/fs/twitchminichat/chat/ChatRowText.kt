@@ -141,7 +141,8 @@ object ChatRowText {
     private const val HASHED_SATURATION = 0.75f
     private const val HASHED_VALUE = 0.95f
 
-    private const val MESSAGE_TEXT_SIZE_SP = 14f
+    /** A message row's text size, in sp. Also read by the page to measure a row's height. */
+    internal const val MESSAGE_TEXT_SIZE_SP = 14f
     private const val SYSTEM_LINE_TEXT_SIZE_SP = 12f
 
     /**

@@ -5,4 +5,9 @@
     <color name="quick_catch_normal_row_bg">#00000000</color>
     <color name="tmc_on_surface_strong">#111111</color>
     <color name="tmc_on_surface_muted">#222222</color>
+    <!-- Prototype 5d-layout-b: the connection indicator's colours. The shapes alone tell the states apart. -->
+    <color name="tmc_status_connected">#1B7F3B</color>
+    <color name="tmc_status_in_progress">#B26A00</color>
+    <color name="tmc_status_disconnected">#6B6B6B</color>
+    <color name="tmc_status_problem">#C62828</color>
 </resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prototype 5d-layout-b. Disconnected: a hollow circle with a bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+
+    <path
+        android:strokeColor="@color/tmc_status_disconnected"
+        android:strokeWidth="2"
+        android:pathData="M8,2A6,6 0,1 1,8,14A6,6 0,1 1,8,2Z" />
+
+    <path
+        android:strokeColor="@color/tmc_status_disconnected"
+        android:strokeWidth="2"
+        android:pathData="M3.76,12.24L12.24,3.76" />
+
+</vector>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Prototype 5d-layout-b: the widest the user name and the channel may grow in the channel bar. -->
+    <dimen name="chat_status_names_max_width">96dp</dimen>
+    <!-- Prototype 5d-layout-b: the emote picker's smallest useful height. Its full height is its layout's. -->
+    <dimen name="chat_page_picker_min_height">152dp</dimen>
+</resources>

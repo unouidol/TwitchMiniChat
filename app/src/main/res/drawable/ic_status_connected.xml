@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prototype 5d-layout-b. Connected: a filled circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+
+    <path
+        android:fillColor="@color/tmc_status_connected"
+        android:pathData="M8,1.5A6.5,6.5 0,1 1,8,14.5A6.5,6.5 0,1 1,8,1.5Z" />
+
+</vector>
