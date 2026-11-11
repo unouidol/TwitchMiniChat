@@ -1017,6 +1017,10 @@ regime in the list itself: the list sync, the RecyclerView, scrolling, emotes an
       `standin_adb.sh` `17dfbfca806b0830e049b5ff198301106ffafe1c9ecc780c12520a4988a61b1d`. A rebuild
       from the descriptions, not the suite of 2026-11-06 (*Recorded results*, 2026-11-09, the poll
       counted per page).
+      - **The original was found on `nbpromec1` on 2026-11-11,** outside the repository, in the
+        scratch folder of the session that wrote it. Its runner was an inline command, never a file.
+        Its 15 expected exits are the rebuilt C1 to C15's, and it asserted the exit code only
+        (*Recorded results*, 2026-11-11, the original suite found).
       - **As the session runs it, since 2026-11-09 at 11:59:** with the stand-in corrected to the
         phone's exit 0 on a failed read, and the replaced-process cases R1 and R2 added, 24 cases:
         `sitting_suite.sh` `99dd85509f62bb2d0f61b09aefaef81e0092a9068f5c0bd82d361f8a64e33e3e` and
@@ -3353,6 +3357,9 @@ has been read.
     - **Two things are still to be chosen, from numbers and not before them:** the floor's value, and
       how the panels give way. The layout's thresholds are in *Recorded results* (the decision and the
       thresholds, 2026-11-10).
+    - **The numbers for both are in *Recorded results* (2026-11-11, the layout fix, a design
+      proposal),** with the owner's principles, the variants for the top of the page and the stream
+      button's labels. Nothing there is chosen: the floor, the arrangement and the words are Federico's.
     - **The reasoning is Federico's own.** He does not use the stream and the chat together much
       himself, but will not guess what others do, and he observes that the defect may depend on screen
       size. Those two statements decide between the options:
@@ -3487,6 +3494,9 @@ has been read.
   - **Not written yet.** It waited on Federico's landscape decision, since both may land together.
     That decision is made: a minimum height on the list (the entry above). The guard is still not
     written, and may land with that fix.
+    - **Written on 2026-11-11, on its own, by the owner's ruling:** #103, `7b65732` on
+      `fix/scroll-to-bottom-detached-guard`, exactly `if (!isAdded) return@post` at the top of
+      `scrollToBottom`'s runnable. Continuous integration passed on that exact head. Not merged.
   - **The test that would exercise it: DEFERRED, WITH ITS COST WRITTEN, not forgotten.** It would be
     an instrumented test in `androidTest`, where Espresso is configured.
     - It brings a chat page up and causes one `scrollToBottom` post through an ordinary path.
@@ -7588,3 +7598,758 @@ supersedes the "blocked" and "computed and not measured" points of the entry abo
       `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`.
     - Every value read back is still as it was before the step. The reboot ended the processes that
       had been running, the dev app's among them.
+
+**2026-11-11: the layout fix, a DESIGN PROPOSAL checked against the measured tables; no code.** These
+are the owner's rulings: Ruling 3, its addendum on the top of the page, and the update that replaced
+the addendum's point (b). Read on `main-v5` at `44e22da`, on `nbpromec1`. The numbers are computed
+with the plan's threshold model. Nothing ran on the phone. Nothing here chooses a floor, a variant
+or a label: those are Federico's.
+- **Severity, recorded in the owner's words.** Federico's phone MASKS the defect, because its display
+  size is set smaller than default (density 382 against 450). At the default size, and on the typical
+  phone class, portrait with the stream on and the keyboard up leaves NO chat and the composer's text
+  field off or partly off screen — the main use of the player on a typical phone. Pre-existing,
+  present in 5.5.1.
+- **The principles, fixed by the owner.** The proposal satisfies them, or says exactly where it cannot.
+  1. HARD INVARIANT: the composer's text field is always entirely on screen.
+  2. The list keeps a FLOOR wherever the page has room for the bars plus the floor.
+  3. YIELD ORDER: transient before persistent. The emote picker shrinks first and the stream player
+     second, each to its own minimum useful height, before anything is refused.
+  4. Refusing to open a panel is the last resort, and it is NEVER SILENT: the user is told why.
+  5. The floor is expressed in ROWS at the user's font scale, not as a round dp number. Its count is a
+     taste decision, and it is Federico's.
+- **How the model was checked before it was used.** It is the *Backlog*'s clamp, with the children
+  measured on 2026-11-10: bars 578 px, 242.1 dp (channel bar 153 px, action row 134, status line 110,
+  the stream controls' padding 19, composer row 162), mute button 115 px, 48.2 dp, player 300 dp,
+  picker 240 dp, reply bar 56.5 dp. The text field lies 9.6 to 57.8 dp below the composer row's top.
+  - Recomputed, it gives all 34 predictions of the simulation table, each list within 0.15 dp and
+    every field state exact.
+  - It also gives the 24 reference classes, each within 0.6 dp of the measured list.
+  - The tables below use each geometry's own measured bars (242.4 to 243.2 dp). The arithmetic and the
+    measurements disagreed by at most 1.1 dp on 2026-11-10, and the same tolerance holds here.
+
+**How each height is set today, read.**
+- **The stream player:** `fragment_chat.xml:127`, `layout_height="300dp"`, with width `match_parent`
+  (`:126`) and `gone` by default (`:128`).
+  - Code changes only its visibility: `updateStreamUi` (`ChatFragment.kt:3501`), `enableStream`
+    (`:3514`) and `disableStream` (`:3522`).
+  - No code sets its size.
+- **The mute button:** `btnMuteStream`, a `Button` with `wrap_content` (`:116-121`), the only child of
+  `streamControlsBox` (`:107-122`).
+  - Its height is the Material button's 48 dp minimum: 115 px measured, 48.2 dp.
+  - It is shown with the player (`ChatFragment.kt:3502`). Its text is `unmute` "Unmute" while muted,
+    the default (`streamMuted = true`, `:618`), and `mute` "Mute" otherwise (`:3504-3508`).
+  - **The box's `paddingBottom="8dp"` (`:114`) is paid with the stream off too.** The box stays visible
+    with its only child gone. That is the 19 px, 8.0 dp, among the bars.
+- **The emote picker:** `view_twitch_emote_picker.xml:6`, `layout_height="240dp"`, included at
+  `fragment_chat.xml:185`.
+  - Its visibility is set by `TwitchEmotePickerController.open` and `close` (`:115`, `:136`).
+- **The reply bar:** `fragment_chat.xml:159-183`, `wrap_content`, with 4 dp of padding top and bottom.
+  - It holds a text of at most two lines (`:176`) beside the `X` button: 135 px measured, 56.5 dp.
+  - It is shown by `setPendingReply` (`ChatFragment.kt:3482`) and hidden by `clearPendingReply`
+    (`:3489`).
+- **The composer row:** `minHeight="56dp"` (`:190`). The Send button's 56 dp height (`:225`) and the
+  row's 6 dp padding (`:193`) make it 162 px, 67.9 dp.
+
+**The picker scrolls internally. Its smallest useful height is 152 dp, by reading.**
+- **Inside the 240 dp:** the 8 dp padding (`:11`) leaves 224 dp. The search row takes 48 dp (`:23`),
+  and the grid takes the rest, 176 dp less its own 4 dp top and bottom (`:55-56`): 168 dp of cells.
+- **The grid** is a `RecyclerView` with weight 1 (`:45-57`) on a six-column `GridLayoutManager`
+  (`TwitchEmotePickerController.kt:72-91`, `GRID_COLUMN_COUNT` `:318`).
+  - A cell is 80 dp (`item_twitch_emote.xml:4`). A section header takes a full row of 36 dp
+    (`item_twitch_emote_section.xml:5`).
+  - So today the panel shows 2.1 rows of cells, or a header and 1.6 rows.
+- **Smallest useful: one complete row of six cells under the search field,**
+  8 + 48 + 4 + 80 + 4 + 8 = 152 dp. Below that, no row of emotes is whole. A header at the top sits
+  above a cut row until the grid is scrolled.
+  - Hiding the search row under compression would reach 104 dp. It is not proposed, because it
+    removes a function.
+- From the dimensions; not measured.
+
+**The player's surface: a Twitch embed filling the view, with no aspect ratio of its own. Its
+documented minimum is 400 by 300 px, so it has no room to yield.**
+- **What the view loads, read:** `buildStreamUrl` (`ChatFragment.kt:3303-3306`) loads
+  `https://unouidol.github.io/ircminichat/player.html?channel=…&muted=…`.
+  - The page lives in the public repository `unouidol/ircminichat` and is served by GitHub Pages from
+    `main`, folder `/docs`.
+  - `docs/player.html` and `player.html` are byte-identical, 1767 bytes. Their last commits are
+    `4c3a2b1` and `2a032fd`, both of 2026-03-30.
+- **What the page contains, read:**
+  - a black page, with `html`, `body` and `#player` at 100% width and height and overflow hidden;
+  - `new Twitch.Player("player", { width: "100%", height: "100%", channel, parent:
+    ["unouidol.github.io"], autoplay: false, muted })`, from `player.twitch.tv/js/embed/v1.js`.
+  - **It sets no size and keeps no ratio.** The embed fills whatever the GeckoView is given.
+- **What the embed needs, read in Twitch's documentation on 2026-11-11**
+  (`dev.twitch.tv/docs/embed/video-and-clips/` and `dev.twitch.tv/docs/embed/`):
+  - "Embedded video windows must be at least 400x300 pixels." The iframe attribute table gives height
+    "Minimum: 300" and width "Minimum: 400".
+  - "Embeds must adhere to the minimum height and width requirements outlined in their respective
+    attribute tables."
+  - The only consequence the pages state: "Minimum size requirements and visibility are necessary for
+    autoplay to begin", with mobile devices excepted. TMC sets `autoplay: false`.
+  - Embeds "should not be obscured in any way by other page elements".
+  - **Nothing on aspect ratio, or on how a video is fitted into a box of another shape.**
+  - `getPlaybackStats()` returns `videoResolution`, "The native resolution of the current video (eg.
+    640x480)", and `displayResolution`, "The current size of the video player element".
+- **The 300 dp is exactly the documented minimum height.** Whether it was chosen for that reason is
+  not recorded; it is inferred from the match.
+- **One CSS pixel is taken as one dp.** The page's `width=device-width` viewport is what gives that.
+  NOT VERIFIED on the phone: `displayResolution` would read it.
+  - The stream session is built with `USER_AGENT_MODE_DESKTOP` (`GeckoSessionManager.kt:1691`). That
+    sets the user agent, not the viewport mode, and is not verified either.
+- **Today's width is already below the documented 400 on two geometries in portrait:** 360 dp (the
+  compact phone) and 384 dp (this phone at its default size). That is today's state, not the
+  proposal's.
+- **Smallest useful height, by the documentation: 300 px, today's.** Below it, the embed's behaviour is
+  neither documented nor observed.
+
+**Where the proposal cannot meet the principles as stated: principle 3, for the player.**
+- Within Twitch's documented minimum, the player cannot shrink at all. Its minimum is its height.
+- So the yield order is: the picker shrinks from 240 to 152 dp; the player keeps its 300 dp; the next
+  step is a refusal.
+- **Letting the player below 300 dp departs from Twitch's documented requirement.** Its useful minimum
+  below 300 would then have to be measured. That is a decision for Federico and the owner, not taken
+  here, and no number below 300 is assumed anywhere in this entry.
+
+**The smallest mechanism that guarantees the invariants: an allocation made at measure time, in the
+page's own `LinearLayout`.**
+- **What it is.** The root of `fragment_chat.xml` becomes a small `LinearLayout` subclass. Its
+  `onMeasure` does three things, in order:
+  1. it measures every child that never yields: the bars, the reply bar when shown, and the composer
+     row;
+  2. it gives the panels their heights from a pure function, in this order: the floor; then the
+     player, at full height or refused; then the picker, at 240 dp, or less down to 152, or refused;
+  3. it lets the list take what is left.
+  - The function holds the whole policy, and can be unit-tested without a device. The subclass only
+    applies it.
+- **A refusal is decided at two moments:**
+  - **when a panel is asked to open and its minimum does not fit:** it does not open, and a one-line
+    message says why, from a string resource;
+  - **when an open panel no longer fits because the page shrank** (the keyboard, a rotation, the reply
+    bar). How it gives way is A CHOICE STILL TO MAKE: closed, or held hidden until the room comes
+    back. Either way the user is told once.
+- **The floor is read from a row, not fixed in dp.** An emote is `textSize × 1.5`
+  (`ChatFragment.kt:3743`), so a row holding one grows with the font scale. The measure reads the row
+  height at the current font scale.
+- **Why not a smaller mechanism:**
+  - **A `minHeight` on the list's frame does nothing here.** Once the weight is shared out, the frame
+    is measured with an exact spec, which a minimum does not override. Even if it held, every child
+    below the frame, the composer included, would still be pushed off the window: once the space is
+    spent, `LinearLayout` fits nothing (the *Backlog*'s root).
+  - **A `ConstraintLayout`** can give the list a minimum and the panels maxima. It cannot express an
+    order of yielding or a refusal, and the floor at the font scale would still need code. It
+    replaces the whole layout to do less.
+  - **Heights set from a layout listener or an insets listener in `ChatFragment`** take a second
+    layout pass after every change. The frame in between shows the composer off screen, and the
+    policy would live in the fragment, against *Architecture rules*.
+  - **Measure time is the smallest place where the invariant holds on every frame,** the frame on
+    which the keyboard arrives included.
+
+**The floor's candidates: 2, 3 and 4 rows containing an emote, at font scale 1.15.**
+- **What a row is:** a row with an emote measured 68 px, 28.5 dp, on 2026-11-10.
+- **The list's padding:** its bottom padding is 12 dp. Its top padding shows rows, because the list has
+  `clipToPadding="false"` (`fragment_chat.xml:144`).
+- So a floor of n rows is n × 28.5 + 12 dp:
+
+  | Candidate | Floor |
+  |---|---|
+  | 2 rows | 69.0 dp |
+  | 3 rows | 97.4 dp |
+  | 4 rows | 125.9 dp |
+
+- None is chosen here.
+- **At font scale 1.0** the rows' part would be about 1/1.15, 87%, of its height here, if a row's
+  height follows the text, and the 12 dp of padding would not change: about 61.5, 86.3 and 111.1 dp.
+  Computed on that assumption, not measured.
+- **The "New messages" button** sits over the list's bottom right corner when shown, 48 dp tall with a
+  12 dp margin. Over a 69 dp floor it covers part of the last two rows, on the right side.
+- **What each candidate leaves the player on the typical phone with the keyboard up** (page 535.6 dp):
+  175.5, 147.0 and 118.5 dp on today's layout, where the player needs 300. Every candidate refuses the
+  player there. The variants change this; their table follows them below.
+
+**The proposal on today's layout, for every row of the simulation table and for the reference phone's
+24 classes.**
+
+**The proposal on today's layout, every row of the simulation table.** In dp. Each floor's cell is the list, then P the picker's height and S the player's, ✗ where it is refused with a message. LIMIT: the bars and the floor do not fit, every panel is refused, and the list gets what is left.
+
+| Geometry | Configuration | Page | Today, measured | Floor 2 rows, 69.0 | Floor 3 rows, 97.4 | Floor 4 rows, 125.9 |
+|---|---|---|---|---|---|---|
+| Default size, 450 | none | 769.1 | 525.9 | 525.9 | 525.9 | 525.9 |
+| Default size, 450 | picker | 769.1 | 285.9 | 285.9 · P 240 | 285.9 · P 240 | 285.9 · P 240 |
+| Default size, 450 | stream | 769.1 | 177.8 | 177.7 · S 300 | 177.7 · S 300 | 177.7 · S 300 |
+| Default size, 450 | stream, picker | 769.1 | **0.0, field off** | 177.7 · P ✗ · S 300 | 177.7 · P ✗ · S 300 | 177.7 · P ✗ · S 300 |
+| Default size, 450 | stream, picker, keyboard | 514.1 | **0.0, field off** | 69.0 · P 202 · S ✗ | 97.4 · P 173 · S ✗ | 270.9 · P ✗ · S ✗ |
+| Default size, 450 | stream, keyboard | 514.1 | **0.0, field off** | 270.9 · S ✗ | 270.9 · S ✗ | 270.9 · S ✗ |
+| Compact | none | 539.5 | 297.0 | 297.0 | 297.0 | 297.0 |
+| Compact | picker | 539.5 | 57.0 | 69.0 · P 228 | 97.4 · P 200 | 125.9 · P 171 |
+| Compact | stream | 539.5 | **0.0, field partly** | 297.0 · S ✗ | 297.0 · S ✗ | 297.0 · S ✗ |
+| Compact | stream, picker | 539.5 | **0.0, field off** | 69.0 · P 228 · S ✗ | 97.4 · P 200 · S ✗ | 125.9 · P 171 · S ✗ |
+| Compact, landscape | none | 303.5 | 61.0 | **LIMIT** 61.0 | **LIMIT** 61.0 | **LIMIT** 61.0 |
+| Compact, landscape | picker | 303.5 | **0.0, field off** | **LIMIT** 61.0 · P ✗ | **LIMIT** 61.0 · P ✗ | **LIMIT** 61.0 · P ✗ |
+| Compact, landscape | stream, picker | 303.5 | **0.0, field off** | **LIMIT** 61.0 · P ✗ · S ✗ | **LIMIT** 61.0 · P ✗ · S ✗ | **LIMIT** 61.0 · P ✗ · S ✗ |
+| Typical | none | 827.0 | 584.0 | 584.0 | 584.0 | 584.0 |
+| Typical | picker | 827.0 | 344.0 | 344.0 · P 240 | 344.0 · P 240 | 344.0 · P 240 |
+| Typical | stream | 827.0 | 235.8 | 235.8 · S 300 | 235.8 · S 300 | 235.8 · S 300 |
+| Typical | stream, picker | 827.0 | **0.0** | 69.0 · P 167 · S 300 | 235.8 · P ✗ · S 300 | 235.8 · P ✗ · S 300 |
+| Typical | stream, picker, keyboard | 535.6 | **0.0, field off** | 69.0 · P 224 · S ✗ | 97.4 · P 195 · S ✗ | 125.9 · P 167 · S ✗ |
+| Typical | stream, keyboard | 535.6 | **0.0, field partly** | 292.6 · S ✗ | 292.6 · S ✗ | 292.6 · S ✗ |
+| Large | none | 915.7 | 673.3 | 673.3 | 673.3 | 673.3 |
+| Large | picker | 915.7 | 433.3 | 433.3 · P 240 | 433.3 · P 240 | 433.3 · P 240 |
+| Large | stream | 915.7 | 325.3 | 325.1 · S 300 | 325.1 · S 300 | 325.1 · S 300 |
+| Large | stream, picker | 915.7 | 85.3 | 85.1 · P 240 · S 300 | 97.4 · P 228 · S 300 | 125.9 · P 199 · S 300 |
+| Large | stream, picker, keyboard | 630.3 | **0.0, field off** | 147.9 · P 240 · S ✗ | 147.9 · P 240 · S ✗ | 147.9 · P 240 · S ✗ |
+| Large | stream, keyboard | 630.3 | 40.0 | 387.9 · S ✗ | 387.9 · S ✗ | 387.9 · S ✗ |
+| Tablet | none | 1179.5 | 937.0 | 937.0 | 937.0 | 937.0 |
+| Tablet | picker | 1179.5 | 697.0 | 697.0 · P 240 | 697.0 · P 240 | 697.0 · P 240 |
+| Tablet | stream | 1179.5 | 589.0 | 588.8 · S 300 | 588.8 · S 300 | 588.8 · S 300 |
+| Tablet | stream, picker | 1179.5 | 349.0 | 348.8 · P 240 · S 300 | 348.8 · P 240 · S 300 | 348.8 · P 240 · S 300 |
+| Tablet | none, keyboard | 889.5 | 647.0 | 647.0 | 647.0 | 647.0 |
+| Tablet, landscape | none | 699.5 | 457.0 | 457.0 | 457.0 | 457.0 |
+| Tablet, landscape | picker | 699.5 | 217.0 | 217.0 · P 240 | 217.0 · P 240 | 217.0 · P 240 |
+| Tablet, landscape | stream | 699.5 | 109.0 | 108.8 · S 300 | 108.8 · S 300 | 457.0 · S ✗ |
+| Tablet, landscape | stream, picker | 699.5 | **0.0, field off** | 108.8 · P ✗ · S 300 | 108.8 · P ✗ · S 300 | 217.0 · P 240 · S ✗ |
+
+**The proposal on today's layout, the reference phone's 24 classes.** Page 913.9 dp in portrait, 617.8 with the keyboard up, 405.0 in landscape, where every keyboard floats. Today's lists are the measured pixels at 2.3875 px/dp.
+
+| Orientation | Panels | Keyboard | Today, measured | Floor 2 | Floor 3 | Floor 4 |
+|---|---|---|---|---|---|---|
+| portrait | none | down | 671.8 | 671.8 | 671.8 | 671.8 |
+| portrait | none | up | 375.7 | 375.7 | 375.7 | 375.7 |
+| portrait | reply | down | 615.3 | 615.3 | 615.3 | 615.3 |
+| portrait | reply | up | 319.2 | 319.2 | 319.2 | 319.2 |
+| portrait | picker | down | 431.8 | 431.8 · P 240 | 431.8 · P 240 | 431.8 · P 240 |
+| portrait | picker | up | 135.7 | 135.7 · P 240 | 135.7 · P 240 | 135.7 · P 240 |
+| portrait | picker, reply | down | 375.3 | 375.3 · P 240 | 375.3 · P 240 | 375.3 · P 240 |
+| portrait | picker, reply | up | 79.2 | 79.2 · P 240 | 97.4 · P 222 | 125.9 · P 193 |
+| portrait | stream | down | 323.8 | 323.6 · S 300 | 323.6 · S 300 | 323.6 · S 300 |
+| portrait | stream | up | 27.6 | 375.7 · S ✗ | 375.7 · S ✗ | 375.7 · S ✗ |
+| portrait | stream, reply | down | 267.2 | 267.1 · S 300 | 267.1 · S 300 | 267.1 · S 300 |
+| portrait | stream, reply | up | **0.0, composer partly under the keyboard** | 319.2 · S ✗ | 319.2 · S ✗ | 319.2 · S ✗ |
+| portrait | stream, picker | down | 83.8 | 83.6 · P 240 · S 300 | 97.4 · P 226 · S 300 | 125.9 · P 198 · S 300 |
+| portrait | stream, picker | up | **0.0, composer off screen** | 135.7 · P 240 · S ✗ | 135.7 · P 240 · S ✗ | 135.7 · P 240 · S ✗ |
+| portrait | stream, picker, reply | down | 27.2 | 69.0 · P 198 · S 300 | 97.4 · P 170 · S 300 | 267.1 · P ✗ · S 300 |
+| portrait | stream, picker, reply | up | **0.0, composer off screen** | 79.2 · P 240 · S ✗ | 97.4 · P 222 · S ✗ | 125.9 · P 193 · S ✗ |
+| landscape | none | any | 162.9 | 162.9 | 162.9 | 162.9 |
+| landscape | reply | any | 106.4 | 106.4 | 106.4 | **LIMIT** 106.4 |
+| landscape | picker | any | **0.0, composer off screen** | 162.9 · P ✗ | 162.9 · P ✗ | 162.9 · P ✗ |
+| landscape | picker, reply | any | **0.0, composer off screen** | 106.4 · P ✗ | 106.4 · P ✗ | **LIMIT** 106.4 · P ✗ |
+| landscape | stream | any | **0.0, composer off screen** | 162.9 · S ✗ | 162.9 · S ✗ | 162.9 · S ✗ |
+| landscape | stream, reply | any | **0.0, composer off screen** | 106.4 · S ✗ | 106.4 · S ✗ | **LIMIT** 106.4 · S ✗ |
+| landscape | stream, picker | any | **0.0, composer off screen** | 162.9 · P ✗ · S ✗ | 162.9 · P ✗ · S ✗ | 162.9 · P ✗ · S ✗ |
+| landscape | stream, picker, reply | any | **0.0, composer off screen** | 106.4 · P ✗ · S ✗ | 106.4 · P ✗ · S ✗ | **LIMIT** 106.4 · P ✗ · S ✗ |
+
+- **Read from the tables:**
+  - **The text field is on screen in every row and every class,** under every floor.
+  - **Where today has no chat, the proposal keeps the floor and refuses a panel.** On the typical phone
+    with stream and picker open, floor 2 keeps both, the picker at 167 dp. Floor 3 or 4 refuses the
+    picker.
+  - **Wherever the keyboard is up with the stream on, the player is refused, on every phone in the
+    tables:** the large phone and the reference included. The page cannot hold the bars, the mute
+    row, 300 dp of player and any of the floors. The tablet's one keyboard reading had no stream.
+    This is the main use the severity names, and the proposal alone cannot keep it. The variants below
+    are the owner's and Federico's first move against it.
+- **Configurations where even the bars plus the floor do not fit: a LIMIT, declared, not hidden.**
+  - **Today's layout:**
+    - the compact phone in landscape, under every floor: 61.0 dp of list, short of floor 2 by 8.0 dp;
+    - the same with the reply bar: 4.5 dp, short by 64.5;
+    - this phone in landscape with the reply bar, under floor 4: 106.4 dp, short by 19.5.
+  - **Variant A:** the same three, each about 6 dp less short. On the compact phone in landscape, A
+    misses floor 2 by 1.9 dp.
+  - **Variant B:** only the compact phone in landscape with the reply bar, short of floor 2 by
+    10.4 dp; and without the reply bar, under floor 4 only, short by 10.9.
+  - **What happens there:** every panel is refused, with its message, and the list gets what is left,
+    below the floor.
+  - **The text field stays entirely on screen in every one of them,** computed for every page of the
+    simulation and of the reference phone, with the reply bar shown and hidden.
+  - **So principle 2 cannot hold there, and principle 1 does.** No page measured so far breaks the
+    hard invariant once the panels are refused.
+  - The compact phone's keyboard configurations were not read on 2026-11-10, so they are not in these
+    numbers.
+
+**The top of the page: reclaimed first, so that the floor and the yield order are needed less often.**
+- **Federico's decisions, which replace point (b) of the addendum:**
+  - "START PCG" and the stream button STAY TEXT BUTTONS. No icons are proposed for them.
+  - The stream button's label is unclear, and is to be replaced by action labels. Federico chooses the
+    words.
+  - The status line is to be compacted: the user name and the channel, with the connection state
+    carried by an indicator.
+
+**The stream button's labels today, read.**
+- **While the player is off:** `stream_off`, "Video ON" (`strings.xml:12`). This is also the layout's
+  initial text (`fragment_chat.xml:97`).
+- **While the player is on:** `stream_on`, "Video OFF" (`strings.xml:13`).
+- Both are set by `updateStreamUi` (`ChatFragment.kt:3494-3498`), and are shown in capitals, as the
+  owner quotes them.
+- **Both read as a state, and each names the state the player is NOT in:** "VIDEO ON" is shown while
+  there is no video.
+- **The string names follow the state in which each label is shown, the reverse of their text:**
+  `stream_off` holds "Video ON".
+
+**Candidate action labels, beside "START PCG".** Each width is measured in Roboto Regular at 16.1 dp
+(14 sp × 1.15), in capitals, so it is a lower bound for the buttons' heavier weight:
+
+| Off / on | Widths |
+|---|---|
+| WATCH STREAM / HIDE STREAM (the owner's example) | 123.1 / 102.3 dp |
+| SHOW STREAM / HIDE STREAM | 113.2 / 102.3 dp |
+| START STREAM / STOP STREAM | 115.9 / 107.1 dp |
+| OPEN PLAYER / CLOSE PLAYER | 103.9 / 111.0 dp |
+| Today: VIDEO ON / VIDEO OFF; START PCG for scale | 72.0 / 78.3 dp; 84.8 dp |
+
+- **START STREAM / STOP STREAM** is the closest in form to START PCG. A user who streams may read "stop
+  stream" as ending a broadcast.
+- **The room for a label:** at 360 dp each of the two buttons is (360 − 16 − 8) / 2 = 168 dp, less the
+  button's own horizontal padding. That padding was not resolved: the style is
+  `?android:attr/buttonBarButtonStyle` under a MaterialComponents theme.
+  - A label that wraps makes the action row taller, and reopens the instance list.
+  - The screenshot step below settles it.
+- **The string names would follow the action,** for example `stream_watch` and `stream_hide`. That is
+  a code change, for later.
+- **Where the current label is cited.** Searched in every tracked file at `44e22da`, in
+  `unouidol/tmc-site` and `unouidol/unouidol.github.io`, in the notes of every published release and
+  in the bundled assets:
+  - **Code:** `ChatFragment.kt:3494-3498`, `fragment_chat.xml:97` and `strings.xml:12-13` only.
+  - **Tests:** none. Nothing in `test` or `androidTest` names `btnToggleStream`, `btnMuteStream`,
+    `btnStartPcg`, `textStatus`, `stream_on` or `stream_off`.
+  - **Manual plans:** none quotes the label.
+    - This plan names "the stream button" once (*Backlog*, how the landscape instance is reached). It
+      names the mute button, the action buttons and the status line in its measurement records. The
+      records stay as written.
+  - **`RELEASE-STATE.md` and `AGENTS.md`:** none.
+  - **A user guide:** none exists, in this repository or on either site, and the README names none of
+    these controls.
+  - **Release notes:** the published releases name only **Start PCG**, in ten of them from 2.0.0 to
+    5.4.2. That button stays as it is.
+
+**The status line today: ten texts, from nine writes in one file, and one string written nowhere.**
+Only `ChatFragment` writes `textStatus`. Besides its binding (`:1495`), its one other use is the click
+listener that clears the channel field's focus (`:1777`).
+
+| State | Text | Written at |
+|---|---|---|
+| Loading | `status_loading`, "Loading @%1$s on #%2$s…" | `onViewCreated`, `:1745` |
+| Account not found | `account_not_found`, "Account not found" | `:1745`, with no config |
+| Connecting | `status_connecting`, "Connecting as @%1$s on #%2$s…" | `:2412` |
+| Missing token | `status_missing_token`, "Missing token for @%1$s (login again)" | `:2419` |
+| Session expired | `status_backend_session_reauthorize`, "Session expired for @%1$s. Return to Accounts and tap Refresh to reauthorize." | `:2464` (the backend's answer) and `:2332` (an authentication NOTICE) |
+| Could not authenticate | `status_backend_auth_failed`, "Could not authenticate @%1$s. Check the connection or reauthorize the account manually." | `:2472` |
+| Connected | `status_connected`, "Connected as @%1$s on #%2$s" | `:2209` |
+| Read error | `status_read_error`, "Read error: %1$s" | `:2304` |
+| Disconnected, from `onStop` | `status_disconnected_account`, "Disconnected (@%1$s)" | `:2080` |
+| Disconnected, with no config | `status_disconnected`, "Disconnected" | `:2080`, and the layout's default (`fragment_chat.xml:105`) |
+
+- **The read error's text** is the exception's message, or a literal `"unknown"` (`:2306`). That
+  literal is not resource-backed. It is pre-existing, and is recorded here, not fixed.
+- **`status_send_error`** is defined, and written nowhere.
+- **Whether a reconnect follows a read error** was not read.
+
+**The indicator: four states, each with its own shape and colour, and the words kept where they carry
+an instruction.**
+- **Connected:** a filled circle.
+- **In progress** (loading, connecting): an open ring.
+- **Disconnected** (both): a hollow circle with a bar.
+- **Problem:** a triangle with an exclamation mark. It covers the read error, the account not found,
+  the missing token, the expired session and the failed authentication.
+- **The colours are green, amber, grey and red,** but the shapes alone tell the four apart. Colour is
+  never the only signal: as the owner's constraint says, red against green is the pair colour-blind
+  users cannot tell apart, and a screen reader does not read colour. The graphics need at least 3:1
+  contrast against the bar.
+- **What a screen reader hears:**
+  - The indicator's content description states the state in words, from new strings: for example
+    "Connected", "Connecting", "Disconnected" and "Connection problem". Federico chooses the words.
+  - The row is read as one item: that description, then the names. In content, that is today's
+    sentence, whose strings already exist.
+- **Four states carry an instruction, and keep their words on screen:** the account not found, the
+  missing token, the expired session and the failed authentication. The read error keeps its words
+  too: it says what happened.
+- **The compact form, the names and the indicator, serves** the connected, in-progress and
+  disconnected states.
+
+**The variants, with the dp each reclaims.** C is computed, with an example ratio.
+- **A: the compact status, with the mute control as an icon on the same row.**
+  - The mute row goes, and `streamControlsBox` with it, padding included.
+  - The status row becomes a fixed 48 dp, for the icon's touch target: today it is 46.1 dp.
+  - **Reclaims 54.2 dp with the stream on** (48.17 for the mute row and 7.96 of padding, less the
+    1.93 the status row grows), and 6.0 dp with the stream off.
+- **B: A, and the status merged into the channel bar,** which keeps its 64 dp.
+  - **Reclaims 102.2 dp with the stream on, and 54.0 dp with the stream off.**
+  - **The problem states then need a row of their own,** shown only while the problem lasts. That
+    costs 46.1 dp for one line, more when the text wraps, and the mechanism counts it as a bar.
+- **C: either, with the player's height taken from its width at the video's ratio.**
+  - **Possible, at two costs.**
+    1. **It goes below Twitch's documented 300 px minimum in portrait on every phone of the table,**
+       for any video wider than the width over 300: at 411 dp, any ratio above 1.37:1.
+       - With 16:9 as an EXAMPLE, the player would be 202.5 dp at 360 dp of width, 216.0 at 384,
+         231.2 at 411, 252.0 at 448 and 254.3 at 452.
+       - It caps at 300 wherever the width reaches 533 dp, so landscape and the tablet do not change.
+    2. **The ratio is known only once a video plays,** through `getPlaybackStats().videoResolution`.
+       - That needs a change to `player.html` in `unouidol/ircminichat`, and a channel from that page
+         to the app. The stream session has neither today: no message delegate and no WebExtension
+         (`GeckoSessionManager.kt:1678-1694`, `:2201-2207`).
+       - Before the first reading (an offline channel, the load itself, an advert), the box needs a
+         default, which is itself a choice.
+       - A video taller than it is wide caps at 300 dp and reclaims nothing.
+  - **A box ratio chosen as a layout decision,** instead of read from the video, needs no channel. But
+    how the embed fits a video of another shape into it is neither documented nor observed.
+  - **What it reclaims, beyond A or B:** 300 less the player's height. With the 16:9 example, 68.8 dp
+    on the typical phone and 97.5 on the compact one.
+
+**The thresholds, recomputed for each variant.** In dp of page height, at font scale 1.15. The last
+three columns are the reference phone's margins for the "list 0 px" column. Today's rows repeat the
+plan's table of 2026-11-10. Two of its "entirely off" values differ from it by 1 dp: 589 against 588,
+and 829 against 828. That comes from rounding the composer row: 162 px is 67.85 dp, not 67.9.
+
+**Thresholds, Today.** Bars 242.1 dp.
+
+| Panels open | List 0 px below | Field partly off below | Field entirely off below | Floor 2 kept with all panels at full height down to | Floor 3 | Floor 4 | Reference portrait, 914 | Reference with keyboard, 618 | Reference landscape, 405 |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 242 dp | 232 dp | 184 dp | 311 dp | 340 dp | 368 dp | +672 | +376 | +163 |
+| reply | 299 dp | 289 dp | 240 dp | 368 dp | 396 dp | 425 dp | +615 | +319 | +106 |
+| picker | 482 dp | 472 dp | 424 dp | 551 dp | 580 dp | 608 dp | +432 | +136 | **-77** |
+| picker, reply | 539 dp | 529 dp | 480 dp | 608 dp | 636 dp | 665 dp | +375 | +79 | **-134** |
+| stream | 590 dp | 580 dp | 532 dp | 659 dp | 688 dp | 716 dp | +324 | +28 | **-185** |
+| stream, reply | 647 dp | 637 dp | 589 dp | 716 dp | 744 dp | 773 dp | +267 | **-29** | **-242** |
+| stream, picker | 830 dp | 820 dp | 772 dp | 899 dp | 928 dp | 956 dp | +84 | **-212** | **-425** |
+| stream, picker, reply | 887 dp | 877 dp | 829 dp | 956 dp | 984 dp | 1013 dp | +27 | **-269** | **-482** |
+
+**Thresholds, A.** Bars 236.1 dp.
+
+| Panels open | List 0 px below | Field partly off below | Field entirely off below | Floor 2 kept with all panels at full height down to | Floor 3 | Floor 4 | Reference portrait, 914 | Reference with keyboard, 618 | Reference landscape, 405 |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 236 dp | 226 dp | 178 dp | 305 dp | 334 dp | 362 dp | +678 | +382 | +169 |
+| reply | 293 dp | 283 dp | 234 dp | 362 dp | 390 dp | 418 dp | +621 | +325 | +112 |
+| picker | 476 dp | 466 dp | 418 dp | 545 dp | 574 dp | 602 dp | +438 | +142 | **-71** |
+| picker, reply | 533 dp | 523 dp | 474 dp | 602 dp | 630 dp | 658 dp | +381 | +85 | **-128** |
+| stream | 536 dp | 526 dp | 478 dp | 605 dp | 634 dp | 662 dp | +378 | +82 | **-131** |
+| stream, reply | 593 dp | 583 dp | 534 dp | 662 dp | 690 dp | 718 dp | +321 | +25 | **-188** |
+| stream, picker | 776 dp | 766 dp | 718 dp | 845 dp | 874 dp | 902 dp | +138 | **-158** | **-371** |
+| stream, picker, reply | 833 dp | 823 dp | 774 dp | 902 dp | 930 dp | 958 dp | +81 | **-215** | **-428** |
+
+**Thresholds, B.** Bars 188.1 dp.
+
+| Panels open | List 0 px below | Field partly off below | Field entirely off below | Floor 2 kept with all panels at full height down to | Floor 3 | Floor 4 | Reference portrait, 914 | Reference with keyboard, 618 | Reference landscape, 405 |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 188 dp | 178 dp | 130 dp | 257 dp | 286 dp | 314 dp | +726 | +430 | +217 |
+| reply | 245 dp | 235 dp | 186 dp | 314 dp | 342 dp | 370 dp | +669 | +373 | +160 |
+| picker | 428 dp | 418 dp | 370 dp | 497 dp | 526 dp | 554 dp | +486 | +190 | **-23** |
+| picker, reply | 485 dp | 475 dp | 426 dp | 554 dp | 582 dp | 610 dp | +429 | +133 | **-80** |
+| stream | 488 dp | 478 dp | 430 dp | 557 dp | 586 dp | 614 dp | +426 | +130 | **-83** |
+| stream, reply | 545 dp | 535 dp | 486 dp | 614 dp | 642 dp | 670 dp | +369 | +73 | **-140** |
+| stream, picker | 728 dp | 718 dp | 670 dp | 797 dp | 826 dp | 854 dp | +186 | **-110** | **-323** |
+| stream, picker, reply | 785 dp | 775 dp | 726 dp | 854 dp | 882 dp | 910 dp | +129 | **-167** | **-380** |
+
+**Thresholds, C, on B, 16:9 as an example ratio.** Bars 188.1 dp. The thresholds are the typical phone's, 411 dp wide, where the player is 231.2 dp. The three reference columns use the reference phone's own widths: 452 dp in portrait, player 254.3 dp; 1005 dp in landscape, player 300 dp.
+
+| Panels open | List 0 px below | Field partly off below | Field entirely off below | Floor 2 kept with all panels at full height down to | Floor 3 | Floor 4 | Reference portrait, 914 | Reference with keyboard, 618 | Reference landscape, 405 |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 188 dp | 178 dp | 130 dp | 257 dp | 286 dp | 314 dp | +726 | +430 | +217 |
+| reply | 245 dp | 235 dp | 186 dp | 314 dp | 342 dp | 370 dp | +669 | +373 | +160 |
+| picker | 428 dp | 418 dp | 370 dp | 497 dp | 526 dp | 554 dp | +486 | +190 | **-23** |
+| picker, reply | 485 dp | 475 dp | 426 dp | 554 dp | 582 dp | 610 dp | +429 | +133 | **-80** |
+| stream | 419 dp | 409 dp | 361 dp | 488 dp | 517 dp | 545 dp | +472 | +175 | **-83** |
+| stream, reply | 476 dp | 466 dp | 417 dp | 545 dp | 573 dp | 602 dp | +415 | +119 | **-140** |
+| stream, picker | 659 dp | 649 dp | 601 dp | 728 dp | 757 dp | 785 dp | +232 | **-65** | **-323** |
+| stream, picker, reply | 716 dp | 706 dp | 657 dp | 785 dp | 813 dp | 842 dp | +175 | **-121** | **-380** |
+
+**The simulation table and the reference classes, recomputed for each variant alone,** with no floor,
+beside today's measured values.
+
+**The variants alone, with no floor, every row of the simulation table.** List in dp, and the field where it is not on screen; bold where the list is 0 or the field is not on. C is B with the player at the width over 16:9, as an EXAMPLE ratio, capped at 300 dp.
+
+| Geometry | Configuration | Page | Today, measured | A | B | C |
+|---|---|---|---|---|---|---|
+| Default size, 450 | none | 769.1 | 525.9 | 531.9 | 579.9 | 579.9 |
+| Default size, 450 | picker | 769.1 | 285.9 | 291.9 | 339.9 | 339.9 |
+| Default size, 450 | stream | 769.1 | 177.8 | 231.9 | 279.9 | 363.9 |
+| Default size, 450 | stream, picker | 769.1 | **0.0, field off** | **0.0** | 39.9 | 123.9 |
+| Default size, 450 | stream, picker, keyboard | 514.1 | **0.0, field off** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| Default size, 450 | stream, keyboard | 514.1 | **0.0, field off** | **0.0, field partly** | 24.9 | 108.9 |
+| Compact | none | 539.5 | 297.0 | 303.0 | 351.0 | 351.0 |
+| Compact | picker | 539.5 | 57.0 | 63.0 | 111.0 | 111.0 |
+| Compact | stream | 539.5 | **0.0, field partly** | 3.0 | 51.0 | 148.5 |
+| Compact | stream, picker | 539.5 | **0.0, field off** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| Compact, landscape | none | 303.5 | 61.0 | 67.0 | 115.0 | 115.0 |
+| Compact, landscape | picker | 303.5 | **0.0, field off** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| Compact, landscape | stream, picker | 303.5 | **0.0, field off** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| Typical | none | 827.0 | 584.0 | 590.0 | 638.0 | 638.0 |
+| Typical | picker | 827.0 | 344.0 | 350.0 | 398.0 | 398.0 |
+| Typical | stream | 827.0 | 235.8 | 290.0 | 338.0 | 406.8 |
+| Typical | stream, picker | 827.0 | **0.0** | 50.0 | 98.0 | 166.8 |
+| Typical | stream, picker, keyboard | 535.6 | **0.0, field off** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| Typical | stream, keyboard | 535.6 | **0.0, field partly** | **0.0** | 46.6 | 115.4 |
+| Large | none | 915.7 | 673.3 | 679.3 | 727.3 | 727.3 |
+| Large | picker | 915.7 | 433.3 | 439.3 | 487.3 | 487.3 |
+| Large | stream | 915.7 | 325.3 | 379.3 | 427.3 | 475.3 |
+| Large | stream, picker | 915.7 | 85.3 | 139.3 | 187.3 | 235.3 |
+| Large | stream, picker, keyboard | 630.3 | **0.0, field off** | **0.0, field off** | **0.0, field off** | **0.0, field partly** |
+| Large | stream, keyboard | 630.3 | 40.0 | 93.9 | 141.9 | 189.9 |
+| Tablet | none | 1179.5 | 937.0 | 943.0 | 991.0 | 991.0 |
+| Tablet | picker | 1179.5 | 697.0 | 703.0 | 751.0 | 751.0 |
+| Tablet | stream | 1179.5 | 589.0 | 643.0 | 691.0 | 691.0 |
+| Tablet | stream, picker | 1179.5 | 349.0 | 403.0 | 451.0 | 451.0 |
+| Tablet | none, keyboard | 889.5 | 647.0 | 653.0 | 701.0 | 701.0 |
+| Tablet, landscape | none | 699.5 | 457.0 | 463.0 | 511.0 | 511.0 |
+| Tablet, landscape | picker | 699.5 | 217.0 | 223.0 | 271.0 | 271.0 |
+| Tablet, landscape | stream | 699.5 | 109.0 | 163.0 | 211.0 | 211.0 |
+| Tablet, landscape | stream, picker | 699.5 | **0.0, field off** | **0.0, field off** | **0.0, field partly** | **0.0, field partly** |
+
+**The variants alone, the reference phone's 24 classes.** C uses the reference's portrait width, 452 dp, so the player is 254.3 dp in portrait and stays 300 dp in landscape.
+
+| Orientation | Panels | Keyboard | Today, measured | A | B | C |
+|---|---|---|---|---|---|---|
+| portrait | none | down | 671.8 | 677.8 | 725.8 | 725.8 |
+| portrait | none | up | 375.7 | 381.7 | 429.7 | 429.7 |
+| portrait | reply | down | 615.3 | 621.3 | 669.3 | 669.3 |
+| portrait | reply | up | 319.2 | 325.2 | 373.2 | 373.2 |
+| portrait | picker | down | 431.8 | 437.8 | 485.8 | 485.8 |
+| portrait | picker | up | 135.7 | 141.7 | 189.7 | 189.7 |
+| portrait | picker, reply | down | 375.3 | 381.3 | 429.3 | 429.3 |
+| portrait | picker, reply | up | 79.2 | 85.2 | 133.2 | 133.2 |
+| portrait | stream | down | 323.8 | 377.8 | 425.8 | 471.6 |
+| portrait | stream | up | 27.6 | 81.7 | 129.7 | 175.5 |
+| portrait | stream, reply | down | 267.2 | 321.3 | 369.3 | 415.1 |
+| portrait | stream, reply | up | **0.0, composer partly under the keyboard** | 25.2 | 73.2 | 119.0 |
+| portrait | stream, picker | down | 83.8 | 137.8 | 185.8 | 231.6 |
+| portrait | stream, picker | up | **0.0, composer off screen** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| portrait | stream, picker, reply | down | 27.2 | 81.3 | 129.3 | 175.1 |
+| portrait | stream, picker, reply | up | **0.0, composer off screen** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| landscape | none | any | 162.9 | 168.9 | 216.9 | 216.9 |
+| landscape | reply | any | 106.4 | 112.4 | 160.4 | 160.4 |
+| landscape | picker | any | **0.0, composer off screen** | **0.0, field off** | **0.0, field partly** | **0.0, field partly** |
+| landscape | picker, reply | any | **0.0, composer off screen** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| landscape | stream | any | **0.0, composer off screen** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| landscape | stream, reply | any | **0.0, composer off screen** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| landscape | stream, picker | any | **0.0, composer off screen** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+| landscape | stream, picker, reply | any | **0.0, composer off screen** | **0.0, field off** | **0.0, field off** | **0.0, field off** |
+
+**Rows where each variant alone still leaves the list below the floor, or the field not on, so the floor and the yield order still act:**
+
+- A, floor 2: 14 of 34: Default size, 450: stream, picker; Default size, 450: stream, picker, keyboard; Default size, 450: stream, keyboard; Compact: picker; Compact: stream; Compact: stream, picker; Compact, landscape: none; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker; Typical: stream, picker, keyboard; Typical: stream, keyboard; Large: stream, picker, keyboard; Tablet, landscape: stream, picker
+- A, floor 3: 15 of 34: Default size, 450: stream, picker; Default size, 450: stream, picker, keyboard; Default size, 450: stream, keyboard; Compact: picker; Compact: stream; Compact: stream, picker; Compact, landscape: none; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker; Typical: stream, picker, keyboard; Typical: stream, keyboard; Large: stream, picker, keyboard; Large: stream, keyboard; Tablet, landscape: stream, picker
+- A, floor 4: 15 of 34: Default size, 450: stream, picker; Default size, 450: stream, picker, keyboard; Default size, 450: stream, keyboard; Compact: picker; Compact: stream; Compact: stream, picker; Compact, landscape: none; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker; Typical: stream, picker, keyboard; Typical: stream, keyboard; Large: stream, picker, keyboard; Large: stream, keyboard; Tablet, landscape: stream, picker
+- B, floor 2: 11 of 34: Default size, 450: stream, picker; Default size, 450: stream, picker, keyboard; Default size, 450: stream, keyboard; Compact: stream; Compact: stream, picker; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker, keyboard; Typical: stream, keyboard; Large: stream, picker, keyboard; Tablet, landscape: stream, picker
+- B, floor 3: 11 of 34: Default size, 450: stream, picker; Default size, 450: stream, picker, keyboard; Default size, 450: stream, keyboard; Compact: stream; Compact: stream, picker; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker, keyboard; Typical: stream, keyboard; Large: stream, picker, keyboard; Tablet, landscape: stream, picker
+- B, floor 4: 14 of 34: Default size, 450: stream, picker; Default size, 450: stream, picker, keyboard; Default size, 450: stream, keyboard; Compact: picker; Compact: stream; Compact: stream, picker; Compact, landscape: none; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker; Typical: stream, picker, keyboard; Typical: stream, keyboard; Large: stream, picker, keyboard; Tablet, landscape: stream, picker
+- C, floor 2: 7 of 34: Default size, 450: stream, picker, keyboard; Compact: stream, picker; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker, keyboard; Large: stream, picker, keyboard; Tablet, landscape: stream, picker
+- C, floor 3: 7 of 34: Default size, 450: stream, picker, keyboard; Compact: stream, picker; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker, keyboard; Large: stream, picker, keyboard; Tablet, landscape: stream, picker
+- C, floor 4: 12 of 34: Default size, 450: stream, picker; Default size, 450: stream, picker, keyboard; Default size, 450: stream, keyboard; Compact: picker; Compact: stream, picker; Compact, landscape: none; Compact, landscape: picker; Compact, landscape: stream, picker; Typical: stream, picker, keyboard; Typical: stream, keyboard; Large: stream, picker, keyboard; Tablet, landscape: stream, picker
+
+- **So the floor and the yield order are still needed in every variant,** as the owner expected, in
+  landscape and on the compact phone:
+  - with the picker open in landscape on the compact phone, in every variant;
+  - with both panels open and the keyboard up, on every phone below the tablet;
+  - and with the stream and the keyboard: in A and B on this phone at its default size and on the
+    typical phone, and in A on the large phone at floors 3 and 4. C needs it there only at floor 4.
+
+**The typical phone with the stream on and the keyboard up, by variant.**
+
+**The typical phone, stream on, keyboard up: page 535.6 dp, today 0 px of chat and the field partly off.** Room left for the player above each floor is the page less the bars, the mute row where it has one, and the floor.
+
+| Variant | Bars | List with no floor | Field | Room for the player above floor 2 | Floor 3 | Floor 4 | Player it needs |
+|---|---|---|---|---|---|---|---|
+| Today | 291.2 with the mute row | 0.0 | partly | 175.5 **refused** | 147.0 **refused** | 118.5 **refused** | 300.0 |
+| A | 237.0 | 0.0 | on | 229.7 **refused** | 201.2 **refused** | 172.7 **refused** | 300.0 |
+| B | 189.0 | 46.6 | on | 277.7 **refused** | 249.2 **refused** | 220.7 **refused** | 300.0 |
+| C on A, 16:9 example | 237.0 | 67.4 | on | 229.7 **refused** | 201.2 **refused** | 172.7 **refused** | 231.2 |
+| C on B, 16:9 example | 189.0 | 115.4 | on | 277.7 fits | 249.2 fits | 220.7 **refused** | 231.2 |
+
+- **No variant and no floor candidate keeps the player at Twitch's documented 300 dp there.** B alone,
+  with no floor, gives 46.6 dp of list, less than floor 2.
+- **Only C on B fits the player and a floor,** at floor 2 or 3: 277.7 or 249.2 dp of room for 231.2.
+  This holds with the 16:9 example, and only below Twitch's documented minimum.
+
+**Fitting the status at 360 dp, with a long user name and a long channel name.** Widths are measured in
+Roboto Regular at 16.1 dp, lower bounds for the bold the line uses. The names are synthetic, at
+Twitch's 25-character maximum, which is stated from knowledge and was not read here. On the phone the
+system font may differ.
+- **Today's line already wraps.** "Connected as @… on #…" with two 25-character names is 554.5 dp,
+  against 336 dp of row at 360. By width, that is two lines at every portrait phone width in the
+  tables, 360 to 452 dp, and three with 25 × "w" at 360 and 384 dp. The line breaks at spaces, so it
+  may need more. Each line adds about 22.1 dp: the measured row, 46.1 dp, less its 24 dp of padding.
+  - The plan lists "the status line wrapping to a second line" among what reopens the instance list.
+    Long names reopen it today.
+- **A:** the text has 256 dp at 360 with the stream on (the row's padding, the 24 dp indicator and its
+  8 dp gap, and the 48 dp mute icon taken out), and 304 dp with the stream off.
+  - Two 8-character names, "@… · #…", are 171.2 dp, and fit.
+  - Two 25-character names are 438.4 dp, and 641.2 dp with 25 × "w". They do not fit at any width in
+    the table.
+  - **What happens to the text:** one line, with the user name and the channel as two separate texts,
+    each cut with an ellipsis at its end, so that neither disappears whole.
+  - The full sentence stays in the content description, and could also be shown on a long press.
+  - Without that limit the row would wrap, as today's does.
+- **B:** at 360 dp the channel bar has 200 dp with the stream off, and 152 dp with it on (the mute icon
+  added), for the channel field, the indicator and the user name together.
+  - "@" and an 8-character name, with the indicator, take 113.8 dp. That leaves the channel field 86 dp,
+    or 38 dp with the stream on.
+  - Two 25-character names cannot be shown at all.
+  - **So B does not fit at 360 dp with both names visible, even with short names once the stream is
+    on.** It needs a further decision. One option: the channel field shows the current channel when
+    not focused; today it is cleared after every switch (`ChatFragment.kt:1060`, `:1296`, `:1387`)
+    and shows only its hint. The other: one of the names moves out of view, into the content
+    description or a tap.
+  - **The channel is shown nowhere else on the page today.** The status line is its only place, so no
+    variant may drop it.
+
+**What each variant changes for accessibility, and what names these controls.**
+- **A:**
+  - The mute control becomes an `ImageButton` of 48 × 48 dp. Its content description states the
+    action, "Mute stream" or "Unmute stream", in new strings; the existing `mute` and `unmute` say
+    "Mute" and "Unmute".
+  - Its icon also changes shape with the state.
+  - The status row is 48 dp. It is clickable today, through the focus-clearing listener, and stays so.
+- **B:**
+  - The channel bar carries the three 48 dp icons, the mute icon when the stream is on, the indicator
+    and the name.
+  - The channel field narrows as computed above. Its 48 dp minimum height stays.
+  - The status row's click listener moves or goes. Section M's outside-click check names `textStatus`
+    as one of the four views carrying `clearChannelFocusClickListener` (`ChatFragment.kt:1773-1778`),
+    and that step's list would change with it.
+- **C:** no change to touch targets or descriptions. The player keeps `stream_player`.
+- **Every variant changes the height of a child of the page's `LinearLayout`.** By this plan's own rule
+  (*Recorded results*, the instance list closed), that REOPENS the instance list, so the regression
+  matrix below is measured again on the arrangement chosen.
+
+**How the fix would be verified: the simulated geometries, as a regression matrix.**
+- **The matrix:** the 34 simulated readings and the 24 reference classes. Each carries its predicted
+  list, picker, player and field, under the chosen floor and arrangement, as in the tables above.
+- **Offline:** the pure function, given each row's page and bars, returns the table's values. These are
+  unit tests in `app/src/test`, one case for each row, with the reply bar's classes and two more font
+  scales, 1.0 and 1.3, added.
+- **On the phone:** the same geometries, set with `wm size` and `wm density`, with frames read from
+  `dumpsys activity top` as on 2026-11-10. Each list must come within 1.1 dp of its prediction, each
+  text field's top and bottom must be inside the page, and each refusal's message must be seen.
+- **Mutants, to show that the checks look.** Each must fail at least the rows named:
+  1. **The floor set to 0:** every row where the list sits exactly at the floor, such as the typical
+     phone with stream and picker at floor 2, or the compact phone's picker.
+  2. **The yield order reversed, the player yielding before the picker:** every row where both panels
+     are asked for and do not both fit at full height. For example, the typical phone with stream and
+     picker at floor 2 would keep the picker at 240 and refuse the player.
+  3. **The picker's minimum removed:** every row where the picker is refused. For example, the typical
+     phone with stream and picker at floor 3 would open the picker at 138.4 dp.
+  4. **A silent refusal:** the message's assertion, on every ✗.
+  5. **A checker that reads the composer row's frame instead of the text field's.** Under the proposal
+     the two never disagree, because the whole row is kept. So this mutant is run on today's build,
+     where the checker must reproduce the measured field states. Computed, it misreads two rows: the
+     typical phone with stream and picker at 827.0 dp (field on, row partly off), and this phone at
+     450 with stream and picker at 769.1 dp (field off, row's top on screen).
+  6. **The floor fixed in dp instead of read from a row:** the font-scale cases.
+  7. **The reply bar left out of the bars:** every reply class, and this phone in landscape with the
+     reply bar at floor 4, where it is a LIMIT.
+
+**A screenshot step for Federico's choice of the floor: planned, not run.**
+- **What it needs:** a dev build of the fix in which the floor can be switched to 2, 3 or 4 rows for the
+  step, or three builds. Neither is written.
+- **What it shows:**
+  - the typical phone (`wm density 420` on the physical size), in portrait: with the stream on and the
+    keyboard raised from the composer; then with the stream and the picker open;
+  - the compact phone (`wm size 720x1280`, `wm density 320`) in landscape, where the limit is;
+  - each candidate floor on each, and later the arrangement, A, B or C, once one is built.
+- **How each capture is taken:** `adb exec-out screencap -p > <file>`, with the frames from
+  `dumpsys activity top` read beside it.
+  - The capture names no path on the device, so Git Bash has nothing to rewrite (*AGENTS.md*, the Git
+    Bash entry).
+  - Each file's arrival is checked in a step of its own.
+- **The screenshots show the account and the channel,** so they stay outside the repository, as the
+  screenshot of 2026-11-10 did.
+- **The font scale stays at 1.15.** `settings put system` is refused to the shell, which lacks
+  `WRITE_SETTINGS`. Another font scale is for Federico to set by hand, if one is wanted.
+- **Before the step:**
+  - Federico switches "Disable permission monitoring" on.
+  - Read and record `wm size`, `wm density`, `display_size_forced` and `display_density_forced`, the
+    rotation (`lock 0`) and `accelerometer_rotation`, the font scale, and what is in front.
+- **The restore, exactly as this plan records it (2026-11-10, the thresholds verified):**
+  1. `cmd window user-rotation lock 0`, `wm size reset` and `wm density 382`. **Never
+     `wm density reset`:** it would leave the phone at its physical 450 and drop Federico's override.
+  2. `wm size reset` leaves `display_size_forced` as an empty key where it was absent.
+     `settings delete global display_size_forced` returns it to `null`.
+  3. The size and density changes close Developer options. Reopen it with
+     `android.settings.APPLICATION_DEVELOPMENT_SETTINGS`.
+  4. Read every value back against the before reading, and read the reference again: page 913.9 dp,
+     list 671.8 dp.
+  5. Federico switches "Disable permission monitoring" off. On this phone the toggle takes effect only
+     after a restart. So the phone is rebooted, and a same-value write (`wm density 382`) must then be
+     refused with `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`.
+
+**2026-11-11, on `nbpromec1`: the original suite of 2026-11-06 found, and the run directories
+inventoried. Both read-only.** These are the owner's rulings. Nothing was changed, moved or deleted,
+on this machine or on the phone, and the phone was not touched.
+
+**The original 15-case suite: found, outside the repository, and never a file of its own.**
+- **Where:** `%LOCALAPPDATA%\Temp\claude\5f4e4a46f49477fa\e1b06764-32f4-46a1-83c9-251038ddd4b8\scratchpad\sitting-test\`,
+  the scratch folder of the session that wrote it here on 2026-11-06. It holds 485 files.
+  - **The stand-ins**, by sha256:
+    - `fake-adb.sh` `d1219a673a103048c3f7044ed778c327ca85dc5348e02bbb986d9cef06131ec5`;
+    - `fake-adb2.sh` `43aa4929a48b0a6dd05646650766846133ea169e54991fd11dc5ade8a1d345cf`;
+    - three broken extractors, `bad-extract.sh` `92088387…`, `bad-extract2.sh` `917db5f6…` and
+      `bad-extract3.sh` `69cfb1e3…`.
+  - **Synthetic journals**, and six run directories. The last, `run-1793965594`, holds `t10` to
+    `t24`: the 15 cases.
+  - **The tools it ran** were copied into each case from `%USERPROFILE%\tmc-5d-round\V\`. Those are
+    byte-identical to the first frozen commit, `613ff07`: `sitting.sh`
+    `854dca023884bc3dfe6f643d28b019fe0bda4f95f5df1bf4ec17d02a28d93164`, blob `e952ac2`, and
+    `journal_extract.py` `f5abb4920daaccd9d9a9f1a9448fb705ae47d1ce28ba55dc71f778253c2cc678`, blob
+    `b396676`.
+- **The runner was never written to a file.** It survives only as an inline command in that
+  session's transcript, under `%USERPROFILE%\.claude\projects\`, run at 11:46:32 UTC. Its output
+  there reads 15 of 15 "as expected", and 0 forbidden tokens in the 37 files and 150 lines the cases
+  saved. Those are the counts this plan records for 2026-11-06.
+- **How it differs from the rebuilt suite.** The comparison is with `sitting_suite.sh` at the tips of
+  `experiment/startup-5d-control` (`85a1314`) and `experiment/startup-5d-treatment` (`6c74ed3`), both
+  sha256 `3bb0a050…`, with its `standin_adb.sh`.
+  - **The expected exits are the same, case for case:** 0, 0, 3, 3, 0, 3, 4, 3, 3, 3, 3, 3, 0, 3, 3.
+  - **The original asserts the exit code only.** It printed the keys it found but did not compare
+    them. The rebuilt suite asserts the exit, a message pattern, each case's extra checks, and that
+    no adb call fell outside the stand-in's model.
+  - **The original's stand-in answers a failed read with exit 1,** and an unmodelled call with a
+    message and exit 2. The phone answers a failed read with exit 0, which is what the rebuilt
+    stand-in was corrected to on 2026-11-09. So the original's `t15` and `t23`, the unreadable
+    journal at a poll and at the mark, exercised a non-zero exit the phone does not give.
+  - **The original's `t14` runs `sitting.sh rate R` alone.** The rebuilt C5 runs it inside a session.
+  - **The rebuilt suite has cases the original never had:** R1, R2, K1, P1 to P6 and L.
+- **No other copy was found.** A search by file name for the stand-ins, the broken extractors,
+  `sitting_suite.sh` and `standin_adb.sh` covered every session folder under
+  `%LOCALAPPDATA%\Temp\claude\` and `%USERPROFILE%\tmc-5d-round`, and found only these. The clone has
+  only the rebuilt suite.
+- **What it changes:** nothing in the plan's record. Section M's statement that the suite was never
+  committed stands, and it now says where the original is.
+
+**The measurement run directories on this machine: listed by name and size, no contents read.**
+- **The list:** `docs/inventory/nbpromec1-tmc-5d-round-2026-11-11.tsv`, one row per file, `bytes`
+  then `path`. The paths are relative to `%USERPROFILE%\tmc-5d-round`.
+  - 1916 files, 2,913,480,487 bytes in all.
+  - **By folder:**
+
+    | Folder | Files |
+    |---|---|
+    | `C/`, top level | 18 |
+    | `C/__pycache__/` | 5 |
+    | `C/idle-waits/` | 16 |
+    | `C/runs/` | 1829 |
+    | `V/` | 24 |
+    | `apks/` | 24 |
+
+  - **`C/runs/` holds 132 launch directories and 8 files of its own.**
+    - **131 launches hold the same 12 file names,** `probe.json` and `launchcheck.json` among them.
+      115 also hold `sitting-line.txt` and `sitting-extra.json`, and 15 an `idle-wait.txt`. Two hold a
+      `calibration.json`, and one a `residual-check.json`.
+    - **One, `K5-1`, holds only its `install.txt`.**
+    - **The 8 files** are, by their names, the qualification and decision records: `qualify-5d.txt`,
+      `qualify-control.txt`, `qualify-R-5d.txt`, `qualify-R-control.txt`, `requal-R-5d.json`,
+      `requal-R-control.json`, `decide-M.json` and `negctl-N.json`.
+- **Searched beyond it, by file name:**
+  - **Under `%USERPROFILE%`, to a depth of seven:** no `probe.json` or `launchcheck.json` outside that
+    folder.
+  - **The Claude session folders under `%LOCALAPPDATA%\Temp\claude\`, in full:** 11 `probe.json` and
+    15 `launchcheck.json`, in folders named `residual-test`, `synth`, `linetest` and `linetest2`.
+    By those names they are the tools' test cases, not sittings. They were not opened, and are not
+    in the list.
+- **Why it is recorded:** the phone holds 211 startup-probe files, most of them from sittings driven
+  from this machine. A comparison against the other machine's folder alone would misread them as
+  existing only on the phone. This list is the half that was missing.
+  - Two files probably answer the comparison directly, and were NOT opened, by the ruling: names and
+    sizes only.
+    - `dump-name.txt`, one in each of 131 launch directories, by its name the phone-side dump's file
+      name.
+    - `V/probedir-before.txt`, by its name a listing of the phone's probe directory.
+  - Reading them is a later step's, with its own ruling.
+- **Scanned before commit:** the list's paths hold no account name, channel name, token or message
+  text. The only "channel" in it is a launch label, `X-excluded-channel-check`.
