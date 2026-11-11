@@ -560,11 +560,15 @@ users do. Its chat checks are the gate, not a formality: launch, sign in, a page
 channel, scroll and follow, an animated emote (5d's plan, section M, *The hands-on pass*, case
 2). The release waits on them. A 5.6.0 plan written as a file of its own carries this over.
 
-**Also queued to the 5.6.0 device round, from 5d's hands-on pass of 2026-11-09**, by the owner's
-ruling (5d's plan, section M, case 6, with case 8 closed beside it; `docs/manual-plan-5.5.2.md`,
-*Which build this round applies to*):
-- **The row taller than the list (U2/U3), SHIPPING UNEXAMINED until then.** It was not reached on
-  2026-11-09. Federico sends one very long message and looks.
+**Nothing from 5d's hands-on pass of 2026-11-09 is still queued to the 5.6.0 device round as a check
+of its own**, by the owner's rulings (5d's plan, section M, cases 6 and 8;
+`docs/manual-plan-5.5.2.md`, *Which build this round applies to*):
+- **The row taller than the list (U2/U3): SUBSUMED** (2026-11-10) by the defect that the chat list
+  has no minimum height (5d's plan, *Backlog*).
+  - The device step measured lists of 200 px and 66 px in portrait, so an ordinary two-line message
+    is taller than the list there.
+  - In landscape the same defect leaves no chat at all.
+  - The harness row is cancelled.
 - **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry is cancelled** (the owner's
   ruling, 2026-11-09). The read in 5d's plan closes that if the list is activated the dismissal
   runs, through the list's click listener, RecyclerView's and androidx's accessibility delegates
