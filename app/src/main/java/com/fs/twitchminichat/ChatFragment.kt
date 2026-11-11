@@ -3695,6 +3695,10 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      */
     private fun scrollToBottom() {
         chatList.post {
+            // The guard scheduleComposerLayoutRefresh's runnable already has, restored here. A post
+            // that ran after a rotation had detached this page crashed in updateJumpToBottomButton's
+            // getString: IllegalStateException, not attached to a context, observed once on 2026-11-10.
+            if (!isAdded) return@post
             val count = chatList.adapter?.itemCount ?: 0
             if (count > 0) {
                 chatList.scrollToPosition(count - 1)
