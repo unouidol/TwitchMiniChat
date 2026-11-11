@@ -960,45 +960,54 @@ Two facts that a list of branches does not show, recorded on 2026-11-10 by the o
 
 ## Test device
 
-**Refreshed on 2026-11-09, at the end of 5d's device round.** This resolves the stale marker #92
-(`a3c6c7f`) set on 2026-11-02. The dev row below is the build the round left on the phone.
+**Refreshed on 2026-11-11, at the end of the device step that photographed the 5d layout
+prototype.** The dev row below is the build that step left on the phone: a PROTOTYPE, not a
+candidate for any release.
 
 **Read from the device over adb,** from a OnePlus AC2003 on Android 12 (API 31): the Stable row on
-2026-10-23, the Dev row on 2026-11-09. The version and build number are what the phone's package
-manager reports.
+2026-10-23, and its sha256 and last update again on 2026-11-11, unchanged; the Dev row on
+2026-11-11. The version and build number are what the phone's package manager reports.
 - **The Stable row's commit** was read from the APK installed on the phone, pulled back off it,
   with the build identity read from its code.
-- **The Dev row's APK was not pulled on 2026-11-09:** the phone had been disconnected after the
-  hands-on pass.
-  - Its sha256, its version and its last update were read on the phone during that pass: the
-    version and the update at 15:29:50, the sha256 at 18:13:07.
-  - Its commit was read from the code of the APK built here whose sha256 is that same value:
-    `00c1e78-app-dev-arm64-v8a-debug.apk`, in the round's APK folder. Its `BuildConfig.GIT_SHA` is
-    `00c1e78`, with no `+`.
+- **The Dev row's sha256** was read on the phone at 11:29, with `sha256sum` on the path `pm path`
+  gives. It is the sha256 of the APK built here from `059bc7b` with a clean tree, whose
+  `BuildConfig.GIT_SHA` is `059bc7b`, with no `+`. That APK was installed with `adb install -r`
+  over the dev app only, at 11:28:47.
 
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.5.1 (8) | `007ee55` | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` | 2026-09-18 14:08 |
-| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `00c1e78`, tag `device-test/5.5.1-dev-8-00c1e78`, #97 | `ba1f88e3347382f76e4d5d1c0661602e2a24e187fcbdcfc2440e64ea88f16e4a` | 2026-11-09 08:40 |
+| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `059bc7b`, tag `device-test/5.5.1-dev-8-059bc7b`, no pull request: branch `prototype/5d-layout-b` | `ad35916f22252eb948cee8a82926a3d48e8178fd918c3d9b391bea5ea34e6aaf` | 2026-11-11 11:28 |
 
 - **The stable app is the published 5.5.1.** Its APK's sha256 is the arm64 checksum recorded
   under *Published* above, as listed in the release's `SHA256SUMS.txt`, and its code carries
   `007ee55`, the commit `v5.5.1` points at.
-- **The dev app is #97 as it was tested in its device round, at `00c1e78`.** The long session
-  `L5D2` and the hands-on pass both ran on this build (`docs/manual-plan-5d-recyclerview.md`,
-  *Recorded results*).
+- **The dev app is a PROTOTYPE of the 5d layout, variant B, NOT FOR MERGING**
+  (`docs/manual-plan-5d-recyclerview.md`, *Recorded results*, 2026-11-11).
+  - **Its chat page differs from `main-v5`:** the status sits in the channel bar, the mute control
+    is an icon, and the page shares its height at measure time.
+  - **A check of the chat page on this build is not a check of `main-v5`.**
+  - **It has no pull request,** by the owner's ruling. The branch stands where the rule below puts
+    the number, and is kept.
+  - The tag was pushed and confirmed with `git ls-remote --tags origin` before this record was
+    written.
+- **What it replaced:** #97's `00c1e78`, sha256 `ba1f88e3…`, tag `device-test/5.5.1-dev-8-00c1e78`.
+  The long session `L5D2` and the hands-on pass ran on it.
+  - Its APK was pulled off the phone before the install, checked against the phone's sha256, and is
+    kept on `nbpromec1`, in the step's folder.
   - **#97 merged as `5238077`** from its head `a193a50`. Under `app/src/main`, that head differs from
     `00c1e78` only by the comment at the `ClickableViewAccessibility` suppression: 7 lines, changed
     in place.
-  - **The tag was pushed on 2026-11-09 after #97 merged,** not before, as this section asks. The
-    branch is kept, so it still reaches the commit, and `git ls-remote --tags origin` confirmed the
-    tag.
+  - **Its tag was pushed on 2026-11-09 after #97 merged,** not before, as this section asks. The
+    branch is kept, so it still reaches the commit.
     - **The owner accepted the deviation as recorded, on 2026-11-10.** The rule's purpose, that the
       tested commit stays findable, is met, because the kept branch reaches it.
     - **The rule's wording below is left as it is.** Whether to relax it is deferred, not settled.
-  - **What it replaced:** before `00c1e78`, the phone held the round's control measurement build,
-    `dea38cc`, sha256 `d005e901…`. Before the round, it held #89's `d56812b`, sha256 `8519b894…`,
-    tag `device-test/5.5.1-dev-8-d56812b`.
+  - **Before `00c1e78`,** the phone held the round's control measurement build, `dea38cc`, sha256
+    `d005e901…`. Before the round, it held #89's `d56812b`, sha256 `8519b894…`, tag
+    `device-test/5.5.1-dev-8-d56812b`.
+- **"Disable permission monitoring" was switched on for the step, and is NOT YET confirmed off.**
+  Federico will switch it off and restart the phone; a refused write then confirms it.
 - **Not read: the login screen's line and a journal export's `# app` line,** the two places this
   section otherwise reads a build from. Both need the app operated by hand. #86's first manual
   check reads the dev app's login screen.
