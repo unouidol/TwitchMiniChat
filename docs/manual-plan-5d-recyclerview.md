@@ -3351,7 +3351,31 @@ has been read.
     context lines, and every bar and the player's 300 dp lie outside the hunk
     (`git diff 98f235a 5238077`). The 300 dp player and the weighted frame are both in `8b99e08`
     (2026-04-07), the first commit of the tracked V4 sources.
-  - **DECIDED on 2026-11-10: the fix is a MINIMUM HEIGHT on the chat list.** The panels that compete
+  - **STOPPED on 2026-11-12, by Federico's decision: the larger fix is not pursued.** This
+    supersedes the decision of 2026-11-10 below. That decision is kept, as the record of what was
+    decided and why. Recorded by the owner's ruling.
+    - **His reasons:**
+      - nobody has ever reported a problem with the player and the chat together;
+      - the keyboard is open for seconds at a time;
+      - a player that hides and returns on every message would annoy more than the defect does.
+    - **So none of these is built:**
+      - a floor for the list;
+      - an emote picker that shrinks;
+      - a player that hides or is refused;
+      - the status moved into the channel bar.
+    - **The prototype stays as a record:** `prototype/5d-layout-b` at `059bc7b`, with its tag. It
+      is kept and is not developed further.
+    - **The instances above stay in this entry, KNOWN AND UNREPORTED:** the six landscape classes,
+      the three portrait classes at 0 px, and the tight portrait ones. Nothing closes them.
+    - **U2/U3 stays subsumed here.** With no floor, it stays routine wherever the list is squeezed.
+    - **What remains is one small change, a PROPOSAL, not written:** the mute control moved into
+      the buttons row, and the status line tightened (*Recorded results*, 2026-11-12).
+      - It is written only once Federico agrees.
+      - It is not part of 5.6.0 unless he says so.
+      - It moves the computed thresholds. It closes no landscape class, and two of the three
+        portrait ones stay.
+  - **DECIDED on 2026-11-10, and SUPERSEDED on 2026-11-12 by the stop above: the fix is a MINIMUM
+    HEIGHT on the chat list.** The panels that compete
     for space give way, by collapsing, by scrolling or by not opening, instead of the chat reducing to
     nothing. Not written yet.
     - **Two things are still to be chosen, from numbers and not before them:** the floor's value, and
@@ -3423,6 +3447,9 @@ has been read.
     `prototype/5d-layout-b`, not for merging (*Recorded results*, the prototype of variant B).
     - Federico's choices are built into it.
     - Still open: the floor, the labels, the player's height, and what a refused panel does.
+      - **Closed by the stop of 2026-11-12, above:** the floor, and what a refused panel does.
+      - **Still open, and not decided by the stop:** the stream button's labels, and the player's
+        height.
     - The owner's reading of the player check, his and open, is in the same entry.
 - **The dev app crashed when the phone was rotated from landscape back to portrait: OBSERVED once,
   on 2026-11-10 at 15:36:03, phone time.** It was seen on the dev build `00c1e78`, 5.5.1-dev (8),
@@ -8802,3 +8829,332 @@ records it.
 
 The two pictures named `00-check-ref-a.png` and `ref382-after-restore-a.png` are the check of the
 first reading and the reading after the restore.
+
+**2026-11-12, on `nbpromec1`: the larger layout fix STOPPED by Federico; one small change PROPOSED,
+the mute control in the buttons row and the status line tightened. No code was written and the
+phone was not touched.** These are the owner's rulings. The layout and the code were read on
+`main-v5` at `9ecb341`, and this branch has the same code. Every height after the change is
+COMPUTED with the plan's threshold model, not measured. Nothing here chooses a label.
+- **The decision is Federico's.** It is recorded in the *Backlog* with his reasons. None of the
+  larger fix is built: no floor, no emote picker that shrinks, no player that hides or is refused,
+  no status in the channel bar.
+- **The prototype, `prototype/5d-layout-b`,** stays as a record and is not developed further.
+- **What remains is one small change, a PROPOSAL.**
+  - It is written only once Federico agrees.
+  - It is not part of 5.6.0 unless he says so.
+
+**The top of the page today, read.** Heights are in dp. The measured column is the reference
+phone's, from 2026-11-10, at 2.3875 px/dp and font scale 1.15. The lines are in
+`fragment_chat.xml` unless named.
+
+| View | Where | What sets its height | Vertical padding and margin | Measured |
+|---|---|---|---|---|
+| Channel bar, `channelSwitchBox` | `:12-68` | `wrap_content` (`:15`). The channel field has `minHeight="48dp"` (`:28`). The three icons are 48 × 48 dp (`:35-36`, `:49-50`, `:56-57`) | `padding="8dp"` on every side (`:17`). A top margin equal to the status bar's inset, added by `SystemBarsInsetHelper.keepBelowStatusBar` (`SystemBarsInsetHelper.kt:70-88`, called at `ChatFragment.kt:838`); it lies outside the page height | 153 px, 64.1 dp |
+| Buttons row, `topActionsRow` | `:70-98` | `wrap_content` (`:74`). Both buttons have `minHeight="48dp"` (`:86`, `:96`), in `?android:attr/buttonBarButtonStyle` (`:82`, `:91`) | `paddingTop="8dp"` (`:78`), none at the bottom. Horizontally: 8 dp each side (`:76-77`), and the stream button's `layout_marginStart="8dp"` (`:95`) | 134 px, 56.1 dp |
+| Status line, `textStatus` | `:100-106` | `wrap_content` (`:103`): one line of bold text, 22.1 dp at this font scale | `padding="12dp"` on every side (`:104`). No margin | 110 px, 46.1 dp |
+| Mute row, `streamControlsBox` | `:107-122` | `wrap_content`. Its only child, `btnMuteStream`, is a `Button` with `wrap_content` (`:118-119`). It is 48 dp tall, from the Material button's minimum | `paddingBottom="8dp"` (`:114`), paid with the stream off too. Horizontally: 8 dp each side (`:112-113`) | Stream off: 19 px, 8.0 dp. Stream on: 134 px, 56.1 dp, of which the button is 115 px, 48.2 dp |
+
+- **The layout sets no vertical margin on any of the four.** The only one is the channel bar's top
+  margin, which comes from the inset.
+
+**The proposal: two parts.**
+1. **The mute control moves into the buttons row.**
+   - **With the stream on,** the row holds "START PCG", the stream button, and a mute icon after
+     them: three controls in one row.
+   - **The icon is an `ImageButton` of 48 × 48 dp.** That gives a 48 dp touch target, the height
+     of the text buttons' minimum, so the row does not grow.
+   - **Its content description states the action,** from new strings. For example: "Mute stream"
+     while there is sound, "Unmute stream" while muted. Federico chooses the words.
+     - The prototype already has two such strings, `mute_stream` and `unmute_stream`, and two
+       icons, `ic_volume_up_24` and `ic_volume_off_24`, at `059bc7b`.
+     - Whether to reuse them is for the code step.
+   - **With the stream off,** the icon is gone and the row is as today.
+   - **`streamControlsBox` goes with the button,** and its 8 dp of bottom padding with it, in both
+     states.
+   - **The icon calls what the button calls today,** `toggleStreamMute`
+     (`ChatFragment.kt:1857-1859`). Its behaviour does not change. What that call does is read
+     below.
+2. **The status line moves into the space between the channel bar and the buttons row.**
+   - **Every one of its ten texts stays exactly as today,** from the same strings and the same
+     writes (2026-11-11, the status line today).
+   - **Only the vertical paddings around it are tightened:**
+     - the channel bar's bottom padding;
+     - the status line's top and bottom padding;
+     - the buttons row's top padding.
+     - The horizontal paddings stay.
+   - **It is not a control, so it needs no 48 dp row.**
+     - Its one listener clears the channel field's focus (`ChatFragment.kt:1777`).
+     - The page's root carries the same listener (`:1773`).
+     - It keeps the listener.
+   - **No touch target gets shorter.** The channel field, the three icons, the two text buttons
+     and the mute icon all stay 48 dp.
+
+**What it reclaims, in dp of page height, computed.**
+
+| Part | Stream off | Stream on |
+|---|---|---|
+| 1. The mute row goes, with `streamControlsBox` | 8.0, the padding | 56.1: the button's 48.2 and the padding's 8.0 |
+| 2. The paddings around the status line, at most: the channel bar's bottom 8, the status line's 12 and 12, the buttons row's top 8 | 40.0 | 40.0 |
+| **Total** | **48.0** | **96.1** |
+
+- **40.0 dp is the most part 2 can take** without making a touch target shorter than 48 dp.
+  - It sets all four paddings to 0.
+  - The status text then sits directly between two sets of 48 dp boxes: the field and the icons
+    above it, and the buttons below it.
+- **Any padding kept for spacing comes off the 40 dp one for one.** How close the text may sit is a
+  visual question, for Federico, from a screenshot.
+- **Not touched:** the status bar's inset above the channel bar, and the channel bar's own top
+  padding.
+
+**The labels today, with their string names.** Read in `strings.xml` and in `updateStreamUi`
+(`ChatFragment.kt:3492-3509`).
+
+| Control | State | String | Text | Shown as |
+|---|---|---|---|---|
+| Stream button, `btnToggleStream` | player off | `stream_off` (`strings.xml:12`), also the layout's initial text (`fragment_chat.xml:97`) | "Video ON" | VIDEO ON |
+| | player on | `stream_on` (`:13`) | "Video OFF" | VIDEO OFF |
+| Mute button, `btnMuteStream` | muted, the default | `unmute` (`:15`), also the layout's initial text (`fragment_chat.xml:120`) | "Unmute" | UNMUTE |
+| | not muted | `mute` (`:14`) | "Mute" | MUTE |
+
+- **The stream button's labels name a state:** the one the player is NOT in.
+- **The mute button's labels name the action.**
+
+**Why the app has its own mute button: read. It duplicates the player's own control, by reloading
+the page, and no reason for it is recorded.**
+- **What a tap does:** it calls `toggleStreamMute` (`ChatFragment.kt:3535-3542`).
+  - It flips `streamMuted` and updates the label.
+  - With the stream on, it RELOADS the player page: `streamSession?.loadUri(buildStreamUrl())`.
+  - `buildStreamUrl` (`:3303-3306`) puts the flag in the page's address, as `muted=true` or
+    `muted=false`.
+  - **It calls nothing in the player.**
+- **The page:** `player.html` in `unouidol/ircminichat`, read on 2026-11-12, with `docs/player.html`
+  last changed in `4c3a2b1`.
+  - It reads `muted` from the address once, when it builds
+    `new Twitch.Player(…, { autoplay: false, muted })`.
+  - **So each tap is a new load of the embed.** With `autoplay: false`, the reloaded player stands
+    paused until the user presses its play button again. That is by reading: no mute reload was run
+    in this step.
+  - Whether a reload also replays an advert break was not observed.
+- **The page already defines `setMutedState` and `toggleMute`.** They call the player's own
+  `setMuted`, without a reload. Nothing in the app calls them:
+  - no file under `app/src/main` names them;
+  - the stream session has no channel to the page: no message delegate and no WebExtension
+    (`GeckoSessionManager.kt:1678-1699`, `:2201-2207`).
+- **The stream starts muted on every new page.**
+  - `streamMuted = true` (`ChatFragment.kt:618`), and the flag is not saved.
+  - The page also defaults to muted when the address has no `muted`.
+- **Why it starts muted: NOT RECORDED.**
+  - The button, the flag and the address parameter arrive together in `d4e1157` (2026-04-04),
+    "Add v3 PCG and push notification updates". That commit has no comment on muting.
+  - The page arrived on 2026-03-30, in two commits named "Create player.html".
+  - **Not autoplay policy.** The player never autoplays (`autoplay: false`). Twitch's documentation
+    also says mobile video does not play without user interaction (*Recorded results*,
+    2026-11-11). So playback always starts from the user's tap on the play button.
+  - **Not audio focus.** Nothing in the app requests or reacts to audio focus for the stream.
+    - The only `AudioManager` use is the notification fallback (`MyFirebaseMessagingService.kt`,
+      `NotificationAlertFallback.kt`).
+    - The runtime is built with content-blocking and cookie settings only, and no media or
+      autoplay setting (`GeckoSessionManager.kt:1657-1666`).
+  - What remains is a product choice: a chat app should not start sound unasked. That is
+    inferred, not recorded.
+- **The player's own control.** The embed shows its own mute control; that is the owner's
+  statement, and this step did not look at it.
+  - That it mutes inside the page, without a reload, and that playback goes on, is inferred from
+    the documented `setMuted`. It was not run.
+- **The two do not share a state.** The app cannot read the embed's state, so its label follows its
+  own flag. By reading, not run:
+  - After the embed's own control unmutes, the app's button still reads UNMUTE.
+  - A tap on it then reloads the page unmuted. That pauses the stream, changes nothing audible, and
+    turns the label to MUTE.
+- **The one thing the app's button adds: its flag outlives a reload of the same page.** Every
+  later load reads it:
+  - the stream turned off and on again (`enableStream`, `:3516`);
+  - a channel switch, which reloads the stream when it is on (`ChatChannelBinding.changeTo`,
+    `ChatChannelBinding.kt:111`, through `reloadStreamForCurrentChannel`,
+    `ChatFragment.kt:3544-3547`).
+  - The embed's own choice is lost at each of those reloads, unless Twitch keeps one of its own.
+    Whether it does, and whether the `muted` option overrides it, was not read.
+- **So it is a duplicate of the player's control in function,** with no recorded reason. It is
+  implemented by a reload. What it adds is the carry-over across the page's reloads.
+  - **Nothing is removed.**
+  - The proposal moves the control and keeps its behaviour, the reload and the separate state
+    included.
+
+**A mute control drawn over the player, shown on tap: for information only, not the chosen
+option.**
+- **What it would take:**
+  - The GeckoView is wrapped in a `FrameLayout`, with the icon over one corner. A tap on the player
+    shows it, and it hides after a delay.
+  - The tap must be seen without being taken from the embed. Either a frame whose
+    `onInterceptTouchEvent` notes it and returns `false`, or a touch listener on the GeckoView that
+    returns `false`.
+  - It reclaims the same 48.2 dp as the row does, and leaves the buttons row as it is.
+- **What it risks with the embed's own controls:**
+  - **One tap brings up both.** The embed also shows its controls on a tap. Each would run on its
+    own timer, so they would appear and fade out of step.
+  - **They can overlap.** The embed draws its control bar along its own edges, its own mute among
+    them, so an icon in a corner can cover one of the embed's buttons. Which corner is free was not
+    read.
+  - **Twitch's requirement.** Embeds "should not be obscured in any way by other page elements"
+    (*Recorded results*, 2026-11-11). An overlay obscures part of the embed by construction. The
+    documented consequence of an obscured embed is that some of its features may be "disabled".
+  - **Accessibility.** A screen reader does not find a control that exists only after a tap,
+    unless it stays in the accessibility tree while hidden.
+  - **It keeps the reload,** unless the page gets a channel to the app. That is the same work as
+    calling the page's `setMutedState`.
+
+**The list before and after, with the stream on and the keyboard up: COMPUTED from the plan's
+model, not measured.**
+- The model gives today's measured lists within 0.3 dp for these rows.
+- Each geometry's own measured bars are used: 242.1 dp on the reference phone, 243.0 on the
+  typical one.
+- Rows are counted as the prototype's record counted them: the list less its 12 dp bottom padding,
+  over a 28.5 dp row with an emote.
+
+| Geometry | Page | List today, measured | List after, computed | Rows after | Text field after |
+|---|---|---|---|---|---|
+| Reference phone, 452 × 1005 dp | 617.8 | 27.6 | 123.7 | 3.9 | on screen |
+| Typical phone, 411 × 914 dp | 535.6 | 0.0, the field partly off | 40.6 | 1.0 | on screen |
+
+- **With the stream on and the keyboard down,** the reference phone goes from 323.8 dp to 419.8, and
+  the typical phone from 235.8 to 332.0.
+- **Every list that is above 0 px gains 48.0 dp with the stream off and 96.1 dp with it on.**
+
+**The thresholds after the change.** In dp of page height, at font scale 1.15, computed. Today's
+column repeats the plan's table of 2026-11-10. The last three columns are the reference phone's
+margins for the list's 0 px, after the change; bold where it is negative.
+
+| Panels open | List 0 px below, today | List 0 px below, after | Field partly off below, after | Field entirely off below, after | Reference portrait, 914 | Reference with keyboard, 618 | Reference landscape, 405 |
+|---|---|---|---|---|---|---|---|
+| none | 242 | 194 | 184 | 136 | +720 | +424 | +211 |
+| reply bar | 299 | 251 | 241 | 192 | +663 | +367 | +154 |
+| picker | 482 | 434 | 424 | 376 | +480 | +184 | **−29** |
+| picker, reply bar | 539 | 491 | 481 | 432 | +423 | +127 | **−86** |
+| stream | 590 | 494 | 484 | 436 | +420 | +124 | **−89** |
+| stream, reply bar | 647 | 551 | 541 | 492 | +363 | +67 | **−146** |
+| stream, picker | 830 | 734 | 724 | 676 | +180 | **−116** | **−329** |
+| stream, picker, reply bar | 887 | 791 | 781 | 732 | +123 | **−173** | **−386** |
+
+**What this change does NOT fix.** Computed on the same model.
+- **The list still has no floor.** It can still reach 0 px, and the composer can still be pushed
+  off the screen. The stopped design's hard invariant does not hold.
+- **Landscape, reference phone: all six classes at 0 px today stay at 0 px.**
+  - The composer's text field stays off screen in five of them.
+  - In the sixth, the picker alone, it is partly off, where today it is entirely off.
+- **Portrait, reference phone: two of the three classes at 0 px stay.** They are the stream and the
+  picker with the keyboard up, with and without the reply bar, and the field stays off screen.
+  - The third, the stream and the reply bar with the keyboard up, gets 67.2 dp.
+- **The simulated geometries: 7 of the 34 rows stay at 0 px.**
+  - The stream, the picker and the keyboard: on this phone at its default size, on the typical
+    phone and on the large phone.
+  - The stream and the picker: on the compact phone.
+  - The picker, alone or with the stream: on the compact phone in landscape.
+  - The stream and the picker: on the tablet in landscape, with the field partly off instead of
+    off.
+- **Tight lists remain, every one under two rows:**
+  - 18.9 dp on this phone at its default size, with the stream and the keyboard: 0.24 of a row;
+  - 33.9 dp there with the stream and the picker;
+  - 40.6 dp on the typical phone with the stream and the keyboard;
+  - 45.0 dp on the compact phone with the stream.
+  - A two-line message is 97 px on the reference phone, 40.6 dp. It is taller than the first two,
+    about as tall as the third, and only 4.4 dp shorter than the fourth. So U2/U3 stays routine
+    there.
+- **The status line still wraps with long names,** as today, adding 22.1 dp for each extra line.
+  Tightening its paddings does not stop the wrap.
+- **The mute control keeps its behaviour.** A tap still reloads the player, which then stands
+  paused, and its state can still disagree with the embed's own.
+- **The stream button's labels stay as they are** until Federico chooses.
+- **The player keeps its 300 dp.** It stays below Twitch's documented 400 in width wherever the page
+  is under 400 dp wide, and at 295 to 298 CSS px in height (*Recorded results*, 2026-11-11). The
+  owner's recommendation on it stays his and open.
+- **It reopens the instance list.** It changes the height of children of the page's
+  `LinearLayout`, which by this plan's rule reopens the list (*Recorded results*, the instance list
+  closed). The code step measures the page again on the phone.
+
+**Where these controls are named.** Searched on 2026-11-12 in:
+- every tracked file of this branch;
+- `unouidol/tmc-site` at `0fa3ec0`;
+- `unouidol/unouidol.github.io` at `bcfbe2a`;
+- the notes of the 13 published releases.
+
+**What the search found:**
+- **Strings,** all in `app/src/main/res/values/strings.xml`, the app's only `strings.xml`:
+  - the stream button: `stream_off`, "Video ON" (`:12`), and `stream_on`, "Video OFF" (`:13`);
+  - the mute button: `mute`, "Mute" (`:14`), and `unmute`, "Unmute" (`:15`);
+  - the status line: `status_disconnected` (`:4`), `account_not_found` (`:17`), `status_connecting`
+    (`:18`), `status_loading` (`:19`), `status_connected` (`:20`), `status_missing_token` (`:21`),
+    `status_backend_session_reauthorize` (`:22`), `status_backend_auth_failed` (`:23`),
+    `status_read_error` (`:24`), `status_send_error` (`:25`, written nowhere) and
+    `status_disconnected_account` (`:26`).
+  - `app/lint-baseline.xml:171-172` names `status_send_error`, as unused.
+- **Code:**
+  - `fragment_chat.xml:89-97`, `:100-106` and `:107-122`;
+  - `ChatFragment.kt`: the bindings (`:182`, `:245-246`, `:1495`, `:1530-1531`), the listeners
+    (`:1777`, `:1853-1859`), `updateStreamUi` (`:3492-3509`), and the status writes this plan
+    lists (2026-11-11, the status line today).
+- **Tests: none.** Nothing in `app/src/test` or `app/src/androidTest` names `btnToggleStream`,
+  `btnMuteStream`, `streamControlsBox`, `textStatus` or any of these strings.
+  - **A different "status line" is named elsewhere:** the one under a pending outgoing message.
+    `PendingEchoView`, `ChatRowViewBinder`, `PendingEchoStatus`, the dev harness and their tests
+    (`ChatTimelineEchoTest`, `PendingEchoStatusTest`) name it, and so does
+    `docs/manual-plan-5c-emotes.md:291-293`. That is another view, and this change leaves it alone.
+- **Manual-plan steps, all in this plan:**
+  - **Section M, the hands-on pass, case 8 (TalkBack):** `textStatus` is one of the four views
+    carrying `clearChannelFocusClickListener`. This change keeps that listener, so the step stands.
+  - ***Recorded results*, 2026-11-09, the one read that decides the merge:** the same four views.
+  - **The records:** the *Backlog*'s entry and its table of children, the device step of
+    2026-11-10, the thresholds, the design proposal of 2026-11-11 and the prototype's record. They
+    name the mute button, the action buttons, the status line and the stream button.
+    - They stay as written, because they describe the layout as it was measured.
+- **`RELEASE-STATE.md`:** its *Test device* section describes the prototype's chat page: "the
+  status sits in the channel bar, the mute control is an icon, and the page shares its height at
+  measure time".
+  - It describes the build on the phone, which has not changed, so it stays.
+- **`AGENTS.md`, the README, the bundled assets and both sites:** none.
+- **Release notes:** none names the stream button, the mute button or the status line. 5.5.1's
+  "with TMC's alerts muted" is about notification alerts.
+
+**The stream button's label is Federico's choice. None is chosen here.** These are the candidates
+the plan records (2026-11-11, the design proposal). The widths are measured in Roboto Regular at
+16.1 dp, so they are lower bounds.
+
+| Off / on | Widths |
+|---|---|
+| WATCH STREAM / HIDE STREAM, the owner's example, built into the prototype as a switch | 123.1 / 102.3 dp |
+| SHOW STREAM / HIDE STREAM | 113.2 / 102.3 dp |
+| START STREAM / STOP STREAM | 115.9 / 107.1 dp |
+| OPEN PLAYER / CLOSE PLAYER | 103.9 / 111.0 dp |
+| Today: VIDEO ON / VIDEO OFF | 72.0 / 78.3 dp |
+
+- **The design proposal's two notes:** START STREAM / STOP STREAM is the closest in form to START
+  PCG, and a user who streams may read "stop stream" as ending a broadcast.
+- **What the icon changes for them.** Only the "on" label shares the row with the icon.
+  - With the icon, each text button has (W − 72) / 2 dp, less its own horizontal padding: 144.0 at
+    360 dp of width, 156.0 at 384, 169.5 at 411 and 190.0 at 452.
+  - Without the icon it has (W − 24) / 2: 168.0 to 214.0 at the same widths.
+  - That assumes no margin before the icon. An 8 dp margin takes 4 dp from each button.
+- **The longest "on" label is CLOSE PLAYER, at 111.0 dp.** START PCG is 84.8.
+  - The button's own padding is still unresolved, as the design proposal recorded. So whether each
+    label fits on one line at 360 dp is for the screenshot.
+  - A label that wraps makes the row taller.
+  - The prototype saw HIDE STREAM fit at 360 dp in a row without the icon: 168 dp per button, not
+    144.
+
+**What the code step would owe, if Federico agrees.** Nothing is written. This is recorded so
+that it is not derived again.
+- **The change:** `fragment_chat.xml`, two strings, and one or two icons. `updateStreamUi` sets
+  the icon, its description and its visibility, where it set the button's text.
+- **No unit test reaches a layout.** The check is on the phone.
+- **On the phone:**
+  - The top of the page is measured on the reference phone and on the typical geometry: with the
+    stream off, with it on, and with it on and the keyboard up. Each list is compared with the
+    numbers above, within the model's 1.1 dp.
+  - The icon's frame is read from `dumpsys activity top`, and must be 48 × 48 dp.
+  - Its content description is read in both states.
+  - One screenshot of each, for Federico, kept outside the repository.
+  - The restore as this plan records it.
+- **Section M's outside-click step stands,** since `textStatus` keeps its listener.
+- **The instance list, reopened by the change,** is closed again by those measurements.
+
+**Scanned before commit:** this entry holds no account name, channel name, token or message text.
+The names it quotes are view ids, string names, commit identifiers and file paths.
