@@ -206,6 +206,7 @@
     <string name="terms_gate_decline">Decline and close</string>
     <string name="terms_gate_accept_checkbox">I have read and agree to the Terms of Use and Privacy Policy.</string>
     <string name="terms_gate_crash_reporting">To find and fix problems, TMC sends anonymous crash and error reports: device model, Android version, app version and a technical stack trace. They never include your Twitch account, channels or chat messages. You can turn this off at any time in Safety &amp; Privacy.</string>
+    <string name="terms_gate_github">TMC loads its stream player page from GitHub, and at most once a day asks GitHub whether a newer version exists. GitHub sees your IP address, and for the player the channel you open, but never your Twitch account.</string>
 
     <string name="blocked_users_title">Blocked users</string>
     <string name="blocked_users_subtitle">Users hidden in this app can be restored here.</string>

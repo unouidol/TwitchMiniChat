@@ -9,11 +9,24 @@ object TermsPrefs {
 
     // Aumentare questo numero quando cambiano in modo sostanziale i Terms/Privacy
     // 2: introduzione del crash reporting, dichiarato nel gate di accettazione
-    private const val CURRENT_TERMS_VERSION = 2
+    // 3: GitHub named as a recipient, for the stream player page and the version check.
+    //    A new recipient is a material change by the criterion of 2026-09-26, so every
+    //    user who accepted version 2 sees the gate once more, on first opening 5.6.0.
+    /** The terms version a stored acceptance must reach; see [isAccepted]. */
+    internal const val CURRENT_TERMS_VERSION = 3
+
+    /**
+     * Whether an acceptance stored as [acceptedVersion] covers the current terms.
+     *
+     * Raising [CURRENT_TERMS_VERSION] is what re-shows the gate: an acceptance of an
+     * earlier version no longer counts, and `MainActivity.onResume` raises the gate.
+     */
+    internal fun isAccepted(acceptedVersion: Int): Boolean =
+        acceptedVersion >= CURRENT_TERMS_VERSION
 
     fun hasAcceptedCurrentVersion(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getInt(KEY_ACCEPTED_VERSION, 0) >= CURRENT_TERMS_VERSION
+        return isAccepted(prefs.getInt(KEY_ACCEPTED_VERSION, 0))
     }
 
     fun markAcceptedCurrentVersion(context: Context) {

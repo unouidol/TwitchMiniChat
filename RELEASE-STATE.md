@@ -686,11 +686,33 @@ recording them both as `2026-09-26` was a record of what happened, not a rule. S
 change moved only the page it edited. Both copies of `data_deletion.html` carry `2026-09-28`, and
 both copies of `privacy.html` carry `2026-09-26`, which is what the rule actually asks.
 
+**Changed on 2026-11-12: three pages now, and the privacy policy moves to `2026-11-12`.** The
+pull request that names GitHub, stacked on the welcome page's (#110), changes three bundled
+pages. **Publishing all three is now one step**, replacing the two-page publication described
+below:
+
+- **`privacy.html`, now `2026-11-12`.**
+  - §3 gains a purpose: showing a stream when the user chooses to, and saying when a newer version
+    exists.
+  - §4 names GitHub, for two requests, with what each shows and what it does not. See *GitHub
+    named, and the acceptance gate raised to 3* below.
+- **`credits.html`** names GitHub among the third-party services. Its Firebase line now also names
+  crash reporting, which 5.5.1 had added without saying so there. The page carries no date.
+- **`data_deletion.html`** is unchanged, at `2026-09-28`. It describes what the four options
+  remove from the phone and from the TwitchMiniChat server. GitHub holds nothing the app stored
+  there, so there is nothing for it to say.
+
+**The published copies are prepared, not published.** The derived `tmc/privacy.html`,
+`tmc/credits.html` and `tmc/data-deletion.html` sit on a local branch of a clone of
+`unouidol/unouidol.github.io`. They are compared against the bundled copies there and are not
+pushed: that repository was outside what this step was allowed to change, and publishing comes
+immediately before the tag in any case.
+
 **Publishing them is one step of the 5.6.0 release, immediately before the tag** - between
 step 7 (confirming `main-v5` holds the code the artifacts were built from) and step 8
-(publishing the release) of the procedure in `AGENTS.md`. **Both pages in the same publication**,
-never two publications before one tag: that is how one of them gets forgotten, and a privacy
-policy that still describes the old retention while the deletion page describes the new
+(publishing the release) of the procedure in `AGENTS.md`. **All the changed pages in the same
+publication**, never two publications before one tag: that is how one of them gets forgotten,
+and a privacy policy that still describes the old retention while the deletion page describes the new
 behaviour is the exact contradiction the two-copies rule exists to prevent.
 
 The published copies are not stored a second time in this repository, because a stored snapshot
@@ -710,9 +732,50 @@ published files are LF with a trailing newline, which for `privacy.html` is a re
 the bundled copy has no trailing newline, and that is the difference this file has recorded
 since 5.5.1.
 
-Regenerate both at publication time, commit them as `tmc/data-deletion.html` and
-`tmc/privacy.html` in `unouidol/unouidol.github.io`, then fetch each back and compare it
-against the copy in the APK to confirm they agree apart from those links and that newline.
+Regenerate them at publication time and commit them in `unouidol/unouidol.github.io` as:
+
+- `tmc/data-deletion.html`;
+- `tmc/privacy.html`;
+- since 2026-11-12, `tmc/credits.html`.
+
+Then fetch each back and compare it against the copy in the APK, to confirm they agree apart from
+those links and that newline.
+
+#### GitHub named, and the acceptance gate raised to 3 (2026-11-12)
+
+**Two requests reach GitHub, and the policy named neither.** Federico decided on 2026-11-12 to
+name both in 5.6.0.
+
+1. **The stream player page.** It is `https://unouidol.github.io/ircminichat/player.html`, loaded
+   from GitHub Pages whenever a stream is shown, with the channel's name in its address.
+   - **This is a correction of an omission that predates this work.** The page has been loaded
+     from there since 5.4.1: releases up to `v5.4.0` contain no player, and `v5.4.1` and `v5.5.1`
+     both load it.
+   - **What it shows GitHub:**
+     - the IP address;
+     - the standard identification of the built-in browser. The session runs GeckoView in desktop
+       User-Agent mode, `GeckoSessionManager.kt:1691`;
+     - the channel name.
+2. **The version check.** This is a new request, added by the welcome page (#110). It asks
+   `releases/latest` at most once a day.
+   - **What it shows GitHub:** the IP address and the fixed User-Agent `TwitchMiniChat-Android`.
+   - **What it does not show:** anything about the phone, the account or the installation.
+
+**Neither request carries a Twitch account, a token or an identifier,** and the developer receives
+no record of either. The APK download is the user's own browser, after a tap.
+
+**Decision, by the criterion of 2026-09-26 below: `CURRENT_TERMS_VERSION` goes to 3.** A new
+recipient is a material change.
+
+- **What a user sees:** every user who accepted version 2 sees the gate once on first opening
+  5.6.0, then the welcome page.
+- **How it is triggered:**
+  - `TermsPrefs.isAccepted` counts an acceptance only if it is at least the current version;
+  - `MainActivity.onResume` raises the gate for any acceptance below 3;
+  - `TermsVersionTest` pins both.
+- **What the gate itself says:** one new line, `terms_gate_github`. That is the same pattern
+  version 2 used for crash reporting: the gate states the new recipient in a sentence, and the
+  policy has the detail.
 
 #### What the privacy policy changed, and why the acceptance gate was not raised
 
