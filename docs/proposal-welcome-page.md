@@ -14,6 +14,59 @@ of them: the wording, the links, the endpoint, and whether the feature enters 5.
 The Discord invite and the Ko-fi page were not opened, joined or fetched. Nothing in this step
 needed their contents.
 
+## DECIDED by Federico on 2026-11-12, after this proposal was written
+
+**This section overrides what follows wherever the two differ.** The rest of the document is kept
+as it was proposed. **He wants everything in 5.6.0, so that later versions can go to other work.**
+
+1. **The full version.** It has the welcome page, the Bug report entry, and the update notice with
+   its version check: Cut B on top of Cut A. The smaller version with no network request is not
+   chosen.
+2. **The endpoint is GitHub's releases API** (endpoint 1), the same source the website uses.
+   - **Reason:** the privacy policy is being corrected to name GitHub anyway (item 7), so this adds
+     no second recipient.
+3. **The update button opens the browser, and the app never downloads or installs an APK.** It
+   requests no install permission.
+   - **What it opens: the APK itself**, `releases/latest/download/<asset>`, choosing the asset that
+     matches the installed one: `arm64-v8a` or `armeabi-v7a`. It is neither the website nor the
+     release page.
+   - **The reason** (the owner's words): "less hassle to users, less clicks are better than many
+     clicks, even if it's just one".
+   - **What it departs from:** the proposal did not recommend a direct link, because the app would
+     "have to guess the ABI". It does not have to guess: a 64-bit process can only be running the
+     `arm64-v8a` APK, since the two published APKs differ only in their native code.
+   - **What it gives up:** the user sees no release notes and no install instructions.
+   - The browser still does the downloading.
+4. **The journal's export stays hidden,** as decided on 2026-09-15.
+   - The Bug report page tells the user to describe the problem in the Discord channel, and that a
+     diagnostics file may be asked for there.
+   - It offers no export and does not reveal the gesture.
+5. **The links,** each defined once in `ProjectLinks`:
+   - the Discord invite `https://discord.gg/E8yRUp2MBK`;
+   - the bug report channel `tmc-ticket`;
+   - Ko-fi `https://ko-fi.com/tmc_app`. Ko-fi is shown.
+
+   **The invite is compiled in as given.** The risk that it expires (*The risk in a compiled
+   invite*) stays **open until Federico confirms that the invite is permanent**.
+6. **Dev builds never show the update notice.** Option (A): dev makes no check at all.
+7. **The corrections of form and of fact go in the same release.**
+   - **The privacy policy names GitHub,** for the stream player page and for the version check.
+   - **The terms gate is raised, by the criterion of 2026-09-26,** so every user sees the terms once
+     on first opening 5.6.0.
+   - **The website's fallback version is corrected.**
+8. **When the page shows.** It shows:
+   - on first launch;
+   - **once after the app is updated to a new version;**
+   - when an update is available and not yet dismissed for that version;
+   - otherwise never.
+
+   This settles the table's "existing user" row, and adds a row: every update shows the page once.
+9. **The update notice names the new version and nothing else.** It has no countdown and no "you
+   are late" wording: alerts inform, and the user decides.
+10. **The menu entry is labelled "About TMC",** and the Bug report entry "Bug report".
+11. **The page follows the terms gate on first launch,** as the table of situations says. He asked
+    for that table to be implemented exactly.
+
 ## What Federico asked for
 
 1. **A welcome page, shown before the login page.** It carries:
