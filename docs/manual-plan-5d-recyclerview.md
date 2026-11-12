@@ -3419,6 +3419,11 @@ has been read.
     - **The taste question stays open, attached to this defect:** whether a tall row should show its
       top rather than its bottom. It is Federico's question, and seeing the row is what lets him
       answer it.
+  - **A prototype of variant B, for looking at, on 2026-11-11:** `059bc7b` on
+    `prototype/5d-layout-b`, not for merging (*Recorded results*, the prototype of variant B).
+    - Federico's choices are built into it.
+    - Still open: the floor, the labels, the player's height, and what a refused panel does.
+    - The owner's reading of the player check, his and open, is in the same entry.
 - **The dev app crashed when the phone was rotated from landscape back to portrait: OBSERVED once,
   on 2026-11-10 at 15:36:03, phone time.** It was seen on the dev build `00c1e78`, 5.5.1-dev (8),
   sha256 `ba1f88e3…`, the build *Test device* records. Its code under `app/src/main` differs from
@@ -3512,6 +3517,20 @@ has been read.
       argument (`:1476`, `:1486`), and a factory for the `TwitchChatClient` the fragment builds
       itself (`:2175`), so the page comes up with no token and no connection to Twitch. The page's
       other network callers have not been inventoried.
+- **The phone's probe dumps: their deletion is BLOCKED until two comparisons exist and the owner
+  rules.** Recorded on 2026-11-11 by the owner's ruling.
+  - **What is known:** 133 of the phone's 211 dumps have a copy on `nbpromec1`, by name and size, and
+    78 do not (*Recorded results*, the phone's probe files compared). 34 of the 78 are dated
+    2026-11-02, when the sittings ran from the other machine, `DESKTOP-BCT68L9`.
+  - **What is missing:** the same comparison, by name and size, against that machine's run folder.
+  - **Until both comparisons exist and the owner rules, nothing on the phone is deleted.**
+- **`C/run.sh`'s header comment says the script deletes the phone's dumps, and it never does: a
+  comment that lies.** Recorded on 2026-11-11 by the owner's ruling.
+  - **To be corrected when that file is next touched,** not on its own.
+  - **The behaviour is the right one: the port deliberately never deletes.** The comment is wrong,
+    not the code.
+  - Its only `rm` removes the probe's `flag` and `latest` (*Recorded results*, the phone's probe
+    files compared).
 
 ## Recorded results
 
@@ -8541,3 +8560,245 @@ not recalled.
 - **Nothing was deleted,** here or on the phone.
 - **Scanned before commit:** the comparison holds dump names, local launch paths and sizes only. It
   has no account name, channel name, token or message text.
+
+**2026-11-11, on `nbpromec1`: the owner's reading of the player check, recorded as his and OPEN;
+Federico's choices; a prototype of variant B built, and photographed on the phone from 11:25 to
+11:44.** These are the owner's rulings. This entry chooses no floor, no label and no player height.
+
+**The owner's reading of the player check: HIS, not a finding, and OPEN.** The check is the entry
+above. He gives it as follows:
+- The embed works below the documented minimum.
+- Today's player is already marginally below it in height on the reference phone: 298 and 295 CSS
+  px, against 300.
+- It is below it in width on any phone narrower than 400 dp, which the app cannot avoid.
+- Twitch states the minimum as a requirement tied to its Developer Services Agreement, with
+  revocation as the stated consequence. The agreement itself was not read.
+- **His recommendation to Federico:** do NOT shrink the player below 300 by design, and bring it to
+  a full 300 CSS px where it is 295 to 298 today.
+- **The decision is Federico's, and is NOT TAKEN.** The prototype below keeps today's 300 dp.
+
+**Federico's choices for the prototype,** as given:
+1. **With the stream on and the keyboard up, the player STAYS.** The list takes what is left, even
+   below the floor.
+2. **The top of the page follows variant B of the proposal.**
+   - The connection status moves into the channel bar: the user name and the channel, with a state
+     indicator.
+   - The mute control becomes an icon beside it.
+   - The "UNMUTE" row and the status row both go.
+3. **"START PCG" and the stream button stay text buttons.**
+
+Still his to choose, from the pictures: the floor's row count, and the stream button's labels.
+
+**The prototype: `059bc7b` on `prototype/5d-layout-b`. A PROTOTYPE, NOT FOR MERGING.**
+- **Where it is:**
+  - a branch off `main-v5` at `9ecb341`, dev flavour only;
+  - no pull request into `main-v5`;
+  - tag `device-test/5.5.1-dev-8-059bc7b`, pushed and confirmed with `git ls-remote`.
+- **The hard invariant: the composer's text field is always entirely on screen.**
+  - The page root is `ChatPageLayout`, a `LinearLayout` subclass. It first measures every child
+    that never yields.
+  - If those alone do not fit, the composer row is drawn over the bars.
+- **The allocation: `ChatPagePolicy.allocate`,** a pure function with 13 unit tests. It decides in
+  this order:
+  1. **The player** gets its 300 dp whole, or is refused.
+  2. **The picker** gets 240 dp, or less down to 152, as long as the list keeps its floor.
+  3. **The list** gets what is left.
+  - **The floor applies against the picker only,** never against the player.
+- **The floor is in rows, at the user's font scale.**
+  - `ChatRowHeightMeter` measures one emote row offscreen, the way the page draws one: 14 sp text,
+    and an emote 1.5 times the text size, aligned to the bottom.
+  - The floor is the rows times that height, plus the list's 12 dp bottom padding.
+- **A refused panel is held hidden, at no height, until the room comes back.** A one-line message
+  says so, once.
+  - Whether it should close instead is NOT DECIDED. That is the proposal's open choice.
+  - The prototype holds it because that needs no state change from inside a measure pass.
+- **The player's height is unchanged:** 300 dp.
+- **Variant B's top bar,** in the channel bar after the channel field:
+  - the indicator;
+  - "@user" and "#channel" on two lines at 12 sp, each cut with an ellipsis at 96 dp;
+  - the mute icon, while the stream is on.
+  - A problem row below the bar is shown only in the problem state.
+- **The dev-only switches, set by broadcast:**
+  - the floor's row count;
+  - the stream labels: today's, or "Watch stream" and "Hide stream";
+  - display-only demo names.
+  - The default floor is 3 rows, only so that the prototype has one.
+
+**The indicator: four states, each with its own shape and its own content description.**
+
+| State | Shape | Colour | Content description |
+|---|---|---|---|
+| Connected | filled circle | green | "Connected" |
+| In progress | open ring | amber | "Connecting" |
+| Disconnected | hollow circle with a bar | grey | "Disconnected" |
+| Problem | triangle with "!" | red | "Connection problem" |
+
+- **The cluster is read as one item,** with today's sentence as its description. So a screen reader
+  hears what the status line said before.
+- **A problem's words are on screen,** in the problem row.
+
+**Where each of the ten status texts goes.**
+
+| Text | State | Its words |
+|---|---|---|
+| `status_loading` | In progress | the cluster's description |
+| `status_connecting` | In progress | the cluster's description |
+| `status_connected` | Connected | the cluster's description |
+| `status_disconnected_account` | Disconnected | the cluster's description |
+| `status_disconnected` | Disconnected | the cluster's description |
+| `account_not_found` | Problem | the problem row |
+| `status_missing_token` | Problem | the problem row |
+| `status_backend_session_reauthorize`, from both of its writes | Problem | the problem row |
+| `status_backend_auth_failed` | Problem | the problem row |
+| `status_read_error` | Problem | the problem row |
+
+- **The names** are on screen in every state where they are known.
+- **The `mute` and `unmute` strings are removed.** The icon's descriptions are new strings, "Mute
+  stream" and "Unmute stream".
+
+**Verified on its tree, on this machine.**
+- **`:app:testDevDebugUnitTest`:** 647 tests run, 0 failed, 0 errors, 0 skipped. 13 of them are the
+  new `ChatPagePolicyTest`.
+- **`:app:lintDevDebug`:** "no new issues", with the 38 errors the existing baseline filters.
+  - Its first run found 12 errors, all from this change.
+  - They were fixed before the commit.
+- **`:app:assembleDevDebug`,** run again after the commit:
+  - `BuildConfig.GIT_SHA` is `059bc7b`, with no `+`;
+  - the arm64 APK's sha256 is `ad35916f22252eb948cee8a82926a3d48e8178fd918c3d9b391bea5ea34e6aaf`.
+- **Not run:** the stable flavour's tests, lint and build. The prototype is for the dev flavour only.
+
+**The device step, 11:25 to 11:44, phone time.**
+- **Before anything changed, read at 11:25:**
+  - `Physical size: 1080x2400` with no override, and `display_size_forced` null;
+  - density 382;
+  - rotation `lock 0`, and font scale 1.15.
+  - Stable 5.5.1 at sha256 `bf6c22c2…`, and dev 5.5.1-dev at `ba1f88e3…`, as *Test device* in
+    `RELEASE-STATE.md` recorded them.
+- **"Disable permission monitoring"** was switched on by Federico. At 11:28 the same-value write,
+  `wm density 382`, was accepted with `remote exit=0`.
+- **The install, over the dev app only:**
+  - **The installed dev APK was pulled** with `MSYS_NO_PATHCONV=1` and kept on this machine. Its
+    arrival was checked, as its own step, by size and by sha256 against the phone's.
+  - **Its signer and the prototype's are the same:** the Android Debug certificate, SHA-256
+    `9b3a523b…5c51`.
+  - **The prototype's package,** read from the APK, is `com.fs.twitchminichat.dev`.
+  - **`adb install -r` at 11:28:47:** `Success`.
+  - **Afterwards,** the phone's dev APK read `ad35916f…`, the one built here, and stable was
+    unchanged.
+  - Nothing was uninstalled.
+- **The view photographed:** the dev app's first chat page as it opens, Federico's choice. The
+  channel was live.
+- **Nothing was typed or sent.** The only inputs were:
+  - one swipe, from the accounts page to the first chat page;
+  - the stream button;
+  - the composer's field, to raise the keyboard;
+  - the emote button;
+  - Back, with the keyboard up.
+- **How it was measured:** frames from `dumpsys activity top`, for the page at the pager's left edge.
+  - The page's screen top came from `uiautomator`.
+  - The keyboard's top came from the window manager's IME inset source.
+  - **`uiautomator`'s bounds were NOT used for heights.** On this phone they clip at the app frame's
+    height, 2182 px, not at the page's bottom on screen, 2295. So they show the composer cut off when
+    it is not; the screenshot showed it whole.
+- **The predictions** are variant B's model:
+  - the bars, measured, less 54.03 dp;
+  - the player at 300 dp;
+  - the picker at 240 dp, down to 152;
+  - a floor of n × 28.48 + 12 dp.
+
+**Measured against predicted.** The list is in dp; rows are (list − 12 dp) over the row measured on
+that geometry. P is the player and K the picker, in dp. The field was entirely on screen in every
+shot.
+
+| Geometry | Shot | Floor, rows | Predicted list | Measured list | Rows | P / K |
+|---|---|---|---|---|---|---|
+| Reference, 382, page 913.9, bars 188.1 | a, nothing open | any | 725.8 | 725.9 | 25.06 | |
+| | b, stream | any | 425.8 | 426.0 | 14.53 | P 299.9 |
+| | c, stream and keyboard, page 617.8 | any | 129.7 | 129.8 | 4.14 | P 299.9 |
+| | d, picker | 2, 3, 4 | 485.8 | 485.9 at each | 16.64 | K 240.0 |
+| | e, stream and picker | 2, 3, 4 | 185.8 | 186.0 at each | 6.11 | P 299.9, K 240.0 |
+| | landscape, nothing open, page 405.0 | any | 216.9 | 217.0 | 7.20 | |
+| | landscape, stream | any | 216.9, player refused | 217.0, player refused at 0 | 7.20 | P 0 |
+| Default size, 450, page 769.1, bars 189.2 | a | any | 579.9 | 579.9 | 19.97 | |
+| | b | any | 279.9 | 279.8 | 9.42 | P 300.1 |
+| | c, page 514.1 | any | 24.9 | 24.9 | 0.45 | P 300.1 |
+| | d | 2, 3, 4 | 339.9 | 339.9 at each | 11.53 | K 240.0 |
+| | e | 4 | 125.9, K 154.0 | 125.9 | 4.00 | P 300.1, K 154.0 |
+| | e | 3 | 97.4, K 182.5 | 97.4 | 3.00 | P 300.1, K 182.4 |
+| | e | 2 | 69.0, K 210.9 | 69.0 | 2.00 | P 300.1, K 210.8 |
+| Typical, 420, page 827.0, bars 189.0 | a | any | 638.0 | 638.1 | 21.91 | |
+| | b | any | 338.0 | 337.9 | 11.41 | P 300.2 |
+| | c, page 535.6 | any | 46.6 | 46.5 | 1.21 | P 300.2 |
+| | d | 2, 3, 4 | 398.0 | 398.1 at each | 13.51 | K 240.0 |
+| | e | 4 | 125.9, K 212.1 | 126.5 | 4.01 | P 300.2, K 211.4 |
+| | e | 3 and 2 | 98.0, K 240 | 97.9 at each | 3.01 | P 300.2, K 240.0 |
+
+- **Where the measurement and the model disagree: nowhere by more than 0.6 dp.**
+  - **The largest difference** is the typical phone at floor 4: 126.5 dp against 125.9.
+  - **Its cause:** that floor uses the row measured on that geometry, 75 px, which is 28.57 dp. The
+    model's row is the reference phone's, 68 px or 28.48 dp.
+  - **The row, measured by the prototype on each geometry:**
+    - 68 px at 382;
+    - 80 px at 450, which is 28.44 dp;
+    - 75 px at 420;
+    - 57 px at 320, which is 28.5 dp.
+  - **Every other difference is 0.2 dp or less,** from rounding whole pixels.
+- **The page heights and the bars match the model's inputs exactly,** on all three geometries.
+- **What the shots show, beyond the numbers:**
+  - **With the keyboard up, the list is below every floor candidate, as Federico chose:** 4.14 rows
+    on the reference, 1.21 on the typical phone, and 0.45 at density 450, under one row.
+  - **At density 450 the floor does the work:** the picker shrinks to 154.0, 182.4 and 210.8 dp, and
+    the list holds 4.00, 3.00 and 2.00 rows.
+  - **At 154 dp the picker** shows its search field and one row of emotes.
+  - **In landscape the player is refused,** with the message. While the message shows, as a system
+    toast, it covers part of the composer's field on the screen. The field itself stays laid out on
+    screen.
+  - **The labels:** "HIDE STREAM" and "WATCH STREAM" each fit on one line, at 452 dp and at 360 dp.
+    The bars' height did not change with any label. The 360 dp pair is an extra, beyond the two
+    reference shots asked for.
+  - **The channel field's width, measured:**
+    - 170.9 dp at 452 dp with the stream off (read after the restore);
+    - 131.4 and 83.4 dp at 411 dp, with the stream off and on;
+    - 102.8 and 54.8 dp at 384 dp.
+    - At 452 dp with the stream on it was not measured: about 123 dp, computed as the mute icon's
+      48 dp less.
+  - **The long names at 360 dp (720x1280 at 320),** with synthetic 25-character names from the demo
+    switch:
+    - they show as "@abcdefghij…" and "#wwwwwwww…";
+    - the channel field is 70.0 dp with the stream off, and 22.0 dp with it on;
+    - at 22 dp it is an underline with no visible hint.
+    - That is the proposal's prediction that B does not fit at 360 dp with the stream on, now
+      observed.
+  - **The status cluster** is 120 to 130 dp wide.
+  - **No crash:** the phone's newest app-crash entry is still 2026-11-10 15:36:03's. The activity
+    was recreated by each change of density or size, and by each rotation.
+- **The switches were left at their defaults:** floor 3, today's labels, no demo names.
+
+**The restore, at 11:44, exactly as this plan records it.**
+- **The commands:** `cmd window user-rotation lock 0`, `wm size reset` and `wm density 382`, each
+  with exit 0.
+- **Read back:**
+  - `Physical size: 1080x2400` with no override;
+  - density 450 physical and 382 override, and `display_density_forced` 382;
+  - `lock 0`, `accelerometer_rotation` 0, and font scale 1.15.
+- **The residue:** `display_size_forced` was an empty key. `settings delete global
+  display_size_forced`, run as a step of its own after that read, printed "Deleted 1 rows", and
+  the key then read null.
+- **The reference again:** the page measured as shot a did, a list of 725.9 dp. Then Home, with the
+  launcher in front.
+- **"Disable permission monitoring": NOT YET RESTORED, and OPEN.**
+  - Federico will switch it off and restart the phone later.
+  - The refused write that confirms it has not been run.
+  - Until it is, the shell can change this phone's secure settings.
+
+**What the phone runs now:** the prototype, as the dev app. `RELEASE-STATE.md`'s *Test device*
+records it.
+
+**The pictures stay on this machine,** because they show the account and the channel. They are in
+`%USERPROFILE%\tmc-5d-round\prototype-b-2026-11-11\`:
+- 39 screenshots;
+- `measurements.tsv`;
+- the prototype's APK, and the dev APK it replaced.
+
+The two pictures named `00-check-ref-a.png` and `ref382-after-restore-a.png` are the check of the
+first reading and the reading after the restore.
