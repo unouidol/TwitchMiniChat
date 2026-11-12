@@ -1,0 +1,60 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 22045187 Realtime: 26356683
+
+** MEMINFO in pid 4469 [com.fs.twitchminichat.dev] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap    16554    16492        0        0    19384    28672    24610     4061
+  Dalvik Heap    10053     9784        0        0    17700    16970     8485     8485
+ Dalvik Other    17009     4276        0        0    30000                           
+        Stack     2196     2196        0        0     2208                           
+       Ashmem       11        0        0        0      484                           
+      Gfx dev     2988     2988        0        0     2988                           
+    Other dev       48        0       48        0      504                           
+     .so mmap     3195      272      340        2    42312                           
+    .jar mmap     5174        0     2152        0    41904                           
+    .apk mmap      544        8       60        0     3644                           
+    .ttf mmap      676        0      436        0     1428                           
+    .dex mmap    24776    24768        0        0    25324                           
+    .oat mmap       16        0        0        0     1764                           
+    .art mmap     8145     7760        0        0    22052                           
+   Other mmap      106       40       40        0     1304                           
+   EGL mtrack    41104    41104        0        0    41104                           
+    GL mtrack      384      384        0        0      384                           
+      Unknown      665      488      168        0     1496                           
+        TOTAL   133646   110560     3244        2   255984    45642    33095    12546
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    17544                          39752
+         Native Heap:    16492                          19384
+                Code:    28172                         141988
+               Stack:     2196                           2208
+            Graphics:    44476                          44476
+       Private Other:     4924
+              System:    19842
+             Unknown:                                    8176
+ 
+           TOTAL PSS:   133646            TOTAL RSS:   255984       TOTAL SWAP PSS:        2
+ 
+ Objects
+               Views:      163         ViewRootImpl:        1
+         AppContexts:        7           Activities:        1
+              Assets:       39        AssetManagers:        0
+       Local Binders:       18        Proxy Binders:       51
+       Parcel memory:       12         Parcel count:       48
+    Death Recipients:        3      OpenSSL Sockets:       10
+            WebViews:        0
+ 
+ SQL
+         MEMORY_USED:      575
+  PAGECACHE_OVERFLOW:      202          MALLOC_SIZE:       46
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b)          cache  Dbname
+         4      104            124      79/103/25  /data/user/0/com.fs.twitchminichat.dev/no_backup/androidx.work.workdb
+         4        8                         0/0/0    (attached) temp
+         4      104             76        15/27/8  /data/user/0/com.fs.twitchminichat.dev/no_backup/androidx.work.workdb (1)
+         4       56             68        33/32/6  /data/user/0/com.fs.twitchminichat.dev/databases/com.google.android.datatransport.events

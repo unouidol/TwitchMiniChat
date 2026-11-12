@@ -1,0 +1,6 @@
+launch-toA host_before=2026-11-09 12:32:05.301 host_after=2026-11-09 12:32:05.814 swipe-from-accounts target=[57,688][1023,1753] input="swipe 903 1220 60 1220 150" rc=0 front_before=dev front_after=dev
+r1-A host_before=2026-11-09 12:32:49.333 host_after=2026-11-09 12:32:50.769 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r1-toB host_before=2026-11-09 12:32:58.687 host_after=2026-11-09 12:32:59.253 swipe-left target=[716,132][831,247] input="swipe 773 189 60 189 150" rc=0 front_before=dev front_after=dev
+r1-B host_before=2026-11-09 12:33:05.958 host_after=2026-11-09 12:33:07.337 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r1-toA host_before=2026-11-09 12:33:12.737 host_after=2026-11-09 12:33:13.299 swipe-right target=[716,132][831,247] input="swipe 773 189 1061 189 150" rc=0 front_before=dev front_after=dev
+c1-A host_before=2026-11-09 12:39:59.350 host_after=2026-11-09 12:40:00.767 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev

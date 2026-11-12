@@ -1,0 +1,6 @@
+pkg=com.fs.twitchminichat.dev
+pid=4469
+start=2631071
+label=b-L5D2
+bound_at=1794226054.246165500
+phone_since=2026-11-09 13:07:37.000
