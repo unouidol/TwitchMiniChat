@@ -65,6 +65,7 @@ import com.fs.twitchminichat.chat.HistoryBackfillState
 import com.fs.twitchminichat.diagnostics.HistoryDiagnosticsLog
 import com.fs.twitchminichat.chat.ChatMentionSuggestions
 import com.fs.twitchminichat.chat.ChatMentionUserTracker
+import com.fs.twitchminichat.chat.StreamPlayerUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -81,7 +82,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fs.twitchminichat.ui.input.ChatMessageInputView
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
-import java.net.URLEncoder
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlin.coroutines.resume
 
@@ -243,7 +243,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private lateinit var geckoStreamView: GeckoView
     private lateinit var btnToggleStream: Button
-    private lateinit var btnMuteStream: Button
 
     private lateinit var replyBar: LinearLayout
     private lateinit var txtReplyInfo: TextView
@@ -615,7 +614,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     private var streamSession: GeckoSession? = null
     private var streamEnabled = false
-    private var streamMuted = true
 
     private var lastManualRefreshMs = 0L
 
@@ -1528,7 +1526,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         btnJumpToBottom = view.findViewById(R.id.btnJumpToBottom)
         geckoStreamView = view.findViewById(R.id.geckoStreamView)
         btnToggleStream = view.findViewById(R.id.btnToggleStream)
-        btnMuteStream = view.findViewById(R.id.btnMuteStream)
         replyBar = view.findViewById(R.id.replyBar)
         txtReplyInfo = view.findViewById(R.id.txtReplyInfo)
         btnCancelReply = view.findViewById(R.id.btnCancelReply)
@@ -1852,10 +1849,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         btnToggleStream.setOnClickListener {
             toggleStream()
-        }
-
-        btnMuteStream.setOnClickListener {
-            toggleStreamMute()
         }
 
         btnCancelReply.setOnClickListener {
@@ -3300,10 +3293,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             ?: "unouidol"
     }
 
-    private fun buildStreamUrl(channel: String = currentChannelNormalized()): String {
-        val ch = URLEncoder.encode(channel, "UTF-8")
-        return "https://unouidol.github.io/ircminichat/player.html?channel=$ch&muted=$streamMuted"
-    }
+    private fun buildStreamUrl(): String = StreamPlayerUrl.build(currentChannelNormalized())
 
     private fun onCopyMessageRequested(message: String) {
         val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -3493,19 +3483,12 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!this::btnToggleStream.isInitialized) return
 
         btnToggleStream.text = if (streamEnabled) {
-            getString(R.string.stream_on)
+            getString(R.string.stream_hide)
         } else {
-            getString(R.string.stream_off)
+            getString(R.string.stream_show)
         }
 
         geckoStreamView.visibility = if (streamEnabled) View.VISIBLE else View.GONE
-        btnMuteStream.visibility = if (streamEnabled) View.VISIBLE else View.GONE
-
-        btnMuteStream.text = if (streamMuted) {
-            getString(R.string.unmute)
-        } else {
-            getString(R.string.mute)
-        }
     }
 
     private fun enableStream() {
@@ -3529,15 +3512,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             disableStream()
         } else {
             enableStream()
-        }
-    }
-
-    private fun toggleStreamMute() {
-        streamMuted = !streamMuted
-        updateStreamUi()
-
-        if (streamEnabled) {
-            streamSession?.loadUri(buildStreamUrl())
         }
     }
 

@@ -9,10 +9,9 @@
     <string name="hint_channel_name">Type Channel Name here</string>
     <string name="refresh_chat">Refresh chat</string>
     <string name="chat_messages">Chat messages</string>
-    <string name="stream_off">Video ON</string>
-    <string name="stream_on">Video OFF</string>
-    <string name="mute">Mute</string>
-    <string name="unmute">Unmute</string>
+    <!-- The stream button: it shows and hides the player's frame, which does not autoplay. -->
+    <string name="stream_show">Show stream</string>
+    <string name="stream_hide">Hide stream</string>
     <string name="stream_player">Stream player</string>
     <string name="account_not_found">Account not found</string>
     <string name="status_connecting">Connecting as @%1$s on #%2$s…</string>
@@ -22,7 +21,6 @@
     <string name="status_backend_session_reauthorize">Session expired for @%1$s. Return to Accounts and tap Refresh to reauthorize.</string>
     <string name="status_backend_auth_failed">Could not authenticate @%1$s. Check the connection or reauthorize the account manually.</string>
     <string name="status_read_error">Read error: %1$s</string>
-    <string name="status_send_error">Send error: %1$s</string>
     <string name="status_disconnected_account">Disconnected (@%1$s)</string>
     <string name="delete_account">Delete account</string>
     <string name="reauthorize_account">Reauthorize account</string>

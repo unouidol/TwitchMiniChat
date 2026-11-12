@@ -960,41 +960,48 @@ Two facts that a list of branches does not show, recorded on 2026-11-10 by the o
 
 ## Test device
 
-**Refreshed on 2026-11-11, at the end of the device step that photographed the 5d layout
-prototype.** The dev row below is the build that step left on the phone: a PROTOTYPE, not a
-candidate for any release.
+**Refreshed on 2026-11-12, at the end of #108's device step.** The dev row below is the build that
+step left on the phone: #108's head, NOT MERGED.
 
 **Read from the device over adb,** from a OnePlus AC2003 on Android 12 (API 31): the Stable row on
-2026-10-23, and its sha256 and last update again on 2026-11-11, unchanged; the Dev row on
-2026-11-11. The version and build number are what the phone's package manager reports.
+2026-10-23, and its sha256 and last update again on 2026-11-12, unchanged; the Dev row on
+2026-11-12. The version and build number are what the phone's package manager reports.
 - **The Stable row's commit** was read from the APK installed on the phone, pulled back off it,
   with the build identity read from its code.
-- **The Dev row's sha256** was read on the phone at 11:29, with `sha256sum` on the path `pm path`
-  gives. It is the sha256 of the APK built here from `059bc7b` with a clean tree, whose
-  `BuildConfig.GIT_SHA` is `059bc7b`, with no `+`. That APK was installed with `adb install -r`
-  over the dev app only, at 11:28:47.
+- **The Dev row's sha256** was read on the phone after the install, with `sha256sum` on the path
+  `pm path` gives. It is the sha256 of the APK built on `DESKTOP-BCT68L9` from `6066f79` with a
+  clean tree, whose `BuildConfig.GIT_SHA` is `6066f79`, with no `+`. That APK was installed with
+  `adb install -r` over the dev app only, at 11:51:03.
 
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.5.1 (8) | `007ee55` | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` | 2026-09-18 14:08 |
-| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `059bc7b`, tag `device-test/5.5.1-dev-8-059bc7b`, no pull request: branch `prototype/5d-layout-b` | `ad35916f22252eb948cee8a82926a3d48e8178fd918c3d9b391bea5ea34e6aaf` | 2026-11-11 11:28 |
+| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `6066f79`, tag `device-test/5.5.1-dev-8-6066f79`, #108 | `47a494cd1016948bc38190b9387bdbc32001938d7ff50def9fa20b54fc2a8376` | 2026-11-12 11:51 |
 
 - **The stable app is the published 5.5.1.** Its APK's sha256 is the arm64 checksum recorded
   under *Published* above, as listed in the release's `SHA256SUMS.txt`, and its code carries
   `007ee55`, the commit `v5.5.1` points at.
-- **The dev app is a PROTOTYPE of the 5d layout, variant B, NOT FOR MERGING**
-  (`docs/manual-plan-5d-recyclerview.md`, *Recorded results*, 2026-11-11).
-  - **Its chat page differs from `main-v5`:** the status sits in the channel bar, the mute control
-    is an icon, and the page shares its height at measure time.
-  - **A check of the chat page on this build is not a check of `main-v5`.**
-  - **It has no pull request,** by the owner's ruling. The branch stands where the rule below puts
-    the number, and is kept.
+- **The dev app is #108's head, NOT MERGED** (`docs/manual-plan-5d-recyclerview.md`,
+  *Recorded results*, 2026-11-12, #108's device step).
+  - **Its chat page differs from `main-v5`:**
+    - the app's mute button and its row are gone;
+    - the status line sits between the channel bar and the buttons row;
+    - the stream starts with sound;
+    - the stream button reads SHOW STREAM / HIDE STREAM.
+  - **A check of the chat page on this build is a check of #108, not of `main-v5`,** until #108
+    merges.
   - The tag was pushed and confirmed with `git ls-remote --tags origin` before this record was
     written.
-- **What it replaced:** #97's `00c1e78`, sha256 `ba1f88e3…`, tag `device-test/5.5.1-dev-8-00c1e78`.
-  The long session `L5D2` and the hands-on pass ran on it.
+  - **The login screen read `Version 5.5.1-dev (build 8, 6066f79)`,** on screen at 11:53. That
+    screenshot was overwritten by the next one, so the reading is not kept.
+- **What it replaced:** the 5d layout prototype, variant B, `059bc7b`, sha256 `ad35916f…`, tag
+  `device-test/5.5.1-dev-8-059bc7b`, branch `prototype/5d-layout-b`, with no pull request.
   - Its APK was pulled off the phone before the install, checked against the phone's sha256, and is
-    kept on `nbpromec1`, in the step's folder.
+    kept on `DESKTOP-BCT68L9`, in the step's folder.
+- **Before the prototype:** #97's `00c1e78`, sha256 `ba1f88e3…`, tag
+  `device-test/5.5.1-dev-8-00c1e78`. The long session `L5D2` and the hands-on pass ran on it.
+  - Its APK was pulled off the phone before the prototype's install, checked against the phone's
+    sha256, and is kept on `nbpromec1`, in that step's folder.
   - **#97 merged as `5238077`** from its head `a193a50`. Under `app/src/main`, that head differs from
     `00c1e78` only by the comment at the `ClickableViewAccessibility` suppression: 7 lines, changed
     in place.
@@ -1006,11 +1013,11 @@ candidate for any release.
   - **Before `00c1e78`,** the phone held the round's control measurement build, `dea38cc`, sha256
     `d005e901…`. Before the round, it held #89's `d56812b`, sha256 `8519b894…`, tag
     `device-test/5.5.1-dev-8-d56812b`.
-- **"Disable permission monitoring" was switched on for the step, and is NOT YET confirmed off.**
-  Federico will switch it off and restart the phone; a refused write then confirms it.
-- **Not read: the login screen's line and a journal export's `# app` line,** the two places this
-  section otherwise reads a build from. Both need the app operated by hand. #86's first manual
-  check reads the dev app's login screen.
+- **"Disable permission monitoring" is confirmed OFF,** on 2026-11-12 at 11:45:35. After Federico
+  switched it off and restarted the phone, a same-value write (`wm density 382`) was refused with
+  `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`. It had been
+  on since the prototype's step of 2026-11-11.
+- **Not read: a journal export's `# app` line.** It needs the app operated by hand.
 
 This section had been marked stale on 2026-10-15: builds had been installed since its previous
 reading and none was recorded. That reading, from the journal export of 2026-09-14, found
