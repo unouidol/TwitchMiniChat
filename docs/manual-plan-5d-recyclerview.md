@@ -3374,6 +3374,13 @@ has been read.
       - It is not part of 5.6.0 unless he says so.
       - It moves the computed thresholds. It closes no landscape class, and two of the three
         portrait ones stay.
+    - **Changed by Federico later on 2026-11-12, and WRITTEN, not merged:** *Recorded results*,
+      2026-11-12, the change written.
+      - The mute button is REMOVED rather than moved.
+      - The stream starts with sound.
+      - The status line is tightened.
+      - The stream button reads SHOW STREAM / HIDE STREAM.
+      - Whether it goes into 5.6.0 is still his call.
   - **DECIDED on 2026-11-10, and SUPERSEDED on 2026-11-12 by the stop above: the fix is a MINIMUM
     HEIGHT on the chat list.** The panels that compete
     for space give way, by collapsing, by scrolling or by not opening, instead of the chat reducing to
@@ -9158,3 +9165,177 @@ that it is not derived again.
 
 **Scanned before commit:** this entry holds no account name, channel name, token or message text.
 The names it quotes are view ids, string names, commit identifiers and file paths.
+
+**2026-11-12, on `nbpromec1`: Federico's decisions on the top of the page; the change WRITTEN on
+`feat/chat-mute-button-removed`, not merged, and not yet on the phone.** These are the owner's
+rulings, and the decisions are Federico's. This entry supersedes part 1 of the proposal above, the
+icon in the buttons row, and that proposal's "Nothing is removed".
+
+**Federico's decisions.**
+1. **The app's own mute button is REMOVED.** He asked for it when the player was first integrated.
+   He now judges it superfluous, because it duplicates the Twitch player's own control.
+   - **The reasons read in the proposal above:**
+     - it reloads the whole player page on each press, and the reloaded player stands paused, by
+       reading;
+     - its label can be wrong, because the app cannot read the player's state.
+2. **The stream starts with sound ON, PROVISIONALLY.** The player never autoplays, so whoever
+   presses play wants to hear it. This is to be confirmed on the phone.
+3. **The stream button reads "Show stream" while the player is closed, and "Hide stream" while it is
+   open.** They are shown as SHOW STREAM and HIDE STREAM, and replace "Video ON" and "Video OFF".
+   - **The reason:** the button opens and closes the player's frame, and the video does not
+     autoplay.
+     - So "show" is truthful, where "watch" would promise playback.
+     - "Start stream" would read as going live on Twitch.
+4. **The status line is tightened as proposed,** with enough spacing that its text does not touch
+   its neighbours.
+
+**What was deleted, file by file.**
+- **`app/src/main/res/layout/fragment_chat.xml`:** `streamControlsBox` and its only child,
+  `btnMuteStream`. The box's `paddingBottom="8dp"`, paid with the stream off too, goes with it.
+- **`ChatFragment.kt`:**
+  - the `btnMuteStream` field and its `findViewById`;
+  - the button's click listener;
+  - `streamMuted`;
+  - `toggleStreamMute`, whose only caller was that listener;
+  - the two statements of `updateStreamUi` that set the button's visibility and text;
+  - the `java.net.URLEncoder` import, which moved to `StreamPlayerUrl`.
+- **`app/src/main/res/values/strings.xml`:** `mute` "Mute" and `unmute` "Unmute", used only by the
+  button; and `status_send_error`, below.
+- **`app/lint-baseline.xml`:** the `UnusedResources` entry for `status_send_error`.
+- **`player.html` in `unouidol/ircminichat`:** `setMutedState` and `toggleMute`, in both copies,
+  below.
+
+**The sound: where it is set.**
+- **`buildStreamUrl` in `ChatFragment.kt` is now one line** (`:3296`):
+  `StreamPlayerUrl.build(currentChannelNormalized())`.
+- **`StreamPlayerUrl`** (`app/src/main/java/com/fs/twitchminichat/chat/StreamPlayerUrl.kt`) builds
+  the address with `muted=false`. Before, the address carried `muted=$streamMuted`, which was
+  `true` on every new page.
+- **The page is unchanged on this point.** It still reads `muted` from the address, and still
+  defaults to muted when the parameter is absent.
+  - The app sends the parameter explicitly, so the change does not depend on the page.
+  - Every published app keeps loading the page as before.
+- **`StreamPlayerUrlTest` holds two tests:**
+  - the address, with `muted=false`;
+  - a channel name encoded so that it cannot add a parameter.
+- **What goes with the button:** its flag carried a choice across the page's reloads. Now every
+  load asks for sound. Whether the player's own mute choice survives a reload, through the stream
+  turned off and on or a channel switch, is for the phone.
+
+**The player page lives in `unouidol/ircminichat`, a separate repository.** GitHub Pages serves it
+from `main`, folder `/docs`.
+- **The change:** `setMutedState` and `toggleMute` are removed from `docs/player.html` and
+  `player.html`, which stay byte-identical. It is commit `f4206e4` on branch
+  `player-remove-unused-mute-helpers`, pushed.
+- **No pull request is open there.** Creating one was refused by this session's permission rules,
+  so the branch waits for Federico.
+- **Nothing calls the two functions.** Neither does any tag of this repository, from `v2.1.0` to
+  `v5.5.1`, nor any other file of that repository.
+- **Four more functions are uncalled and stay:** `setChannel`, `playStream`, `pauseStream` and
+  `setLowQuality`. Their removal was not asked for.
+- **Merging publishes the page.** Nothing in the app depends on that change.
+
+**The status line: the paddings kept, and what is reclaimed.**
+- **It moves between the channel bar and the buttons row.** Its ten texts, its strings and its
+  writes are unchanged. It keeps its click listener (`ChatFragment.kt:1774`).
+- **The paddings, in `fragment_chat.xml`:**
+
+  | Padding | Before | After |
+  |---|---|---|
+  | Channel bar, `channelSwitchBox`, bottom | 8 dp | 0 |
+  | Status line, `textStatus`, top | 12 dp | 2 dp |
+  | Status line, bottom | 12 dp | 2 dp |
+  | Buttons row, `topActionsRow`, top | 8 dp | 0 |
+  | Status line, start and end | 12 dp | 12 dp, unchanged |
+
+- **2 dp above and below keep the status line's box off the 48 dp boxes around it.**
+  - The visible space is larger than that:
+    - the field's underline sits a few dp above the bottom of its box;
+    - the icons are 24 dp inside 48 dp boxes;
+    - the button labels are centred in 48 dp.
+  - That was read from today's layout in `01-reference-stream-on.png` of 2026-11-11, which is
+    kept outside the repository.
+- **No touch target is below 48 dp.** The channel field, the three icons and the two buttons keep
+  their 48 dp minimums.
+- **The buttons row's style adds no padding of its own.** `?android:attr/buttonBarStyle` resolves to
+  `Widget.Material.ButtonBar`, which sets only `background` (`styles_material.xml` in the android-36
+  platform).
+- **What it reclaims, computed, in dp of page height:**
+
+  | | Stream off | Stream on |
+  |---|---|---|
+  | The mute row, with its padding | 8.0 | 56.1 |
+  | The paddings around the status line | 36.0 | 36.0 |
+  | **Total** | **44.0** | **92.1** |
+
+- **Predicted for the phone, at the reference geometry:**
+  - the channel bar, 134 px, 56.1 dp;
+  - the status line, about 62 px, 26 dp, for one line;
+  - the buttons row, 115 px, 48.2 dp.
+  - Each padding rounds to whole pixels.
+- **The list, computed:**
+  - **The reference phone:** 715.8 dp with the stream off, 415.8 with it on, and 119.7 with it on
+    and the keyboard up.
+  - **The typical phone,** with the stream on and the keyboard up: 36.6 dp.
+  - Each figure is the proposal's less the 4 dp of padding kept.
+
+**The stream button's labels.**
+- **The keys are RENAMED, so that each names what its text says:**
+  - `stream_off` "Video ON" becomes `stream_show` "Show stream";
+  - `stream_on` "Video OFF" becomes `stream_hide` "Hide stream".
+  - The old keys named the state each was shown in, the reverse of their text.
+- **Their only users:** `updateStreamUi`, and the layout's initial text for `btnToggleStream`.
+- **Their widths, lower bounds from the design proposal:** SHOW STREAM 113.2 dp, HIDE STREAM
+  102.3 dp.
+  - With the mute row gone, the row keeps two buttons of (W − 24) / 2 each: 168 dp at 360 dp of
+    width, and 214 at 452.
+  - Whether each fits on one line is read from the screenshots.
+- **Where the old labels were cited:**
+  - in the code, changed here;
+  - in this plan's records, which stay as written.
+  - None was found in the release notes, either site, the README, `AGENTS.md` or
+    `RELEASE-STATE.md`, searched earlier on 2026-11-12 (the proposal above).
+
+**`status_send_error`: removed.** Nothing writes it:
+- no source set refers to it;
+- the app has no `getIdentifier`;
+- its only other mention was the lint baseline's `UnusedResources` entry, removed with it.
+
+**Verified on `e1bbbb4`, on this machine, before the phone.**
+- **Unit tests:** `:app:testStableDebugUnitTest` and `:app:testDevDebugUnitTest`.
+  - Each ran 636 tests: 0 failed, 0 errors and 0 skipped, counted from the run's 95 result files.
+  - 2 of them are the new `StreamPlayerUrlTest`.
+  - There is no pre-existing failure.
+- **Lint,** against a reference run on `main-v5` at `93ff395`, the commit the branch was cut from,
+  with the same configuration:
+
+  | Flavour | Reference, `93ff395` | This branch |
+  |---|---|---|
+  | stable | no new issues; 38 errors filtered by the baseline; 1 hint, the baseline's notice | no new issues; 37 filtered; 1 hint |
+  | dev | no new issues; 38 filtered; 1 hint | no new issues; 37 filtered; 1 hint |
+
+  - 0 errors and 0 warnings are introduced.
+  - The one fewer filtered is `status_send_error`'s entry, removed with the string.
+- **`:app:assembleStableDebug` and `:app:assembleDevDebug`:** BUILD SUCCESSFUL.
+- **Continuous integration** is read on the pull request's exact head.
+
+**The device step: planned, NOT RUN.** It runs when Federico connects the phone, on the dev flavour
+only.
+- **First, before anything else:** the settings write the phone must refuse, `wm density 382`. If
+  the phone accepts it, nothing else is done on the phone.
+- **The install:** a clean tree, a dev build, `adb install -r` over the dev app and never an
+  uninstall. The APK's sha256 is read back from the phone.
+- **Measured from `dumpsys activity top` frames:** each top row and the chat list, in three
+  states: the stream off, the stream on, and the stream on with the keyboard up. Each state gets
+  one screenshot, kept outside the repository.
+- **The sound, which Federico judges by ear:**
+  - with the stream turned on and play pressed, whether there is sound without any other touch;
+  - whether the player's own mute control works;
+  - whether its setting survives the stream turned off and on, and a channel switch.
+- **The labels:** whether both fit on one line in the two-button row.
+- **The status line:** with a long user name and a long channel name, whether it wraps, and what
+  that does to the rows around it.
+- **A rotation:** one to landscape and back, and whether #103's guard holds.
+- **No geometry simulation,** so permission monitoring is not needed.
+
+**Scanned before commit:** this entry holds no account name, channel name, token or message text.
