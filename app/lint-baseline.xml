@@ -168,17 +168,6 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.status_send_error` appears to be unused"
-        errorLine1="    &lt;string name=&quot;status_send_error&quot;>Send error: %1$s&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="25"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.account_remove_done_backend_warning` appears to be unused"
         errorLine1="    &lt;string name=&quot;account_remove_done_backend_warning&quot;>Account removed locally, but TMC could not confirm server notification disable. If notifications continue, use Privacy &amp;amp; Safety to remove device and server data.&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">

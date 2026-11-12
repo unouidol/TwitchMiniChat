@@ -9,12 +9,18 @@
     android:focusable="true"
     android:focusableInTouchMode="true">
 
+    <!--
+        No bottom padding: the status line below sits directly under this bar. Its children keep
+        their 48 dp touch targets, whose own insets leave the space between the two.
+    -->
     <LinearLayout
         android:id="@+id/channelSwitchBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="8dp">
+        android:paddingStart="8dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="8dp">
 
         <com.fs.twitchminichat.ChannelAutoCompleteTextView
             android:id="@+id/editChannel"
@@ -67,6 +73,22 @@
 
     </LinearLayout>
 
+    <!--
+        The connection status, between the channel bar and the buttons row. It is not a control,
+        so it needs no 48 dp row: 2 dp above and below keep its text off its neighbours' boxes.
+        Its click listener only clears the channel field's focus, as the page's root does.
+    -->
+    <TextView
+        android:id="@+id/textStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="12dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="2dp"
+        android:text="@string/status_disconnected"
+        android:textStyle="bold" />
+
     <LinearLayout
         android:id="@+id/topActionsRow"
         style="?android:attr/buttonBarStyle"
@@ -74,8 +96,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="8dp">
+        android:paddingEnd="8dp">
 
         <Button
             android:id="@+id/btnStartPcg"
@@ -94,33 +115,13 @@
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:minHeight="48dp"
-            android:text="@string/stream_off" />
+            android:text="@string/stream_show" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/textStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="12dp"
-        android:text="@string/status_disconnected"
-        android:textStyle="bold" />
-    <LinearLayout
-        android:id="@+id/streamControlsBox"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingBottom="8dp">
-
-        <Button
-            android:id="@+id/btnMuteStream"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/unmute"
-            android:visibility="gone" />
-    </LinearLayout>
-
+    <!--
+        The stream's sound is the Twitch player's own control, inside the page: the app has no
+        mute button of its own (StreamPlayerUrl).
+    -->
     <org.mozilla.geckoview.GeckoView
         android:id="@+id/geckoStreamView"
         android:layout_width="match_parent"
