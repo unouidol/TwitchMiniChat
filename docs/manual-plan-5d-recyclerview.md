@@ -3384,6 +3384,8 @@ has been read.
       - **Its device step RAN on 2026-11-12** (*Recorded results*, 2026-11-12, #108's device step).
         The frames match the computed values, and sound plays on play. The player's own mute
         choice is LOST when the stream is hidden and shown, and on a channel switch.
+        - That loss is ACCEPTED by the owner as a known limit: the player does not autoplay, so
+          the sound returns only when the user presses play (the same entry).
   - **DECIDED on 2026-11-10, and SUPERSEDED on 2026-11-12 by the stop above: the fix is a MINIMUM
     HEIGHT on the chat list.** The panels that compete
     for space give way, by collapsing, by scrolling or by not opening, instead of the chat reducing to
@@ -9449,6 +9451,12 @@ he added no words of his own.
   - With the app's mute button gone, a viewer who mutes hears sound again after each hide and show
     and after each channel switch.
   - This is the risk the pull request named. Whether it is acceptable is Federico's call.
+- **ACCEPTED as a KNOWN LIMIT, by the owner's ruling later on 2026-11-12, before #108's merge.**
+  - **The limit:** a mute set in the Twitch player is lost when the stream is hidden and shown
+    again, and on every channel switch, because each of these reloads the player with sound on.
+  - **Why it is accepted:** the player does not autoplay. After a reload it stands paused, so the
+    sound returns only when the user presses play.
+  - Nothing is changed for it.
 
 **The status line with long names.**
 - **Measured, with a long channel:** a made-up channel name of 25 characters, Twitch's maximum, was
