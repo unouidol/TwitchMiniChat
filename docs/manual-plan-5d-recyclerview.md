@@ -3381,6 +3381,9 @@ has been read.
       - The status line is tightened.
       - The stream button reads SHOW STREAM / HIDE STREAM.
       - Whether it goes into 5.6.0 is still his call.
+      - **Its device step RAN on 2026-11-12** (*Recorded results*, 2026-11-12, #108's device step).
+        The frames match the computed values, and sound plays on play. The player's own mute
+        choice is LOST when the stream is hidden and shown, and on a channel switch.
   - **DECIDED on 2026-11-10, and SUPERSEDED on 2026-11-12 by the stop above: the fix is a MINIMUM
     HEIGHT on the chat list.** The panels that compete
     for space give way, by collapsing, by scrolling or by not opening, instead of the chat reducing to
@@ -8824,6 +8827,8 @@ shot.
   - Federico will switch it off and restart the phone later.
   - The refused write that confirms it has not been run.
   - Until it is, the shell can change this phone's secure settings.
+  - **CLOSED on 2026-11-12 at 11:45:35,** by the refused same-value write on `DESKTOP-BCT68L9`
+    (*Recorded results*, 2026-11-12, #108's device step). It was open from this sitting until then.
 
 **What the phone runs now:** the prototype, as the dev app. `RELEASE-STATE.md`'s *Test device*
 records it.
@@ -9320,7 +9325,7 @@ from `main`, folder `/docs`.
 - **Continuous integration** is read on the pull request's exact head.
 
 **The device step: planned, NOT RUN.** It runs when Federico connects the phone, on the dev flavour
-only.
+only. (It ran on 2026-11-12, as planned here: the next entry.)
 - **First, before anything else:** the settings write the phone must refuse, `wm density 382`. If
   the phone accepts it, nothing else is done on the phone.
 - **The install:** a clean tree, a dev build, `adb install -r` over the dev app and never an
@@ -9339,3 +9344,176 @@ only.
 - **No geometry simulation,** so permission monitoring is not needed.
 
 **Scanned before commit:** this entry holds no account name, channel name, token or message text.
+
+**2026-11-12, 11:45 to 12:07 phone time, on `DESKTOP-BCT68L9`: #108's device step, RUN on its head
+`6066f79`.** It ran on the OnePlus AC2003 of *Test device*. Each item below is marked as measured,
+reported by Federico, or reasoned. Nothing was merged.
+
+**First, the permission check: REFUSED, at 11:45:35.**
+- **The setting:** Federico had switched "Disable permission monitoring" off and restarted the
+  phone. Its uptime read 5:45 at 11:45:46, so it booted at about 06:00.
+- **The write:** `adb shell wm density 382`, the current value, was the first command run on the
+  phone; the host had only listed the devices. It was refused with
+  `java.lang.SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`, with
+  remote exit 255.
+- **Read afterwards:**
+  - `Physical size: 1080x2400`;
+  - density 450 physical and 382 override, with `display_density_forced` 382;
+  - `display_size_forced` null, font scale 1.15, `lock 0` and `accelerometer_rotation` 0.
+  - No override was created, and none was lost.
+- **The restore step left open by the prototype sitting of 2026-11-11 is CLOSED.** It was open from
+  that sitting's restore, at 11:44 on 2026-11-11, until this refusal. In that span the shell could
+  change this phone's secure settings.
+
+**The toolchain, read on this machine before the build.**
+- **`gradlew --version` in `TwitchMiniChat-wt-5d`:**
+  - Gradle 9.4.1;
+  - `Launcher JVM: 21.0.10 (JetBrains s.r.o. 21.0.10+1-b1163.110)`;
+  - `Daemon JVM: Compatible with Java 21, JetBrains, nativeImageCapable=false (from
+    gradle/gradle-daemon-jvm.properties)`.
+  - AGP is 9.2.1, read from the tree.
+- **The binary:** the only Gradle daemon and the Kotlin daemon both run
+  `C:\Users\Fede\.gradle\jdks\jetbrains_s_r_o_-21-amd64-windows.2\bin\java.exe`. It reports
+  `OpenJDK Runtime Environment JBR-21.0.10+1-1163.110-jcef (build 21.0.10+1-b1163.110)`.
+- **The git-ignored inputs:** `gradle/gradle-daemon-jvm.properties` and
+  `app/src/dev/google-services.json` hash the same as the clone's.
+- **Android Studio 2026.2.1** (`AI-262.9437.185.2621.16467767`) has been open on the clone since
+  11:38. Its log shows no upgrade prompt after 2026-10-15's.
+- **The signer, compared in full:** the debug keystore's certificate and the signer of the phone's
+  dev APK are both SHA-256
+  `9b3a523bb6a20c80df9c3ceffbdcd072795c7409791bedfc1b7a0506578e5c51`. All 64 hex digits are equal.
+
+**The build and the install.**
+- **The way back, first:** the installed dev APK, the prototype `059bc7b`, was pulled and kept as
+  `way-back\dev-prototype-059bc7b-ad35916f.apk` in the step's folder. On this machine its sha256 is
+  `ad35916f22252eb948cee8a82926a3d48e8178fd918c3d9b391bea5ea34e6aaf`, the same as on the phone.
+- **The build:** `:app:assembleDevDebug` in `TwitchMiniChat-wt-5d`, detached at `6066f79`, from
+  11:47:15 to 11:49:28.
+  - `git status --porcelain --untracked-files=all` printed nothing before the build and after it.
+  - BUILD SUCCESSFUL in 2 min 11 s. 15 of 43 tasks were executed, and the log has no warning.
+  - `BuildConfig.GIT_SHA` is `6066f79`, with no `+`.
+- **The APK:** arm64, sha256 `47a494cd1016948bc38190b9387bdbc32001938d7ff50def9fa20b54fc2a8376`.
+  - Its package is `com.fs.twitchminichat.dev`, with versionCode 8 and versionName `5.5.1-dev`.
+  - It is signed by `9b3a523b…5c51`.
+  - Its six Firebase values equal the prototype's: the sender id, project id, app id, API key,
+    storage bucket and crash-reporting key. They were compared without being printed.
+- **`adb install -r`, at 11:51:** `Success`.
+  - Afterwards the phone's dev APK read `47a494cd…`.
+  - `firstInstallTime` is still 2026-10-05 11:42:01, so the accounts and the journal stayed.
+  - The stable app is unchanged: `bf6c22c2…`, last updated 2026-09-18.
+- **The tag:** `device-test/5.5.1-dev-8-6066f79`, pushed and confirmed with
+  `git ls-remote --tags origin`.
+
+**The frames, measured from `dumpsys activity top`.**
+- **The page measured** is the first account's chat page, opened from the accounts page.
+  - The app's cold launch shows the accounts page.
+  - Each state was read with the chat page on screen, at x = 0 in the pager.
+  - A second chat page, laid out off screen, was not read.
+- **Each top row is as predicted, in all three states:**
+  - the channel bar, 134 px (56.1 dp);
+  - the status line, 62 px (26.0 dp);
+  - the buttons row, 115 px (48.2 dp).
+  - The two buttons are 511 and 512 px wide, 214 dp each.
+
+  | State | Chat list, computed | Measured | Before #108, measured 2026-11-11 | Reclaimed, measured |
+  |---|---|---|---|---|
+  | Stream off | 715.8 dp | 1709 px, 715.8 dp | 671.8 dp | 44.0 dp |
+  | Stream on | 415.8 dp | 993 px, 415.9 dp | 323.8 dp | 92.1 dp |
+  | Stream on, keyboard up | 119.7 dp | 286 px, 119.8 dp | 27.6 dp | 92.2 dp |
+
+  - **Where they differ: by 0.1 dp, from whole pixels.** The player is 716 px, 299.9 dp, where
+    300 dp would be 716.25 px. The computed figures take it as 300 dp.
+  - **The "before" column** is the measured table of *the proposal on today's layout*, at the same
+    geometry. Its page heights match the ones read here: 913.9 dp, and 617.8 dp with the keyboard
+    up.
+- **The screenshots** are kept outside the repository, because they show the account and the
+  channel.
+  - They are in `C:\Users\Fede\StudioProjects\tmc-5d-round\device-step-2026-11-12-pr108\screens\`,
+    one per state: `A-stream-off.png`, `B-stream-on.png` and `C-stream-on-keyboard.png`.
+  - The dumps are beside them, in `dumps\`.
+
+**The labels: each on one line.** SHOW STREAM, in A, and HIDE STREAM, in B and C, each fit on one
+line in a 214 dp button, as the screenshots show. The buttons row stays 115 px with either label.
+
+**The sound, judged by Federico by ear.** His answers are the options he selected, quoted exactly;
+he added no words of his own.
+1. **Stream shown, play pressed, nothing else touched:** "Yes, sound plays". The provisional
+   default, sound on, does what it was meant to.
+2. **The Twitch player's own speaker control:** "Works both ways".
+3. **Muted with that control, then HIDE STREAM, SHOW STREAM and play:** "Sound again (lost)".
+4. **Muted again, a switch to a channel already in his recent list, then play:**
+   "Sound again (lost)". He then switched back.
+- **What this means, reasoned:**
+  - The player's own mute choice does not survive a reload of the page, and every load asks for
+    sound (`muted=false`).
+  - With the app's mute button gone, a viewer who mutes hears sound again after each hide and show
+    and after each channel switch.
+  - This is the risk the pull request named. Whether it is acceptable is Federico's call.
+
+**The status line with long names.**
+- **Measured, with a long channel:** a made-up channel name of 25 characters, Twitch's maximum, was
+  joined on the first account. With that account's short user name, the line is 52 characters.
+  - **It stays on ONE line.** The status line stays 62 px, and every row keeps its frame.
+  - The text ends at about x = 986 px, in a text area that ends at 1051 px. This is read from the
+    screenshot `E-long-channel.png`.
+  - The player showed Twitch's own error for a channel that does not exist. The channel was then
+    switched back.
+- **Not measured: a long user name.** Neither account on the phone has one.
+- **Computed, not measured:**
+  - That line's 52 characters take about 956 px, 18.4 px each.
+  - The text area is 1022 px, so a line of that mix wraps at about 55 characters.
+  - A 25-character user name with a 25-character channel makes 69 characters, so it wraps to two
+    lines.
+- **What a wrap does to the rows around it, read from the layout:**
+  - `textStatus` is `wrap_content`, with no `maxLines` and no ellipsis, so a second line makes it
+    one line taller.
+  - The buttons row, the player and the composer keep their heights and move down.
+  - The chat list, the only weighted row, gives up that height.
+- **Two texts wrap whatever the names, computed:** `status_backend_session_reauthorize` is 73
+  characters before the name, and `status_backend_auth_failed` is 83.
+  - **The wrap point is unchanged by #108:** on `main-v5` the line is also full width, with 12 dp
+    at each side and no line limit.
+  - The change moves the line, not where it wraps.
+- **What the test left on the phone:**
+  - The made-up name is the second of 3 entries in the first account's recent-channel list, which
+    held 2.
+  - Nothing was evicted, and the other account's list still holds 7.
+  - It stays until Federico removes it, since this step deletes nothing on the phone.
+  - **The question put to him said "7 → 8".** That was the other account's count, corrected after
+    the list was read.
+
+**A rotation, and #103's guard.**
+- **The commands:** `cmd window user-rotation lock 1` at 12:05:43, exit 0, then `lock 0` at
+  12:06:10, exit 0. Read afterwards: `lock 0` and `accelerometer_rotation` 0.
+- **The page in landscape:** the activity was recreated, in the same process.
+  - The page is 405.0 dp, and the three top rows are unchanged.
+  - The chat list is 494 px, 206.9 dp, against 162.9 dp measured before #108: 44.0 dp more.
+- **The stream came back OFF, reading SHOW STREAM,** in landscape and again in portrait.
+  - It is pre-existing: `streamEnabled` is a plain field that nothing saves, on `main-v5` as on
+    #108. This is read from the code.
+  - It is the behaviour recorded on 2026-11-10, "a rotation turns the player off".
+- **Back in portrait,** the list is 1709 px, 715.8 dp, as in state A.
+- **No crash:**
+  - the newest app-crash entry in `dumpsys dropbox` is still the one of 2026-11-10 15:36:03;
+  - the crash buffer holds nothing after the boot;
+  - from 12:05:36, the app's process logged 292 lines, with no `AndroidRuntime` or
+    `FATAL EXCEPTION` line;
+  - its only error lines are 4 of `BLASTBufferQueue: BLASTBufferItemConsumer::onDisconnect()`, at
+    the surface teardowns.
+- **#103's guard (`cf73441`, in `6066f79`'s history) logs nothing,** so its return path cannot be
+  observed. "It holds" means only this: no crash on one rotation each way.
+
+**Seen in the screenshots, cause NOT determined.** From the long-channel test on, in `E` to `H`, the
+page's background is a lighter grey than in `A` to `D`.
+- No window lay above the app.
+- No view held focus that would draw it.
+- Nothing in `ChatFragment` sets a background.
+- Every frame measured the same before it and after it.
+
+**The phone, read at the end, at 12:07:**
+- the display as at the start;
+- the dev app at `47a494cd…`, and the stable app at `bf6c22c2…`;
+- the dev app left in front, on its chat page, with the stream off.
+
+**Scanned before commit:** this entry holds no account name, channel name, token or message text.
+The made-up channel is not named.
