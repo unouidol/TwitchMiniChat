@@ -1,0 +1,14 @@
+# journal extract: 3222 journal lines read, 13 kept, 0 values rejected by shape
+2026-11-09 12:31:55.950 backfill.triggered page=A source=first_connect
+2026-11-09 12:31:56.320 backfill.result page=A messageCount=400 firstTs=1794222379 lastTs=1794223913
+2026-11-09 12:32:08.428 backfill.triggered page=B source=first_connect
+2026-11-09 12:32:08.719 backfill.result page=B messageCount=400 firstTs=1794222381 lastTs=1794223925
+2026-11-09 12:32:08.839 backfill.triggered page=A source=resume_no_pause
+2026-11-09 12:32:09.037 backfill.result page=A messageCount=9 firstTs=1794223901 lastTs=1794223925
+2026-11-09 12:32:52.811 user.marker page=A shownRows=414
+2026-11-09 12:33:02.195 backfill.triggered page=B source=resume_no_pause
+2026-11-09 12:33:02.659 backfill.result page=B messageCount=5 firstTs=1794223959 lastTs=1794223977
+2026-11-09 12:33:09.397 user.marker page=B shownRows=412
+2026-11-09 12:33:16.245 backfill.triggered page=A source=resume
+2026-11-09 12:33:16.695 backfill.result page=A messageCount=5 firstTs=1794223971 lastTs=1794223992
+2026-11-09 12:40:02.803 user.marker page=A shownRows=640

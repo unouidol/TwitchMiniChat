@@ -1,0 +1,192 @@
+=== session L5D1, parameters BEFORE, host 2026-11-09 12:31:28
+label: before-L5D1
+host_time: 2026-11-09 12:31:29 +0100
+battery: saver=0 ac=false usb=true wireless=false status=5 level=100 temperature=258
+thermal: Thermal Status: 0
+display: refreshRate=90.0
+stay_on_while_plugged_in: 7
+screen_off_timeout: 1800000
+power: mStayOn=true mWakefulness=Awake 
+phone_sha256: ba1f88e3347382f76e4d5d1c0661602e2a24e187fcbdcfc2440e64ea88f16e4a
+package: lastUpdateTime=2026-11-09 08:40:33 versionCode=8 versionName=5.5.1-dev 
+pid: 
+interpreter: PY="py -3.14 -I -X utf8" -> 3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]
+adb: /d/Android/SDK/platform-tools/adb.exe, Version 37.0.1-15733141
+tools: 13cb9ff5394f3fddcf3f67e57d3c6befc1a4a28e4357d33c0cb542852e567a8f 340e263f1397e8c441d80090aca5d3b383187ef267466c471e182787deaa6e43 ef1cd5e50d0bdff25083b215e3f3bc13c63f18c7835d93f7aae1a048dd1eae74 
+getevent: 0 lines so far
+=== mark, host 2026-11-09 12:31:49.207
+# journal extract: 3201 journal lines read, 0 kept, 0 values rejected by shape
+session 'L5D1' marked at 2026-11-09 08:43:46.267, the journal's last line. Launch the app, then bind.
+label=L5D1
+mark=2026-11-09 08:43:46.267
+marked_at_host=1794223911.025663500
+=== launch, host 2026-11-09 12:31:51.332
+Status: ok
+LaunchState: COLD
+TotalTime: 1496
+=== to A's page, host 2026-11-09 12:31:57.905
+launch-toA host_before=2026-11-09 12:32:05.301 host_after=2026-11-09 12:32:05.814 swipe-from-accounts target=[57,688][1023,1753] input="swipe 903 1220 60 1220 150" rc=0 front_before=dev front_after=dev
+press exit 0
+=== bind, host 2026-11-09 12:32:08.859
+bound: com.fs.twitchminichat.dev pid 32178 start 2418583 at 'b-L5D1' -> /c/Users/Fede/StudioProjects/tmc-5d-round/V/under-measurement.txt
+pkg=com.fs.twitchminichat.dev
+pid=32178
+start=2418583
+label=b-L5D1
+bound_at=1794223929.854049300
+phone_since=2026-11-09 12:32:12.000
+=== journal since the mark, host 2026-11-09 12:32:23
+# journal extract: 3211 journal lines read, 6 kept, 0 values rejected by shape
+2026-11-09 12:31:55.950 backfill.triggered page=A source=first_connect
+2026-11-09 12:31:56.320 backfill.result page=A messageCount=400 firstTs=1794222379 lastTs=1794223913
+2026-11-09 12:32:08.428 backfill.triggered page=B source=first_connect
+2026-11-09 12:32:08.719 backfill.result page=B messageCount=400 firstTs=1794222381 lastTs=1794223925
+2026-11-09 12:32:08.839 backfill.triggered page=A source=resume_no_pause
+2026-11-09 12:32:09.037 backfill.result page=A messageCount=9 firstTs=1794223901 lastTs=1794223925
+getevent so far: 0 lines
+=== reading 1, host 2026-11-09 12:32:39.672
+rate-before host=1794223963.628371300 phone=1794223967 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+r1-A host_before=2026-11-09 12:32:49.333 host_after=2026-11-09 12:32:50.769 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r1 pid=32178 start=1794223973.159016200 end=1794223973.817665800 seconds=0.66 |  Views: 158 ViewRootImpl: 1 |  Java Heap: 17560 39756 |  TOTAL PSS: 139174 TOTAL RSS: 257768 TOTAL SWAP PSS: 1
+r1-toB host_before=2026-11-09 12:32:58.687 host_after=2026-11-09 12:32:59.253 swipe-left target=[716,132][831,247] input="swipe 773 189 60 189 150" rc=0 front_before=dev front_after=dev
+r1-B host_before=2026-11-09 12:33:05.958 host_after=2026-11-09 12:33:07.337 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r1-toA host_before=2026-11-09 12:33:12.737 host_after=2026-11-09 12:33:13.299 swipe-right target=[716,132][831,247] input="swipe 773 189 1061 189 150" rc=0 front_before=dev front_after=dev
+=== journal since the mark
+# journal extract: 3219 journal lines read, 12 kept, 0 values rejected by shape
+2026-11-09 12:32:52.811 user.marker page=A shownRows=414
+2026-11-09 12:33:02.195 backfill.triggered page=B source=resume_no_pause
+2026-11-09 12:33:02.659 backfill.result page=B messageCount=5 firstTs=1794223959 lastTs=1794223977
+2026-11-09 12:33:09.397 user.marker page=B shownRows=412
+2026-11-09 12:33:16.245 backfill.triggered page=A source=resume
+2026-11-09 12:33:16.695 backfill.result page=A messageCount=5 firstTs=1794223971 lastTs=1794223992
+getevent: 0 lines
+=== session-poll chunk 1, host 2026-11-09 12:33:37
+L5D1-1 host=1794224023.316048500 phone=1794224027 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3219 journal lines read, 12 kept, 0 values rejected by shape
+2026-11-09 12:31:55.950 backfill.triggered page=A source=first_connect
+2026-11-09 12:31:56.320 backfill.result page=A messageCount=400 firstTs=1794222379 lastTs=1794223913
+2026-11-09 12:32:08.428 backfill.triggered page=B source=first_connect
+2026-11-09 12:32:08.719 backfill.result page=B messageCount=400 firstTs=1794222381 lastTs=1794223925
+2026-11-09 12:32:08.839 backfill.triggered page=A source=resume_no_pause
+2026-11-09 12:32:09.037 backfill.result page=A messageCount=9 firstTs=1794223901 lastTs=1794223925
+2026-11-09 12:32:52.811 user.marker page=A shownRows=414
+2026-11-09 12:33:02.195 backfill.triggered page=B source=resume_no_pause
+2026-11-09 12:33:02.659 backfill.result page=B messageCount=5 firstTs=1794223959 lastTs=1794223977
+2026-11-09 12:33:09.397 user.marker page=B shownRows=412
+2026-11-09 12:33:16.245 backfill.triggered page=A source=resume
+2026-11-09 12:33:16.695 backfill.result page=A messageCount=5 firstTs=1794223971 lastTs=1794223992
+L5D1-1 triggered=5[first_connect:2,resume:1,resume_no_pause:2] results=5 history_delivered=819 FIRST_MARKER=A A_history=414 A_marker="2026-11-09 12:32:52.811" A_shownRows=414 A_history_before_it=409 A_live=5 B_history=405 B_marker="2026-11-09 12:33:09.397" B_shownRows=412 B_history_before_it=405 B_live=7 LIVE=5
+L5D1-2 host=1794224092.017776700 phone=1794224096 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3219 journal lines read, 12 kept, 0 values rejected by shape
+L5D1-2 triggered=5[first_connect:2,resume:1,resume_no_pause:2] results=5 history_delivered=819 FIRST_MARKER=A A_history=414 A_marker="2026-11-09 12:32:52.811" A_shownRows=414 A_history_before_it=409 A_live=5 B_history=405 B_marker="2026-11-09 12:33:09.397" B_shownRows=412 B_history_before_it=405 B_live=7 LIVE=5
+L5D1-3 host=1794224161.719713500 phone=1794224165 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3221 journal lines read, 12 kept, 0 values rejected by shape
+L5D1-3 triggered=5[first_connect:2,resume:1,resume_no_pause:2] results=5 history_delivered=819 FIRST_MARKER=A A_history=414 A_marker="2026-11-09 12:32:52.811" A_shownRows=414 A_history_before_it=409 A_live=5 B_history=405 B_marker="2026-11-09 12:33:09.397" B_shownRows=412 B_history_before_it=405 B_live=7 LIVE=5
+L5D1-4 host=1794224231.268695800 phone=1794224235 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3221 journal lines read, 12 kept, 0 values rejected by shape
+L5D1-4 triggered=5[first_connect:2,resume:1,resume_no_pause:2] results=5 history_delivered=819 FIRST_MARKER=A A_history=414 A_marker="2026-11-09 12:32:52.811" A_shownRows=414 A_history_before_it=409 A_live=5 B_history=405 B_marker="2026-11-09 12:33:09.397" B_shownRows=412 B_history_before_it=405 B_live=7 LIVE=5
+L5D1-5 host=1794224300.618834800 phone=1794224304 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3221 journal lines read, 12 kept, 0 values rejected by shape
+L5D1-5 triggered=5[first_connect:2,resume:1,resume_no_pause:2] results=5 history_delivered=819 FIRST_MARKER=A A_history=414 A_marker="2026-11-09 12:32:52.811" A_shownRows=414 A_history_before_it=409 A_live=5 B_history=405 B_marker="2026-11-09 12:33:09.397" B_shownRows=412 B_history_before_it=405 B_live=7 LIVE=5
+L5D1-6 host=1794224370.078855000 phone=1794224374 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3221 journal lines read, 12 kept, 0 values rejected by shape
+L5D1-6 triggered=5[first_connect:2,resume:1,resume_no_pause:2] results=5 history_delivered=819 FIRST_MARKER=A A_history=414 A_marker="2026-11-09 12:32:52.811" A_shownRows=414 A_history_before_it=409 A_live=5 B_history=405 B_marker="2026-11-09 12:33:09.397" B_shownRows=412 B_history_before_it=405 B_live=7 LIVE=5
+CAP REACHED: 5 min
+poll exit 4
+getevent: 0 lines
+=== count c1 (the starting rate), host 2026-11-09 12:39:55.743
+c1-A host_before=2026-11-09 12:39:59.350 host_after=2026-11-09 12:40:00.767 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+c1 pid=32178 start=1794224403.132342400 end=1794224403.753724500 seconds=0.62 |  Views: 144 ViewRootImpl: 1 |  Java Heap: 15892 38084 |  TOTAL PSS: 141653 TOTAL RSS: 261360 TOTAL SWAP PSS: 1
+# journal extract: 3222 journal lines read, 13 kept, 0 values rejected by shape
+2026-11-09 12:40:02.803 user.marker page=A shownRows=640
+getevent: 0 lines
+=== session-poll chunk 2, host 2026-11-09 12:40:27
+L5D1-7 host=1794224433.512628200 phone=1794224437 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3222 journal lines read, 13 kept, 0 values rejected by shape
+2026-11-09 12:40:02.803 user.marker page=A shownRows=640
+L5D1-7 triggered=5[first_connect:2,resume:1,resume_no_pause:2] results=5 history_delivered=819 FIRST_MARKER=A A_history=414 A_marker="2026-11-09 12:40:02.803" A_shownRows=640 A_history_before_it=414 A_live=226 B_history=405 B_marker="2026-11-09 12:33:09.397" B_shownRows=412 B_history_before_it=405 B_live=7 LIVE=226
+L5D1-8 host=1794224503.009697900 phone=1794224507 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+# journal extract: 3222 journal lines read, 13 kept, 0 values rejected by shape
+INVARIANT VIOLATED [kept]
+  required: every journal line an earlier poll extracted is extracted again, first and in order: the journal since the mark only grows
+  found:    the journal no longer yields, first, the 13 lines earlier polls saved in /c/Users/Fede/StudioProjects/tmc-5d-round/V/journal-extract-L5D1.txt: it rotated past them, or changed
+  Nothing from here on is read or saved. Stopping, exit 3.
+poll exit 3
+getevent: 0 lines
+=== diagnosis after INVARIANT VIOLATED [kept], host 2026-11-09 12:42:10
+total 406
+drwx------ 2 u0_a572 u0_a572   3488 2026-10-05 11:45 .
+drwxrwx--x 8 u0_a572 u0_a572   3488 2026-11-09 12:32 ..
+-rw------- 1 u0_a572 u0_a572 406305 2026-11-09 12:40 history-diagnostics.log
+--- saved extract (13 lines):
+2026-11-09 12:31:55.950 backfill.triggered page=A source=first_connect
+2026-11-09 12:31:56.320 backfill.result page=A messageCount=400 firstTs=1794222379 lastTs=1794223913
+2026-11-09 12:32:08.428 backfill.triggered page=B source=first_connect
+2026-11-09 12:32:08.719 backfill.result page=B messageCount=400 firstTs=1794222381 lastTs=1794223925
+2026-11-09 12:32:08.839 backfill.triggered page=A source=resume_no_pause
+2026-11-09 12:32:09.037 backfill.result page=A messageCount=9 firstTs=1794223901 lastTs=1794223925
+2026-11-09 12:32:52.811 user.marker page=A shownRows=414
+2026-11-09 12:33:02.195 backfill.triggered page=B source=resume_no_pause
+2026-11-09 12:33:02.659 backfill.result page=B messageCount=5 firstTs=1794223959 lastTs=1794223977
+2026-11-09 12:33:09.397 user.marker page=B shownRows=412
+2026-11-09 12:33:16.245 backfill.triggered page=A source=resume
+2026-11-09 12:33:16.695 backfill.result page=A messageCount=5 firstTs=1794223971 lastTs=1794223992
+2026-11-09 12:40:02.803 user.marker page=A shownRows=640
+--- a fresh extraction since the mark:
+# journal extract: 3222 journal lines read, 13 kept, 0 values rejected by shape
+2026-11-09 12:31:55.950 backfill.triggered page=A source=first_connect
+2026-11-09 12:31:56.320 backfill.result page=A messageCount=400 firstTs=1794222379 lastTs=1794223913
+2026-11-09 12:32:08.428 backfill.triggered page=B source=first_connect
+2026-11-09 12:32:08.719 backfill.result page=B messageCount=400 firstTs=1794222381 lastTs=1794223925
+2026-11-09 12:32:08.839 backfill.triggered page=A source=resume_no_pause
+2026-11-09 12:32:09.037 backfill.result page=A messageCount=9 firstTs=1794223901 lastTs=1794223925
+2026-11-09 12:32:52.811 user.marker page=A shownRows=414
+2026-11-09 12:33:02.195 backfill.triggered page=B source=resume_no_pause
+2026-11-09 12:33:02.659 backfill.result page=B messageCount=5 firstTs=1794223959 lastTs=1794223977
+2026-11-09 12:33:09.397 user.marker page=B shownRows=412
+2026-11-09 12:33:16.245 backfill.triggered page=A source=resume
+2026-11-09 12:33:16.695 backfill.result page=A messageCount=5 firstTs=1794223971 lastTs=1794223992
+2026-11-09 12:40:02.803 user.marker page=A shownRows=640
+--- diff saved vs fresh (whitelisted lines only):
+1,11c1,11
+< 2026-11-09 12:31:55.950 backfill.triggered page=A source=first_connect
+< 2026-11-09 12:31:56.320 backfill.result page=A messageCount=400 firstTs=1794222379 lastTs=1794223913
+< 2026-11-09 12:32:08.428 backfill.triggered page=B source=first_connect
+< 2026-11-09 12:32:08.719 backfill.result page=B messageCount=400 firstTs=1794222381 lastTs=1794223925
+< 2026-11-09 12:32:08.839 backfill.triggered page=A source=resume_no_pause
+< 2026-11-09 12:32:09.037 backfill.result page=A messageCount=9 firstTs=1794223901 lastTs=1794223925
+< 2026-11-09 12:32:52.811 user.marker page=A shownRows=414
+< 2026-11-09 12:33:02.195 backfill.triggered page=B source=resume_no_pause
+< 2026-11-09 12:33:02.659 backfill.result page=B messageCount=5 firstTs=1794223959 lastTs=1794223977
+< 2026-11-09 12:33:09.397 user.marker page=B shownRows=412
+< 2026-11-09 12:33:16.245 backfill.triggered page=A source=resume
+---
+> 2026-11-09 12:31:55.950 backfill.triggered page=A source=first_connect
+> 2026-11-09 12:31:56.320 backfill.result page=A messageCount=400 firstTs=1794222379 lastTs=1794223913
+> 2026-11-09 12:32:08.428 backfill.triggered page=B source=first_connect
+> 2026-11-09 12:32:08.719 backfill.result page=B messageCount=400 firstTs=1794222381 lastTs=1794223925
+> 2026-11-09 12:32:08.839 backfill.triggered page=A source=resume_no_pause
+> 2026-11-09 12:32:09.037 backfill.result page=A messageCount=9 firstTs=1794223901 lastTs=1794223925
+> 2026-11-09 12:32:52.811 user.marker page=A shownRows=414
+> 2026-11-09 12:33:02.195 backfill.triggered page=B source=resume_no_pause
+> 2026-11-09 12:33:02.659 backfill.result page=B messageCount=5 firstTs=1794223959 lastTs=1794223977
+> 2026-11-09 12:33:09.397 user.marker page=B shownRows=412
+> 2026-11-09 12:33:16.245 backfill.triggered page=A source=resume
+32178
+getevent: 0 lines
+=== parameters AT THE INTERRUPTION, host 2026-11-09 12:43:46
+label: at-interruption-L5D1
+host_time: 2026-11-09 12:43:47 +0100
+battery: saver=0 ac=false usb=true wireless=false status=5 level=100 temperature=261
+thermal: Thermal Status: 0
+display: refreshRate=90.0
+stay_on_while_plugged_in: 7
+screen_off_timeout: 1800000
+power: mStayOn=true mWakefulness=Awake 
+phone_sha256: ba1f88e3347382f76e4d5d1c0661602e2a24e187fcbdcfc2440e64ea88f16e4a
+package: lastUpdateTime=2026-11-09 08:40:33 versionCode=8 versionName=5.5.1-dev 
+pid: 32178
+rate-at-interruption host=1794224636.972706000 phone=1794224640 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+interpreter: 3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]
+bound process: pkg=com.fs.twitchminichat.dev pid=32178 start=2418583 label=b-L5D1 bound_at=1794223929.854049300 phone_since=2026-11-09 12:32:12.000 
+getevent: 0 lines

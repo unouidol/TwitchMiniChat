@@ -1,0 +1,15 @@
+launch-toA host_before=2026-11-09 13:07:29.433 host_after=2026-11-09 13:07:29.997 swipe-from-accounts target=[57,688][1023,1753] input="swipe 903 1220 60 1220 150" rc=0 front_before=dev front_after=dev
+r1-A host_before=2026-11-09 13:07:58.666 host_after=2026-11-09 13:08:00.054 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r1-toB host_before=2026-11-09 13:08:07.701 host_after=2026-11-09 13:08:08.277 swipe-left target=[716,132][831,247] input="swipe 773 189 60 189 150" rc=0 front_before=dev front_after=dev
+r1-B host_before=2026-11-09 13:08:15.453 host_after=2026-11-09 13:08:16.882 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r1-toA host_before=2026-11-09 13:08:21.855 host_after=2026-11-09 13:08:22.359 swipe-right target=[716,132][831,247] input="swipe 773 189 1061 189 150" rc=0 front_before=dev front_after=dev
+c1-A host_before=2026-11-09 13:14:52.528 host_after=2026-11-09 13:14:53.943 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r2-A host_before=2026-11-09 13:24:59.702 host_after=2026-11-09 13:25:01.089 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+br1-A host_before=2026-11-09 13:25:30.275 host_after=2026-11-09 13:25:31.703 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+br-tap host_before=2026-11-09 13:25:36.120 host_after=2026-11-09 13:25:36.488 tap target=[716,132][831,247] input="tap 773 189" rc=0 front_before=dev front_after=dev
+br2-A host_before=2026-11-09 13:25:41.921 host_after=2026-11-09 13:25:43.278 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+c2-A host_before=2026-11-09 13:32:06.302 host_after=2026-11-09 13:32:07.708 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r3-A host_before=2026-11-09 13:38:41.790 host_after=2026-11-09 13:38:43.201 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r3-toB host_before=2026-11-09 13:39:02.091 host_after=2026-11-09 13:39:02.663 swipe-left target=[716,132][831,247] input="swipe 773 189 60 189 150" rc=0 front_before=dev front_after=dev
+r3-B host_before=2026-11-09 13:39:09.326 host_after=2026-11-09 13:39:10.715 longpress target=[716,132][831,247] input="swipe 773 189 773 189 1000" rc=0 front_before=dev front_after=dev
+r3-toA host_before=2026-11-09 13:39:15.220 host_after=2026-11-09 13:39:15.771 swipe-right target=[716,132][831,247] input="swipe 773 189 1061 189 150" rc=0 front_before=dev front_after=dev

@@ -1,0 +1,8 @@
+L5D1-1 host=1794224023.316048500 phone=1794224027 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+L5D1-2 host=1794224092.017776700 phone=1794224096 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+L5D1-3 host=1794224161.719713500 phone=1794224165 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+L5D1-4 host=1794224231.268695800 phone=1794224235 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+L5D1-5 host=1794224300.618834800 phone=1794224304 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+L5D1-6 host=1794224370.078855000 phone=1794224374 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+L5D1-7 host=1794224433.512628200 phone=1794224437 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev
+L5D1-8 host=1794224503.009697900 phone=1794224507 front_t0=dev front_t2.2s=dev refreshRate=90.0 primaryRefreshRateRange=[0 90] front_after=dev

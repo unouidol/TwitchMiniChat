@@ -1,0 +1,20 @@
+2026-11-09 13:07:20.774 backfill.triggered page=A source=first_connect
+2026-11-09 13:07:21.192 backfill.result page=A messageCount=400 firstTs=1794225379 lastTs=1794226039
+2026-11-09 13:07:32.592 backfill.triggered page=B source=first_connect
+2026-11-09 13:07:32.824 backfill.result page=B messageCount=400 firstTs=1794225392 lastTs=1794226051
+2026-11-09 13:07:32.893 backfill.triggered page=A source=resume_no_pause
+2026-11-09 13:07:33.099 backfill.result page=A messageCount=18 firstTs=1794226024 lastTs=1794226051
+2026-11-09 13:08:02.138 user.marker page=A shownRows=416
+2026-11-09 13:08:11.233 backfill.triggered page=B source=resume_no_pause
+2026-11-09 13:08:11.390 backfill.result page=B messageCount=17 firstTs=1794226062 lastTs=1794226090
+2026-11-09 13:08:18.954 user.marker page=B shownRows=425
+2026-11-09 13:08:25.340 backfill.triggered page=A source=resume
+2026-11-09 13:08:26.578 backfill.result page=A messageCount=17 firstTs=1794226077 lastTs=1794226103
+2026-11-09 13:14:56.029 user.marker page=A shownRows=586
+2026-11-09 13:25:03.149 user.marker page=A shownRows=944
+2026-11-09 13:25:33.762 user.marker page=A shownRows=953
+2026-11-09 13:25:39.176 backfill.triggered page=A source=manual_refresh
+2026-11-09 13:25:39.544 backfill.result page=A messageCount=47 firstTs=1794227021 lastTs=1794227138
+2026-11-09 13:25:45.351 user.marker page=A shownRows=957
+2026-11-09 13:32:09.803 user.marker page=A shownRows=1132
+2026-11-09 13:38:45.287 user.marker page=A shownRows=1499
