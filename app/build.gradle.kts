@@ -139,6 +139,12 @@ android {
             buildConfigField("boolean", "REQUEST_EMOTE_SCOPE", "true")
 
             buildConfigField("String", "FCM_REGISTER_URL", "\"https://api.ircminichat.party/register_fcm\"")
+
+            /*
+             * The welcome page's update notice, and the daily version check behind it.
+             * The download it offers installs this package, so only this flavour asks.
+             */
+            buildConfigField("boolean", "UPDATE_NOTICE_ENABLED", "true")
         }
 
         create("dev") {
@@ -150,6 +156,12 @@ android {
             manifestPlaceholders["authScheme"] = "ircminichatdev"
             buildConfigField("String", "AUTH_SCHEME", "\"ircminichatdev\"")
             buildConfigField("boolean", "REQUEST_EMOTE_SCOPE", "true")
+
+            /*
+             * Never: the published APK is the stable package, which installs beside this
+             * one instead of updating it. No notice is shown and no check is made.
+             */
+            buildConfigField("boolean", "UPDATE_NOTICE_ENABLED", "false")
         }
     }
 

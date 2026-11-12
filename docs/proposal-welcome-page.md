@@ -67,6 +67,50 @@ as it was proposed. **He wants everything in 5.6.0, so that later versions can g
 11. **The page follows the terms gate on first launch,** as the table of situations says. He asked
     for that table to be implemented exactly.
 
+## As implemented, and where it departs from the proposal
+
+The code is in `app/src/main/java/com/fs/twitchminichat/welcome/` and `ProjectLinks.kt`. Every
+decision is in `WelcomePolicy`, and each row of the table is a test in `WelcomePolicyTest`.
+
+**Where the implementation departs from the proposal, and why:**
+
+1. **"Dismissed" means shown.**
+   - **What changed:** the notice's tag is recorded when the page is shown, not when it is closed.
+   - **Why:** not every way a page leaves the screen can be observed, such as a task swiped away
+     or a process killed in the background. A record kept on close would need a guard on paths
+     no test reaches.
+   - **What stays the same:** the outcome, which is once per version.
+2. **The check records its attempt, not its success.**
+   - **What changed:** `last_check_epoch_ms` is written before the request goes out.
+   - **Why:** so that a failure also waits a day. Otherwise an offline phone would ask at every
+     start, which is not "at most once a day".
+3. **One value replaces two.**
+   - **What changed:** `last_seen_version_code` stands for both "first launch seen" (absent
+     until the first decision) and "last version seen".
+   - **Why:** two flags could disagree, and one cannot.
+   - **The file holds four keys:** that one, `latest_release_tag`, `dismissed_release_tag` and
+     `last_check_epoch_ms`.
+4. **An existing user's first start of 5.6.0 shows the first-launch page.**
+   - **Why:** nothing recorded before 5.6.0 tells an existing user from a fresh install. Its
+     title, "Welcome to Twitch Mini Chat", is true for both.
+   - **From the next update on,** the page appears under its own title, "Welcome to Twitch Mini
+     Chat %1$s".
+5. **The notice text is shorter than proposed.** "You have %2$s." and the paragraph about
+   installing over the current version are gone, under decision 9: the notice names the new
+   version and nothing else.
+6. **The button reads "Download update", not "Open download page",** because it opens the APK
+   itself (decision 3).
+7. **The pages are `DialogFragment`s.**
+   - **What this gives:** a page on screen comes back by itself after a rotation.
+   - **The saved state** keeps only the start's decision while it is still owed, for a rotation
+     while the terms gate is up.
+8. **An account start includes a sign-in.** The proposal's "started from a notification tap"
+   row covers every start that opens a chat directly, and that includes a sign-in that has just
+   finished (`EXTRA_NEW_ACCOUNT_ID`). The page waits for the next ordinary start.
+9. **The Bug report page** has no export, under decision 4. It says "If more detail is needed,
+   you may be asked there for a diagnostics file.", and the list of what to include became one
+   sentence.
+
 ## What Federico asked for
 
 1. **A welcome page, shown before the login page.** It carries:

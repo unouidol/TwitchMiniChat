@@ -570,4 +570,39 @@
 
     <!-- Login screen footer -->
     <string name="app_version_label">Version %1$s (build %2$d, %3$s)</string>
+
+    <!--
+        The welcome page (WelcomeDialogFragment) and the Bug report page. Every title is
+        formatted with the installed version; only welcome_title_updated shows it. The
+        update notice names the new version and nothing else: no countdown and no urgency,
+        because alerts inform and the user decides.
+    -->
+    <string name="about_tmc">About TMC</string>
+    <string name="welcome_title_first_launch">Welcome to Twitch Mini Chat</string>
+    <string name="welcome_title_updated">Welcome to Twitch Mini Chat %1$s</string>
+    <string name="welcome_title_update_available">Update available</string>
+    <string name="welcome_update_notice">Twitch Mini Chat %1$s is available.</string>
+    <string name="welcome_download">Download update</string>
+    <string name="welcome_download_description">Download Twitch Mini Chat %1$s in your browser</string>
+    <string name="welcome_version_latest">You have version %1$s. No newer version was found at the last check.</string>
+    <string name="welcome_version_installed">You have version %1$s.</string>
+    <string name="welcome_discord_intro">Join the TMC community on Discord for news, help and feedback.</string>
+    <string name="welcome_discord">Join Discord</string>
+    <string name="welcome_discord_description">Open the TMC Discord server</string>
+    <string name="welcome_bug_report">Found a bug or a problem? Report it on Discord, in the #%1$s channel.</string>
+    <string name="welcome_kofi_intro">TMC is free. If you would like to support its development, you can do so on Ko-fi.</string>
+    <string name="welcome_kofi">Support TMC on Ko-fi</string>
+    <string name="welcome_kofi_description">Open the TMC page on Ko-fi</string>
+    <string name="welcome_where_again">You can open this page again from Safety &amp; Privacy, under About TMC.</string>
+    <string name="welcome_continue">Continue</string>
+    <string name="welcome_not_now">Not now</string>
+    <string name="welcome_close">Close</string>
+    <string name="project_link_no_app">No app on this phone can open this link.</string>
+
+    <string name="bug_report">Bug report</string>
+    <string name="bug_report_where">Bugs and problems are reported on the TMC Discord server, in the #%1$s channel.</string>
+    <string name="bug_report_include">Describe what you did, what you expected, and what happened instead. Include your phone model and Android version, and a screenshot if you can.</string>
+    <string name="bug_report_diagnostics">If more detail is needed, you may be asked there for a diagnostics file.</string>
+    <string name="bug_report_never_share">Never share your Twitch password or a sign-in code.</string>
+    <string name="bug_report_open_discord">Open Discord</string>
 </resources>
