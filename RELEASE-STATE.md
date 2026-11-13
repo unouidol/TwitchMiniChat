@@ -686,21 +686,25 @@ recording them both as `2026-09-26` was a record of what happened, not a rule. S
 change moved only the page it edited. Both copies of `data_deletion.html` carry `2026-09-28`, and
 both copies of `privacy.html` carry `2026-09-26`, which is what the rule actually asks.
 
-**Changed on 2026-11-12: three pages now, and the privacy policy moves to `2026-11-12`.** The
-pull request that names GitHub, stacked on the welcome page's (#110), changes three bundled
-pages. **Publishing all three is now one step**, replacing the two-page publication described
-below:
+**Changed on 2026-11-12 and 2026-11-13: three pages now, and the privacy policy moves to
+`2026-11-13`.** The pull request that names GitHub and Cloudflare (#111), which follows the welcome
+page's (#110), changes three bundled pages. **Publishing all three is now one step**, replacing
+the two-page publication described below:
 
-- **`privacy.html`, now `2026-11-12`.**
+- **`privacy.html`, now `2026-11-13`.**
   - §3 gains a purpose: showing a stream when the user chooses to, and saying when a newer version
     exists.
   - §4 names GitHub, for two requests, with what each shows and what it does not. See *GitHub
     named, and the acceptance gate raised to 3* below.
-- **`credits.html`** names GitHub among the third-party services. Its Firebase line now also names
-  crash reporting, which 5.5.1 had added without saying so there. The page carries no date.
+  - §4 names Cloudflare, which carries every request between the app and the TwitchMiniChat
+    server. See *Cloudflare named, without a line on the gate* below.
+- **`credits.html`** names GitHub and Cloudflare among the third-party services. Its Firebase line
+  now also names crash reporting, which 5.5.1 had added without saying so there. The page carries
+  no date.
 - **`data_deletion.html`** is unchanged, at `2026-09-28`. It describes what the four options
-  remove from the phone and from the TwitchMiniChat server. GitHub holds nothing the app stored
-  there, so there is nothing for it to say.
+  remove from the phone and from the TwitchMiniChat server. Neither GitHub nor Cloudflare stores
+  anything on the app's behalf, so there is nothing for it to say. What Cloudflare keeps of the
+  traffic it carries falls under its own policy, which §4 of the privacy policy now names.
 
 **The published copies are prepared, not published.** The derived `tmc/privacy.html`,
 `tmc/credits.html` and `tmc/data-deletion.html` sit on a local branch of a clone of
@@ -776,6 +780,47 @@ recipient is a material change.
 - **What the gate itself says:** one new line, `terms_gate_github`. That is the same pattern
   version 2 used for crash reporting: the gate states the new recipient in a sentence, and the
   policy has the detail.
+
+#### Cloudflare named, without a line on the gate (2026-11-13)
+
+**Every request between the app and the TwitchMiniChat server passes through Cloudflare, and the
+policy did not name it.**
+
+- **Where this comes from:** the owner read it on the production machine on 2026-11-13, not this
+  session. `api.ircminichat.party` is the backend itself, published through a Cloudflare tunnel to
+  `127.0.0.1:8799`.
+  - The app names no other backend address. Every backend address in `app/src/main` is
+    `https://api.ircminichat.party`, read on 2026-11-13.
+- **What passes through it:**
+  - every request the app makes to the server, and the server's answers;
+  - the sign-in pages the browser opens there.
+
+  Chat does not: it connects to `irc.chat.twitch.tv` directly (`TwitchChatClient.kt`, `IRC_HOST`).
+- **What §4 now says:**
+  - Cloudflare publishes the server;
+  - every request between the app and the server passes through its infrastructure, and so do the
+    sign-in pages;
+  - Cloudflare therefore handles the IP address, the requests themselves and the server's
+    answers, under its own privacy policy.
+
+  It does **not** say that Cloudflare cannot read them. Cloudflare carries that traffic, so it
+  cannot be claimed that it is unable to see it.
+- **Credits** names Cloudflare as the provider that publishes the server and hosts the website
+  (Cloudflare Pages).
+
+**The gate: no further raise, and no line of its own.** By the criterion of 2026-09-26, naming
+Cloudflare is a correction, not a new recipient.
+
+- **Cloudflare was already declared.** §4 already declared "Hosting or infrastructure providers
+  used to operate the app backend", and every acceptance of version 2 covered that; Cloudflare is
+  such a provider. So the change is a provider named that the policy had declared by category.
+- **The version stays at 3.** It rises to 3 once, for GitHub, and users are asked once. Cloudflare
+  is named in the same version.
+- **Why no line on the gate:**
+  - the gate's lines state what is material since the last acceptance: crash reporting at 2,
+    GitHub at 3;
+  - a line for a clarification is what the criterion says teaches people to tap through it;
+  - the policy that names Cloudflare is one tap from the gate.
 
 #### What the privacy policy changed, and why the acceptance gate was not raised
 

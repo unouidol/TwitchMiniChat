@@ -12,6 +12,8 @@ object TermsPrefs {
     // 3: GitHub named as a recipient, for the stream player page and the version check.
     //    A new recipient is a material change by the criterion of 2026-09-26, so every
     //    user who accepted version 2 sees the gate once more, on first opening 5.6.0.
+    //    Cloudflare is named in the same version. "Hosting or infrastructure providers"
+    //    already covered it, so naming it is a correction and would not raise the gate.
     /** The terms version a stored acceptance must reach; see [isAccepted]. */
     internal const val CURRENT_TERMS_VERSION = 3
 
