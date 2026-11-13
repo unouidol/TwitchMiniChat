@@ -848,6 +848,11 @@ the two-page publication described below:
     named, and the acceptance gate raised to 3* below.
   - §4 names Cloudflare, which carries every request between the app and the TwitchMiniChat
     server. See *Cloudflare named, without a line on the gate* below.
+  - §4 says what happens when the user opens the Pokémon Community Game extension. See *The
+    Pokémon Community Game extension, said, without a line on the gate* below.
+  - §2 names the alert settings and Most Wanted watchlists the app uploads, and the phone's model,
+    which each registration carries. See *Section 2: what the app uploads, said, without a line on
+    the gate* below.
 - **`credits.html`** names GitHub and Cloudflare among the third-party services. Its Firebase line
   now also names crash reporting, which 5.5.1 had added without saying so there. The page carries
   no date.
@@ -861,7 +866,10 @@ the two-page publication described below:
 `unouidol/unouidol.github.io`.
 
 - **Pushed on 2026-11-13,** by Federico's ruling, so the copies survive the session that wrote
-  them. Its head is `c220d50`, two commits on that repository's `main` at `bcfbe2a`.
+  them. Its head is `20e40a6`, four commits on that repository's `main` at `bcfbe2a`.
+  - The third carries the Pokémon Community Game statement.
+  - The fourth carries §2's new statements.
+  - Both were pushed on the same day.
 - **No pull request, no merge.** That repository's `main` is served live by GitHub Pages, so a
   merge there is the publication, and publishing is a release step.
 - **Compared on 2026-11-13:** all six policy pages on the branch agree with their bundled copies
@@ -1025,6 +1033,84 @@ Cloudflare is a correction, not a new recipient.
     GitHub at 3;
   - a line for a clarification is what the criterion says teaches people to tap through it;
   - the policy that names Cloudflare is one tap from the gate.
+
+#### The Pokémon Community Game extension, said, without a line on the gate (2026-11-13)
+
+**The policy never mentioned the extension, nor the Pokédex list the app sends to the server.**
+The data deletion page already said that Pokédex lists are uploaded and what deletes them. §4 of
+the privacy policy now says it too.
+
+**What the app itself sends, read in this repository on 2026-11-13:**
+
+- **The probes only read.** `app/src/main/assets/pcg_probe/` is three content scripts. They run in
+  the extension's frames on `*.ext-twitch.tv`, excluding `supervisor.ext-twitch.tv`.
+  - Their manifest asks only for native messaging to the app.
+  - They make no network request: no `fetch`, `XMLHttpRequest`, `WebSocket` or beacon.
+  - They change nothing on the page: no click, no dispatched event, no write to the page.
+  - What they read goes to the app alone, through `sendNativeMessage`: the active tab, the
+    Pokédex state, the missing spawnable Pokédex entries, the Poké Ball counts, and progress
+    messages.
+- **The app loads one page:** Twitch's own popout panel,
+  `https://www.twitch.tv/popout/<channel>/extensions/<id>/panel` (`PcgFragment.kt`).
+- **Poké Ball counts and the tab state stay on the phone.** They are kept in local stores, such
+  as `InventoryBallStore`.
+- **The missing Pokédex list leaves the phone once, and only on a tap.**
+  - It is sent when the user taps Update Pokédex, and only while that manual request is pending
+    (`GeckoSessionManager`, `consumeManualUpdateRequest`).
+  - It goes to the TwitchMiniChat server's `upload_dex_list`, under the backend session.
+  - The body holds `profile_id`, `profile_label` and `wanted_pokemon`. `profile_label` is the
+    account's Twitch username (`PcgFragment.kt`).
+  - The upload is in every release from `v5.4.1`, so it predates the acceptance of version 2.
+- **Crash reports from this code are technical only:** an install failure, a refresh failure, or
+  an upload failure with its reason or HTTP status. None carries what the probes read.
+
+**What is not known: the extension's own traffic.** It has not been observed by anyone recorded
+here, and this repository names neither the extension's operator nor its servers. The policy
+therefore names no operator and no domain. It says only that the extension communicates with its
+own operator's servers, under that operator's terms.
+
+**The gate: no further raise, and no line of its own.** By the criterion of 2026-09-26, this is a
+clarification and a correction, not a new recipient.
+
+- **No new recipient.** The operator receives nothing from TMC's own code. Its traffic is the
+  extension's, which the user chooses to open, on Twitch's extension platform, and Twitch is a
+  declared recipient.
+- **No new collection.** The Pokédex list goes to the TwitchMiniChat server, already declared, for
+  push alerts, a purpose §3 already discloses. The upload predates version 2.
+- **One nuance:** the privacy policy did not mention Twitch extensions by name before this.
+  Nothing TMC sends, though, reaches anyone the policy did not already name.
+
+#### Section 2: what the app uploads, said, without a line on the gate (2026-11-13)
+
+**§2 did not list the alert settings, the watchlists, or the phone's model in a registration.**
+The data deletion page already named the server's watchlists, and the alert settings kept on the
+phone. Federico asked on 2026-11-13 for §2 to name what is uploaded, before version 3 ships.
+
+**What is uploaded, read in this repository on 2026-11-13:**
+- **The alert settings:** `set_spawn_alert_mode` (`FcmRegistrationUploader`).
+  - **The body:** `device_id`, `device_name`, `fcm_token`, `profile_id`, `spawn_alert_mode`,
+    `event_spawn_enabled` and `enabled`.
+  - **When:** when the user changes them, and on the start-up registration pass while the server
+    has not acknowledged the current selection (`PcgProfileRegistrationSyncPlanner`). An account's
+    removal sends the disabled selection.
+- **The Most Wanted watchlist:** `set_custom_watchlist` (`PcgMostWantedSyncClient`).
+  - **The body:** `device_id`, `profile_id`, `enabled`, `pokemon` (the names picked) and
+    `catalog_version`.
+  - **When:** only on the user's Save, or when the user switches it on or off (`PcgMostWantedActivity`,
+    `PcgMostWantedToggleController`). A failed request is not retried automatically.
+- **The phone's model.** `register_fcm` and `set_spawn_alert_mode` both send `device_name`. It is
+  `Build.MANUFACTURER` and `Build.MODEL`, then this installation's device identifier in brackets
+  (`buildDeviceName`).
+  - §2 already declared "app/device registration identifiers", which covers the identifier.
+  - It did not name the model.
+
+**The gate: no further raise, and no line of its own.** By the criterion of 2026-09-26, this is a
+correction, not a new collection.
+- `v5.4.1`, `v5.5.0` and `v5.5.1` all send the three: `set_custom_watchlist`,
+  `set_spawn_alert_mode` and `Build.MODEL` are in each tag's tree.
+- So every acceptance of version 2 was made while they were already sent.
+- **The recipient** is the TwitchMiniChat server, which is declared.
+- **The purpose** is push alerts, which §3 discloses.
 
 #### What the privacy policy changed, and why the acceptance gate was not raised
 
