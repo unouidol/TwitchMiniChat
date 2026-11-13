@@ -539,6 +539,130 @@ halves were read from the clone.
   - **Where that rule comes from:** 5d's plan records it, by the owner's reading of #84. The plan
     notes that this sentence is not in #84's description or in the entry.
 
+## 5.6.0 release — prepared on `release/5.6.0`; not built, not installed, not published
+
+**Prepared on 2026-11-13.** The branch `release/5.6.0` holds:
+- `versionCode` 9 and `versionName` `5.6.0`;
+- the draft release notes, `docs/release-notes-5.6.0.md`;
+- the device round, `docs/manual-plan-5.6.0.md`;
+- `AGENTS.md`'s release procedure and fallback sentence, corrected by Federico's rulings below.
+
+By the first ruling, its pull request merges before anything is built. *Published* above still
+describes 5.5.1, and stays that way until 5.6.0 is published.
+
+**Where a version number lives:**
+- **`app/build.gradle.kts`, `defaultConfig`: `versionCode` and `versionName`.** This is the only live
+  source.
+  - The dev flavour appends `-dev` (`versionNameSuffix`).
+  - Everything the app shows reads `BuildConfig.VERSION_NAME` and `BuildConfig.VERSION_CODE`: the
+    login label, the journal export's header, the welcome page, Bug report, and the update notice's
+    comparison.
+- **The tag `v5.6.0` and the release title, `Twitch Mini Chat 5.6.0`,** both at publication.
+- **`unouidol/tmc-site`, `index.html`: the three `data-tmc-version` elements, lines 65, 187 and
+  229.**
+  - On its `main` (`0fa3ec0`, read on 2026-11-13) they read 5.5.0.
+  - Its #1 (`878d841`) raises them to 5.5.1.
+  - They go to 5.6.0 at publication, by the second ruling below.
+- **The user guide, `downloads/TMC-Visual-Guide.pdf` in tmc-site.** Whether it names a version was
+  not read. It is being replaced before the release is announced (*5.6.0 in progress*, below).
+- **Not live, and left as they are:**
+  - "5.5.1" in comments: `BuildIdentity.kt`, `ChatFragment.kt` and `LatestReleaseResponse.kt`;
+  - test inputs, in the welcome page's tests and `TermsVersionTest`;
+  - the history the deletion page tells, in `data_deletion.html`.
+  They describe the past, or are fixtures, and none reads the build's version.
+
+**Federico's rulings of 2026-11-13, on the six questions this preparation raised:**
+1. **Merge first, then build from `main-v5`,** as 5.5.1 was built, so that the APK's embedded commit
+   is on the primary branch. `AGENTS.md`'s release procedure is corrected to that order, with the
+   reason beside it.
+   - The repository squash-merges, so a branch's head and its squash commit have the same tree and
+     different identifiers.
+   - A build of the branch's head would name, in `Version 5.6.0 (build 9, <commit>)`, a commit that
+     `git log main-v5` does not reach.
+   - 5.5.1's APKs report `007ee55`, #44's squash commit on `main-v5` and the commit its tag points
+     at.
+2. **The website's fallback version is raised at publication, not with `versionName`,** because a
+   merge on that site is live at once. `AGENTS.md`'s sentence is reconciled with this, with the
+   reason.
+3. **The known issue about messages missing after a reconnect stays in the release notes.**
+4. **The two checks that need a second device are NOT DONE in this round.** There is no second
+   phone, and an emulator is not feasible. Each is recorded as "NOT DONE — no second device
+   available; covered by unit tests only; risk accepted by the owner". The checks are:
+   - a fresh install's first launch;
+   - the update notice against a real newer release.
+
+   The tests are named in `docs/manual-plan-5.6.0.md`, part 9. **The release is not blocked by
+   them.** Follow-up: observe the update notice on Federico's phone when the first release after
+   5.6.0 is published.
+5. **The 5.5.2 erases run on the dev debug build, never on the stable app.**
+6. **No speed figures in the release notes.**
+
+**What the release waits on, in order:**
+1. **#112** (the Pokémon Community Game statement, and §2's) merges. This branch is then brought up
+   to date with `main-v5` by a merge, never by a rewrite.
+2. **This pull request merges,** after continuous integration on its exact head: `AGENTS.md`
+   release step 3.
+3. **The signed build from `main-v5`,** on a machine with the configuration below: release steps 4
+   and 5.
+4. **The device round, `docs/manual-plan-5.6.0.md`,** on the machine that holds the phone: release
+   step 6. Its part 3, the stable flavour's chat, is BLOCKING.
+5. **Publication,** in the order below.
+
+### What only a particular machine has
+
+Neither of these is in git, and both are deliberately untracked:
+- the release signing configuration, in `local.properties`;
+- the per-flavour `google-services.json`.
+
+- **`nbpromec1`, read on 2026-11-13, with no value printed:**
+  - `local.properties` holds a non-empty value for each of `RELEASE_STORE_FILE`,
+    `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`, which
+    `app/build.gradle.kts` requires before it signs a release.
+  - The keystore file that `RELEASE_STORE_FILE` names exists.
+  - `app/src/stable/google-services.json` and `app/src/dev/google-services.json` exist, and each
+    names both packages.
+  - **Not checked:** whether that keystore holds the key whose certificate is `aca1170e…`. That
+    needs the password. Release step 5's `apksigner` check settles it on the built APK.
+- **`DESKTOP-BCT68L9`: not read.** It built the phone's latest dev builds (*Test device*).
+- **Not recorded anywhere:** which machine signed 5.5.1.
+- **The round runs on `nbpromec1`,** with the phone connected there, by Federico's instruction of
+  2026-11-13.
+
+  The checksums recorded at release step 5 are the ones published.
+
+### Publication, in order: none of it done
+
+1. **Confirm that `main-v5` holds the code the artifacts were built from** (`AGENTS.md`, step 7).
+   Under release step 4 it is the commit the build was made from, which the APK's label names.
+2. **Publish the policy pages on `unouidol/unouidol.github.io`,** immediately before the tag, as
+   *Two web copies are written and must not be published yet* says.
+   - **The pages:** `tmc/privacy.html`, `tmc/credits.html` and `tmc/data-deletion.html`,
+     regenerated from the bundled copies of the built commit, and `tmc/style.css` with them.
+   - **Compare them with `prepare/policies-5.6.0`.** On 2026-11-13 its head is `20e40a6`, which
+     carries #112's statements.
+   - **Then fetch each page back** and compare it with the copy in the APK.
+   - **This comes before the tag, although the release request lists the pages after it.**
+     `AGENTS.md` puts the web copy before the release that bundles it, never after.
+3. **Tag `v5.6.0`, annotated,** on the commit from step 1. Push it, and confirm it with
+   `git ls-remote --tags origin`.
+4. **The GitHub release, `Twitch Mini Chat 5.6.0`,** on that tag.
+   - **Body:** `docs/release-notes-5.6.0.md`, between its markers, with the checksums filled in.
+   - **Assets:**
+     - the two verified APKs, renamed to `TwitchMiniChat-Android-arm64-v8a.apk` and
+       `TwitchMiniChat-Android-armeabi-v7a.apk`;
+     - `SHA256SUMS.txt`, with LF line endings. **The published 5.5.1 file has CRLF**: 210 bytes,
+       2 lines, 2 carriage returns, downloaded on 2026-11-13. So a `sha256sum -c` on Linux fails on
+       it.
+   - **Then check it:** download both `releases/latest/download/…` URLs and hash them against the
+     recorded values and `SHA256SUMS.txt`.
+5. **The website's fallback.** tmc-site #1 (5.5.0 to 5.5.1) is Federico's to merge. Then the three
+   elements go to 5.6.0.
+6. **Replace the user guide on tmc-site** with the corrected one before the release is announced.
+7. **Record the publication here,** in *Published* and in *Test device*. This needs a commit of its
+   own after the fact.
+8. **Announce.**
+9. **Afterwards, `unouidol/ircminichat` #1,** which Federico merges once the release is out.
+
 ## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
 **5.5.2 will never be tagged or published.** It is formally closed and fully tested, and it
@@ -555,7 +679,7 @@ build.** Recorded on 2026-11-09, by the owner's ruling, from 5d's device round (
 `docs/manual-plan-5d-recyclerview.md`, *Recorded results*, the owner's six records). That round
 ran the dev flavour only. The phone's stable app is 5.5.1, from before 5d, so the 5.6.0 device
 round - where a release-signed stable build is installed over the published one, the release
-procedure's steps 4 and 5 - is the first and only time the stable flavour executes 5d before
+procedure's steps 5 and 6 - is the first and only time the stable flavour executes 5d before
 users do. Its chat checks are the gate, not a formality: launch, sign in, a page on a busy
 channel, scroll and follow, an animated emote (5d's plan, section M, *The hands-on pass*, case
 2). The release waits on them. A 5.6.0 plan written as a file of its own carries this over.
@@ -588,7 +712,7 @@ of its own**, by the owner's rulings (5d's plan, section M, cases 6 and 8;
   compiled invite*) does not apply.
 - **Two pull requests in other repositories. Federico merges them himself:**
   - **`unouidol/tmc-site` #1, at `878d841`,** raises the website's fallback version from 5.5.0 to
-    5.5.1, the latest release. At the release step the value goes to 5.6.0, as `AGENTS.md` asks.
+    5.5.1, the latest release. At publication the value goes to 5.6.0, as `AGENTS.md` asks.
   - **`unouidol/ircminichat` #1, at `f4206e4`,** removes the player page's two unused mute
     helpers. **It waits until after the 5.6.0 release.** That page is served live, and nothing
     should change under the app while the release is being verified.

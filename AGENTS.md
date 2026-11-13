@@ -137,7 +137,7 @@ Device-dependent behavior cannot be proven by local unit tests. Changes involvin
 
 **A verification holds at the moment it was made, and not after.** Anything happening between the check and the act it authorizes voids it: a rebase, a commit from another session, a merged pull request, an edit to the working tree. Re-run it immediately before the operation it is meant to justify, rather than citing the earlier run.
 
-**Address a continuous integration run by the exact SHA of the current head, never by branch.** A branch-scoped query returns the most recent run the service happens to know for that branch, which after a force-push is often the *previous* head's — and it is usually green, because that head passed. The answer then reads as a success for code nobody has tested, which is worse than an error, because nothing looks wrong. Read the head with `git rev-parse HEAD`, ask for that commit's run with `gh run list --commit <sha>` rather than `--branch`, and check that the SHA in the answer is the one asked about. The head the pull request itself reports lags a force-push by some seconds, so re-read it instead of trusting the first answer. Step 6 of the release procedure depends on this: "merge only after continuous integration passes" means the run for the commit being merged, and pinning the merge with `--match-head-commit` is worth nothing if the run that authorized it belongs to a different commit.
+**Address a continuous integration run by the exact SHA of the current head, never by branch.** A branch-scoped query returns the most recent run the service happens to know for that branch, which after a force-push is often the *previous* head's — and it is usually green, because that head passed. The answer then reads as a success for code nobody has tested, which is worse than an error, because nothing looks wrong. Read the head with `git rev-parse HEAD`, ask for that commit's run with `gh run list --commit <sha>` rather than `--branch`, and check that the SHA in the answer is the one asked about. The head the pull request itself reports lags a force-push by some seconds, so re-read it instead of trusting the first answer. Step 3 of the release procedure depends on this: "merge it only after continuous integration passes" means the run for the commit being merged, and pinning the merge with `--match-head-commit` is worth nothing if the run that authorized it belongs to a different commit.
 
 **A missing value is asked for, never guessed.** An instruction carrying an unresolved placeholder, a reference to something that does not exist, or a figure nobody measured is not carried out by inferring what was probably meant. Stop and ask. An invented value inside a binding specification is worse than a task left undone, because the undone task is visible and the invention is not: it reads exactly like a measurement, and every later decision made on top of it inherits the error without a way to notice.
 
@@ -186,12 +186,16 @@ download buttons silently, with no error anywhere in this repository.
 - Keep `versionName` equal to the tag without its leading `v`, and raise `versionCode` on
   every published build. A build whose `versionCode` is not higher than the installed one
   cannot update it.
-- Raise the fallback version in `unouidol/tmc-site`, `index.html`, in the same step that
-  raises `versionName`. The page fills its three `data-tmc-version` elements from the
-  releases API at runtime and overwrites whatever the file says, so that number is what a
-  visitor reads until the call answers, and what one whose browser never runs the script
-  reads for good. Left behind, it advertises the previous release from the page that
-  announces the new one.
+- Raise the fallback version in `unouidol/tmc-site`, `index.html`, at publication, once the
+  GitHub release is out, not when `versionName` is raised. The page fills its three
+  `data-tmc-version` elements from the releases API at runtime and overwrites whatever the
+  file says, so that number is what a visitor reads until the call answers, and what one
+  whose browser never runs the script reads for good. Left behind after publication, it
+  advertises the previous release from the page that announces the new one.
+  - **Why at publication** (Federico's ruling, 2026-11-13): a merge on that site is live at
+    once. A fallback raised with `versionName` would advertise a version that nobody can
+    download for as long as the release takes to build, verify and test.
+  - Until then this sentence said "in the same step that raises `versionName`".
 - Write release notes for users rather than for developers, following the structure of the
   previous releases: what the application is, what changed, what to download, how to
   install, and contacts.
@@ -201,18 +205,28 @@ Release procedure:
 1. Branch `release/X.Y.Z` from the current `main-v5` and land every change intended for the
    release on that branch.
 2. Update `versionCode` and `versionName` in `app/build.gradle.kts`.
-3. Run the repository-wide verification baseline, then `:app:assembleStableRelease`.
-4. Verify the built artifacts before anything is published: the signer is the release
+3. Run the repository-wide verification baseline on the branch. Open a pull request into
+   `main-v5`, and merge it only after continuous integration passes on its exact head.
+   Continuous integration runs only for `main-v5`, so a release tagged from a release
+   branch alone is never verified by it.
+4. Build `:app:assembleStableRelease` from `main-v5` at that merge's commit. The tree must
+   be clean: `git status --porcelain --untracked-files=all` prints nothing.
+   - **Why the merge comes before the build** (Federico's ruling, 2026-11-13): this
+     repository squash-merges. A build of the release branch's head would name a commit in
+     its label that the merge does not keep on `main-v5`. Built from `main-v5`, the APK's
+     embedded commit is on the primary branch, and it is the commit the tag points at.
+     5.5.1's `007ee55` is built that way.
+   - Until then, the build was step 3 and the merge step 6.
+   - **If step 5 or 6 finds a defect,** its fix lands by a pull request of its own, and the
+     build is made again from `main-v5`. The earlier artifacts are void.
+5. Verify the built artifacts before anything is published: the signer is the release
    certificate and not the Android debug certificate, the package is
    `com.fs.twitchminichat` without the development suffix, and `versionCode` and
    `versionName` match the intended release.
-5. Install the arm64 APK over the currently published stable build on a real device and
+6. Install the arm64 APK over the currently published stable build on a real device and
    confirm it updates in place.
-6. Open a pull request into `main-v5` and merge it only after continuous integration
-   passes. Continuous integration runs only for `main-v5`, so a release tagged from a
-   release branch alone is never verified by it.
 7. Confirm that `main-v5` contains exactly the code the artifacts were built from, then tag
-   it.
+   it. Under step 4 that is the commit the build was made from.
 8. Publish the release with the exact artifacts that were verified and installed. Never
    rebuild between verification and publication: Android builds are not reproducible byte
    for byte, so a rebuilt artifact is not the one that was tested and its checksums no
