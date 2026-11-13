@@ -14,6 +14,8 @@ object TermsPrefs {
     //    user who accepted version 2 sees the gate once more, on first opening 5.6.0.
     //    Cloudflare is named in the same version. "Hosting or infrastructure providers"
     //    already covered it, so naming it is a correction and would not raise the gate.
+    //    The Pokemon Community Game statement is in the same version too: a clarification,
+    //    with no new recipient and nothing newly collected.
     /** The terms version a stored acceptance must reach; see [isAccepted]. */
     internal const val CURRENT_TERMS_VERSION = 3
 
