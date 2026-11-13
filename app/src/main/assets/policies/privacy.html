@@ -38,7 +38,8 @@
     <li>Twitch account information needed to sign in and use the app, such as Twitch username and related profile identifiers.</li>
     <li>Authentication and session data needed to connect to Twitch chat.</li>
     <li>Selected Twitch channels and account preferences stored by the app.</li>
-    <li>Push notification registration data, such as FCM token and app/device registration identifiers.</li>
+    <li>Push notification registration data, such as FCM token and app/device registration identifiers. Each registration also carries the phone's manufacturer and model name, as Android reports them.</li>
+    <li>The alert settings and Most Wanted watchlists of each account, sent to the TwitchMiniChat server so that it can send the alerts you choose: which spawn alerts are on, including whether event spawns are, and, when you use Most Wanted, whether it is on and the Pokémon you picked for it. Alert settings are sent when you change them, and again when the app starts until the server has confirmed them. A Most Wanted watchlist is sent only when you save it or switch it on or off.</li>
     <li>Public Twitch chat content shown inside the app and cached chat history needed for app functionality.</li>
     <li>Message report data submitted by users, which may include message text, username, channel, message ID, and timestamp.</li>
     <li>Blocked users lists and other local app settings stored on the device.</li>
@@ -62,6 +63,7 @@
 <h2>4. Who data may be shared with</h2>
 <ul>
     <li>Twitch, to provide Twitch authentication and chat-related functionality.</li>
+    <li>The Pokémon Community Game extension, when you choose to open it. It is a Twitch extension operated by a third party, not by TMC. It runs inside the app's built-in browser and communicates with its own operator's servers, under that operator's terms. TMC only reads what the extension shows on your phone, such as your Poké Ball counts and the Pokémon missing from your Pokédex, to offer its helpers; it does not change the extension or what the extension sends. What TMC reads stays on your phone, with one exception: when you tap Update Pokédex, the list of spawnable Pokémon missing from your Pokédex is sent to the TwitchMiniChat server, with your account's identifier and Twitch username, so that the server can send the spawn alerts you choose.</li>
     <li>Google / Firebase services used for push notifications and, when crash reporting is enabled, for crash and error diagnostics (Firebase Crashlytics).</li>
     <li>Hosting or infrastructure providers used to operate the app backend.</li>
     <li>Cloudflare, which publishes the TwitchMiniChat server on the internet. Every request between the app and that server passes through Cloudflare's infrastructure, and so do the sign-in pages your browser opens on that server. Cloudflare therefore handles your IP address, the requests themselves and the server's answers, under Cloudflare's own privacy policy.</li>
