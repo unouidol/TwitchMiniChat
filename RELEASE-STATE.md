@@ -577,6 +577,22 @@ of its own**, by the owner's rulings (5d's plan, section M, cases 6 and 8;
   reader moves between elements and empty space is not one, so a screen-reader user would dismiss
   with Back.
 
+**Also before the 5.6.0 release, recorded on 2026-11-13 by Federico's rulings:**
+- **The user guide is out of date, and must be corrected before the release is announced. OPEN.**
+  - The published guide, `downloads/TMC-Visual-Guide.pdf` in `unouidol/tmc-site`, names a
+    "Video On / Off" control and an in-app mute, which #108 removed.
+  - It does not list "About TMC" or "Bug report", which #110 added.
+  - Its source is in no repository. Federico corrects it with the owner once he recovers it.
+- **The Discord invite is permanent. CLOSED.** Federico confirmed it on 2026-11-13. The risk that
+  the invite compiled into the app expires (`docs/proposal-welcome-page.md`, *The risk in a
+  compiled invite*) does not apply.
+- **Two pull requests in other repositories. Federico merges them himself:**
+  - **`unouidol/tmc-site` #1, at `878d841`,** raises the website's fallback version from 5.5.0 to
+    5.5.1, the latest release. At the release step the value goes to 5.6.0, as `AGENTS.md` asks.
+  - **`unouidol/ircminichat` #1, at `f4206e4`,** removes the player page's two unused mute
+    helpers. **It waits until after the 5.6.0 release.** That page is served live, and nothing
+    should change under the app while the release is being verified.
+
 **This table is a list of objectives. It records no state.** It answers *what did 5.5.2 set out
 to do*, which is now part of what 5.6.0 sets out to do; the chat work is not in it. What has
 landed is a different question, and git already answers it:
@@ -707,10 +723,18 @@ the two-page publication described below:
   traffic it carries falls under its own policy, which §4 of the privacy policy now names.
 
 **The published copies are prepared, not published.** The derived `tmc/privacy.html`,
-`tmc/credits.html` and `tmc/data-deletion.html` sit on a local branch of a clone of
-`unouidol/unouidol.github.io`. They are compared against the bundled copies there and are not
-pushed: that repository was outside what this step was allowed to change, and publishing comes
-immediately before the tag in any case.
+`tmc/credits.html` and `tmc/data-deletion.html` are on the branch `prepare/policies-5.6.0` of
+`unouidol/unouidol.github.io`.
+
+- **Pushed on 2026-11-13,** by Federico's ruling, so the copies survive the session that wrote
+  them. Its head is `c220d50`, two commits on that repository's `main` at `bcfbe2a`.
+- **No pull request, no merge.** That repository's `main` is served live by GitHub Pages, so a
+  merge there is the publication, and publishing is a release step.
+- **Compared on 2026-11-13:** all six policy pages on the branch agree with their bundled copies
+  at #111's head, apart from the links and the trailing newline described below.
+
+At publication, regenerate the pages from the bundled copies anyway and compare them with the
+branch: the bundled copies are the source, and the branch is only their last derivation.
 
 **Publishing them is one step of the 5.6.0 release, immediately before the tag** - between
 step 7 (confirming `main-v5` holds the code the artifacts were built from) and step 8
@@ -740,10 +764,23 @@ Regenerate them at publication time and commit them in `unouidol/unouidol.github
 
 - `tmc/data-deletion.html`;
 - `tmc/privacy.html`;
-- since 2026-11-12, `tmc/credits.html`.
+- since 2026-11-12, `tmc/credits.html`;
+- since 2026-11-13, by Federico's ruling, `tmc/style.css`, copied from the bundled
+  `app/src/main/assets/policies/style.css`.
 
 Then fetch each back and compare it against the copy in the APK, to confirm they agree apart from
 those links and that newline.
+
+**`tmc/style.css` differs from the bundled copy in formatting only.**
+
+- **The measurement:** 48 lines of a `diff` differ, read on 2026-11-13: 40 only in the bundled
+  copy, 8 only in the published one, after the bundled copy's missing trailing newline is
+  supplied.
+- **What the difference is:** the rules and their values are the same. With all whitespace removed,
+  both are the same 776 characters. The published copy writes eight rules on one line each, where
+  the bundled copy spreads them over several, with blank lines between rules.
+- **What publishing changes:** a reader sees nothing different. Publishing the bundled copy with
+  the others makes the two copies identical, rather than identical in effect.
 
 #### GitHub named, and the acceptance gate raised to 3 (2026-11-12)
 
@@ -767,6 +804,39 @@ name both in 5.6.0.
 
 **Neither request carries a Twitch account, a token or an identifier,** and the developer receives
 no record of either. The APK download is the user's own browser, after a tap.
+
+**The sign-in does not pass through GitHub Pages.** This was the one open question about the
+sentence "Neither request includes your Twitch account, a sign-in token…". The owner settled it on
+2026-11-13 by reading the backend's `TWITCH_REDIRECT_URI` on the production machine; this session
+did not read it. The return address is on `api.ircminichat.party`, the backend itself. The hops:
+
+1. The app opens the backend's `/oauth/start` in the browser.
+2. The user approves on `id.twitch.tv`.
+3. Twitch redirects the browser to the backend's `/oauth/callback`, with the authorisation code in
+   the address.
+4. The backend exchanges the code with Twitch, server to server.
+5. The backend returns the browser to the app with a single-use login token, valid for five
+   minutes. It does not pass on the Twitch code.
+6. The app posts that token, with its PKCE verifier, to `/oauth/finalize`.
+
+What the app itself does, read in this repository on 2026-11-13:
+
+- **What it opens:** `https://api.ircminichat.party/oauth/start`, in the browser
+  (`LoginFragment.kt`, `ACTION_VIEW`).
+- **The return address it asks for:**
+  - stable: `ircminichat://auth`;
+  - dev: `ircminichatdev://auth`.
+
+  Both come from `authScheme` in `app/build.gradle.kts` and are registered by the one intent filter
+  in `app/src/main/AndroidManifest.xml`.
+- **What it never loads:**
+  - `ircminichat`'s `docs/callback.html`, which is served at
+    `unouidol.github.io/ircminichat/callback.html` and is not on the sign-in path. It links to
+    `twitchminichat://` and `ircminichatv2://`, which this app does not register.
+  - Anything else on GitHub Pages, apart from the player page and, when the user taps the web
+    button, the policy pages under `unouidol.github.io/tmc`.
+
+So the sentence is true as written.
 
 **Decision, by the criterion of 2026-09-26 below: `CURRENT_TERMS_VERSION` goes to 3.** A new
 recipient is a material change.

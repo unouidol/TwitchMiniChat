@@ -9,8 +9,8 @@ package com.fs.twitchminichat
  *
  * The Discord invite is compiled in as given. An invite can expire, stop after a number
  * of uses, or be revoked, and a link compiled into an APK cannot be corrected until the
- * next release. Whether this one is permanent is open until Federico confirms it; see
- * `docs/proposal-welcome-page.md`, *The risk in a compiled invite*.
+ * next release. Federico confirmed on 2026-11-13 that this one is permanent, which closes
+ * that risk; see `docs/proposal-welcome-page.md`, *The risk in a compiled invite*.
  */
 object ProjectLinks {
 
