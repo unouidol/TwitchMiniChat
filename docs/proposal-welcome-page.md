@@ -47,7 +47,8 @@ as it was proposed. **He wants everything in 5.6.0, so that later versions can g
    - Ko-fi `https://ko-fi.com/tmc_app`. Ko-fi is shown.
 
    **The invite is compiled in as given.** The risk that it expires (*The risk in a compiled
-   invite*) stays **open until Federico confirms that the invite is permanent**.
+   invite*) stayed open until Federico confirmed that the invite is permanent. **CLOSED on
+   2026-11-13:** he confirmed it.
 6. **Dev builds never show the update notice.** Option (A): dev makes no check at all.
 7. **The corrections of form and of fact go in the same release.**
    - **The privacy policy names GitHub,** for the stream player page and for the version check.

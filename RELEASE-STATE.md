@@ -577,6 +577,22 @@ of its own**, by the owner's rulings (5d's plan, section M, cases 6 and 8;
   reader moves between elements and empty space is not one, so a screen-reader user would dismiss
   with Back.
 
+**Also before the 5.6.0 release, recorded on 2026-11-13 by Federico's rulings:**
+- **The user guide is out of date, and must be corrected before the release is announced. OPEN.**
+  - The published guide, `downloads/TMC-Visual-Guide.pdf` in `unouidol/tmc-site`, names a
+    "Video On / Off" control and an in-app mute, which #108 removed.
+  - It does not list "About TMC" or "Bug report", which #110 added.
+  - Its source is in no repository. Federico corrects it with the owner once he recovers it.
+- **The Discord invite is permanent. CLOSED.** Federico confirmed it on 2026-11-13. The risk that
+  the invite compiled into the app expires (`docs/proposal-welcome-page.md`, *The risk in a
+  compiled invite*) does not apply.
+- **Two pull requests in other repositories. Federico merges them himself:**
+  - **`unouidol/tmc-site` #1, at `878d841`,** raises the website's fallback version from 5.5.0 to
+    5.5.1, the latest release. At the release step the value goes to 5.6.0, as `AGENTS.md` asks.
+  - **`unouidol/ircminichat` #1, at `f4206e4`,** removes the player page's two unused mute
+    helpers. **It waits until after the 5.6.0 release.** That page is served live, and nothing
+    should change under the app while the release is being verified.
+
 **This table is a list of objectives. It records no state.** It answers *what did 5.5.2 set out
 to do*, which is now part of what 5.6.0 sets out to do; the chat work is not in it. What has
 landed is a different question, and git already answers it:
@@ -686,11 +702,45 @@ recording them both as `2026-09-26` was a record of what happened, not a rule. S
 change moved only the page it edited. Both copies of `data_deletion.html` carry `2026-09-28`, and
 both copies of `privacy.html` carry `2026-09-26`, which is what the rule actually asks.
 
+**Changed on 2026-11-12 and 2026-11-13: three pages now, and the privacy policy moves to
+`2026-11-13`.** The pull request that names GitHub and Cloudflare (#111), which follows the welcome
+page's (#110), changes three bundled pages. **Publishing all three is now one step**, replacing
+the two-page publication described below:
+
+- **`privacy.html`, now `2026-11-13`.**
+  - §3 gains a purpose: showing a stream when the user chooses to, and saying when a newer version
+    exists.
+  - §4 names GitHub, for two requests, with what each shows and what it does not. See *GitHub
+    named, and the acceptance gate raised to 3* below.
+  - §4 names Cloudflare, which carries every request between the app and the TwitchMiniChat
+    server. See *Cloudflare named, without a line on the gate* below.
+- **`credits.html`** names GitHub and Cloudflare among the third-party services. Its Firebase line
+  now also names crash reporting, which 5.5.1 had added without saying so there. The page carries
+  no date.
+- **`data_deletion.html`** is unchanged, at `2026-09-28`. It describes what the four options
+  remove from the phone and from the TwitchMiniChat server. Neither GitHub nor Cloudflare stores
+  anything on the app's behalf, so there is nothing for it to say. What Cloudflare keeps of the
+  traffic it carries falls under its own policy, which §4 of the privacy policy now names.
+
+**The published copies are prepared, not published.** The derived `tmc/privacy.html`,
+`tmc/credits.html` and `tmc/data-deletion.html` are on the branch `prepare/policies-5.6.0` of
+`unouidol/unouidol.github.io`.
+
+- **Pushed on 2026-11-13,** by Federico's ruling, so the copies survive the session that wrote
+  them. Its head is `c220d50`, two commits on that repository's `main` at `bcfbe2a`.
+- **No pull request, no merge.** That repository's `main` is served live by GitHub Pages, so a
+  merge there is the publication, and publishing is a release step.
+- **Compared on 2026-11-13:** all six policy pages on the branch agree with their bundled copies
+  at #111's head, apart from the links and the trailing newline described below.
+
+At publication, regenerate the pages from the bundled copies anyway and compare them with the
+branch: the bundled copies are the source, and the branch is only their last derivation.
+
 **Publishing them is one step of the 5.6.0 release, immediately before the tag** - between
 step 7 (confirming `main-v5` holds the code the artifacts were built from) and step 8
-(publishing the release) of the procedure in `AGENTS.md`. **Both pages in the same publication**,
-never two publications before one tag: that is how one of them gets forgotten, and a privacy
-policy that still describes the old retention while the deletion page describes the new
+(publishing the release) of the procedure in `AGENTS.md`. **All the changed pages in the same
+publication**, never two publications before one tag: that is how one of them gets forgotten,
+and a privacy policy that still describes the old retention while the deletion page describes the new
 behaviour is the exact contradiction the two-copies rule exists to prevent.
 
 The published copies are not stored a second time in this repository, because a stored snapshot
@@ -710,9 +760,137 @@ published files are LF with a trailing newline, which for `privacy.html` is a re
 the bundled copy has no trailing newline, and that is the difference this file has recorded
 since 5.5.1.
 
-Regenerate both at publication time, commit them as `tmc/data-deletion.html` and
-`tmc/privacy.html` in `unouidol/unouidol.github.io`, then fetch each back and compare it
-against the copy in the APK to confirm they agree apart from those links and that newline.
+Regenerate them at publication time and commit them in `unouidol/unouidol.github.io` as:
+
+- `tmc/data-deletion.html`;
+- `tmc/privacy.html`;
+- since 2026-11-12, `tmc/credits.html`;
+- since 2026-11-13, by Federico's ruling, `tmc/style.css`, copied from the bundled
+  `app/src/main/assets/policies/style.css`.
+
+Then fetch each back and compare it against the copy in the APK, to confirm they agree apart from
+those links and that newline.
+
+**`tmc/style.css` differs from the bundled copy in formatting only.**
+
+- **The measurement:** 48 lines of a `diff` differ, read on 2026-11-13: 40 only in the bundled
+  copy, 8 only in the published one, after the bundled copy's missing trailing newline is
+  supplied.
+- **What the difference is:** the rules and their values are the same. With all whitespace removed,
+  both are the same 776 characters. The published copy writes eight rules on one line each, where
+  the bundled copy spreads them over several, with blank lines between rules.
+- **What publishing changes:** a reader sees nothing different. Publishing the bundled copy with
+  the others makes the two copies identical, rather than identical in effect.
+
+#### GitHub named, and the acceptance gate raised to 3 (2026-11-12)
+
+**Two requests reach GitHub, and the policy named neither.** Federico decided on 2026-11-12 to
+name both in 5.6.0.
+
+1. **The stream player page.** It is `https://unouidol.github.io/ircminichat/player.html`, loaded
+   from GitHub Pages whenever a stream is shown, with the channel's name in its address.
+   - **This is a correction of an omission that predates this work.** The page has been loaded
+     from there since 5.4.1: releases up to `v5.4.0` contain no player, and `v5.4.1` and `v5.5.1`
+     both load it.
+   - **What it shows GitHub:**
+     - the IP address;
+     - the standard identification of the built-in browser. The session runs GeckoView in desktop
+       User-Agent mode, `GeckoSessionManager.kt:1691`;
+     - the channel name.
+2. **The version check.** This is a new request, added by the welcome page (#110). It asks
+   `releases/latest` at most once a day.
+   - **What it shows GitHub:** the IP address and the fixed User-Agent `TwitchMiniChat-Android`.
+   - **What it does not show:** anything about the phone, the account or the installation.
+
+**Neither request carries a Twitch account, a token or an identifier,** and the developer receives
+no record of either. The APK download is the user's own browser, after a tap.
+
+**The sign-in does not pass through GitHub Pages.** This was the one open question about the
+sentence "Neither request includes your Twitch account, a sign-in token…". The owner settled it on
+2026-11-13 by reading the backend's `TWITCH_REDIRECT_URI` on the production machine; this session
+did not read it. The return address is on `api.ircminichat.party`, the backend itself. The hops:
+
+1. The app opens the backend's `/oauth/start` in the browser.
+2. The user approves on `id.twitch.tv`.
+3. Twitch redirects the browser to the backend's `/oauth/callback`, with the authorisation code in
+   the address.
+4. The backend exchanges the code with Twitch, server to server.
+5. The backend returns the browser to the app with a single-use login token, valid for five
+   minutes. It does not pass on the Twitch code.
+6. The app posts that token, with its PKCE verifier, to `/oauth/finalize`.
+
+What the app itself does, read in this repository on 2026-11-13:
+
+- **What it opens:** `https://api.ircminichat.party/oauth/start`, in the browser
+  (`LoginFragment.kt`, `ACTION_VIEW`).
+- **The return address it asks for:**
+  - stable: `ircminichat://auth`;
+  - dev: `ircminichatdev://auth`.
+
+  Both come from `authScheme` in `app/build.gradle.kts` and are registered by the one intent filter
+  in `app/src/main/AndroidManifest.xml`.
+- **What it never loads:**
+  - `ircminichat`'s `docs/callback.html`, which is served at
+    `unouidol.github.io/ircminichat/callback.html` and is not on the sign-in path. It links to
+    `twitchminichat://` and `ircminichatv2://`, which this app does not register.
+  - Anything else on GitHub Pages, apart from the player page and, when the user taps the web
+    button, the policy pages under `unouidol.github.io/tmc`.
+
+So the sentence is true as written.
+
+**Decision, by the criterion of 2026-09-26 below: `CURRENT_TERMS_VERSION` goes to 3.** A new
+recipient is a material change.
+
+- **What a user sees:** every user who accepted version 2 sees the gate once on first opening
+  5.6.0, then the welcome page.
+- **How it is triggered:**
+  - `TermsPrefs.isAccepted` counts an acceptance only if it is at least the current version;
+  - `MainActivity.onResume` raises the gate for any acceptance below 3;
+  - `TermsVersionTest` pins both.
+- **What the gate itself says:** one new line, `terms_gate_github`. That is the same pattern
+  version 2 used for crash reporting: the gate states the new recipient in a sentence, and the
+  policy has the detail.
+
+#### Cloudflare named, without a line on the gate (2026-11-13)
+
+**Every request between the app and the TwitchMiniChat server passes through Cloudflare, and the
+policy did not name it.**
+
+- **Where this comes from:** the owner read it on the production machine on 2026-11-13, not this
+  session. `api.ircminichat.party` is the backend itself, published through a Cloudflare tunnel to
+  `127.0.0.1:8799`.
+  - The app names no other backend address. Every backend address in `app/src/main` is
+    `https://api.ircminichat.party`, read on 2026-11-13.
+- **What passes through it:**
+  - every request the app makes to the server, and the server's answers;
+  - the sign-in pages the browser opens there.
+
+  Chat does not: it connects to `irc.chat.twitch.tv` directly (`TwitchChatClient.kt`, `IRC_HOST`).
+- **What §4 now says:**
+  - Cloudflare publishes the server;
+  - every request between the app and the server passes through its infrastructure, and so do the
+    sign-in pages;
+  - Cloudflare therefore handles the IP address, the requests themselves and the server's
+    answers, under its own privacy policy.
+
+  It does **not** say that Cloudflare cannot read them. Cloudflare carries that traffic, so it
+  cannot be claimed that it is unable to see it.
+- **Credits** names Cloudflare as the provider that publishes the server and hosts the website
+  (Cloudflare Pages).
+
+**The gate: no further raise, and no line of its own.** By the criterion of 2026-09-26, naming
+Cloudflare is a correction, not a new recipient.
+
+- **Cloudflare was already declared.** §4 already declared "Hosting or infrastructure providers
+  used to operate the app backend", and every acceptance of version 2 covered that; Cloudflare is
+  such a provider. So the change is a provider named that the policy had declared by category.
+- **The version stays at 3.** It rises to 3 once, for GitHub, and users are asked once. Cloudflare
+  is named in the same version.
+- **Why no line on the gate:**
+  - the gate's lines state what is material since the last acceptance: crash reporting at 2,
+    GitHub at 3;
+  - a line for a clarification is what the criterion says teaches people to tap through it;
+  - the policy that names Cloudflare is one tap from the gate.
 
 #### What the privacy policy changed, and why the acceptance gate was not raised
 
