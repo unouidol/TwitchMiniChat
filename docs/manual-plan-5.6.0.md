@@ -32,15 +32,15 @@ passed. A missing log line is a failure, not a pass with missing paperwork.
 
 | | Build | Made how | Used for |
 |---|---|---|---|
-| **R** | stable, release-signed | `:app:assembleStableRelease`, on the machine that holds the release signing configuration | everything on the stable app: parts 1 to 6 and 9 |
+| **R** | stable, release-signed | `:app:assembleStableRelease`, on the machine that holds the release signing configuration | everything on the stable app: parts 1 to 6 |
 | **D** | dev, debug | `:app:assembleDevDebug`, from the same commit as R | parts 7 and 8 |
-| **U** | stable, debug, **throwaway** | `:app:assembleStableDebug`, with `versionName = "5.5.0"` as a local edit that is never committed | part 9, the update notice, never on the test phone |
 
 - **R and D come from one commit,** with a clean tree. Their labels read `Version 5.6.0 (build 9,
   <commit>)` and `Version 5.6.0-dev (build 9, <commit>)`, with the same commit. A `+` or `unknown`
   disqualifies the build.
-- **Which commit that is** waits on Federico's decision. See `RELEASE-STATE.md`, *5.6.0 release*,
-  *Which commit the release is built from*.
+- **That commit is `main-v5` after the release pull request merges** (Federico's ruling 1 of
+  2026-11-13; `AGENTS.md`, release step 4). The APK's embedded commit is then on the primary
+  branch, and it is the commit the tag will point at.
 - **Why D is needed:**
   - **C3 and D3 need `run-as`.** The 5.5.2 plan writes their owed record with it, and `run-as` works
     only on a debuggable app. A release build is not debuggable: the `release` build type in
@@ -48,9 +48,12 @@ passed. A missing log line is a failure, not a pass with missing paperwork.
   - **The plans for 5.5.2 and 5c are written against the dev package,** in their commands, their
     log filters and their pid readings.
   - **The browser identification needs a debuggable app** (part 8).
-- **Why U never goes on the test phone:** the phone's stable app is signed with the release key, and
-  a debug-signed stable build cannot replace it without an uninstall. That would destroy that app's
-  data (5d's plan, case 2).
+- **Never on the test phone:**
+  - an uninstall of the stable app or of the dev app;
+  - clearing the stable app's data. Its encrypted account store and its journal cannot be
+    recreated.
+  - A debug-signed stable build cannot replace the release-signed one without an uninstall (5d's
+    plan, case 2), so no such build is made for this round.
 - **D must carry the phone's debug certificate.** Otherwise `adb install -r` cannot replace the dev
   app in place. Before installing, compare `apksigner verify --print-certs` on D with the same on
   the dev APK the phone holds.
@@ -66,10 +69,14 @@ passed. A missing log line is a failure, not a pass with missing paperwork.
 - **The test phone,** the OnePlus AC2003 of `RELEASE-STATE.md`, *Test device*. Its stable app must
   be the published 5.5.1, with at least one account signed in, before part 2.
 - **Two Twitch accounts,** for the two-account cases.
-- **A second Android device or an emulator,** for part 9. It must be one that installs an ARM APK.
-  No record says one is available. **Federico says whether there is one.** For the notification
-  permission's order (item 9.2), it must run Android 13 or later: Android 12 has no runtime
-  notification permission, so the test phone never shows that prompt.
+- **No second device.** There is no second phone, and an emulator is not feasible (Federico,
+  2026-11-13). Part 9 is therefore NOT DONE; see there.
+- **Screenshots** stay local, outside the repository. A set for the user guide is taken during the
+  round:
+  - the chat page with the stream closed;
+  - the Safety & Privacy menu;
+  - the welcome page;
+  - the update notice, if it can be shown. In this round it cannot (part 9).
 - **Channels:**
   - one busy channel that sends animated emotes;
   - for the long cases, one at the history cap, where a page starts with 400 history rows and live
@@ -106,7 +113,7 @@ account signed in.
 **Failure.** Any other stable build, or no account signed in. Stop: part 2 needs the published 5.5.1
 underneath, with a signed-in account. If no account is signed in, sign one in on 5.5.1 first.
 
-### 1.2 Verify R before it is installed (`AGENTS.md`, release step 4)
+### 1.2 Verify R before it is installed (`AGENTS.md`, release step 5)
 
 **Do.** Run these on both APKs of R:
 - `apksigner verify --print-certs`;
@@ -130,7 +137,13 @@ Record both sha256: they are the checksums that will be published.
 **These can be seen only once.** The first launch after the update decides the gate and the
 welcome page, so nothing else may open the app before item 2.2.
 
-### 2.1 Install R over the published 5.5.1 (release step 5)
+### 2.1 Install R over the published 5.5.1 (release step 6)
+
+**Before the install, as a step of its own:**
+- Read the signing certificate of the stable APK on the phone, pulled off it.
+- Compare it in full with R's certificate.
+- **If they differ, stop.** An install would then need an uninstall, which is forbidden.
+- Keep the pulled APK, with its sha256, as the way back.
 
 **Do.** `adb install -r` R's arm64 APK. Read the package again.
 
@@ -146,8 +159,10 @@ that differs from R's. Stop.
 
 **Do.** Open the app.
 
-**Look for.** The terms gate, with the GitHub line: "TMC loads its stream player page from GitHub,
-and at most once a day asks GitHub whether a newer version exists…". Then tap Accept.
+**Look for.** The terms gate, "Before you continue", with the GitHub line: "TMC loads its stream
+player page from GitHub, and at most once a day asks GitHub whether a newer version exists…".
+Then tick "I have read and agree to the Terms of Use and Privacy Policy." and tap "Accept and
+continue".
 
 **Failure.** No gate: an acceptance of version 2 was counted. A gate without the GitHub line. A
 crash.
@@ -180,6 +195,20 @@ Logcat, tags `TMC_WELCOME` and `TWITCH_IRC`.
 **Look for.** No gate and no page. Logcat shows `start decision=none`.
 
 **Failure.** Either the gate or the page shown again.
+
+### 2.5 The in-place update on the owner's phone, as a whole
+
+This item gets its own result, from 2.1 to 2.4 together:
+- the stable app updated in place to 5.6.0;
+- the terms gate shown again once (`CURRENT_TERMS_VERSION` 3);
+- then the welcome page, shown once to an existing user;
+- and not shown again at the next launch.
+
+It is a real device check, and is reported as one. **It is not a substitute for 9.1, a brand-new
+user's first launch, and must not be presented as one.** The phone had TMC, accounts and an
+acceptance of version 2 before the update.
+
+**PASS** only if 2.1 to 2.4 all passed. **FAIL** if any of them failed.
 
 ---
 
@@ -458,12 +487,16 @@ afterwards.
 
 ### 6.3 Every button is at least 48 dp (#110, item 8)
 
-**Do.** With each page open, run `adb shell uiautomator dump`, then pull the file. Read each button's
-`bounds`. Read the density with `adb shell wm density`.
+**Do.** With each page open, scroll it to the bottom, where its buttons are. Read the real view
+frames with `adb shell dumpsys activity top`, not `uiautomator` bounds. Read each button's frame
+in the dumped view hierarchy, and read the density with `adb shell wm density`.
 
 **Look for.** Every button's height is at least 48 × density ÷ 160 px. At 382 dpi that is 115 px.
 
 **Failure.** Any button below it.
+
+**If the dump does not include the page's window,** the item is UNCLEAR. Record that; do not fall
+back to `uiautomator`. The page is a dialog, in a window of its own.
 
 ### 6.4 The policy pages inside the app (#111, plan 3; #112)
 
@@ -495,8 +528,7 @@ registry and injecting an owed record, exactly as written.
     app's accounts and settings on the phone.
   - The deletion code has no branch by flavour: `app/src/main` reads no `BuildConfig.FLAVOR`,
     `DEBUG` or `BUILD_TYPE`. This is read, not run.
-- **Federico's option:** A1 to A5, and B1 to B5, can also run on R, with the package changed in each
-  command. The erases on R cost the stable app's data; that is his call.
+- **The erases run on D, never on the stable app** (Federico's ruling 5 of 2026-11-13).
 - **What part 2 now settles:** the 5.5.2 plan lists "the true upgrade case" among what that round
   cannot check, because the dev flavour installs beside the release. Part 2 is that case.
 
@@ -509,6 +541,22 @@ The background measurement*). Run it before the erases, while two accounts are s
 
 **Failure.** 100 lines or more: the defect is back. Between 11 and 99 is inconclusive: stop and
 report the count.
+
+
+### 7.2 Decline on the gate, on D, after an erase (#111, plan 4)
+
+**Do.** At the first start after the first erase of section D, the gate shows again: both resets
+clear the acceptance (`SafetyPrivacyFragment.kt`, `TermsPrefs.clearAcceptance`). Tap "Decline and
+close". Then open the app again.
+
+**Look for.** "Decline and close" closes the app. Opened again, the gate shows again, and accepting
+it lets the app continue.
+
+**Failure.** The app stays open after Decline, or reopens past the gate without an acceptance.
+
+**It stands for both flavours.** The gate is the same code in both. That is read, not run on the
+stable app. On the stable app the gate is never declined in this round, so that its acceptance of
+version 3 is made once, in 2.2.
 
 ---
 
@@ -547,77 +595,76 @@ is read, not run.
 
 ---
 
-## Part 9. A fresh install, and the update notice against a real newer release
+## Part 9. The checks that need a second device: NOT DONE
 
-**On the second device or emulator, never on the test phone** (*The builds*). If there is none, this
-part is not run, and Federico decides what replaces it. Uninstalling the phone's stable app would
-destroy its data.
+**There is no second phone, and an emulator is not feasible** (Federico, 2026-11-13). Both items
+below are therefore **NOT DONE — no second device available; covered by unit tests only; risk
+accepted by the owner.**
+- **Neither is written as PASS, "verified" or "covered"** without that qualifier.
+- **The release is not blocked by them.** Part 3 stays BLOCKING.
+- **Never simulate them on the owner's phone.** That means no uninstall of either app, and no
+  clearing of the stable app's data.
 
-### 9.1 A fresh install of R: the gate, and Decline (#111, plans 2 and 4)
+The tests named below were read from the source on 2026-11-13, at `app/src/test/`.
 
-**Do.** Install R's verified APK, the arm64 one or the armeabi-v7a one as the device needs. Open it.
-At the gate, tap Decline. Then open the app again.
+### 9.1 A fresh install's first launch: the terms gate, then the welcome page, for a brand-new user
 
-**Look for.**
-- The gate, with the GitHub line.
-- Decline closes the app.
-- Opened again, the gate shows again.
+**NOT DONE — no second device available; covered by unit tests only; risk accepted by the owner.**
 
-**Failure.** No gate. Decline that does not close the app. Accepted on reopening without a tap.
+**The tests that cover it:**
+- `WelcomePolicyTest.firstLaunch_showsTheFirstLaunchPage`
+- `WelcomePolicyTest.firstLaunch_winsOverAKnownUpdate`
+- `WelcomePolicyTest.theStartGate_letsOneResumeDecide`
+- `TermsVersionTest.noAcceptance_doesNotCount`
+- `WelcomePageTextTest.firstLaunch`
 
-### 9.2 Then Accept: the first-launch page, and the permission prompt (#110, item 2)
+**What they do not exercise on a real device:** they decide on the JVM, from stored values, which
+page is due. They never run `MainActivity` on a phone that never had TMC, so nothing observes the
+gate followed by the page on screen, or where Android 13's notification-permission prompt falls
+between them.
 
-**Do.** Tap Accept.
+**Part 2.5 does not replace it.** That is an existing user's update in place.
 
-**Look for.**
-- "Welcome to Twitch Mini Chat", and `start decision=FIRST_LAUNCH`.
-- On Android 13 or later, record the order of the page and the notification-permission prompt.
+### 9.2 The update notice against a real newer release
 
-**Failure.** No page, or a crash.
+**NOT DONE — no second device available; covered by unit tests only; risk accepted by the owner.**
 
-### 9.3 An offline start when the check is due (#110, item 6)
+**The tests that cover it:**
+- `WelcomePolicyTest`:
+  - `newerReleaseNotYetShown_showsTheNotice`
+  - `newerReleaseAlreadyShown_showsNothing`
+  - `showingTheNotice_recordsItsTag`
+  - `aStartWithoutTheNotice_keepsTheDismissedTag`
+  - `aLaterReleaseThanTheDismissedOne_showsTheNoticeAgain`
+  - `updatedWhileALaterReleaseIsKnown_showsOnlyTheNotice`
+  - `menu_namesANewerReleaseWheneverOneIsKnown_evenIfShown`
+- `WelcomePageTextTest.updateAvailable_namesTheNewVersion`
+- `ReleaseVersionTest`: `newerTag_isNewer`, `componentsCompareAsNumbers`, `olderTag_isNotNewer`
+- `LatestReleaseResponseTest`: `realAnswer_givesItsTag`, `draftOrPreRelease_givesNothing`
+- `ProjectLinksTest`: `theDownloadIsTheInstalledBuildsApk`, `theCheckAsksTheSameEndpointAsTheWebsite`
 
-**Do.** Run `adb shell pm clear com.fs.twitchminichat` on this device only. Turn flight mode on.
-Open the app and Accept.
+**What they do not exercise on a real device:** they hand the decision a tag and a fixed answer.
+No test makes the real request to GitHub from a phone, draws the notice on screen, or opens the
+download in the browser.
 
-**Look for.**
-- The first-launch page, which a first start always shows.
-- One `update check failed: …` line.
-- No notice.
+**Follow-up after the release:** observe the update notice on the owner's phone when the first
+release after 5.6.0 is published.
+- Never publish a fake or pre-release tag to trigger it.
+- Never change `UPDATE_NOTICE_ENABLED`, or the release endpoint, to force it.
 
-Then force-stop and reopen, still offline: `start decision=none`.
+### 9.3 Also NOT DONE: an offline start when the check is due (#110, item 6)
 
-**Failure.** A notice. More than one check line. A crash.
+**This is not a second-device item.** On the owner's phone the check is due again only a day after
+2.3's. Clearing the stable app's data to make it due sooner is forbidden.
 
-### 9.4 U: the update notice, against the real latest release (#110, item 3)
+**NOT DONE in this round.**
+- **Tests:** `WelcomePolicyTest.aFailedCheck_storesNothing_soTheStoredStateDecides`,
+  `WelcomePolicyTest.check_isDueWhenNeverMade_andAtMostOnceADay` and
+  `LatestReleaseResponseTest.anyStatusButOk_givesNothing`.
+- **To observe it later:** open the app offline, at least 24 hours after 2.3. Look for one
+  `update check failed: …` line and no notice.
 
-**Do.**
-1. Uninstall R from this device, as a step of its own.
-2. Install U, which is named 5.5.0. Its version comparison reads `versionName`
-   (`WelcomeCoordinator.kt:38`).
-3. Online, open it and Accept.
-4. Force-stop and reopen.
-5. Tap Download update. **Do not install what downloads.**
-6. Force-stop and reopen again, then open About TMC.
-
-**Look for.**
-- At the first start, the first-launch page. A first launch wins over a known update.
-- `update check status=200 tagFound=true`.
-- At the second start: "Update available", "Twitch Mini Chat 5.5.1 is available.", and
-  `start decision=UPDATE_AVAILABLE`.
-- The browser opens
-  `https://github.com/unouidol/TwitchMiniChat/releases/latest/download/TwitchMiniChat-Android-arm64-v8a.apk`,
-  or the `armeabi-v7a` one for a 32-bit process.
-- At the third start: `start decision=none`, and About TMC still names 5.5.1.
-
-**Failure.** No notice. The notice twice. A wrong version. Another URL. A download started by the
-app itself.
-
-**Afterwards,** as a step of its own: uninstall U, then delete its APK, and undo the local
-`versionName` edit with a reviewed `git diff` first.
-
-**Why 5.5.1:** this round runs before 5.6.0 is published, so the latest release is 5.5.1. U is named
-below it.
+**Decline on the gate (#111, plan 4)** was in this part on a second device. It moves to 7.2, on D.
 
 ---
 
@@ -627,7 +674,7 @@ below it.
 - Set back every setting recorded in 1.1 that changed.
 - Read both apps' package, version, `lastUpdateTime` and sha256 off the phone, and write them into
   `RELEASE-STATE.md`, *Test device*. Write it from the device, not from intent.
-- Tag the tested commit, as *Test device* asks for a build taken from a pull request's branch, and
-  confirm the tag with `git ls-remote --tags origin`.
+- No `device-test/` tag is needed: R and D are built from `main-v5`, which keeps their commit. The
+  release tag, at publication, points at it.
 
 **Report** each item as PASS, FAIL, UNCLEAR or NOT REACHED, with its time and its log lines.

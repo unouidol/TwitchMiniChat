@@ -6,25 +6,22 @@ markers belongs in the release.
 
 **What it was written from.** The pull requests merged on `main-v5` since `v5.5.1`, read on
 2026-11-13: `git log --first-parent v5.5.1..main-v5`, up to `3269e43` (#111), and the bodies of
-#49 to #58, #66 to #69, #73, #78, #89, #94, #97, #103, #108, #110 and #111. #112, the Pokémon
-Community Game statement in the privacy policy, was open when this was written. The sentence that
-mentions it is for the release only if #112 has merged.
+#49 to #58, #66 to #69, #73, #78, #89, #94, #97, #103, #108, #110 and #111, and #112, merged as
+`2771c6c`. #112 adds the Pokémon Community Game statement to §4 of the privacy policy, and §2's
+alert settings, watchlists and phone model.
 
 **Before it is published:**
 - **Fill the two checksums** in *What to download* from the artifacts that were verified and
   installed in the device round. Never use the checksums of a rebuild.
 - **Read the known issues against the device round.** Each one is what the last device step on
   record found. If the round shows something different, the round wins.
-- **Ask about one item that the merged work does not settle.** "A few messages may be briefly
-  missing right after the chat reconnects" was a known issue of 5.5.1. #66 and #67 changed how
-  missed messages are recovered after a failed request and after a channel switch. Neither says
-  that it fixes this case. So the item stays below as a known issue, unless the device round shows
-  it is gone.
-- **No speed figures are given.** The start-up measurement of the new chat list (`RELEASE-STATE.md`,
-  *Closing start-up measurement of the conversion*) was taken on debug builds of the dev flavour,
-  on one phone. Its own record supports "the ingestion window fell by X on these builds", and not
-  "users see X less on a release build". If figures are wanted, see the sentence offered in the
-  pull request that adds this file.
+- **The reconnect known issue stays** (Federico's ruling 3, 2026-11-13). "A few messages may be
+  briefly missing right after the chat reconnects" was a known issue of 5.5.1. #66 and #67 changed
+  how missed messages are recovered, and neither says that it fixes this case.
+- **No speed figures** (Federico's ruling 6, 2026-11-13). The start-up measurement of the new chat
+  list was taken on debug builds of the dev flavour, on one phone. Its own record supports "the
+  ingestion window fell by X on these builds", and not "users see X less on a release build"
+  (`RELEASE-STATE.md`, *Closing start-up measurement of the conversion*).
 
 <!-- release body begins -->
 
@@ -55,7 +52,7 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 - **Update notice.** At most once a day TMC asks GitHub whether a newer version has been published. When there is one, TMC tells you once, and **Download update** opens the new APK in your browser. TMC never downloads or installs anything by itself.
 
 **Privacy and your data**
-- **The terms screen appears once more** after updating, because the privacy policy now names two more services. **GitHub** hosts the stream player page and the releases TMC checks for updates. **Cloudflare** carries every connection between the app and the TMC server. The policy also says more clearly how the Pokémon Community Game extension works inside the app.
+- **The terms screen appears once more** after updating, because the privacy policy now names two more services. **GitHub** hosts the stream player page and the releases TMC checks for updates. **Cloudflare** carries every connection between the app and the TMC server. The policy also says more clearly how the Pokémon Community Game extension works inside the app, and lists what the app sends to the TMC server for alerts.
 - **One erase instead of two.** In *Safety & Privacy* → *Reset local data*, *Erase everything on this device* is gone. **Erase everything and remove this device from the server** now always erases the phone, even when the server cannot be reached, and stops alerts to this phone. Whatever it could not tell the server at that moment, TMC finishes on its own when the network is back.
 - **Removing an account stops its alerts, even if the network fails at that moment.** TMC keeps trying until the server confirms.
 - **Turning every alert category off now tells the server**, so the alerts stop arriving.
