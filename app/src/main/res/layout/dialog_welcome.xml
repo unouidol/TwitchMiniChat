@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The welcome page: an update notice when a newer release is known, the project's
+    community links, and the line saying where the page can be found again. WelcomeDialog
+    fills the texts and hides what a situation does not show (WelcomePageText). Every
+    control is at least 48 dp in both directions and carries a content description.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:id="@+id/welcomeNoticeBlock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/textWelcomeNotice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnWelcomeDownload"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minWidth="48dp"
+                android:minHeight="48dp"
+                android:text="@string/welcome_download" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/textWelcomeVersionLine"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/welcome_discord_intro"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnWelcomeDiscord"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:contentDescription="@string/welcome_discord_description"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:text="@string/welcome_discord" />
+
+        <TextView
+            android:id="@+id/textWelcomeBugReport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/welcome_kofi_intro"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnWelcomeKofi"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:contentDescription="@string/welcome_kofi_description"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:text="@string/welcome_kofi" />
+
+        <TextView
+            android:id="@+id/textWelcomeWhereAgain"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/welcome_where_again"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnWelcomeClose"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minWidth="48dp"
+            android:minHeight="48dp" />
+    </LinearLayout>
+</ScrollView>
