@@ -16,6 +16,9 @@ object TermsPrefs {
     //    already covered it, so naming it is a correction and would not raise the gate.
     //    The Pokemon Community Game statement is in the same version too: a clarification,
     //    with no new recipient and nothing newly collected.
+    //    So is section 2's naming of the alert settings, the Most Wanted watchlists and the
+    //    phone's model in each registration: v5.4.1 already sent all three, before version 2
+    //    existed, so naming them corrects an omission and collects nothing new.
     /** The terms version a stored acceptance must reach; see [isAccepted]. */
     internal const val CURRENT_TERMS_VERSION = 3
 
