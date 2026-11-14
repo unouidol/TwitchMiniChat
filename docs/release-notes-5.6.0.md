@@ -1,8 +1,8 @@
-# Release notes for 5.6.0 — draft
+# Release notes for 5.6.0
 
-**This is a draft for Federico, not the published text.** The release body is everything between
-the two markers below, pasted as it stands once the placeholders are filled. Nothing outside the
-markers belongs in the release.
+**This is the body of the `v5.6.0` release, approved by Federico on 2026-11-14.** The release
+body is everything between the two markers below, published exactly as it stands. Nothing
+outside the markers belongs in the release.
 
 **What it was written from.** The pull requests merged on `main-v5` since `v5.5.1`, read on
 2026-11-13: `git log --first-parent v5.5.1..main-v5`, up to `3269e43` (#111), and the bodies of
@@ -10,11 +10,7 @@ markers belongs in the release.
 `2771c6c`. #112 adds the Pokémon Community Game statement to §4 of the privacy policy, and §2's
 alert settings, watchlists and phone model.
 
-**Before it is published:**
-- **Fill the two checksums** in *What to download* from the artifacts that were verified and
-  installed in the device round. Never use the checksums of a rebuild.
-- **Read the known issues against the device round.** Each one is what the last device step on
-  record found. If the round shows something different, the round wins.
+**Rulings that still hold:**
 - **The reconnect known issue stays** (Federico's ruling 3, 2026-11-13). "A few messages may be
   briefly missing right after the chat reconnects" was a known issue of 5.5.1. #66 and #67 changed
   how missed messages are recovered, and neither says that it fixes this case.
@@ -22,6 +18,30 @@ alert settings, watchlists and phone model.
   list was taken on debug builds of the dev flavour, on one phone. Its own record supports "the
   ingestion window fell by X on these builds", and not "users see X less on a release build"
   (`RELEASE-STATE.md`, *Closing start-up measurement of the conversion*).
+
+**What changed from the draft, and the device round item behind each change.** The round is
+recorded in `docs/manual-plan-5.6.0.md`, *Results*.
+- **The two checksums** are those of the artifacts verified and installed in the round, hashed
+  again on 2026-11-14 before publication. They are not from a rebuild.
+- **"Missed messages are recovered more reliably"** now says that TMC asks again "the next time it
+  loads the recent chat". The draft said only that it asks again. That could read as a promise
+  the round denies: in 5.6 and C4 the chat did not reconnect by itself after a network loss. The
+  timing comes from #66's description, read and not run.
+- **"One erase instead of two"** no longer says that TMC finishes "removing this device from the
+  server" when the network is back. In D2, offline, only the push token deletion was left owed,
+  and it completed once the network returned. The device registration stayed on the server (the
+  round's registry read R8). The Data Deletion page explains that case, and the bullet points to it.
+- **"Removing an account…"** now says that alerts for that account may still arrive until the
+  server can be reached. That is what C1's second toast says. C2 and C4 show the switch-off
+  completing once the network is back.
+- **New known issue: the chat does not reconnect by itself after a period without network.** This
+  is defect F1 of the round, seen in 5.6 and C4. The only workaround the round observed is closing
+  TMC and opening it again.
+- **New known issue: longer messages are cut short.** This is defect F2 of the round, seen in D2's
+  screenshot and D8. Toasts on Android 12 and later show at most two lines; that limit comes from
+  Android's documentation, and the round saw it on Android 12. The sentence on what the cut-off
+  part says is taken from the strings `erase_device_nothing_reached` and
+  `account_remove_alerts_owed`.
 
 <!-- release body begins -->
 
@@ -37,7 +57,7 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 - **The chat list has been rebuilt, and a channel opens faster** when its recent messages load. The list now reuses the rows that scroll off screen, instead of keeping every message you have received ready to show.
 - **Starting the app no longer stalls on old spawn messages.** When the recent chat held a Pokémon spawn that was already over, TMC loaded its whole Pokémon catalogue to read it. Spawns that are over are now skipped before that.
 - **Animated emotes stop when nobody can see them:** when their message scrolls out of view, and when the app is in the background. They start again when you come back.
-- **Missed messages are recovered more reliably.** If loading the recent chat fails, for example because the network dropped, TMC asks again for what it missed instead of assuming it arrived. Messages from a channel you have just left no longer appear in the one you switched to.
+- **Missed messages are recovered more reliably.** If loading the recent chat fails, for example because the network dropped, TMC asks again for what it missed the next time it loads the recent chat, instead of assuming it arrived. Messages from a channel you have just left no longer appear in the one you switched to.
 - **Fixed a crash when rotating the phone** shortly after hiding the stream.
 - The status of a message being sent reads **Sending…** again, instead of "Sending???".
 
@@ -53,8 +73,8 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 
 **Privacy and your data**
 - **The terms screen appears once more** after updating, because the privacy policy now names two more services. **GitHub** hosts the stream player page and the releases TMC checks for updates. **Cloudflare** carries every connection between the app and the TMC server. The policy also says more clearly how the Pokémon Community Game extension works inside the app, and lists what the app sends to the TMC server for alerts.
-- **One erase instead of two.** In *Safety & Privacy* → *Reset local data*, *Erase everything on this device* is gone. **Erase everything and remove this device from the server** now always erases the phone, even when the server cannot be reached, and stops alerts to this phone. Whatever it could not tell the server at that moment, TMC finishes on its own when the network is back.
-- **Removing an account stops its alerts, even if the network fails at that moment.** TMC keeps trying until the server confirms.
+- **One erase instead of two.** In *Safety & Privacy* → *Reset local data*, *Erase everything on this device* is gone. **Erase everything and remove this device from the server** now always erases the phone, even when the server cannot be reached. If the network is down at that moment, TMC stops the alerts to this phone on its own once the network is back. What happens in that case to this phone's registration on the server is explained on the **Data Deletion** page.
+- **Removing an account now stops its alerts even if the network fails at that moment.** TMC keeps trying on its own and switches them off once the server can be reached. Until then, alerts for that account may still arrive.
 - **Turning every alert category off now tells the server**, so the alerts stop arriving.
 - **An erase on a phone that never registered with the server now says so**, instead of saying it will try again later.
 - The **Data Deletion** page has been rewritten (2026-09-28), and the **Privacy Policy** updated (2026-11-13).
@@ -66,6 +86,8 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 - **Rotating the phone hides the stream.** Tap **Show stream** again.
 - When a Pokémon you are missing spawns for several of your accounts at once, you get one alert per account, as intended. Now and then one of those alerts may play its sound twice. It is harmless. It was not fixed in this update.
 - Right after the chat reconnects, a few messages may be briefly missing. They appear when you switch to another account and back.
+- **After a period without network, the chat may not reconnect by itself.** The status line says the account could not be authenticated, no new messages arrive, and you cannot send. Close TMC completely and open it again.
+- **Some longer messages are cut short.** On Android 12 and later, the short messages that appear at the bottom of the screen after an erase, or after removing an account without network, can be cut off after two lines. The part cut off can say that alerts may still arrive for a while and that TMC keeps trying to stop them on its own.
 
 ## What to download
 
@@ -75,8 +97,8 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 Requires Android 8.0 or later. SHA-256 checksums are in `SHA256SUMS.txt`:
 
 ```
-<sha256 of the verified arm64-v8a APK>  TwitchMiniChat-Android-arm64-v8a.apk
-<sha256 of the verified armeabi-v7a APK>  TwitchMiniChat-Android-armeabi-v7a.apk
+fd06d29e470337465f964841cce8f58551fe1497a45792daa5a8e4fbf0745ff3  TwitchMiniChat-Android-arm64-v8a.apk
+fcbdc83f60ad6787a2c0dafb29b405cf8d0fa95bfe31a97182553fa9604473ce  TwitchMiniChat-Android-armeabi-v7a.apk
 ```
 
 ## How to install

@@ -678,3 +678,71 @@ release after 5.6.0 is published.
   release tag, at publication, points at it.
 
 **Report** each item as PASS, FAIL, UNCLEAR or NOT REACHED, with its time and its log lines.
+
+---
+
+## Results — run on 2026-11-13 and 2026-11-14
+
+Run on the OnePlus AC2003 (Android 12) with R and D built at `5ae4bf2`: R arm64-v8a
+`fd06d29e…f0745ff3`, D arm64-v8a `a754cf4f…ba9eeb2`. The detailed record, with times and log lines,
+stays local in the round folder and is not part of this repository. It holds no account or channel
+names. Only verdicts are listed here.
+
+**NOT DONE**
+- **9.1** A fresh install's first launch — NOT DONE — no second device available; covered by unit
+  tests only; risk accepted by the owner.
+- **9.2** The update notice against a real newer release — NOT DONE — no second device available;
+  covered by unit tests only; risk accepted by the owner.
+- **9.3** An offline start when the check is due — NOT DONE: the check was not due again before
+  the round ended, and clearing the stable app's data is forbidden.
+- **5.5.2 D5** A failed browser clear no longer cancels the erase — NOT DONE: the browser clear
+  cannot be made to fail without changing the code (Federico's ruling).
+- **5.5.2 D7, its browser-failure half** — NOT DONE, for the same reason.
+
+**Not passed**
+- **5.6** Scrolled up while a history backfill lands — NOT REACHED. After a network loss the chat
+  did not reconnect by itself, so no backfill landed. That is defect F1 below.
+
+**PASS**
+- **Part 1:** 1.1, 1.2.
+- **Part 2:** 2.1, 2.2, 2.3, 2.4, 2.5.
+- **Part 3 (BLOCKING):** 3.1, 3.2.
+- **Part 4:**
+  - 4.1;
+  - 4.2, with its known issue confirmed;
+  - 4.3, with its known issue.
+- **Part 5:** 5.1, 5.2, 5.3, 5.4 (Federico's one-time exception), 5.5, 5.7, 5.8, 5.9, 5.10, 5.11.
+- **Part 6:** 6.1, 6.2, 6.4, and 6.3. 6.3 was UNCLEAR at first, because the dialogs' windows are
+  absent from `dumpsys activity top`. It was redone with `uiautomator dump` and passed: every
+  button in both dialogs is 115 px, the 48 dp threshold at this density.
+- **Part 7, D's install and first launch.**
+- **Part 7, 5.5.2 A:** A1, A2, A3, A4, A5.
+- **Part 7, 5.5.2 B:** B1, B2, B3, B4, B5. B2 used Federico's approved injection for its start-up
+  pass.
+- **Part 7, 5.5.2 C:** C1, C2, C3, C4, C5. C3 and C5 were injected, as the plan prescribes.
+- **Part 7, 5.5.2 D:** D1, D2, D3, D4, D6, D7 (online), D8. D3 was injected. D3 and D8 are
+  blocking.
+- **Part 7, the rest:**
+  - 7.1: run 1 VOID because its positive control fell short; run 2 PASS;
+  - 7.2.
+- **Part 8:** the player page's user agent is
+  `Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0`. It names no phone
+  model, no manufacturer and no Android build.
+- **Part 10:** every setting is as recorded in 1.1, and both apps' versions and sha256 were read
+  from the device.
+
+**Defects found, none blocking by Federico's rulings**
+- **F1.** After a period without network the chat does not reconnect by itself. This was already
+  the case in 5.5.1. The workaround is to close the app and open it again. It is a known issue in
+  the release notes.
+- **F2.** Long outcome messages are toasts, and Android 12 cuts them off at two lines, including
+  the ones that say whether alerts can still arrive. It is a known issue in the release notes.
+- **F3.** Owed server work can start twice in parallel: the start-up attempt and the worker
+  overlapped. The calls succeeded and are idempotent.
+- **F4.** After "Delete app account and all data", the profile remained in another registry record
+  of the same phone. An earlier offline erase had left that record behind.
+
+**Follow-ups**
+- The Data Deletion page says "before 5.5.2 there was a second option". 5.5.2 was never published,
+  so at the next change to the policy pages it should read "before 5.6.0", in both copies.
+- How to render the animated GIF emotes that tier-2 subscribers send in chat.
