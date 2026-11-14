@@ -21,7 +21,17 @@ release". It predated #61 and was not updated with it, and neither was the match
 `AGENTS.md`, so both contradicted the section they pointed to. On 2026-10-15 the `AGENTS.md`
 rule produced a report of a missing update that was not missing.
 
-Last verified: 2026-10-01, against `origin/main-v5` at `4b8abe1`, with `v5.5.1` published.
+Last verified: **2026-11-14, against `origin/main-v5` at `5ae4bf2`, with `v5.6.0` published.**
+The pass #64 describes was made for *Published* and *Test device*:
+- the latest release, and the commit its tag points at (`git ls-remote`);
+- the three assets downloaded through `releases/latest/download/`, and hashed;
+- the signer's certificate digest and the package and version, read with `apksigner` and `aapt2`
+  from the two APKs before upload;
+- the phone, read over adb at the end of the device round.
+
+The rest of this file was not re-verified in this pass.
+
+Until then: verified 2026-10-01, against `origin/main-v5` at `4b8abe1`, with `v5.5.1` published.
 **Stale, marked 2026-10-15:** not re-verified since. `main-v5` is now at `549e2f6`, 18 merges
 later, and nothing below has been checked against it. Refreshing this needs the pass #64 made:
 the latest release and the commit its tag points at, both assets downloaded through
@@ -32,24 +42,76 @@ signer's certificate digest, and the package, version and commit the APK reports
 
 | | |
 |---|---|
-| Version | **5.5.1** (`versionCode 8`) |
-| Tag | `v5.5.1`, annotated, pointing at commit `007ee55` |
-| Published | 2026-09-25 |
+| Version | **5.6.0** (`versionCode 9`) |
+| Tag | `v5.6.0`, annotated (tag object `4df1d1c`), pointing at commit `5ae4bf2` |
+| Published | 2026-11-14 (`published_at` 2026-11-14T07:29:24Z) |
+| Release | https://github.com/unouidol/TwitchMiniChat/releases/tag/v5.6.0, titled `Twitch Mini Chat 5.6.0` |
 | Assets | `TwitchMiniChat-Android-arm64-v8a.apk`, `TwitchMiniChat-Android-armeabi-v7a.apk`, `SHA256SUMS.txt` |
 | Signer | `ST=Italy, L=Italy, CN=Unouidol`, SHA-256 `aca1170e9dcac79abfa6db078a7a9903ab1f6a935745033c0752177d22e237ed` |
-| arm64-v8a | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` |
-| armeabi-v7a | `7833fe2c3905f6af62cd32ad2fc9d9633e7ccc20deb6725c8c41ef359d58bf4e` |
+| arm64-v8a | `fd06d29e470337465f964841cce8f58551fe1497a45792daa5a8e4fbf0745ff3` |
+| armeabi-v7a | `fcbdc83f60ad6787a2c0dafb29b405cf8d0fa95bfe31a97182553fa9604473ce` |
+| `SHA256SUMS.txt` | `8421ebcc40e60cfe412f44453e1672ebd7bdd8e622862799afa103cc3371ea4d`, 2 lines, LF |
 
-The published APKs were built from `007ee55` with a clean tree, so they report
+**How the 5.6.0 APKs were made and checked:**
+- **Built** on `nbpromec1`, from `main-v5` at `5ae4bf2` with a clean tree. They report
+  `Version 5.6.0 (build 9, 5ae4bf2)` with no `+`.
+- **Verified before publication:** the package `com.fs.twitchminichat`, versionCode 9 and
+  versionName 5.6.0. The signer above is the release certificate, and its PEM is identical byte for
+  byte to the one recorded in the round. The arm64 APK was installed over the published 5.5.1 on the
+  test phone in the device round, and updated it in place (`docs/manual-plan-5.6.0.md`,
+  *Results*).
+- **Published without a rebuild.** The release body is `docs/release-notes-5.6.0.md` between its
+  markers.
+- **Checked after publication:**
+  - `releases/latest` returns `v5.6.0`;
+  - the three `releases/latest/download/…` assets were downloaded and hashed, and match the table;
+  - `sha256sum -c` on the downloaded `SHA256SUMS.txt` passes;
+  - `git ls-remote` shows `v5.6.0^{}` at `5ae4bf2`.
+
+Previously published: **5.5.1** (`versionCode 8`), tag `v5.5.1` at `007ee55`, 2026-09-25. arm64-v8a
+`bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8`, armeabi-v7a
+`7833fe2c3905f6af62cd32ad2fc9d9633e7ccc20deb6725c8c41ef359d58bf4e`, same signer. Its
+`SHA256SUMS.txt` has CRLF line endings (210 bytes, 2 carriage returns).
+
+The 5.5.1 APKs were built from `007ee55` with a clean tree, so they report
 `GIT_SHA 007ee55` with no `+`: the login screen reads `Version 5.5.1 (build 8, 007ee55)`
 and the journal export header `# app 5.5.1 (8) 007ee55`. Checked after publication by
 downloading both `releases/latest/download/…` URLs and hashing them; both matched the
 checksums above.
 
-Previously published: **5.5.0** (`versionCode 7`), tag `v5.5.0` at `f0e0d35`, 2026-08-31.
+Before it: **5.5.0** (`versionCode 7`), tag `v5.5.0` at `f0e0d35`, 2026-08-31.
 
 Asset names, tag shape and checksum file match the contract in `AGENTS.md`, so the public
-download buttons on `https://tmc.ircminichat.party/` resolve.
+download buttons on `https://tmc.ircminichat.party/` resolve. Read on 2026-11-14: both buttons
+link to `releases/latest/download/…`, which redirects to `releases/download/v5.6.0/…`.
+
+### Open after publication — 5.6.0
+
+- **The website's fallback version: OPEN, merged in the repository, not live.**
+  - **In the repository:** `unouidol/tmc-site#2` raised the three `data-tmc-version` fallbacks from
+    5.5.0 to 5.6.0. It merged as `9ba7c24` on 2026-11-14, and its tree is identical to the pull
+    request's head `07ee631`. It superseded #1, which raised them to 5.5.1.
+  - **Live:** for at least 3 minutes after the merge, `https://tmc.ircminichat.party` still served
+    5.5.0 three times, with `cf-cache-status: DYNAMIC`. The cause is not established, because
+    Cloudflare was not inspected (`AGENTS.md`, *Release and distribution*). Federico looks at the
+    Cloudflare dashboard himself. No other route to deploy it is to be tried.
+  - **What visitors see meanwhile:** the page's script fills the version from the releases API,
+    so only a visitor whose browser runs no script, or the moment before the API answers, shows
+    5.5.0. The download buttons already lead to 5.6.0.
+  - **Closed when:** the live page is fetched and serves 5.6.0 three times.
+- **Not done in the publication, by Federico's instruction:**
+  - the announcement;
+  - the user guide on tmc-site (`downloads/TMC-Visual-Guide.pdf`);
+  - `unouidol/ircminichat#1`, which removes functions the 5.5.1 app's mute button still calls
+    on the live player page.
+- **The device round's NOT DONE items** (`docs/manual-plan-5.6.0.md`, *Results*):
+  - 9.1 and 9.2, for want of a second device: covered by unit tests only, risk accepted by the
+    owner;
+  - 9.3;
+  - 5.5.2 D5, and D7's browser-failure half.
+
+  Follow-up from 9.2: observe the update notice on Federico's phone when the first release after
+  5.6.0 is published.
 
 `f0e0d35` is the merge commit of pull request #14. An earlier version of this file recorded
 that tag as sitting at `8478d82`, which is the last commit *of its release branch* and the
@@ -69,15 +131,13 @@ to recognise a copy if one survives.
 
 ## Waiting for release — on `main-v5`, not published
 
-Everything merged since the `v5.5.1` tag. None of this has reached users. Read it with
-`git log --first-parent v5.5.1..main-v5` rather than from a list copied here: a row added
+Everything merged since the `v5.6.0` tag. None of this has reached users. Read it with
+`git log --first-parent v5.6.0..main-v5` rather than from a list copied here: a row added
 before its own merge has to name a pull request, and then be replaced by the commit the
 merge produces, which is a second edit this file kept needing.
 
-Code changes for 5.6.0 have started landing; everything after the tag is no longer
-documentation only. 5.6.0 carries everything 5.5.2 set out to do, listed under "5.6.0 in
-progress" below as objectives only, and the chat work. Which of them have landed is this same
-log, and is not copied into a table that would then have to be kept true.
+Until 5.6.0 was published this section read the log from `v5.5.1`. Everything between `v5.5.1`
+and `v5.6.0` shipped in 5.6.0.
 
 ## What 5.5.1 shipped
 
@@ -539,7 +599,11 @@ halves were read from the clone.
   - **Where that rule comes from:** 5d's plan records it, by the owner's reading of #84. The plan
     notes that this sentence is not in #84's description or in the entry.
 
-## 5.6.0 release — prepared on `release/5.6.0`; not built, not installed, not published
+## 5.6.0 release — published on 2026-11-14
+
+**Published on 2026-11-14,** as *Published* above records. This section keeps the preparation
+as it was written, and *Publication, in order* below says what was done. Until then its heading
+read "prepared on `release/5.6.0`; not built, not installed, not published".
 
 **Prepared on 2026-11-13.** The branch `release/5.6.0` holds:
 - `versionCode` 9 and `versionName` `5.6.0`;
@@ -584,6 +648,8 @@ describes 5.5.1, and stays that way until 5.6.0 is published.
 2. **The website's fallback version is raised at publication, not with `versionName`,** because a
    merge on that site is live at once. `AGENTS.md`'s sentence is reconciled with this, with the
    reason.
+   - **The ruling stands; its reason was not right** (2026-11-14). A merge on tmc-site did not go
+     live: see *Open after publication* above, and `AGENTS.md`.
 3. **The known issue about messages missing after a reconnect stays in the release notes.**
 4. **The two checks that need a second device are NOT DONE in this round.** There is no second
    phone, and an emulator is not feasible. Each is recorded as "NOT DONE — no second device
@@ -630,7 +696,19 @@ Neither of these is in git, and both are deliberately untracked:
 
   The checksums recorded at release step 5 are the ones published.
 
-### Publication, in order: none of it done
+### Publication, in order
+
+**Done on 2026-11-14,** with Federico's yes before each public step:
+- **Step 1:** done. `origin/main-v5` was at `5ae4bf2`, and the diff from it was empty.
+- **Step 2:** done. `main` of `unouidol.github.io` was moved from `bcfbe2a` to `20e40a6` without a
+  merge. Pages built `20e40a6`, and the six live pages are identical to the published files.
+- **Step 3:** done. `v5.6.0` is at `5ae4bf2`.
+- **Step 4:** done. The `SHA256SUMS.txt` published this time has LF line endings.
+- **Step 5:** merged, not live. See *Open after publication*.
+- **Step 7:** this record.
+- **Steps 6, 8 and 9:** not done, by instruction.
+
+This heading read "none of it done" until then. The list below is kept as it was written.
 
 1. **Confirm that `main-v5` holds the code the artifacts were built from** (`AGENTS.md`, step 7).
    Under release step 4 it is the commit the build was made from, which the APK's label names.
@@ -1348,8 +1426,29 @@ Two facts that a list of branches does not show, recorded on 2026-11-10 by the o
 
 ## Test device
 
-**Refreshed on 2026-11-12, at the end of #108's device step.** The dev row below is the build that
-step left on the phone: #108's head, NOT MERGED.
+**Refreshed on 2026-11-14, at the end of the 5.6.0 device round** (`docs/manual-plan-5.6.0.md`,
+part 10). Read from the device over adb, on the OnePlus AC2003 (Android 12, API 31). The version
+and build number are what the phone's package manager reports. The sha256 was read on the phone
+with `sha256sum` on the path `pm path` gives.
+
+| App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
+|---|---|---|---|---|---|
+| Stable | `com.fs.twitchminichat` | 5.6.0 (9) | `5ae4bf2`, tag `v5.6.0` | `fd06d29e470337465f964841cce8f58551fe1497a45792daa5a8e4fbf0745ff3` | 2026-11-13 17:44 |
+| Dev | `com.fs.twitchminichat.dev` | 5.6.0-dev (9) | `5ae4bf2` | `a754cf4f8c834fa9ba914ef01876fcb12b98a2ff9424c5a10187e8ce3ba9eeb2` | 2026-11-13 18:44 |
+
+- **The stable app is the published 5.6.0.** Its sha256 is the arm64 checksum under *Published*. It
+  was installed with `adb install -r` over the published 5.5.1 and updated it in place. Its login
+  screen read `Version 5.6.0 (build 9, 5ae4bf2)`.
+- **The dev app is the round's D:** the dev debug build from `main-v5` at `5ae4bf2`, built on
+  `nbpromec1` with a clean tree. It was installed with `adb install -r` over the dev app. Its label
+  read `5.6.0-dev build 9 5ae4bf2`. No `device-test/` tag: its commit is on `main-v5`.
+- **"Disable permission monitoring" was switched OFF** by Federico at the end of the round, on
+  2026-11-14. He switched it on again the same day for the 6.3 redo with `uiautomator dump`. **Its
+  state since then was not read.**
+
+**Until 2026-11-14 this section read as follows, refreshed on 2026-11-12, at the end of #108's
+device step.** The dev row below is the build that step left on the phone: #108's head, NOT
+MERGED.
 
 **Read from the device over adb,** from a OnePlus AC2003 on Android 12 (API 31): the Stable row on
 2026-10-23, and its sha256 and last update again on 2026-11-12, unchanged; the Dev row on

@@ -71,12 +71,15 @@ passed. A missing log line is a failure, not a pass with missing paperwork.
 - **Two Twitch accounts,** for the two-account cases.
 - **No second device.** There is no second phone, and an emulator is not feasible (Federico,
   2026-11-13). Part 9 is therefore NOT DONE; see there.
-- **Screenshots** stay local, outside the repository. A set for the user guide is taken during the
-  round:
-  - the chat page with the stream closed;
-  - the Safety & Privacy menu;
-  - the welcome page;
-  - the update notice, if it can be shown. In this round it cannot (part 9).
+- **Screenshots** stay local, outside the repository.
+  - **Never screenshot the accounts page of the stable app** (owner's ruling, 2026-11-14). When a
+    screenshot of that page is needed, for a test, the user guide or a report, take it on the dev
+    app ("TwitchMiniChat Dev") only.
+  - A set for the user guide is taken during the round:
+    - the chat page with the stream closed;
+    - the Safety & Privacy menu;
+    - the welcome page;
+    - the update notice, if it can be shown. In this round it cannot (part 9).
 - **Channels:**
   - one busy channel that sends animated emotes;
   - for the long cases, one at the history cap, where a page starts with 400 history rows and live

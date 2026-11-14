@@ -133,6 +133,8 @@ On Linux or in GitHub Actions, use `./gradlew` with the same tasks.
 
 Device-dependent behavior cannot be proven by local unit tests. Changes involving GeckoView, OAuth callbacks, Firebase Cloud Messaging, the software keyboard, external links, notifications, or layout behavior also require a short manual test plan and Logcat tags or observable results in the pull request.
 
+**Never screenshot the accounts page of the stable app** (owner's ruling, 2026-11-14). The accounts page is the page that lists the signed-in accounts. When a screenshot of it is needed, for a test, the user guide or a report, take it on the dev app ("TwitchMiniChat Dev") only. The stable app on the test phone holds accounts that must not be made public, and a dialog over that page does not make a screenshot of it safe to publish.
+
 **Every claim states its provenance.** Say whether something was executed or reasoned about statically, and never let the two read alike. A Gradle task reported as `UP-TO-DATE` did not run: its cached result may well still be valid, but presenting it as a fresh verification is false. Anyone writing "verified" reports the counts that support it — tests run and failed, warnings by severity — because a claim carrying no numbers cannot be checked by the next reader.
 
 **A verification holds at the moment it was made, and not after.** Anything happening between the check and the act it authorizes voids it: a rebase, a commit from another session, a merged pull request, an edit to the working tree. Re-run it immediately before the operation it is meant to justify, rather than citing the earlier run.
@@ -192,10 +194,22 @@ download buttons silently, with no error anywhere in this repository.
   file says, so that number is what a visitor reads until the call answers, and what one
   whose browser never runs the script reads for good. Left behind after publication, it
   advertises the previous release from the page that announces the new one.
-  - **Why at publication** (Federico's ruling, 2026-11-13): a merge on that site is live at
-    once. A fallback raised with `versionName` would advertise a version that nobody can
-    download for as long as the release takes to build, verify and test.
+  - **Why at publication** (Federico's ruling, 2026-11-13): a merge on that site may go live
+    at any moment. A fallback raised with `versionName` would advertise a version that nobody
+    can download for as long as the release takes to build, verify and test. The ruling
+    stands.
   - Until then this sentence said "in the same step that raises `versionName`".
+  - **A merge on `tmc-site` does not prove the page changed.** Until 2026-11-14 the ruling
+    above said that "a merge on that site is live at once". Nobody had observed that, and
+    on 2026-11-14 it was contradicted. `tmc-site#2` raised the fallback to 5.6.0 and was
+    merged as `9ba7c24`. For at least 3 minutes afterwards, `https://tmc.ircminichat.party`
+    still served the 5.5.0 fallback, with `cf-cache-status: DYNAMIC`. The repository has no
+    deployment, commit status, check or workflow tied to its commits. The cause is **not
+    established**, because Cloudflare was not inspected. Its README says the site was once
+    published by uploading a zip by hand.
+    - **The consequence for the procedure:** after a merge on `tmc-site`, fetch the live
+      page and compare its fallback with the merged file. Until they match, the change is
+      merged but not live, and is recorded as open in `RELEASE-STATE.md`.
 - Write release notes for users rather than for developers, following the structure of the
   previous releases: what the application is, what changed, what to download, how to
   install, and contacts.
