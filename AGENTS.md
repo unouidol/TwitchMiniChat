@@ -200,16 +200,35 @@ download buttons silently, with no error anywhere in this repository.
     stands.
   - Until then this sentence said "in the same step that raises `versionName`".
   - **A merge on `tmc-site` does not prove the page changed.** Until 2026-11-14 the ruling
-    above said that "a merge on that site is live at once". Nobody had observed that, and
-    on 2026-11-14 it was contradicted. `tmc-site#2` raised the fallback to 5.6.0 and was
-    merged as `9ba7c24`. For at least 3 minutes afterwards, `https://tmc.ircminichat.party`
-    still served the 5.5.0 fallback, with `cf-cache-status: DYNAMIC`. The repository has no
-    deployment, commit status, check or workflow tied to its commits. The cause is **not
-    established**, because Cloudflare was not inspected. Its README says the site was once
-    published by uploading a zip by hand.
-    - **The consequence for the procedure:** after a merge on `tmc-site`, fetch the live
-      page and compare its fallback with the merged file. Until they match, the change is
-      merged but not live, and is recorded as open in `RELEASE-STATE.md`.
+    above said that "a merge on that site is live at once". Nobody had observed that.
+    - **2026-11-14: a merge did not go live.** `tmc-site#2` raised the fallback to 5.6.0 and
+      was merged as `9ba7c24`. For at least 3 minutes afterwards,
+      `https://tmc.ircminichat.party` still served the 5.5.0 fallback, with
+      `cf-cache-status: DYNAMIC`. The repository then had no deployment, commit status,
+      check or workflow tied to its commits. Cloudflare was not inspected. By Federico's
+      account, the site was still published by uploading its files by hand in Cloudflare,
+      so a merge changed nothing online.
+    - **2026-11-16: a merge went live.** That day Federico connected a Cloudflare Pages
+      project to `unouidol/tmc-site`, with production branch `main` and no build command,
+      and moved the domain to it: his account, not inspected in Cloudflare. What follows was
+      observed first-hand. `tmc-site#4` merged as `59c00ab` at 08:29:12 UTC. Pages
+      reported "Deployed successfully" on that commit at 08:29:25. The first fetch after
+      the merge, at 08:29:36 with `cf-cache-status: DYNAMIC`, already served its text. One
+      merge was observed: it shows that the connection works, not how long a deploy always
+      takes.
+      - **What a reader now sees on GitHub:** Cloudflare's app posted a `Cloudflare Pages`
+        check on `679579a`, on #4's head and on its merge, the head's with a preview URL for
+        the branch. `9ba7c24`, merged on 2026-11-14, has none. A second check,
+        `Workers Builds: tmc-site`, failed on #4's branch push with "This Worker does not
+        exist on your account." It is not the Pages deployment, and was not examined.
+      - **What a comparison has to allow for:** the served page is not byte for byte the
+        merged file. Cloudflare adds a hidden `cdn-cgi/content` link after `<body>` and a
+        challenge-platform script before `</body>`. With those two set aside, the page
+        matched the merged `index.html` both before and after #4's merge.
+    - **The consequence for the procedure stays:** after a merge on `tmc-site`, fetch the live
+      page, bypassing caches, and compare its fallback with the merged file. Until they match,
+      the change is merged but not live, and is recorded as open in `RELEASE-STATE.md`. A
+      `Cloudflare Pages` check that reads "Deployed successfully" does not replace that fetch.
 - Write release notes for users rather than for developers, following the structure of the
   previous releases: what the application is, what changed, what to download, how to
   install, and contacts.

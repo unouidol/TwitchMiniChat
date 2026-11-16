@@ -87,18 +87,38 @@ link to `releases/latest/download/…`, which redirects to `releases/download/v5
 
 ### Open after publication — 5.6.0
 
-- **The website's fallback version: OPEN, merged in the repository, not live.**
+- **The website's fallback version: CLOSED on 2026-11-16, live.** Until 2026-11-16 this item
+  read "OPEN, merged in the repository, not live".
   - **In the repository:** `unouidol/tmc-site#2` raised the three `data-tmc-version` fallbacks from
     5.5.0 to 5.6.0. It merged as `9ba7c24` on 2026-11-14, and its tree is identical to the pull
     request's head `07ee631`. It superseded #1, which raised them to 5.5.1.
-  - **Live:** for at least 3 minutes after the merge, `https://tmc.ircminichat.party` still served
-    5.5.0 three times, with `cf-cache-status: DYNAMIC`. The cause is not established, because
-    Cloudflare was not inspected (`AGENTS.md`, *Release and distribution*). Federico looks at the
-    Cloudflare dashboard himself. No other route to deploy it is to be tried.
-  - **What visitors see meanwhile:** the page's script fills the version from the releases API,
-    so only a visitor whose browser runs no script, or the moment before the API answers, shows
-    5.5.0. The download buttons already lead to 5.6.0.
-  - **Closed when:** the live page is fetched and serves 5.6.0 three times.
+  - **2026-11-14, not live:** for at least 3 minutes after the merge,
+    `https://tmc.ircminichat.party` still served 5.5.0 three times, with
+    `cf-cache-status: DYNAMIC`. The cause was not established, because Cloudflare was not
+    inspected (`AGENTS.md`, *Release and distribution*). Federico was to look at the Cloudflare
+    dashboard himself, and no other route to deploy it was to be tried. By his account, the site
+    was then still published by uploading its files by hand.
+  - **What visitors saw meanwhile:** the page's script fills the version from the releases API,
+    so only a visitor whose browser runs no script, or the moment before the API answers, saw
+    5.5.0. The download buttons already led to 5.6.0.
+  - **2026-11-16, the site deploys from the repository:** Federico connected a Cloudflare Pages
+    project to `unouidol/tmc-site`, with production branch `main` and no build command, and moved
+    the domain to it. That is his account; Cloudflare's settings were not read. The two bullets
+    below were observed first-hand.
+  - **2026-11-16, live:** fetched at 08:23:46 UTC with a cache-busting query string, before any
+    merge that day, the page served 5.6.0 three times, with `cf-cache-status: DYNAMIC`. Apart from
+    two snippets of Cloudflare's own, it was `index.html` at `679579a`, `main`'s head, which
+    carries #2. Pages had reported "Deployed successfully" on `679579a` at 07:33:02 UTC.
+  - **2026-11-16, a merge reaches the page:** `unouidol/tmc-site#4` removes the guide's page count
+    from `index.html`. It merged as `59c00ab` at 08:29:12 UTC, and its tree is identical to the
+    pull request's head `e8e40ae`.
+    - Pages reported "Deployed successfully" on `59c00ab` at 08:29:25.
+    - The first fetch after the merge, at 08:29:36 UTC with `cf-cache-status: DYNAMIC`, served
+      "Download the illustrated guide" in place of "Download the illustrated 12-page guide", and
+      5.6.0 three times.
+    - The page changed within 24 seconds of the merge. It was not fetched in between.
+  - **Closed when:** the live page is fetched and serves 5.6.0 three times. Met at 08:23:46 UTC
+    and again at 08:29:36 UTC on 2026-11-16.
 - **Not done in the publication, by Federico's instruction:**
   - the announcement;
   - the user guide on tmc-site (`downloads/TMC-Visual-Guide.pdf`);
@@ -650,6 +670,8 @@ describes 5.5.1, and stays that way until 5.6.0 is published.
    reason.
    - **The ruling stands; its reason was not right** (2026-11-14). A merge on tmc-site did not go
      live: see *Open after publication* above, and `AGENTS.md`.
+   - **Since 2026-11-16 its reason holds.** The site is a Cloudflare Pages project connected to
+     tmc-site, and #4's merge was live within 24 seconds: see *Open after publication* above.
 3. **The known issue about messages missing after a reconnect stays in the release notes.**
 4. **The two checks that need a second device are NOT DONE in this round.** There is no second
    phone, and an emulator is not feasible. Each is recorded as "NOT DONE — no second device
@@ -704,7 +726,9 @@ Neither of these is in git, and both are deliberately untracked:
   merge. Pages built `20e40a6`, and the six live pages are identical to the published files.
 - **Step 3:** done. `v5.6.0` is at `5ae4bf2`.
 - **Step 4:** done. The `SHA256SUMS.txt` published this time has LF line endings.
-- **Step 5:** merged, not live. See *Open after publication*.
+- **Step 5:** merged on 2026-11-14 and not live that day. Live on 2026-11-16, once the site
+  deployed from the repository. See *Open after publication*. Until 2026-11-16 this line read
+  "merged, not live".
 - **Step 7:** this record.
 - **Steps 6, 8 and 9:** not done, by instruction.
 
