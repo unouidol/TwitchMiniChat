@@ -46,6 +46,10 @@ import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChannelBoundPage
 import com.fs.twitchminichat.chat.ChatChannelBinding
+import com.fs.twitchminichat.chat.ChatNetworkAvailabilityMonitor
+import com.fs.twitchminichat.chat.ChatReconnectController
+import com.fs.twitchminichat.chat.ChatReconnectLog
+import com.fs.twitchminichat.chat.ChatReconnectScheduler
 import com.fs.twitchminichat.chat.ChatMessageDeduplicator
 import com.fs.twitchminichat.chat.ChatMessageRow
 import com.fs.twitchminichat.chat.RowText
@@ -104,12 +108,34 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     @Volatile
     private var sendReady = false
 
-    @Volatile
-    private var connectInProgress = false
-
-    private val ircReconnectBackoff = TwitchIrcReconnectBackoff()
     private val ircReconnectHandler = Handler(Looper.getMainLooper())
-    private var ircReconnectRunnable: Runnable? = null
+
+    /* The one retry, its backoff and the in-progress guard; the connection itself stays here. */
+    private val reconnectController = ChatReconnectController(
+        scheduler = object : ChatReconnectScheduler {
+            override fun postDelayed(task: Runnable, delayMs: Long) {
+                ircReconnectHandler.postDelayed(task, delayMs)
+            }
+
+            override fun cancel(task: Runnable) {
+                ircReconnectHandler.removeCallbacks(task)
+            }
+        },
+        canConnect = {
+            isAdded && view != null && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        },
+        connect = { connectIfNeeded() },
+        log = ChatReconnectLog { level, message ->
+            when (level) {
+                ChatReconnectLog.Level.DEBUG -> Log.d("TWITCH_IRC", message)
+                ChatReconnectLog.Level.WARN -> Log.w("TWITCH_IRC", message)
+            }
+        }
+    )
+
+    /* Tells the reconnect controller when the default network comes back; started in onStart. */
+    private var networkAvailabilityMonitor: ChatNetworkAvailabilityMonitor? = null
+
     private var ircConnectionGeneration = 0L
     private var outgoingWriteInProgress = false
 
@@ -1958,7 +1984,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
     override fun onDestroyView() {
         clearPendingOutgoingState()
-        cancelScheduledIrcReconnect()
+        reconnectController.cancelPendingRetry()
         clearComposerFocusRestoreCallbacks()
         composerFocusGuardUntilMs = 0L
 
@@ -2016,6 +2042,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             "ircConnected" to (ircClient != null)
         )
 
+        /* Registered only while started: a stopped page neither listens nor retries. */
+        val monitor = networkAvailabilityMonitor
+            ?: ChatNetworkAvailabilityMonitor(requireContext()) {
+                reconnectController.onNetworkAvailable()
+            }.also { networkAvailabilityMonitor = it }
+        monitor.start()
+
         connectIfNeeded()
     }
 
@@ -2068,6 +2101,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         streamSession?.setActive(false)
+        networkAvailabilityMonitor?.stop()
         closeIrcClient(resetBackoff = true)
 
         textStatus.text = cfg?.let {
@@ -2075,59 +2109,17 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         } ?: getString(R.string.status_disconnected)
     }
 
-    /** Cancels one pending reconnect callback. */
-    private fun cancelScheduledIrcReconnect() {
-        val pending = ircReconnectRunnable ?: return
-        ircReconnectHandler.removeCallbacks(pending)
-        ircReconnectRunnable = null
-    }
-
     /** Closes the current IRC session and invalidates all callbacks from it. */
     private fun closeIrcClient(resetBackoff: Boolean) {
-        cancelScheduledIrcReconnect()
+        reconnectController.onConnectionClosed(resetBackoff = resetBackoff)
         ircConnectionGeneration += 1L
 
         val oldClient = ircClient
 
         ircClient = null
         sendReady = false
-        connectInProgress = false
 
         oldClient?.disconnect()
-
-        if (resetBackoff) {
-            ircReconnectBackoff.reset()
-        }
-    }
-
-    /** Schedules one bounded reconnect while the chat Fragment is visible. */
-    private fun scheduleIrcReconnect() {
-        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
-        if (ircReconnectRunnable != null || connectInProgress) return
-
-        val delayMs = ircReconnectBackoff.consumeDelayMs()
-        val reconnect = Runnable {
-            ircReconnectRunnable = null
-
-            if (!isAdded || view == null) return@Runnable
-            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                return@Runnable
-            }
-
-            Log.d(
-                "TWITCH_IRC",
-                "reconnect start reason=session"
-            )
-            connectIfNeeded()
-        }
-
-        ircReconnectRunnable = reconnect
-        ircReconnectHandler.postDelayed(reconnect, delayMs)
-
-        Log.w(
-            "TWITCH_IRC",
-            "reconnect scheduled delayMs=$delayMs reason=session"
-        )
     }
 
     /** Handles the terminal callback from the active bidirectional IRC session. */
@@ -2148,7 +2140,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             closeIrcClient(resetBackoff = false)
 
             if (shouldReconnect) {
-                scheduleIrcReconnect()
+                reconnectController.scheduleAfterSessionEnded()
             }
         }
     }
@@ -2160,7 +2152,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     ) {
         val applicationContext = requireContext().applicationContext
 
-        cancelScheduledIrcReconnect()
+        reconnectController.onClientOpening()
 
         val generation = ircConnectionGeneration + 1L
         ircConnectionGeneration = generation
@@ -2193,7 +2185,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         return@runUiIfAlive
                     }
 
-                    ircReconnectBackoff.reset()
+                    reconnectController.onSessionReady()
                     sendReady = true
 
                     val ctx = context
@@ -2388,7 +2380,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     }
 
     private fun connectIfNeeded() {
-        if (ircClient != null || connectInProgress) return
+        if (!reconnectController.mayConnect(clientPresent = ircClient != null)) return
 
         val c = cfg
         if (c == null) {
@@ -2421,11 +2413,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        connectInProgress = true
+        reconnectController.beginTokenAttempt()
         val connectGeneration = ircConnectionGeneration
         val ircTokenProvider = BackendIrcTokenProvider(
             sessionReader = BackendSessionStore(requireContext())
         )
+
+        Log.d("TWITCH_IRC", "token step start generation=$connectGeneration")
 
         thread {
             val tokenResult = ircTokenProvider.acquire(
@@ -2434,12 +2428,14 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 localUsername = c.username
             )
 
+            logTokenStepResult(tokenResult, connectGeneration)
+
             runUiIfAlive {
                 if (connectGeneration != ircConnectionGeneration) {
                     return@runUiIfAlive
                 }
 
-                connectInProgress = false
+                reconnectController.finishTokenAttempt()
 
                 if (ircClient != null) return@runUiIfAlive
 
@@ -2453,6 +2449,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     }
 
                     BackendIrcTokenResult.ReauthorizationRequired -> {
+                        reconnectController.recordTokenFailureWithoutRetry()
+
                         val ctx = context ?: return@runUiIfAlive
                         textStatus.text = ctx.getString(
                             R.string.status_backend_session_reauthorize,
@@ -2460,16 +2458,45 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         )
                     }
 
-                    BackendIrcTokenResult.Failed -> {
-                        val ctx = context ?: return@runUiIfAlive
-                        textStatus.text = ctx.getString(
-                            R.string.status_backend_auth_failed,
-                            c.username
-                        )
+                    is BackendIrcTokenResult.Failed -> {
+                        handleTokenStepFailure(tokenResult.failure, c.username)
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Writes the token step's result class to Logcat. Unexpected exceptions are errors:
+     * they are not the network or the server, and are not retried.
+     */
+    private fun logTokenStepResult(result: BackendIrcTokenResult, generation: Long) {
+        val message = "token step ${result.logFields} generation=$generation"
+        val failure = (result as? BackendIrcTokenResult.Failed)?.failure
+
+        when {
+            failure is BackendIrcTokenFailure.UnexpectedException -> Log.e("TWITCH_IRC", message)
+            failure != null -> Log.w("TWITCH_IRC", message)
+            else -> Log.d("TWITCH_IRC", message)
+        }
+    }
+
+    /**
+     * A transient failure stays in the reconnect cycle and says so on the status line
+     * (#115). Any other failure stops, as before, with the message that names the
+     * account: reconnecting would get the same answer.
+     */
+    private fun handleTokenStepFailure(failure: BackendIrcTokenFailure, username: String) {
+        if (failure.isTransient) {
+            reconnectController.scheduleAfterTransientTokenFailure(
+                minimumDelayMs = failure.minimumRetryDelayMs
+            )
+            textStatus.text = getString(R.string.status_connection_lost_reconnecting)
+            return
+        }
+
+        reconnectController.recordTokenFailureWithoutRetry()
+        textStatus.text = getString(R.string.status_backend_auth_failed, username)
     }
 
     /**

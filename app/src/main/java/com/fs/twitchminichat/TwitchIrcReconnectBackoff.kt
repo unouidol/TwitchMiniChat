@@ -1,9 +1,15 @@
 package com.fs.twitchminichat
 
-/** Provides bounded reconnect delays for unexpected Twitch IRC disconnects. */
+/**
+ * Provides bounded reconnect delays for the Twitch IRC connection.
+ *
+ * The defaults give 1, 2, 4, 8 and 16 s, then 16 s for every later attempt, with no
+ * limit on their number: the sequence Chatterino2 uses (`IrcConnection2`,
+ * `ExponentialBackoff<5>` from 1000 ms, read at commit 24632fe, 2026-11-07).
+ */
 class TwitchIrcReconnectBackoff(
     private val initialDelayMs: Long = 1_000L,
-    private val maximumDelayMs: Long = 15_000L
+    private val maximumDelayMs: Long = 16_000L
 ) {
     private var nextDelayMs = initialDelayMs
 

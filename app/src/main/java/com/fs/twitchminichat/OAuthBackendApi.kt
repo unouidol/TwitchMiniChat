@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import org.json.JSONObject
+import java.io.IOException
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -29,11 +30,129 @@ sealed interface BackendIrcTokenApiResult {
     /** A successful response containing parsed IRC credentials. */
     data class Success(val value: OAuthTokenForIrcResult) : BackendIrcTokenApiResult
 
-    /** A completed HTTP response outside the successful status range. */
-    data class HttpError(val statusCode: Int) : BackendIrcTokenApiResult
+    /**
+     * A completed HTTP response outside the successful status range.
+     *
+     * [retryAfterSeconds] is its Retry-After header, when that header held a valid
+     * number of seconds ([RetryAfterHeader]); null otherwise.
+     */
+    data class HttpError(
+        val statusCode: Int,
+        val retryAfterSeconds: Long? = null
+    ) : BackendIrcTokenApiResult
 
-    /** A transport, timeout, or response-parsing failure. */
+    /**
+     * An input/output failure: no connectivity, a name that does not resolve, a
+     * timeout, a reset connection, or a failed Transport Layer Security (TLS) handshake.
+     */
     data object NetworkError : BackendIrcTokenApiResult
+
+    /** An answer that is not a usable response; [reason] says how. */
+    data class MalformedResponse(
+        val reason: BackendIrcTokenMalformedReason
+    ) : BackendIrcTokenApiResult
+
+    /**
+     * An exception from the request that is not an input/output failure, such as a
+     * programming error. [exceptionClass] is its class name, which carries no data.
+     */
+    data class UnexpectedError(val exceptionClass: String) : BackendIrcTokenApiResult
+}
+
+/** How an answer from the IRC-token endpoint failed to be a usable response. */
+enum class BackendIrcTokenMalformedReason(
+    /** Value written in log lines. */
+    val logValue: String
+) {
+
+    /** A 2xx response with nothing in its body, for example a response cut short. */
+    EMPTY_BODY("empty_body"),
+
+    /** A 2xx response whose body is not the expected JSON, such as a Wi-Fi login page. */
+    UNPARSABLE_BODY("unparsable_body"),
+
+    /** No valid HTTP status could be read: the connection reported -1, or a code outside 100-599. */
+    INVALID_STATUS("invalid_status")
+}
+
+/**
+ * Reads an HTTP Retry-After header in its delta-seconds form.
+ *
+ * The HTTP-date form is not read: this backend sends seconds, and a date would need
+ * a clock. A header in that form, or missing, or malformed, reads as null, and the
+ * caller falls back to its normal backoff.
+ */
+object RetryAfterHeader {
+
+    /**
+     * Longest wait honoured, in seconds: one day. A larger value is read as this one,
+     * which keeps the delay inside what a main-thread handler can post without
+     * overflowing its uptime arithmetic.
+     */
+    const val MAX_SECONDS: Long = 86_400L
+
+    /** Returns the header's non-negative number of seconds, capped at [MAX_SECONDS], or null. */
+    fun parseSeconds(value: String?): Long? {
+        val text = value?.trim().orEmpty()
+        if (text.isEmpty() || !text.all { it in '0'..'9' }) return null
+
+        // All digits, but too many for a Long: a valid and very long wait.
+        val seconds = text.toLongOrNull() ?: return MAX_SECONDS
+        return seconds.coerceAtMost(MAX_SECONDS)
+    }
+}
+
+/**
+ * Turns what the IRC-token request produced into a [BackendIrcTokenApiResult],
+ * without any network access, so that every case can be tested.
+ */
+internal object TokenForIrcResponseInterpreter {
+
+    /**
+     * Interprets one completed exchange: [statusCode] as the connection reported it,
+     * [body] read from the input or error stream, and the raw [retryAfterHeader].
+     */
+    fun interpret(
+        statusCode: Int,
+        body: String,
+        retryAfterHeader: String?
+    ): BackendIrcTokenApiResult {
+        if (statusCode !in 100..599) {
+            return BackendIrcTokenApiResult.MalformedResponse(
+                BackendIrcTokenMalformedReason.INVALID_STATUS
+            )
+        }
+
+        if (statusCode !in 200..299) {
+            return BackendIrcTokenApiResult.HttpError(
+                statusCode = statusCode,
+                retryAfterSeconds = RetryAfterHeader.parseSeconds(retryAfterHeader)
+            )
+        }
+
+        if (body.isBlank()) {
+            return BackendIrcTokenApiResult.MalformedResponse(
+                BackendIrcTokenMalformedReason.EMPTY_BODY
+            )
+        }
+
+        val parsed = OAuthBackendResponseParser.parseTokenForIrc(body)
+            ?: return BackendIrcTokenApiResult.MalformedResponse(
+                BackendIrcTokenMalformedReason.UNPARSABLE_BODY
+            )
+
+        return BackendIrcTokenApiResult.Success(parsed)
+    }
+
+    /** Interprets an exception thrown before an exchange completed. */
+    fun interpret(error: Exception): BackendIrcTokenApiResult {
+        if (error is IOException) {
+            return BackendIrcTokenApiResult.NetworkError
+        }
+
+        val exceptionClass = error.javaClass.simpleName.ifBlank { error.javaClass.name }
+        return BackendIrcTokenApiResult.UnexpectedError(exceptionClass)
+    }
 }
 
 /** Narrow backend contract used by [BackendIrcTokenProvider]. */
@@ -176,21 +295,19 @@ object OAuthBackendApi : BackendIrcTokenApi {
             }
 
             val code = connection.responseCode
-            val body = if (code in 200..299) {
-                connection.inputStream.bufferedReader().use { it.readText() }
-            } else {
-                connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val body = when (code) {
+                in 200..299 -> connection.inputStream.bufferedReader().use { it.readText() }
+                in 100..599 -> connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                else -> ""
             }
 
-            if (code !in 200..299 || body.isBlank()) {
-                BackendIrcTokenApiResult.HttpError(code)
-            } else {
-                val parsed = OAuthBackendResponseParser.parseTokenForIrc(body)
-                    ?: return BackendIrcTokenApiResult.NetworkError
-                BackendIrcTokenApiResult.Success(parsed)
-            }
-        } catch (_: Exception) {
-            BackendIrcTokenApiResult.NetworkError
+            TokenForIrcResponseInterpreter.interpret(
+                statusCode = code,
+                body = body,
+                retryAfterHeader = connection.getHeaderField("Retry-After")
+            )
+        } catch (error: Exception) {
+            TokenForIrcResponseInterpreter.interpret(error)
         } finally {
             conn?.disconnect()
         }

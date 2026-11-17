@@ -43,6 +43,10 @@ recorded in `docs/manual-plan-5.6.0.md`, *Results*.
   part says is taken from the strings `erase_device_nothing_reached` and
   `account_remove_alerts_owed`.
 
+**Changed after publication, on 2026-11-17, with Federico's approval:** the F1 known issue, in the
+published release body and here, because the investigation of #115 showed that a drop of under a
+minute is enough, and that going Home and reopening TMC from recent apps reconnects.
+
 <!-- release body begins -->
 
 ## What is Twitch Mini Chat?
@@ -86,7 +90,7 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 - **Rotating the phone hides the stream.** Tap **Show stream** again.
 - When a Pokémon you are missing spawns for several of your accounts at once, you get one alert per account, as intended. Now and then one of those alerts may play its sound twice. It is harmless. It was not fixed in this update.
 - Right after the chat reconnects, a few messages may be briefly missing. They appear when you switch to another account and back.
-- **After a period without network, the chat may not reconnect by itself.** The status line says the account could not be authenticated, no new messages arrive, and you cannot send. Close TMC completely and open it again.
+- **If the network drops, even briefly, the chat may stop reconnecting.** The status line says the account could not be authenticated, no new messages arrive, and you cannot send. Go to your Home screen and open TMC again from recent apps: the chat reconnects. Your account is not affected.
 - **Some longer messages are cut short.** On Android 12 and later, the short messages that appear at the bottom of the screen after an erase, or after removing an account without network, can be cut off after two lines. The part cut off can say that alerts may still arrive for a while and that TMC keeps trying to stop them on its own.
 
 ## What to download
