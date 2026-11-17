@@ -46,6 +46,7 @@ import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChannelBoundPage
 import com.fs.twitchminichat.chat.ChatChannelBinding
+import com.fs.twitchminichat.chat.ChatNetworkAvailabilityMonitor
 import com.fs.twitchminichat.chat.ChatReconnectController
 import com.fs.twitchminichat.chat.ChatReconnectLog
 import com.fs.twitchminichat.chat.ChatReconnectScheduler
@@ -131,6 +132,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
         }
     )
+
+    /* Tells the reconnect controller when the default network comes back; started in onStart. */
+    private var networkAvailabilityMonitor: ChatNetworkAvailabilityMonitor? = null
 
     private var ircConnectionGeneration = 0L
     private var outgoingWriteInProgress = false
@@ -2038,6 +2042,13 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             "ircConnected" to (ircClient != null)
         )
 
+        /* Registered only while started: a stopped page neither listens nor retries. */
+        val monitor = networkAvailabilityMonitor
+            ?: ChatNetworkAvailabilityMonitor(requireContext()) {
+                reconnectController.onNetworkAvailable()
+            }.also { networkAvailabilityMonitor = it }
+        monitor.start()
+
         connectIfNeeded()
     }
 
@@ -2090,6 +2101,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
 
         streamSession?.setActive(false)
+        networkAvailabilityMonitor?.stop()
         closeIrcClient(resetBackoff = true)
 
         textStatus.text = cfg?.let {
@@ -2407,12 +2419,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             sessionReader = BackendSessionStore(requireContext())
         )
 
+        Log.d("TWITCH_IRC", "token step start generation=$connectGeneration")
+
         thread {
             val tokenResult = ircTokenProvider.acquire(
                 profileId = profileId,
                 localAccessToken = localToken,
                 localUsername = c.username
             )
+
+            logTokenStepResult(tokenResult, connectGeneration)
 
             runUiIfAlive {
                 if (connectGeneration != ircConnectionGeneration) {
@@ -2433,6 +2449,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                     }
 
                     BackendIrcTokenResult.ReauthorizationRequired -> {
+                        reconnectController.recordTokenFailureWithoutRetry()
+
                         val ctx = context ?: return@runUiIfAlive
                         textStatus.text = ctx.getString(
                             R.string.status_backend_session_reauthorize,
@@ -2440,16 +2458,45 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         )
                     }
 
-                    BackendIrcTokenResult.Failed -> {
-                        val ctx = context ?: return@runUiIfAlive
-                        textStatus.text = ctx.getString(
-                            R.string.status_backend_auth_failed,
-                            c.username
-                        )
+                    is BackendIrcTokenResult.Failed -> {
+                        handleTokenStepFailure(tokenResult.failure, c.username)
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Writes the token step's result class to Logcat. Unexpected exceptions are errors:
+     * they are not the network or the server, and are not retried.
+     */
+    private fun logTokenStepResult(result: BackendIrcTokenResult, generation: Long) {
+        val message = "token step ${result.logFields} generation=$generation"
+        val failure = (result as? BackendIrcTokenResult.Failed)?.failure
+
+        when {
+            failure is BackendIrcTokenFailure.UnexpectedException -> Log.e("TWITCH_IRC", message)
+            failure != null -> Log.w("TWITCH_IRC", message)
+            else -> Log.d("TWITCH_IRC", message)
+        }
+    }
+
+    /**
+     * A transient failure stays in the reconnect cycle and says so on the status line
+     * (#115). Any other failure stops, as before, with the message that names the
+     * account: reconnecting would get the same answer.
+     */
+    private fun handleTokenStepFailure(failure: BackendIrcTokenFailure, username: String) {
+        if (failure.isTransient) {
+            reconnectController.scheduleAfterTransientTokenFailure(
+                minimumDelayMs = failure.minimumRetryDelayMs
+            )
+            textStatus.text = getString(R.string.status_connection_lost_reconnecting)
+            return
+        }
+
+        reconnectController.recordTokenFailureWithoutRetry()
+        textStatus.text = getString(R.string.status_backend_auth_failed, username)
     }
 
     /**

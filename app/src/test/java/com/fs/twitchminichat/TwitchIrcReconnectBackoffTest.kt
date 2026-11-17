@@ -22,6 +22,19 @@ class TwitchIrcReconnectBackoffTest {
         assertEquals(15_000L, backoff.consumeDelayMs())
     }
 
+    /** The defaults are Chatterino2's sequence: 1, 2, 4, 8, 16 s, then 16 s without limit (#115). */
+    @Test
+    fun default_delays_follow_the_chatterino_sequence() {
+        val backoff = TwitchIrcReconnectBackoff()
+
+        val delays = List(12) { backoff.consumeDelayMs() }
+
+        assertEquals(
+            listOf(1_000L, 2_000L, 4_000L, 8_000L) + List(8) { 16_000L },
+            delays
+        )
+    }
+
     @Test
     fun successful_connection_resets_delay() {
         val backoff = TwitchIrcReconnectBackoff()

@@ -20,6 +20,7 @@
     <string name="status_missing_token">Missing token for @%1$s (login again)</string>
     <string name="status_backend_session_reauthorize">Session expired for @%1$s. Return to Accounts and tap Refresh to reauthorize.</string>
     <string name="status_backend_auth_failed">Could not authenticate @%1$s. Check the connection or reauthorize the account manually.</string>
+    <string name="status_connection_lost_reconnecting">Connection lost. Reconnecting…</string>
     <string name="status_read_error">Read error: %1$s</string>
     <string name="status_disconnected_account">Disconnected (@%1$s)</string>
     <string name="delete_account">Delete account</string>
