@@ -119,9 +119,28 @@ link to `releases/latest/download/…`, which redirects to `releases/download/v5
     - The page changed within 24 seconds of the merge. It was not fetched in between.
   - **Closed when:** the live page is fetched and serves 5.6.0 three times. Met at 08:23:46 UTC
     and again at 08:29:36 UTC on 2026-11-16.
+- **The user guide on tmc-site: CLOSED on 2026-11-17, live,** by Federico's instruction of that
+  day. Until then it was listed below, under *Not done in the publication*.
+  - **In the repository:** `unouidol/tmc-site#3` replaced `downloads/TMC-Visual-Guide.pdf` with
+    the guide for 5.6.0, same name and path, so the page's link is unchanged. It merged as
+    `679579a` on 2026-11-14.
+  - **Live:** the served PDF's blob was `main`'s on 2026-11-16. Fetched again on 2026-11-17 at
+    08:31:52 UTC, it is 1521805 bytes with sha256
+    `65997b83264cd2493906fc17e9b5a6487774248649b89e39ac8d132d7fb17657`, the value #3's commit
+    records.
+  - **Read, its text layer only** (`pdftotext`, 13 pages), against the defects recorded on
+    2026-11-13 under *Also before the 5.6.0 release* below:
+    - no "Video On / Off" anywhere;
+    - the stream control reads "Show / Hide stream", with "Mute or unmute with the player's own
+      controls", as #108 left the app;
+    - "About TMC" and "Bug report" are both listed among Safety & Privacy's entries, and About
+      TMC also has a page of its own.
+
+    The illustrations were not inspected.
+  - **It names a version:** its footer reads "For TMC 5.6.0". So it goes stale at the next
+    release, as the page count in `index.html` did at this one.
 - **Not done in the publication, by Federico's instruction:**
   - the announcement;
-  - the user guide on tmc-site (`downloads/TMC-Visual-Guide.pdf`);
   - `unouidol/ircminichat#1`, which removes functions the 5.5.1 app's mute button still calls
     on the live player page.
 - **The device round's NOT DONE items** (`docs/manual-plan-5.6.0.md`, *Results*):
@@ -729,8 +748,10 @@ Neither of these is in git, and both are deliberately untracked:
 - **Step 5:** merged on 2026-11-14 and not live that day. Live on 2026-11-16, once the site
   deployed from the repository. See *Open after publication*. Until 2026-11-16 this line read
   "merged, not live".
+- **Step 6:** merged on 2026-11-14 as `unouidol/tmc-site#3` (`679579a`), and live when read on
+  2026-11-16 and 2026-11-17. See *Open after publication*. Recorded on 2026-11-17.
 - **Step 7:** this record.
-- **Steps 6, 8 and 9:** not done, by instruction.
+- **Steps 8 and 9:** not done, by instruction. Until 2026-11-17 this line read "Steps 6, 8 and 9".
 
 This heading read "none of it done" until then. The list below is kept as it was written.
 
@@ -804,11 +825,15 @@ of its own**, by the owner's rulings (5d's plan, section M, cases 6 and 8;
   with Back.
 
 **Also before the 5.6.0 release, recorded on 2026-11-13 by Federico's rulings:**
-- **The user guide is out of date, and must be corrected before the release is announced. OPEN.**
+- **The user guide is out of date, and must be corrected before the release is announced.
+  CLOSED on 2026-11-17.** Until then this item read "OPEN".
   - The published guide, `downloads/TMC-Visual-Guide.pdf` in `unouidol/tmc-site`, names a
     "Video On / Off" control and an in-app mute, which #108 removed.
   - It does not list "About TMC" or "Bug report", which #110 added.
   - Its source is in no repository. Federico corrects it with the owner once he recovers it.
+  - **Closed by `unouidol/tmc-site#3`** (`679579a`, 2026-11-14), which replaced the guide. Its
+    text was read for the defects above on 2026-11-17, and none of them is there: see
+    *Open after publication — 5.6.0*.
 - **The Discord invite is permanent. CLOSED.** Federico confirmed it on 2026-11-13. The risk that
   the invite compiled into the app expires (`docs/proposal-welcome-page.md`, *The risk in a
   compiled invite*) does not apply.
