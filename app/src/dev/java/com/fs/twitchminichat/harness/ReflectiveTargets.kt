@@ -1,7 +1,9 @@
 package com.fs.twitchminichat.harness
 
 import android.content.Context
+import androidx.recyclerview.widget.RecyclerView
 import com.fs.twitchminichat.ChatFragment
+import com.fs.twitchminichat.ChatTimelineController
 import com.fs.twitchminichat.PendingOutgoingChatMessage
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
@@ -18,11 +20,16 @@ internal class MissingReflectiveTarget(message: String, cause: Throwable) : Exce
  * when it compiles, so [resolve] looks every one of them up first and stops the run with the class
  * and member that is missing. Nothing is skipped and nothing falls back to a default.
  *
- * The frozen classes' two fields are resolved the same way, so both sides are read alike.
+ * The frozen classes' two fields are resolved the same way, so both sides are read alike. So are the
+ * two RecyclerView members the recycler proof reads, the recycler and its cache, which are
+ * package-private in RecyclerView 1.3.1.
  */
 internal class ReflectiveTargets private constructor(
     val cfg: Field,
-    val scrollChat: Field,
+    val chatList: Field,
+    val chatScrollListener: Field,
+    val stickToBottom: Field,
+    val unseenMessages: Field,
     val chatTimelineController: Field,
     val rowViewBinder: Field,
     val emoteImageLoader: Field,
@@ -37,7 +44,10 @@ internal class ReflectiveTargets private constructor(
     val frozenSwipeReplyTextView: Class<*>,
     val frozenSwipeReplyTextViewOnSwipeReply: Field,
     val frozenWebLinkSpan: Class<*>,
-    val frozenWebLinkSpanUrl: Field
+    val frozenWebLinkSpanUrl: Field,
+    val timelineSync: Field,
+    val recyclerViewRecycler: Field,
+    val recyclerCachedViews: Field
 ) {
 
     companion object {
@@ -48,11 +58,15 @@ internal class ReflectiveTargets private constructor(
         private const val FROZEN = "com.fs.twitchminichat.harness.FrozenRowViews4804609"
         private const val FROZEN_SWIPE_REPLY_TEXT_VIEW = "$FROZEN\$FrozenSwipeReplyTextView"
         private const val FROZEN_WEB_LINK_SPAN = "$FROZEN\$FrozenWebLinkSpan"
+        private const val RECYCLER_VIEW = "androidx.recyclerview.widget.RecyclerView"
 
         /** Class, member and signature of every target, for the results file and the PR. */
         val descriptions: List<String> = listOf(
             "$CHAT_FRAGMENT: field cfg: AccountConfig?",
-            "$CHAT_FRAGMENT: field scrollChat: ScrollView (lateinit)",
+            "$CHAT_FRAGMENT: field chatList: RecyclerView (lateinit)",
+            "$CHAT_FRAGMENT: field chatScrollListener: RecyclerView.OnScrollListener",
+            "$CHAT_FRAGMENT: field stickToBottom: boolean",
+            "$CHAT_FRAGMENT: field unseenMessages: int",
             "$CHAT_FRAGMENT: field chatTimelineController: ChatTimelineController (lateinit)",
             "$CHAT_FRAGMENT: field rowViewBinder: ChatRowViewBinder",
             "$CHAT_FRAGMENT: field emoteImageLoader: TwitchEmoteImageLoader?",
@@ -67,7 +81,10 @@ internal class ReflectiveTargets private constructor(
             "$FROZEN_SWIPE_REPLY_TEXT_VIEW: class (harness's own)",
             "$FROZEN_SWIPE_REPLY_TEXT_VIEW: field onSwipeReply: (() -> Unit)? (harness's own)",
             "$FROZEN_WEB_LINK_SPAN: class (harness's own)",
-            "$FROZEN_WEB_LINK_SPAN: field url: String (harness's own)"
+            "$FROZEN_WEB_LINK_SPAN: field url: String (harness's own)",
+            "com.fs.twitchminichat.ChatTimelineController: field sync: ChatTimelineListSync",
+            "$RECYCLER_VIEW: field mRecycler: RecyclerView.Recycler (library, package-private)",
+            "$RECYCLER_VIEW.Recycler: field mCachedViews: ArrayList<ViewHolder> (library, package-private)"
         )
 
         /** Looks up every target; throws [MissingReflectiveTarget] for the first one that is missing. */
@@ -79,7 +96,10 @@ internal class ReflectiveTargets private constructor(
             val frozenLink = type(FROZEN_WEB_LINK_SPAN)
             return ReflectiveTargets(
                 cfg = field(fragment, "cfg"),
-                scrollChat = field(fragment, "scrollChat"),
+                chatList = field(fragment, "chatList"),
+                chatScrollListener = field(fragment, "chatScrollListener"),
+                stickToBottom = field(fragment, "stickToBottom"),
+                unseenMessages = field(fragment, "unseenMessages"),
                 chatTimelineController = field(fragment, "chatTimelineController"),
                 rowViewBinder = field(fragment, "rowViewBinder"),
                 emoteImageLoader = field(fragment, "emoteImageLoader"),
@@ -101,7 +121,10 @@ internal class ReflectiveTargets private constructor(
                 frozenSwipeReplyTextView = frozenSwipe,
                 frozenSwipeReplyTextViewOnSwipeReply = field(frozenSwipe, "onSwipeReply"),
                 frozenWebLinkSpan = frozenLink,
-                frozenWebLinkSpanUrl = field(frozenLink, "url")
+                frozenWebLinkSpanUrl = field(frozenLink, "url"),
+                timelineSync = field(ChatTimelineController::class.java, "sync"),
+                recyclerViewRecycler = field(RecyclerView::class.java, "mRecycler"),
+                recyclerCachedViews = field(RecyclerView.Recycler::class.java, "mCachedViews")
             )
         }
 

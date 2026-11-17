@@ -8,6 +8,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import com.fs.twitchminichat.ui.insets.SystemBarsInsetHelper
+import com.fs.twitchminichat.welcome.BugReportDialogFragment
+import com.fs.twitchminichat.welcome.WelcomeCoordinator
 
 class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy) {
 
@@ -67,6 +69,14 @@ class SafetyPrivacyActivity : AppCompatActivity(R.layout.activity_safety_privacy
                 asset = "credits.html",
                 webUrl = WebPolicies.CREDITS_URL
             )
+        }
+
+        findViewById<Button>(R.id.btnAboutTmc).setOnClickListener {
+            WelcomeCoordinator.showFromMenu(this)
+        }
+
+        findViewById<Button>(R.id.btnBugReport).setOnClickListener {
+            BugReportDialogFragment().show(supportFragmentManager, BugReportDialogFragment.TAG)
         }
 
         setupCrashReportingSwitch()

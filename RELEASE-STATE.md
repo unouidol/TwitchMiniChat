@@ -21,7 +21,17 @@ release". It predated #61 and was not updated with it, and neither was the match
 `AGENTS.md`, so both contradicted the section they pointed to. On 2026-10-15 the `AGENTS.md`
 rule produced a report of a missing update that was not missing.
 
-Last verified: 2026-10-01, against `origin/main-v5` at `4b8abe1`, with `v5.5.1` published.
+Last verified: **2026-11-14, against `origin/main-v5` at `5ae4bf2`, with `v5.6.0` published.**
+The pass #64 describes was made for *Published* and *Test device*:
+- the latest release, and the commit its tag points at (`git ls-remote`);
+- the three assets downloaded through `releases/latest/download/`, and hashed;
+- the signer's certificate digest and the package and version, read with `apksigner` and `aapt2`
+  from the two APKs before upload;
+- the phone, read over adb at the end of the device round.
+
+The rest of this file was not re-verified in this pass.
+
+Until then: verified 2026-10-01, against `origin/main-v5` at `4b8abe1`, with `v5.5.1` published.
 **Stale, marked 2026-10-15:** not re-verified since. `main-v5` is now at `549e2f6`, 18 merges
 later, and nothing below has been checked against it. Refreshing this needs the pass #64 made:
 the latest release and the commit its tag points at, both assets downloaded through
@@ -32,24 +42,115 @@ signer's certificate digest, and the package, version and commit the APK reports
 
 | | |
 |---|---|
-| Version | **5.5.1** (`versionCode 8`) |
-| Tag | `v5.5.1`, annotated, pointing at commit `007ee55` |
-| Published | 2026-09-25 |
+| Version | **5.6.0** (`versionCode 9`) |
+| Tag | `v5.6.0`, annotated (tag object `4df1d1c`), pointing at commit `5ae4bf2` |
+| Published | 2026-11-14 (`published_at` 2026-11-14T07:29:24Z) |
+| Release | https://github.com/unouidol/TwitchMiniChat/releases/tag/v5.6.0, titled `Twitch Mini Chat 5.6.0` |
 | Assets | `TwitchMiniChat-Android-arm64-v8a.apk`, `TwitchMiniChat-Android-armeabi-v7a.apk`, `SHA256SUMS.txt` |
 | Signer | `ST=Italy, L=Italy, CN=Unouidol`, SHA-256 `aca1170e9dcac79abfa6db078a7a9903ab1f6a935745033c0752177d22e237ed` |
-| arm64-v8a | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` |
-| armeabi-v7a | `7833fe2c3905f6af62cd32ad2fc9d9633e7ccc20deb6725c8c41ef359d58bf4e` |
+| arm64-v8a | `fd06d29e470337465f964841cce8f58551fe1497a45792daa5a8e4fbf0745ff3` |
+| armeabi-v7a | `fcbdc83f60ad6787a2c0dafb29b405cf8d0fa95bfe31a97182553fa9604473ce` |
+| `SHA256SUMS.txt` | `8421ebcc40e60cfe412f44453e1672ebd7bdd8e622862799afa103cc3371ea4d`, 2 lines, LF |
 
-The published APKs were built from `007ee55` with a clean tree, so they report
+**How the 5.6.0 APKs were made and checked:**
+- **Built** on `nbpromec1`, from `main-v5` at `5ae4bf2` with a clean tree. They report
+  `Version 5.6.0 (build 9, 5ae4bf2)` with no `+`.
+- **Verified before publication:** the package `com.fs.twitchminichat`, versionCode 9 and
+  versionName 5.6.0. The signer above is the release certificate, and its PEM is identical byte for
+  byte to the one recorded in the round. The arm64 APK was installed over the published 5.5.1 on the
+  test phone in the device round, and updated it in place (`docs/manual-plan-5.6.0.md`,
+  *Results*).
+- **Published without a rebuild.** The release body is `docs/release-notes-5.6.0.md` between its
+  markers.
+- **Checked after publication:**
+  - `releases/latest` returns `v5.6.0`;
+  - the three `releases/latest/download/…` assets were downloaded and hashed, and match the table;
+  - `sha256sum -c` on the downloaded `SHA256SUMS.txt` passes;
+  - `git ls-remote` shows `v5.6.0^{}` at `5ae4bf2`.
+
+Previously published: **5.5.1** (`versionCode 8`), tag `v5.5.1` at `007ee55`, 2026-09-25. arm64-v8a
+`bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8`, armeabi-v7a
+`7833fe2c3905f6af62cd32ad2fc9d9633e7ccc20deb6725c8c41ef359d58bf4e`, same signer. Its
+`SHA256SUMS.txt` has CRLF line endings (210 bytes, 2 carriage returns).
+
+The 5.5.1 APKs were built from `007ee55` with a clean tree, so they report
 `GIT_SHA 007ee55` with no `+`: the login screen reads `Version 5.5.1 (build 8, 007ee55)`
 and the journal export header `# app 5.5.1 (8) 007ee55`. Checked after publication by
 downloading both `releases/latest/download/…` URLs and hashing them; both matched the
 checksums above.
 
-Previously published: **5.5.0** (`versionCode 7`), tag `v5.5.0` at `f0e0d35`, 2026-08-31.
+Before it: **5.5.0** (`versionCode 7`), tag `v5.5.0` at `f0e0d35`, 2026-08-31.
 
 Asset names, tag shape and checksum file match the contract in `AGENTS.md`, so the public
-download buttons on `https://tmc.ircminichat.party/` resolve.
+download buttons on `https://tmc.ircminichat.party/` resolve. Read on 2026-11-14: both buttons
+link to `releases/latest/download/…`, which redirects to `releases/download/v5.6.0/…`.
+
+### Open after publication — 5.6.0
+
+- **The website's fallback version: CLOSED on 2026-11-16, live.** Until 2026-11-16 this item
+  read "OPEN, merged in the repository, not live".
+  - **In the repository:** `unouidol/tmc-site#2` raised the three `data-tmc-version` fallbacks from
+    5.5.0 to 5.6.0. It merged as `9ba7c24` on 2026-11-14, and its tree is identical to the pull
+    request's head `07ee631`. It superseded #1, which raised them to 5.5.1.
+  - **2026-11-14, not live:** for at least 3 minutes after the merge,
+    `https://tmc.ircminichat.party` still served 5.5.0 three times, with
+    `cf-cache-status: DYNAMIC`. The cause was not established, because Cloudflare was not
+    inspected (`AGENTS.md`, *Release and distribution*). Federico was to look at the Cloudflare
+    dashboard himself, and no other route to deploy it was to be tried. By his account, the site
+    was then still published by uploading its files by hand.
+  - **What visitors saw meanwhile:** the page's script fills the version from the releases API,
+    so only a visitor whose browser runs no script, or the moment before the API answers, saw
+    5.5.0. The download buttons already led to 5.6.0.
+  - **2026-11-16, the site deploys from the repository:** Federico connected a Cloudflare Pages
+    project to `unouidol/tmc-site`, with production branch `main` and no build command, and moved
+    the domain to it. That is his account; Cloudflare's settings were not read. The two bullets
+    below were observed first-hand.
+  - **2026-11-16, live:** fetched at 08:23:46 UTC with a cache-busting query string, before any
+    merge that day, the page served 5.6.0 three times, with `cf-cache-status: DYNAMIC`. Apart from
+    two snippets of Cloudflare's own, it was `index.html` at `679579a`, `main`'s head, which
+    carries #2. Pages had reported "Deployed successfully" on `679579a` at 07:33:02 UTC.
+  - **2026-11-16, a merge reaches the page:** `unouidol/tmc-site#4` removes the guide's page count
+    from `index.html`. It merged as `59c00ab` at 08:29:12 UTC, and its tree is identical to the
+    pull request's head `e8e40ae`.
+    - Pages reported "Deployed successfully" on `59c00ab` at 08:29:25.
+    - The first fetch after the merge, at 08:29:36 UTC with `cf-cache-status: DYNAMIC`, served
+      "Download the illustrated guide" in place of "Download the illustrated 12-page guide", and
+      5.6.0 three times.
+    - The page changed within 24 seconds of the merge. It was not fetched in between.
+  - **Closed when:** the live page is fetched and serves 5.6.0 three times. Met at 08:23:46 UTC
+    and again at 08:29:36 UTC on 2026-11-16.
+- **The user guide on tmc-site: CLOSED on 2026-11-17, live,** by Federico's instruction of that
+  day. Until then it was listed below, under *Not done in the publication*.
+  - **In the repository:** `unouidol/tmc-site#3` replaced `downloads/TMC-Visual-Guide.pdf` with
+    the guide for 5.6.0, same name and path, so the page's link is unchanged. It merged as
+    `679579a` on 2026-11-14.
+  - **Live:** the served PDF's blob was `main`'s on 2026-11-16. Fetched again on 2026-11-17 at
+    08:31:52 UTC, it is 1521805 bytes with sha256
+    `65997b83264cd2493906fc17e9b5a6487774248649b89e39ac8d132d7fb17657`, the value #3's commit
+    records.
+  - **Read, its text layer only** (`pdftotext`, 13 pages), against the defects recorded on
+    2026-11-13 under *Also before the 5.6.0 release* below:
+    - no "Video On / Off" anywhere;
+    - the stream control reads "Show / Hide stream", with "Mute or unmute with the player's own
+      controls", as #108 left the app;
+    - "About TMC" and "Bug report" are both listed among Safety & Privacy's entries, and About
+      TMC also has a page of its own.
+
+    The illustrations were not inspected.
+  - **It names a version:** its footer reads "For TMC 5.6.0". So it goes stale at the next
+    release, as the page count in `index.html` did at this one.
+- **Not done in the publication, by Federico's instruction:**
+  - the announcement;
+  - `unouidol/ircminichat#1`, which removes functions the 5.5.1 app's mute button still calls
+    on the live player page.
+- **The device round's NOT DONE items** (`docs/manual-plan-5.6.0.md`, *Results*):
+  - 9.1 and 9.2, for want of a second device: covered by unit tests only, risk accepted by the
+    owner;
+  - 9.3;
+  - 5.5.2 D5, and D7's browser-failure half.
+
+  Follow-up from 9.2: observe the update notice on Federico's phone when the first release after
+  5.6.0 is published.
 
 `f0e0d35` is the merge commit of pull request #14. An earlier version of this file recorded
 that tag as sitting at `8478d82`, which is the last commit *of its release branch* and the
@@ -69,15 +170,13 @@ to recognise a copy if one survives.
 
 ## Waiting for release — on `main-v5`, not published
 
-Everything merged since the `v5.5.1` tag. None of this has reached users. Read it with
-`git log --first-parent v5.5.1..main-v5` rather than from a list copied here: a row added
+Everything merged since the `v5.6.0` tag. None of this has reached users. Read it with
+`git log --first-parent v5.6.0..main-v5` rather than from a list copied here: a row added
 before its own merge has to name a pull request, and then be replaced by the commit the
 merge produces, which is a second edit this file kept needing.
 
-Code changes for 5.6.0 have started landing; everything after the tag is no longer
-documentation only. 5.6.0 carries everything 5.5.2 set out to do, listed under "5.6.0 in
-progress" below as objectives only, and the chat work. Which of them have landed is this same
-log, and is not copied into a table that would then have to be kept true.
+Until 5.6.0 was published this section read the log from `v5.5.1`. Everything between `v5.5.1`
+and `v5.6.0` shipped in 5.6.0.
 
 ## What 5.5.1 shipped
 
@@ -428,7 +527,12 @@ conversion to a recycling list is complete, 5d included: read from the clone, th
 while `chatContainer` in `app/src/main/res/layout/fragment_chat.xml` is a `LinearLayout` inside a
 `ScrollView`, holding a view for each row.
 
-## Deferred — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade
+## Deferral closed — the Android Gradle Plugin 9.4 / Gradle 9.6 upgrade, after 5.6.0
+
+**Closed on 2026-11-09: both halves of the condition below are met** (*The deferral of the
+toolchain upgrade (#84)*, at the end of this section). The upgrade and the JDK pin are unlocked,
+and scheduled after the release that ships the conversion, 5.6.0, not inside it. What follows
+keeps the condition as it was written.
 
 Not on any branch, by decision. The upgrade from Android Gradle Plugin (AGP) 9.2.1 and Gradle
 9.4.1 waits until the conversion that shows the chat's rows in a recycling list is complete -
@@ -454,13 +558,233 @@ https://developer.android.com/build/releases/agp-9-4-0-release-notes. The pressu
 repository is smaller than that sounds. No build script here uses either Variant API, so AGP
 10 would reach it through the plugins it applies (Google services and Crashlytics), if at all.
 Android Studio's Upgrade Assistant recommends the upgrade; decline it until the condition above
-holds.
+holds. Since 2026-11-09 it holds, so decline it until 5.6.0 has shipped.
 
 ### Closing start-up measurement of the conversion
 
-Empty until it is taken. It will hold the start-up figures before and after the conversion,
-the build each came from, the device they were measured on, and the JDK each build was made
-with.
+**Taken on 2026-11-04, 14:03 to 14:23, and recorded here on 2026-11-05.** The full record is in
+`docs/manual-plan-5d-recyclerview.md` on `feature/5d-recyclerview-timeline`, at `8f39772`: the
+pre-registration (sha256 `0dbec904…`), the instrument's qualification, every launch and its void
+checks. The launch data are published in `experiment/startup-5d/closing-measurement-2026-11-04/` on
+`experiment/startup-5d-control` (`5d672ca`) and `experiment/startup-5d-treatment` (`53d9233`).
+
+- **Before and after:** the conversion as `main-v5` has it at `ed41de1`, 5a and 5c merged, against
+  the same code with 5d, the step that puts the rows in a `RecyclerView`. Each build adds the same
+  start-up probe.
+  - Before: `dea38cc`, on `experiment/startup-5d-control-measurement`, which is `ed41de1` plus the
+    probe. APK sha256 `d005e9014367be922a4230a7a842438e723cf5b65373cab23de8ea0609824402`.
+  - After: `a2f12f1`, on `experiment/startup-5d-treatment-measurement`, which is 5d at `fc63adb`
+    plus the probe, merged with `ed41de1`. APK sha256
+    `ece097acf6a53230af9a000cc9ab6a81bfc942683b35710f06a4a7876dffd00d`.
+    - Since `fc63adb`, `feature/5d-recyclerview-timeline` has changed nothing under `app/src/main`, up
+      to `8f39772`. What changed is 7 harness files of the dev flavour, under `app/src/dev`, and
+      documentation (`git diff --stat fc63adb 8f39772 -- app/`).
+- **How each build was made:** dev debug, `:app:assembleDevDebug`, on `nbpromec1` on 2026-11-03, with
+  AGP 9.2.1 and Gradle 9.4.1. Both used the same JDK binary, the JetBrains Runtime
+  `21.0.10+1-b1163.110`. That both builds ran in one Gradle daemon is inferred: it was the only
+  daemon running, and no build log names its daemon. Both builds are debuggable and uncompiled
+  (`run-from-apk`).
+- **The device:** the OnePlus AC2003 of *Test device*, on Android 12 (API 31), as `getprop` read it
+  on 2026-11-05. It ran at 90 Hz on USB power with battery saver off. Ten cold starts were made in one session, alternating and control
+  first, with an install before every launch.
+
+| Per launch | Before, `dea38cc` | After, `a2f12f1` |
+|---|---|---|
+| span of the history rows, ms | 2394.5, 2223.1, 2409.0, 2269.4, 2257.5 | 781.2, 786.3, 749.4, 684.1, 682.9 |
+| first stable frame (burst end), ms | 3892.1, 4273.3, 4389.5, 3806.1, 3769.7 | 2037.0, 2370.4, 2155.0, 2126.8, 2127.5 |
+| skipped frames | 287, 276, 315, 268, 248 | 91, 95, 87, 100, 87 |
+
+- **The verdicts are `decide.py`'s,** under a rule fixed before the measurement.
+  - **Span: HOLDS.** Its 25 ratios, after over before, ran from 0.2835 to 0.3537, against a
+    threshold of 0.708.
+  - **First stable frame: HOLDS.** Its 25 ratios ran from 0.4641 to 0.6288, against 0.825.
+  - **Skipped frames: fell.** That is all the rule claims for them: the prediction gave no number.
+- **Both HOLDS are weak.**
+  - The thresholds come from 2.4 s and 4.0 s, measured on 2026-10-09. Those figures may have held the
+    catalogue parse, which these builds no longer pay; if they did, the thresholds were easier to
+    pass than intended.
+  - Whether they did is not known.
+- **The bound on that confound,** recorded beside it in the plan on 2026-11-05. It changes neither
+  verdict.
+  - In the confound's own model, a parse cost k inside both 2026-10-09 figures, the span's HOLDS
+    stands for every k the model admits, 0 to 1.0 s.
+  - The first stable frame's HOLDS stands for every k below 2.114 s. Between 2.114 s and 2.6 s it
+    would be INCONCLUSIVE, and at no k would it FAIL.
+  - 2.114 s is 598 ms above the longest wait any record of the round holds, 1516.1 ms. Comparing k with
+    a wait is an inference.
+- **What it supports,** on the span and the first stable frame only, in `decide.py`'s words: "the
+  ingestion window fell by X on these builds", and NOT "users see X less on a release build". "The
+  control's window reaches compiled code while 5d's does not, so the measured ratio is conservative
+  relative to a cold-against-cold comparison." It does not say which phase 5d improves.
+
+**The deferral of the toolchain upgrade (#84), above: CLOSED on 2026-11-09, both halves met.** Both
+halves were read from the clone.
+- **The measurement half, met on 2026-11-04.**
+  - **The rule asks for the measurement to be taken and recorded in this file,** not for any
+    outcome. That rule was decided before the measurement.
+  - It was taken on 2026-11-04 and recorded above. It is on `main-v5` since #95 (`baef242`).
+  - **Its verdicts were weak HOLDS.** They stand under the limits L1 to L4 that 5d's plan records,
+    with the confound bounded as above.
+  - **That has no bearing on this half:** the deferral required the measurement taken and
+    recorded, not a particular result.
+- **The conversion half, met by #97's merge, `5238077`, on 2026-11-09.** The entry's own test, read
+  in `app/src/main/res/layout/fragment_chat.xml`:
+  - at `98f235a`, the commit before it, the file holds a `ScrollView` (line 135) around
+    `chatContainer` (line 143), a `LinearLayout`;
+  - at `5238077` it holds a `RecyclerView`, `chatList` (lines 140 and 141), and neither of those.
+- **So the AGP 9.4 / Gradle 9.6 upgrade and the JDK pin are unlocked.**
+  - **When:** they are scheduled after the release that ships the conversion, 5.6.0, not inside it.
+    "Unlocked" does not read as "do it now".
+  - **Where that rule comes from:** 5d's plan records it, by the owner's reading of #84. The plan
+    notes that this sentence is not in #84's description or in the entry.
+
+## 5.6.0 release — published on 2026-11-14
+
+**Published on 2026-11-14,** as *Published* above records. This section keeps the preparation
+as it was written, and *Publication, in order* below says what was done. Until then its heading
+read "prepared on `release/5.6.0`; not built, not installed, not published".
+
+**Prepared on 2026-11-13.** The branch `release/5.6.0` holds:
+- `versionCode` 9 and `versionName` `5.6.0`;
+- the draft release notes, `docs/release-notes-5.6.0.md`;
+- the device round, `docs/manual-plan-5.6.0.md`;
+- `AGENTS.md`'s release procedure and fallback sentence, corrected by Federico's rulings below.
+
+By the first ruling, its pull request merges before anything is built. *Published* above still
+describes 5.5.1, and stays that way until 5.6.0 is published.
+
+**Where a version number lives:**
+- **`app/build.gradle.kts`, `defaultConfig`: `versionCode` and `versionName`.** This is the only live
+  source.
+  - The dev flavour appends `-dev` (`versionNameSuffix`).
+  - Everything the app shows reads `BuildConfig.VERSION_NAME` and `BuildConfig.VERSION_CODE`: the
+    login label, the journal export's header, the welcome page, Bug report, and the update notice's
+    comparison.
+- **The tag `v5.6.0` and the release title, `Twitch Mini Chat 5.6.0`,** both at publication.
+- **`unouidol/tmc-site`, `index.html`: the three `data-tmc-version` elements, lines 65, 187 and
+  229.**
+  - On its `main` (`0fa3ec0`, read on 2026-11-13) they read 5.5.0.
+  - Its #1 (`878d841`) raises them to 5.5.1.
+  - They go to 5.6.0 at publication, by the second ruling below.
+- **The user guide, `downloads/TMC-Visual-Guide.pdf` in tmc-site.** Whether it names a version was
+  not read. It is being replaced before the release is announced (*5.6.0 in progress*, below).
+- **Not live, and left as they are:**
+  - "5.5.1" in comments: `BuildIdentity.kt`, `ChatFragment.kt` and `LatestReleaseResponse.kt`;
+  - test inputs, in the welcome page's tests and `TermsVersionTest`;
+  - the history the deletion page tells, in `data_deletion.html`.
+  They describe the past, or are fixtures, and none reads the build's version.
+
+**Federico's rulings of 2026-11-13, on the six questions this preparation raised:**
+1. **Merge first, then build from `main-v5`,** as 5.5.1 was built, so that the APK's embedded commit
+   is on the primary branch. `AGENTS.md`'s release procedure is corrected to that order, with the
+   reason beside it.
+   - The repository squash-merges, so a branch's head and its squash commit have the same tree and
+     different identifiers.
+   - A build of the branch's head would name, in `Version 5.6.0 (build 9, <commit>)`, a commit that
+     `git log main-v5` does not reach.
+   - 5.5.1's APKs report `007ee55`, #44's squash commit on `main-v5` and the commit its tag points
+     at.
+2. **The website's fallback version is raised at publication, not with `versionName`,** because a
+   merge on that site is live at once. `AGENTS.md`'s sentence is reconciled with this, with the
+   reason.
+   - **The ruling stands; its reason was not right** (2026-11-14). A merge on tmc-site did not go
+     live: see *Open after publication* above, and `AGENTS.md`.
+   - **Since 2026-11-16 its reason holds.** The site is a Cloudflare Pages project connected to
+     tmc-site, and #4's merge was live within 24 seconds: see *Open after publication* above.
+3. **The known issue about messages missing after a reconnect stays in the release notes.**
+4. **The two checks that need a second device are NOT DONE in this round.** There is no second
+   phone, and an emulator is not feasible. Each is recorded as "NOT DONE — no second device
+   available; covered by unit tests only; risk accepted by the owner". The checks are:
+   - a fresh install's first launch;
+   - the update notice against a real newer release.
+
+   The tests are named in `docs/manual-plan-5.6.0.md`, part 9. **The release is not blocked by
+   them.** Follow-up: observe the update notice on Federico's phone when the first release after
+   5.6.0 is published.
+5. **The 5.5.2 erases run on the dev debug build, never on the stable app.**
+6. **No speed figures in the release notes.**
+
+**What the release waits on, in order:**
+1. **#112** (the Pokémon Community Game statement, and §2's) merges. This branch is then brought up
+   to date with `main-v5` by a merge, never by a rewrite.
+2. **This pull request merges,** after continuous integration on its exact head: `AGENTS.md`
+   release step 3.
+3. **The signed build from `main-v5`,** on a machine with the configuration below: release steps 4
+   and 5.
+4. **The device round, `docs/manual-plan-5.6.0.md`,** on the machine that holds the phone: release
+   step 6. Its part 3, the stable flavour's chat, is BLOCKING.
+5. **Publication,** in the order below.
+
+### What only a particular machine has
+
+Neither of these is in git, and both are deliberately untracked:
+- the release signing configuration, in `local.properties`;
+- the per-flavour `google-services.json`.
+
+- **`nbpromec1`, read on 2026-11-13, with no value printed:**
+  - `local.properties` holds a non-empty value for each of `RELEASE_STORE_FILE`,
+    `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`, which
+    `app/build.gradle.kts` requires before it signs a release.
+  - The keystore file that `RELEASE_STORE_FILE` names exists.
+  - `app/src/stable/google-services.json` and `app/src/dev/google-services.json` exist, and each
+    names both packages.
+  - **Not checked:** whether that keystore holds the key whose certificate is `aca1170e…`. That
+    needs the password. Release step 5's `apksigner` check settles it on the built APK.
+- **`DESKTOP-BCT68L9`: not read.** It built the phone's latest dev builds (*Test device*).
+- **Not recorded anywhere:** which machine signed 5.5.1.
+- **The round runs on `nbpromec1`,** with the phone connected there, by Federico's instruction of
+  2026-11-13.
+
+  The checksums recorded at release step 5 are the ones published.
+
+### Publication, in order
+
+**Done on 2026-11-14,** with Federico's yes before each public step:
+- **Step 1:** done. `origin/main-v5` was at `5ae4bf2`, and the diff from it was empty.
+- **Step 2:** done. `main` of `unouidol.github.io` was moved from `bcfbe2a` to `20e40a6` without a
+  merge. Pages built `20e40a6`, and the six live pages are identical to the published files.
+- **Step 3:** done. `v5.6.0` is at `5ae4bf2`.
+- **Step 4:** done. The `SHA256SUMS.txt` published this time has LF line endings.
+- **Step 5:** merged on 2026-11-14 and not live that day. Live on 2026-11-16, once the site
+  deployed from the repository. See *Open after publication*. Until 2026-11-16 this line read
+  "merged, not live".
+- **Step 6:** merged on 2026-11-14 as `unouidol/tmc-site#3` (`679579a`), and live when read on
+  2026-11-16 and 2026-11-17. See *Open after publication*. Recorded on 2026-11-17.
+- **Step 7:** this record.
+- **Steps 8 and 9:** not done, by instruction. Until 2026-11-17 this line read "Steps 6, 8 and 9".
+
+This heading read "none of it done" until then. The list below is kept as it was written.
+
+1. **Confirm that `main-v5` holds the code the artifacts were built from** (`AGENTS.md`, step 7).
+   Under release step 4 it is the commit the build was made from, which the APK's label names.
+2. **Publish the policy pages on `unouidol/unouidol.github.io`,** immediately before the tag, as
+   *Two web copies are written and must not be published yet* says.
+   - **The pages:** `tmc/privacy.html`, `tmc/credits.html` and `tmc/data-deletion.html`,
+     regenerated from the bundled copies of the built commit, and `tmc/style.css` with them.
+   - **Compare them with `prepare/policies-5.6.0`.** On 2026-11-13 its head is `20e40a6`, which
+     carries #112's statements.
+   - **Then fetch each page back** and compare it with the copy in the APK.
+   - **This comes before the tag, although the release request lists the pages after it.**
+     `AGENTS.md` puts the web copy before the release that bundles it, never after.
+3. **Tag `v5.6.0`, annotated,** on the commit from step 1. Push it, and confirm it with
+   `git ls-remote --tags origin`.
+4. **The GitHub release, `Twitch Mini Chat 5.6.0`,** on that tag.
+   - **Body:** `docs/release-notes-5.6.0.md`, between its markers, with the checksums filled in.
+   - **Assets:**
+     - the two verified APKs, renamed to `TwitchMiniChat-Android-arm64-v8a.apk` and
+       `TwitchMiniChat-Android-armeabi-v7a.apk`;
+     - `SHA256SUMS.txt`, with LF line endings. **The published 5.5.1 file has CRLF**: 210 bytes,
+       2 lines, 2 carriage returns, downloaded on 2026-11-13. So a `sha256sum -c` on Linux fails on
+       it.
+   - **Then check it:** download both `releases/latest/download/…` URLs and hash them against the
+     recorded values and `SHA256SUMS.txt`.
+5. **The website's fallback.** tmc-site #1 (5.5.0 to 5.5.1) is Federico's to merge. Then the three
+   elements go to 5.6.0.
+6. **Replace the user guide on tmc-site** with the corrected one before the release is announced.
+7. **Record the publication here,** in *Published* and in *Test device*. This needs a commit of its
+   own after the fact.
+8. **Announce.**
+9. **Afterwards, `unouidol/ircminichat` #1,** which Federico merges once the release is out.
 
 ## 5.6.0 in progress — deletion does what it says, planned as 5.5.2
 
@@ -472,6 +796,53 @@ release is **5.6.0**, which carries everything 5.5.2 set out to do plus the chat
 
 So "5.5.2" elsewhere in this file - "the first 5.5.2 change", "the 5.5.2 device round" - names
 this work as it was planned. It reaches users as 5.6.0.
+
+**BLOCKING before the 5.6.0 release: the stable flavour's chat checks, on the release-signed
+build.** Recorded on 2026-11-09, by the owner's ruling, from 5d's device round (#97,
+`docs/manual-plan-5d-recyclerview.md`, *Recorded results*, the owner's six records). That round
+ran the dev flavour only. The phone's stable app is 5.5.1, from before 5d, so the 5.6.0 device
+round - where a release-signed stable build is installed over the published one, the release
+procedure's steps 5 and 6 - is the first and only time the stable flavour executes 5d before
+users do. Its chat checks are the gate, not a formality: launch, sign in, a page on a busy
+channel, scroll and follow, an animated emote (5d's plan, section M, *The hands-on pass*, case
+2). The release waits on them. A 5.6.0 plan written as a file of its own carries this over.
+
+**Nothing from 5d's hands-on pass of 2026-11-09 is still queued to the 5.6.0 device round as a check
+of its own**, by the owner's rulings (5d's plan, section M, cases 6 and 8;
+`docs/manual-plan-5.5.2.md`, *Which build this round applies to*):
+- **The row taller than the list (U2/U3): SUBSUMED** (2026-11-10) by the defect that the chat list
+  has no minimum height (5d's plan, *Backlog*).
+  - The device step measured lists of 200 px and 66 px in portrait, so an ordinary two-line message
+    is taller than the list there.
+  - In landscape the same defect leaves no chat at all.
+  - The harness row is cancelled.
+- **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry is cancelled** (the owner's
+  ruling, 2026-11-09). The read in 5d's plan closes that if the list is activated the dismissal
+  runs, through the list's click listener, RecyclerView's and androidx's accessibility delegates
+  and `View`'s `ACTION_CLICK`. It does not close whether TalkBack can place its focus on the empty
+  area at all. That leaves no question a user faces, and this is REASONING, not proof: a screen
+  reader moves between elements and empty space is not one, so a screen-reader user would dismiss
+  with Back.
+
+**Also before the 5.6.0 release, recorded on 2026-11-13 by Federico's rulings:**
+- **The user guide is out of date, and must be corrected before the release is announced.
+  CLOSED on 2026-11-17.** Until then this item read "OPEN".
+  - The published guide, `downloads/TMC-Visual-Guide.pdf` in `unouidol/tmc-site`, names a
+    "Video On / Off" control and an in-app mute, which #108 removed.
+  - It does not list "About TMC" or "Bug report", which #110 added.
+  - Its source is in no repository. Federico corrects it with the owner once he recovers it.
+  - **Closed by `unouidol/tmc-site#3`** (`679579a`, 2026-11-14), which replaced the guide. Its
+    text was read for the defects above on 2026-11-17, and none of them is there: see
+    *Open after publication — 5.6.0*.
+- **The Discord invite is permanent. CLOSED.** Federico confirmed it on 2026-11-13. The risk that
+  the invite compiled into the app expires (`docs/proposal-welcome-page.md`, *The risk in a
+  compiled invite*) does not apply.
+- **Two pull requests in other repositories. Federico merges them himself:**
+  - **`unouidol/tmc-site` #1, at `878d841`,** raises the website's fallback version from 5.5.0 to
+    5.5.1, the latest release. At publication the value goes to 5.6.0, as `AGENTS.md` asks.
+  - **`unouidol/ircminichat` #1, at `f4206e4`,** removes the player page's two unused mute
+    helpers. **It waits until after the 5.6.0 release.** That page is served live, and nothing
+    should change under the app while the release is being verified.
 
 **This table is a list of objectives. It records no state.** It answers *what did 5.5.2 set out
 to do*, which is now part of what 5.6.0 sets out to do; the chat work is not in it. What has
@@ -582,11 +953,53 @@ recording them both as `2026-09-26` was a record of what happened, not a rule. S
 change moved only the page it edited. Both copies of `data_deletion.html` carry `2026-09-28`, and
 both copies of `privacy.html` carry `2026-09-26`, which is what the rule actually asks.
 
+**Changed on 2026-11-12 and 2026-11-13: three pages now, and the privacy policy moves to
+`2026-11-13`.** The pull request that names GitHub and Cloudflare (#111), which follows the welcome
+page's (#110), changes three bundled pages. **Publishing all three is now one step**, replacing
+the two-page publication described below:
+
+- **`privacy.html`, now `2026-11-13`.**
+  - §3 gains a purpose: showing a stream when the user chooses to, and saying when a newer version
+    exists.
+  - §4 names GitHub, for two requests, with what each shows and what it does not. See *GitHub
+    named, and the acceptance gate raised to 3* below.
+  - §4 names Cloudflare, which carries every request between the app and the TwitchMiniChat
+    server. See *Cloudflare named, without a line on the gate* below.
+  - §4 says what happens when the user opens the Pokémon Community Game extension. See *The
+    Pokémon Community Game extension, said, without a line on the gate* below.
+  - §2 names the alert settings and Most Wanted watchlists the app uploads, and the phone's model,
+    which each registration carries. See *Section 2: what the app uploads, said, without a line on
+    the gate* below.
+- **`credits.html`** names GitHub and Cloudflare among the third-party services. Its Firebase line
+  now also names crash reporting, which 5.5.1 had added without saying so there. The page carries
+  no date.
+- **`data_deletion.html`** is unchanged, at `2026-09-28`. It describes what the four options
+  remove from the phone and from the TwitchMiniChat server. Neither GitHub nor Cloudflare stores
+  anything on the app's behalf, so there is nothing for it to say. What Cloudflare keeps of the
+  traffic it carries falls under its own policy, which §4 of the privacy policy now names.
+
+**The published copies are prepared, not published.** The derived `tmc/privacy.html`,
+`tmc/credits.html` and `tmc/data-deletion.html` are on the branch `prepare/policies-5.6.0` of
+`unouidol/unouidol.github.io`.
+
+- **Pushed on 2026-11-13,** by Federico's ruling, so the copies survive the session that wrote
+  them. Its head is `20e40a6`, four commits on that repository's `main` at `bcfbe2a`.
+  - The third carries the Pokémon Community Game statement.
+  - The fourth carries §2's new statements.
+  - Both were pushed on the same day.
+- **No pull request, no merge.** That repository's `main` is served live by GitHub Pages, so a
+  merge there is the publication, and publishing is a release step.
+- **Compared on 2026-11-13:** all six policy pages on the branch agree with their bundled copies
+  at #111's head, apart from the links and the trailing newline described below.
+
+At publication, regenerate the pages from the bundled copies anyway and compare them with the
+branch: the bundled copies are the source, and the branch is only their last derivation.
+
 **Publishing them is one step of the 5.6.0 release, immediately before the tag** - between
 step 7 (confirming `main-v5` holds the code the artifacts were built from) and step 8
-(publishing the release) of the procedure in `AGENTS.md`. **Both pages in the same publication**,
-never two publications before one tag: that is how one of them gets forgotten, and a privacy
-policy that still describes the old retention while the deletion page describes the new
+(publishing the release) of the procedure in `AGENTS.md`. **All the changed pages in the same
+publication**, never two publications before one tag: that is how one of them gets forgotten,
+and a privacy policy that still describes the old retention while the deletion page describes the new
 behaviour is the exact contradiction the two-copies rule exists to prevent.
 
 The published copies are not stored a second time in this repository, because a stored snapshot
@@ -606,9 +1019,215 @@ published files are LF with a trailing newline, which for `privacy.html` is a re
 the bundled copy has no trailing newline, and that is the difference this file has recorded
 since 5.5.1.
 
-Regenerate both at publication time, commit them as `tmc/data-deletion.html` and
-`tmc/privacy.html` in `unouidol/unouidol.github.io`, then fetch each back and compare it
-against the copy in the APK to confirm they agree apart from those links and that newline.
+Regenerate them at publication time and commit them in `unouidol/unouidol.github.io` as:
+
+- `tmc/data-deletion.html`;
+- `tmc/privacy.html`;
+- since 2026-11-12, `tmc/credits.html`;
+- since 2026-11-13, by Federico's ruling, `tmc/style.css`, copied from the bundled
+  `app/src/main/assets/policies/style.css`.
+
+Then fetch each back and compare it against the copy in the APK, to confirm they agree apart from
+those links and that newline.
+
+**`tmc/style.css` differs from the bundled copy in formatting only.**
+
+- **The measurement:** 48 lines of a `diff` differ, read on 2026-11-13: 40 only in the bundled
+  copy, 8 only in the published one, after the bundled copy's missing trailing newline is
+  supplied.
+- **What the difference is:** the rules and their values are the same. With all whitespace removed,
+  both are the same 776 characters. The published copy writes eight rules on one line each, where
+  the bundled copy spreads them over several, with blank lines between rules.
+- **What publishing changes:** a reader sees nothing different. Publishing the bundled copy with
+  the others makes the two copies identical, rather than identical in effect.
+
+#### GitHub named, and the acceptance gate raised to 3 (2026-11-12)
+
+**Two requests reach GitHub, and the policy named neither.** Federico decided on 2026-11-12 to
+name both in 5.6.0.
+
+1. **The stream player page.** It is `https://unouidol.github.io/ircminichat/player.html`, loaded
+   from GitHub Pages whenever a stream is shown, with the channel's name in its address.
+   - **This is a correction of an omission that predates this work.** The page has been loaded
+     from there since 5.4.1: releases up to `v5.4.0` contain no player, and `v5.4.1` and `v5.5.1`
+     both load it.
+   - **What it shows GitHub:**
+     - the IP address;
+     - the standard identification of the built-in browser. The session runs GeckoView in desktop
+       User-Agent mode, `GeckoSessionManager.kt:1691`;
+     - the channel name.
+2. **The version check.** This is a new request, added by the welcome page (#110). It asks
+   `releases/latest` at most once a day.
+   - **What it shows GitHub:** the IP address and the fixed User-Agent `TwitchMiniChat-Android`.
+   - **What it does not show:** anything about the phone, the account or the installation.
+
+**Neither request carries a Twitch account, a token or an identifier,** and the developer receives
+no record of either. The APK download is the user's own browser, after a tap.
+
+**The sign-in does not pass through GitHub Pages.** This was the one open question about the
+sentence "Neither request includes your Twitch account, a sign-in token…". The owner settled it on
+2026-11-13 by reading the backend's `TWITCH_REDIRECT_URI` on the production machine; this session
+did not read it. The return address is on `api.ircminichat.party`, the backend itself. The hops:
+
+1. The app opens the backend's `/oauth/start` in the browser.
+2. The user approves on `id.twitch.tv`.
+3. Twitch redirects the browser to the backend's `/oauth/callback`, with the authorisation code in
+   the address.
+4. The backend exchanges the code with Twitch, server to server.
+5. The backend returns the browser to the app with a single-use login token, valid for five
+   minutes. It does not pass on the Twitch code.
+6. The app posts that token, with its PKCE verifier, to `/oauth/finalize`.
+
+What the app itself does, read in this repository on 2026-11-13:
+
+- **What it opens:** `https://api.ircminichat.party/oauth/start`, in the browser
+  (`LoginFragment.kt`, `ACTION_VIEW`).
+- **The return address it asks for:**
+  - stable: `ircminichat://auth`;
+  - dev: `ircminichatdev://auth`.
+
+  Both come from `authScheme` in `app/build.gradle.kts` and are registered by the one intent filter
+  in `app/src/main/AndroidManifest.xml`.
+- **What it never loads:**
+  - `ircminichat`'s `docs/callback.html`, which is served at
+    `unouidol.github.io/ircminichat/callback.html` and is not on the sign-in path. It links to
+    `twitchminichat://` and `ircminichatv2://`, which this app does not register.
+  - Anything else on GitHub Pages, apart from the player page and, when the user taps the web
+    button, the policy pages under `unouidol.github.io/tmc`.
+
+So the sentence is true as written.
+
+**Decision, by the criterion of 2026-09-26 below: `CURRENT_TERMS_VERSION` goes to 3.** A new
+recipient is a material change.
+
+- **What a user sees:** every user who accepted version 2 sees the gate once on first opening
+  5.6.0, then the welcome page.
+- **How it is triggered:**
+  - `TermsPrefs.isAccepted` counts an acceptance only if it is at least the current version;
+  - `MainActivity.onResume` raises the gate for any acceptance below 3;
+  - `TermsVersionTest` pins both.
+- **What the gate itself says:** one new line, `terms_gate_github`. That is the same pattern
+  version 2 used for crash reporting: the gate states the new recipient in a sentence, and the
+  policy has the detail.
+
+#### Cloudflare named, without a line on the gate (2026-11-13)
+
+**Every request between the app and the TwitchMiniChat server passes through Cloudflare, and the
+policy did not name it.**
+
+- **Where this comes from:** the owner read it on the production machine on 2026-11-13, not this
+  session. `api.ircminichat.party` is the backend itself, published through a Cloudflare tunnel to
+  `127.0.0.1:8799`.
+  - The app names no other backend address. Every backend address in `app/src/main` is
+    `https://api.ircminichat.party`, read on 2026-11-13.
+- **What passes through it:**
+  - every request the app makes to the server, and the server's answers;
+  - the sign-in pages the browser opens there.
+
+  Chat does not: it connects to `irc.chat.twitch.tv` directly (`TwitchChatClient.kt`, `IRC_HOST`).
+- **What §4 now says:**
+  - Cloudflare publishes the server;
+  - every request between the app and the server passes through its infrastructure, and so do the
+    sign-in pages;
+  - Cloudflare therefore handles the IP address, the requests themselves and the server's
+    answers, under its own privacy policy.
+
+  It does **not** say that Cloudflare cannot read them. Cloudflare carries that traffic, so it
+  cannot be claimed that it is unable to see it.
+- **Credits** names Cloudflare as the provider that publishes the server and hosts the website
+  (Cloudflare Pages).
+
+**The gate: no further raise, and no line of its own.** By the criterion of 2026-09-26, naming
+Cloudflare is a correction, not a new recipient.
+
+- **Cloudflare was already declared.** §4 already declared "Hosting or infrastructure providers
+  used to operate the app backend", and every acceptance of version 2 covered that; Cloudflare is
+  such a provider. So the change is a provider named that the policy had declared by category.
+- **The version stays at 3.** It rises to 3 once, for GitHub, and users are asked once. Cloudflare
+  is named in the same version.
+- **Why no line on the gate:**
+  - the gate's lines state what is material since the last acceptance: crash reporting at 2,
+    GitHub at 3;
+  - a line for a clarification is what the criterion says teaches people to tap through it;
+  - the policy that names Cloudflare is one tap from the gate.
+
+#### The Pokémon Community Game extension, said, without a line on the gate (2026-11-13)
+
+**The policy never mentioned the extension, nor the Pokédex list the app sends to the server.**
+The data deletion page already said that Pokédex lists are uploaded and what deletes them. §4 of
+the privacy policy now says it too.
+
+**What the app itself sends, read in this repository on 2026-11-13:**
+
+- **The probes only read.** `app/src/main/assets/pcg_probe/` is three content scripts. They run in
+  the extension's frames on `*.ext-twitch.tv`, excluding `supervisor.ext-twitch.tv`.
+  - Their manifest asks only for native messaging to the app.
+  - They make no network request: no `fetch`, `XMLHttpRequest`, `WebSocket` or beacon.
+  - They change nothing on the page: no click, no dispatched event, no write to the page.
+  - What they read goes to the app alone, through `sendNativeMessage`: the active tab, the
+    Pokédex state, the missing spawnable Pokédex entries, the Poké Ball counts, and progress
+    messages.
+- **The app loads one page:** Twitch's own popout panel,
+  `https://www.twitch.tv/popout/<channel>/extensions/<id>/panel` (`PcgFragment.kt`).
+- **Poké Ball counts and the tab state stay on the phone.** They are kept in local stores, such
+  as `InventoryBallStore`.
+- **The missing Pokédex list leaves the phone once, and only on a tap.**
+  - It is sent when the user taps Update Pokédex, and only while that manual request is pending
+    (`GeckoSessionManager`, `consumeManualUpdateRequest`).
+  - It goes to the TwitchMiniChat server's `upload_dex_list`, under the backend session.
+  - The body holds `profile_id`, `profile_label` and `wanted_pokemon`. `profile_label` is the
+    account's Twitch username (`PcgFragment.kt`).
+  - The upload is in every release from `v5.4.1`, so it predates the acceptance of version 2.
+- **Crash reports from this code are technical only:** an install failure, a refresh failure, or
+  an upload failure with its reason or HTTP status. None carries what the probes read.
+
+**What is not known: the extension's own traffic.** It has not been observed by anyone recorded
+here, and this repository names neither the extension's operator nor its servers. The policy
+therefore names no operator and no domain. It says only that the extension communicates with its
+own operator's servers, under that operator's terms.
+
+**The gate: no further raise, and no line of its own.** By the criterion of 2026-09-26, this is a
+clarification and a correction, not a new recipient.
+
+- **No new recipient.** The operator receives nothing from TMC's own code. Its traffic is the
+  extension's, which the user chooses to open, on Twitch's extension platform, and Twitch is a
+  declared recipient.
+- **No new collection.** The Pokédex list goes to the TwitchMiniChat server, already declared, for
+  push alerts, a purpose §3 already discloses. The upload predates version 2.
+- **One nuance:** the privacy policy did not mention Twitch extensions by name before this.
+  Nothing TMC sends, though, reaches anyone the policy did not already name.
+
+#### Section 2: what the app uploads, said, without a line on the gate (2026-11-13)
+
+**§2 did not list the alert settings, the watchlists, or the phone's model in a registration.**
+The data deletion page already named the server's watchlists, and the alert settings kept on the
+phone. Federico asked on 2026-11-13 for §2 to name what is uploaded, before version 3 ships.
+
+**What is uploaded, read in this repository on 2026-11-13:**
+- **The alert settings:** `set_spawn_alert_mode` (`FcmRegistrationUploader`).
+  - **The body:** `device_id`, `device_name`, `fcm_token`, `profile_id`, `spawn_alert_mode`,
+    `event_spawn_enabled` and `enabled`.
+  - **When:** when the user changes them, and on the start-up registration pass while the server
+    has not acknowledged the current selection (`PcgProfileRegistrationSyncPlanner`). An account's
+    removal sends the disabled selection.
+- **The Most Wanted watchlist:** `set_custom_watchlist` (`PcgMostWantedSyncClient`).
+  - **The body:** `device_id`, `profile_id`, `enabled`, `pokemon` (the names picked) and
+    `catalog_version`.
+  - **When:** only on the user's Save, or when the user switches it on or off (`PcgMostWantedActivity`,
+    `PcgMostWantedToggleController`). A failed request is not retried automatically.
+- **The phone's model.** `register_fcm` and `set_spawn_alert_mode` both send `device_name`. It is
+  `Build.MANUFACTURER` and `Build.MODEL`, then this installation's device identifier in brackets
+  (`buildDeviceName`).
+  - §2 already declared "app/device registration identifiers", which covers the identifier.
+  - It did not name the model.
+
+**The gate: no further raise, and no line of its own.** By the criterion of 2026-09-26, this is a
+correction, not a new collection.
+- `v5.4.1`, `v5.5.0` and `v5.5.1` all send the three: `set_custom_watchlist`,
+  `set_spawn_alert_mode` and `Build.MODEL` are in each tag's tree.
+- So every acceptance of version 2 was made while they were already sent.
+- **The recipient** is the TwitchMiniChat server, which is declared.
+- **The purpose** is push alerts, which §3 discloses.
 
 #### What the privacy policy changed, and why the acceptance gate was not raised
 
@@ -831,37 +1450,110 @@ and succeeds with it, so flight mode is a valid way to produce the token debt. A
 prints no timestamps - the authoritative time of a registry change is `updated_at` in
 `registered_devices.json`.
 
+## Branches: one that must be kept, one that only looks unfinished
+
+Two facts that a list of branches does not show, recorded on 2026-11-10 by the owner's ruling.
+
+- **On `origin`, `experiment/startup-5d-treatment-measurement` is the only ref that reaches
+  `a2f12f1`,** the after build of *Closing start-up measurement of the conversion*. Do not delete or
+  rewrite it while that record cites the commit.
+  - **Read on 2026-11-10:** `git for-each-ref --contains a2f12f1`, over local branches, remote-tracking
+    branches and tags, lists `refs/remotes/origin/experiment/startup-5d-treatment-measurement` and
+    nothing else. On `origin` that branch's tip is `a2f12f1` itself. No tag on `origin` contains it:
+    the two not fetched into this clone, `c1380af`'s and `d56812b`'s, were compared through GitHub's
+    API and have diverged from it. No pull request was opened from the branch.
+  - **The local branch of the same name in the clone on `DESKTOP-BCT68L9` does not reach it.** It is
+    at `888489a`, three commits behind, so a forced push from it would drop `a2f12f1` from `origin`.
+- **`work/fix-mojibake-fe1638f` is empty. No mojibake work is waiting on it.** It exists only in the
+  clone on `DESKTOP-BCT68L9`.
+  - It sits at `cd441e1`, #73's squash commit on `main-v5`, which is also its merge-base with
+    `main-v5`. Its diff against that merge-base is empty, and `origin/main-v5..` lists no commit.
+  - Its reflog holds one entry, its creation from `cd441e1` on 2026-10-06. Nothing has been committed
+    on it since.
+  - It is not on `origin` and is not pushed: pushing an empty branch insures nothing.
+  - Whether to delete it locally is Federico's housekeeping.
+
 ## Test device
 
-**Stale, marked 2026-11-02:** the dev row below no longer describes the phone. A device round is in
-progress on `feature/5d-recyclerview-timeline`, and its builds replace the dev app until it ends.
-Each one installed is recorded in that branch's `docs/manual-plan-5d-recyclerview.md`, *Recorded
-results*, and none gets a device-test tag: a tag names a tested build, and nothing is tested until
-the round ends. Refreshing this needs the round's end: the build it leaves on the phone, read back
-from the phone as the table below was read, with its tag.
+**Refreshed on 2026-11-14, at the end of the 5.6.0 device round** (`docs/manual-plan-5.6.0.md`,
+part 10). Read from the device over adb, on the OnePlus AC2003 (Android 12, API 31). The version
+and build number are what the phone's package manager reports. The sha256 was read on the phone
+with `sha256sum` on the path `pm path` gives.
 
-**Read from the device on 2026-10-23,** over adb, from a OnePlus AC2003 on Android 12 (API 31).
-Each commit below was read from the APK installed on the phone, pulled back off it, with the
-build identity read from its code; the version and build number are what the phone's package
-manager reports.
+| App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
+|---|---|---|---|---|---|
+| Stable | `com.fs.twitchminichat` | 5.6.0 (9) | `5ae4bf2`, tag `v5.6.0` | `fd06d29e470337465f964841cce8f58551fe1497a45792daa5a8e4fbf0745ff3` | 2026-11-13 17:44 |
+| Dev | `com.fs.twitchminichat.dev` | 5.6.0-dev (9) | `5ae4bf2` | `a754cf4f8c834fa9ba914ef01876fcb12b98a2ff9424c5a10187e8ce3ba9eeb2` | 2026-11-13 18:44 |
+
+- **The stable app is the published 5.6.0.** Its sha256 is the arm64 checksum under *Published*. It
+  was installed with `adb install -r` over the published 5.5.1 and updated it in place. Its login
+  screen read `Version 5.6.0 (build 9, 5ae4bf2)`.
+- **The dev app is the round's D:** the dev debug build from `main-v5` at `5ae4bf2`, built on
+  `nbpromec1` with a clean tree. It was installed with `adb install -r` over the dev app. Its label
+  read `5.6.0-dev build 9 5ae4bf2`. No `device-test/` tag: its commit is on `main-v5`.
+- **"Disable permission monitoring" was switched OFF** by Federico at the end of the round, on
+  2026-11-14. He switched it on again the same day for the 6.3 redo with `uiautomator dump`. **Its
+  state since then was not read.**
+
+**Until 2026-11-14 this section read as follows, refreshed on 2026-11-12, at the end of #108's
+device step.** The dev row below is the build that step left on the phone: #108's head, NOT
+MERGED.
+
+**Read from the device over adb,** from a OnePlus AC2003 on Android 12 (API 31): the Stable row on
+2026-10-23, and its sha256 and last update again on 2026-11-12, unchanged; the Dev row on
+2026-11-12. The version and build number are what the phone's package manager reports.
+- **The Stable row's commit** was read from the APK installed on the phone, pulled back off it,
+  with the build identity read from its code.
+- **The Dev row's sha256** was read on the phone after the install, with `sha256sum` on the path
+  `pm path` gives. It is the sha256 of the APK built on `DESKTOP-BCT68L9` from `6066f79` with a
+  clean tree, whose `BuildConfig.GIT_SHA` is `6066f79`, with no `+`. That APK was installed with
+  `adb install -r` over the dev app only, at 11:51:03.
 
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.5.1 (8) | `007ee55` | `bf6c22c21f4f5d0b2a49cb2e5406659141cf0e87eb917183db692af67965aaf8` | 2026-09-18 14:08 |
-| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `d56812b`, tag `device-test/5.5.1-dev-8-d56812b`, #89 | `8519b89435331cb920c7852972ad9e0fba866f1bd8c958b3c82fc5582aa5e6ce` | 2026-10-23 09:23 |
+| Dev | `com.fs.twitchminichat.dev` | 5.5.1-dev (8) | `6066f79`, tag `device-test/5.5.1-dev-8-6066f79`, #108 | `47a494cd1016948bc38190b9387bdbc32001938d7ff50def9fa20b54fc2a8376` | 2026-11-12 11:51 |
 
 - **The stable app is the published 5.5.1.** Its APK's sha256 is the arm64 checksum recorded
   under *Published* above, as listed in the release's `SHA256SUMS.txt`, and its code carries
   `007ee55`, the commit `v5.5.1` points at.
-- **The dev app is #89 as it was tested on the device, at `d56812b`:** the build its last harness
-  run ran on, which reported `d56812b` itself at run time. The round's manual checks and its
-  background measurement ran on `ef95c63`, whose production code `d56812b` shares: `git diff
-  ef95c63 d56812b -- app/src/main gradle build.gradle.kts settings.gradle.kts gradle.properties
-  app/build.gradle.kts` prints nothing. Before #89 it was #86's `c1380af`, sha256 `c4cc57f8…`,
-  read from its APK on 2026-10-21 before it was replaced.
-- **Not read: the login screen's line and a journal export's `# app` line,** the two places this
-  section otherwise reads a build from. Both need the app operated by hand. #86's first manual
-  check reads the dev app's login screen.
+- **The dev app is #108's head, NOT MERGED** (`docs/manual-plan-5d-recyclerview.md`,
+  *Recorded results*, 2026-11-12, #108's device step).
+  - **Its chat page differs from `main-v5`:**
+    - the app's mute button and its row are gone;
+    - the status line sits between the channel bar and the buttons row;
+    - the stream starts with sound;
+    - the stream button reads SHOW STREAM / HIDE STREAM.
+  - **A check of the chat page on this build is a check of #108, not of `main-v5`,** until #108
+    merges.
+  - The tag was pushed and confirmed with `git ls-remote --tags origin` before this record was
+    written.
+  - **The login screen read `Version 5.5.1-dev (build 8, 6066f79)`,** on screen at 11:53. That
+    screenshot was overwritten by the next one, so the reading is not kept.
+- **What it replaced:** the 5d layout prototype, variant B, `059bc7b`, sha256 `ad35916f…`, tag
+  `device-test/5.5.1-dev-8-059bc7b`, branch `prototype/5d-layout-b`, with no pull request.
+  - Its APK was pulled off the phone before the install, checked against the phone's sha256, and is
+    kept on `DESKTOP-BCT68L9`, in the step's folder.
+- **Before the prototype:** #97's `00c1e78`, sha256 `ba1f88e3…`, tag
+  `device-test/5.5.1-dev-8-00c1e78`. The long session `L5D2` and the hands-on pass ran on it.
+  - Its APK was pulled off the phone before the prototype's install, checked against the phone's
+    sha256, and is kept on `nbpromec1`, in that step's folder.
+  - **#97 merged as `5238077`** from its head `a193a50`. Under `app/src/main`, that head differs from
+    `00c1e78` only by the comment at the `ClickableViewAccessibility` suppression: 7 lines, changed
+    in place.
+  - **Its tag was pushed on 2026-11-09 after #97 merged,** not before, as this section asks. The
+    branch is kept, so it still reaches the commit.
+    - **The owner accepted the deviation as recorded, on 2026-11-10.** The rule's purpose, that the
+      tested commit stays findable, is met, because the kept branch reaches it.
+    - **The rule's wording below is left as it is.** Whether to relax it is deferred, not settled.
+  - **Before `00c1e78`,** the phone held the round's control measurement build, `dea38cc`, sha256
+    `d005e901…`. Before the round, it held #89's `d56812b`, sha256 `8519b894…`, tag
+    `device-test/5.5.1-dev-8-d56812b`.
+- **"Disable permission monitoring" is confirmed OFF,** on 2026-11-12 at 11:45:35. After Federico
+  switched it off and restarted the phone, a same-value write (`wm density 382`) was refused with
+  `SecurityException: Must hold permission android.permission.WRITE_SECURE_SETTINGS`. It had been
+  on since the prototype's step of 2026-11-11.
+- **Not read: a journal export's `# app` line.** It needs the app operated by hand.
 
 This section had been marked stale on 2026-10-15: builds had been installed since its previous
 reading and none was recorded. That reading, from the journal export of 2026-09-14, found

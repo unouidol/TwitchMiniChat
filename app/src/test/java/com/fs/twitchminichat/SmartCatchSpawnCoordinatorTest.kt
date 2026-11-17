@@ -226,34 +226,88 @@ class SmartCatchSpawnCoordinatorTest {
         assertEquals(1_000_000L, acceptedHarness.stored?.seenAtMs)
     }
 
+    @Test
+    fun expiredSpawnIsRejectedWithoutResolvingTheName() {
+        val harness = Harness(nowMs = 1_090_001L, resolve = resolveMustNotBeCalled)
+
+        val result = harness.coordinator.ingestIrcMessage(
+            user = "pokemoncommunitygame",
+            message = "A wild Cacnea appears!",
+            messageTimestampSec = 1_000.0
+        )
+
+        assertEquals(SmartCatchSpawnIngestionOutcome.IGNORED_EXPIRED, result.outcome)
+        assertEquals(SmartCatchSpawnSource.IRC, result.source)
+        assertEquals(0, harness.writeCount)
+    }
+
+    @Test
+    fun spawnDatedBeyondTheClockSkewIsRejectedWithoutResolvingTheName() {
+        val harness = Harness(nowMs = 1_000_000L, resolve = resolveMustNotBeCalled)
+
+        val result = harness.coordinator.ingestIrcMessage(
+            user = "pokemoncommunitygame",
+            message = "A wild Cacnea appears!",
+            messageTimestampSec = 1_005.001
+        )
+
+        assertEquals(SmartCatchSpawnIngestionOutcome.IGNORED_FUTURE, result.outcome)
+        assertEquals(0, harness.writeCount)
+    }
+
+    @Test
+    fun spawnInsideTheWindowIsResolvedAndDecidedAsBefore() {
+        // The window's two edges: exactly 90 s old, and exactly the allowed skew ahead.
+        for (timestampSec in listOf(1_000.0, 1_095.0)) {
+            val harness = Harness(nowMs = 1_090_000L)
+
+            val result = harness.coordinator.ingestIrcMessage(
+                user = "pokemoncommunitygame",
+                message = "A wild Cacnea appears!",
+                messageTimestampSec = timestampSec
+            )
+
+            assertEquals(1, harness.resolveCount)
+            assertEquals(SmartCatchSpawnIngestionOutcome.STORED, result.outcome)
+            assertEquals("cacnea", harness.stored?.dexKey)
+        }
+    }
+
+    @Test
+    fun nameWithoutIdentityOfItsOwnIsStillResolvedBeforeTheWindowVerdict() {
+        val unresolved = Harness(nowMs = 1_100_001L, resolve = { null })
+
+        val notSpawn = unresolved.coordinator.ingestFcmPayload(
+            data = mapOf("pokemon" to "???"),
+            messageSentAtMs = 1_000_000L
+        )
+
+        assertEquals(1, unresolved.resolveCount)
+        assertEquals(SmartCatchSpawnIngestionOutcome.IGNORED_NOT_SPAWN, notSpawn.outcome)
+
+        val resolved = Harness(nowMs = 1_100_001L, resolve = { cacneaOrNull("Cacnea") })
+
+        val expired = resolved.coordinator.ingestFcmPayload(
+            data = mapOf("pokemon" to "???"),
+            messageSentAtMs = 1_000_000L
+        )
+
+        assertEquals(1, resolved.resolveCount)
+        assertEquals(SmartCatchSpawnIngestionOutcome.IGNORED_EXPIRED, expired.outcome)
+    }
+
     private class Harness(
-        var nowMs: Long
+        var nowMs: Long,
+        private val resolve: (String) -> PokemonTypeEntry? = { rawName -> cacneaOrNull(rawName) }
     ) {
         var stored: SpawnSnapshot? = null
         var writeCount: Int = 0
+        var resolveCount: Int = 0
 
         val coordinator = SmartCatchSpawnCoordinator(
             resolvePokemon = { rawName ->
-                if (rawName.equals("Cacnea", ignoreCase = true)) {
-                    PokemonTypeEntry(
-                        sourceKey = "cacnea",
-                        displayName = "Cacnea",
-                        pcgName = "Cacnea",
-                        tier = PcgPokemonTier.C,
-                        type1 = "Grass",
-                        type2 = null,
-                        weightKg = 51.3,
-                        baseSpeed = 35,
-                        baseHp = 50,
-                        evolvesTwice = false,
-                        aliases = listOf("Cacnea"),
-                        mappingKind = "exact",
-                        locked = false,
-                        featured = false
-                    )
-                } else {
-                    null
-                }
+                resolveCount += 1
+                resolve(rawName)
             },
             loadCurrentSpawn = { stored },
             saveCurrentSpawn = { snapshot ->
@@ -265,6 +319,31 @@ class SmartCatchSpawnCoordinatorTest {
     }
 
     private companion object {
+        /** Fails the test that installs it if the coordinator resolves a name. */
+        val resolveMustNotBeCalled: (String) -> PokemonTypeEntry? = { rawName ->
+            throw AssertionError("resolvePokemon must not be called; it was, for $rawName")
+        }
+
+        fun cacneaOrNull(rawName: String): PokemonTypeEntry? {
+            if (!rawName.equals("Cacnea", ignoreCase = true)) return null
+            return PokemonTypeEntry(
+                sourceKey = "cacnea",
+                displayName = "Cacnea",
+                pcgName = "Cacnea",
+                tier = PcgPokemonTier.C,
+                type1 = "Grass",
+                type2 = null,
+                weightKg = 51.3,
+                baseSpeed = 35,
+                baseHp = 50,
+                evolvesTwice = false,
+                aliases = listOf("Cacnea"),
+                mappingKind = "exact",
+                locked = false,
+                featured = false
+            )
+        }
+
         fun snapshot(
             rawName: String,
             seenAtMs: Long

@@ -106,5 +106,29 @@
             android:layout_marginTop="8dp"
             android:text="@string/credits" />
 
+        <!--
+            The "about" group, last and away from Report & Block. That entry reports a chat
+            message, and Bug report beside it would be easy to tap for it.
+        -->
+        <Button
+            android:id="@+id/btnAboutTmc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:contentDescription="@string/about_tmc"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:text="@string/about_tmc" />
+
+        <Button
+            android:id="@+id/btnBugReport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:contentDescription="@string/bug_report"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:text="@string/bug_report" />
+
     </LinearLayout>
 </ScrollView>

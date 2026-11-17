@@ -1,6 +1,8 @@
 package com.fs.twitchminichat
 
+import com.fs.twitchminichat.welcome.WelcomePrefs
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -74,5 +76,19 @@ class LocalDataCleanerKeepAccountsTest {
             ),
             kept
         )
+    }
+
+    /**
+     * Both resets erase the welcome page's state. The full erase spares nothing, and this
+     * one spares only the exclusions, which must not grow to include it. After either, the
+     * page shows as on a first launch.
+     */
+    @Test
+    fun keepAccounts_erasesTheWelcomePageState() {
+        val kept = LocalDataCleaner.keepAccountsExclusions(
+            setOf(AccountRepository.LEGACY_PREFERENCES_NAME)
+        )
+
+        assertFalse(WelcomePrefs.PREFERENCES_NAME in kept)
     }
 }

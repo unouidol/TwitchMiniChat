@@ -22,6 +22,9 @@ import androidx.viewpager2.widget.ViewPager2
 import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 import com.google.firebase.messaging.FirebaseMessaging
 import com.fs.twitchminichat.ui.input.PagerKeyboardDismissController
+import com.fs.twitchminichat.welcome.WelcomeCoordinator
+import com.fs.twitchminichat.welcome.WelcomePolicy
+import com.fs.twitchminichat.welcome.WelcomeStartGate
 
 
 class MainActivity : AppCompatActivity(), CurrentChatPageSource {
@@ -56,6 +59,12 @@ class MainActivity : AppCompatActivity(), CurrentChatPageSource {
 
     /** The acceptance gate, while it is on screen. Owned here so there is only one. */
     private var termsGateDialog: AlertDialog? = null
+
+    /**
+     * Whether this start still owes its welcome decision. It is set in [onCreate] and
+     * claimed after the terms are accepted.
+     */
+    private var welcomeStartGate = WelcomeStartGate(pending = false)
 
     private var pagerKeyboardDismissController: PagerKeyboardDismissController? = null
     private var pagerKeyboardDismissCallback: ViewPager2.OnPageChangeCallback? = null
@@ -100,6 +109,14 @@ class MainActivity : AppCompatActivity(), CurrentChatPageSource {
         if (savedInstanceState == null && !openedFromIntent) {
             openSingleAccountOnStartupIfPossible()
         }
+
+        welcomeStartGate = WelcomeStartGate(
+            pending = WelcomePolicy.decidesAtThisStart(
+                // onSaveInstanceState always writes the flag, so a recreation always has it.
+                savedPending = savedInstanceState?.getBoolean(STATE_WELCOME_PENDING),
+                openedToAnAccount = openedFromIntent
+            )
+        )
 
         RemoteDeletionChecker.checkOnceOnAppOpen(
             context = this,
@@ -313,6 +330,9 @@ class MainActivity : AppCompatActivity(), CurrentChatPageSource {
         const val EXTRA_NEW_ACCOUNT_ID = "new_account_id"
         const val EXTRA_TARGET_PROFILE_ID = "target_profile_id"
         const val EXTRA_PROFILE_ID = "profile_id"
+
+        /** Saved state: whether this start still owes its welcome decision. */
+        private const val STATE_WELCOME_PENDING = "welcome_decision_pending"
     }
 
     fun openAccount(accountId: String) {
@@ -344,7 +364,21 @@ class MainActivity : AppCompatActivity(), CurrentChatPageSource {
      */
     override fun onResume() {
         super.onResume()
-        requireTermsAccepted()
+        /*
+         * The welcome page follows the terms gate. On a first launch it appears after
+         * Accept; when the terms are already accepted, at once. Later resumes find the
+         * decision claimed and do nothing.
+         */
+        requireTermsAccepted {
+            if (welcomeStartGate.claim()) {
+                WelcomeCoordinator.runStartDecision(this)
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_WELCOME_PENDING, welcomeStartGate.pending)
     }
 
     /**

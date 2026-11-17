@@ -42,22 +42,17 @@ interface ChatTimelineViews<V> {
     fun rebind(index: Int, row: ChatTimelineRow, change: ChatTimelineChange)
 }
 
-/** A row's view that can show a changed row in place, without being rebuilt. */
-interface RebindableTimelineView {
-
-    /** Shows [row], applying only what [change] names. */
-    fun rebind(row: ChatTimelineRow, change: ChatTimelineChange)
-}
-
-/** What changed in a row that is rebound in place: the payload of [ChatTimelineViews.rebind]. */
-enum class ChatTimelineChange {
-    /** A pending echo's status, and with it its status line and opacity. */
-    ECHO_STATUS
-}
-
 /**
  * Keeps a timeline's views in the order of its rows: every change goes to the
  * [timeline] first, and the [views] follow it at the index it gives. Main thread.
+ *
+ * The sync the page used before 5d, which kept a view for every row in a container. The app no
+ * longer uses it: since 5d the page's list is fed by [ChatTimelineListSync]. It lives here, with
+ * the unit tests, as the reference ChatTimelineListSyncDifferentialTest checks that sync against,
+ * and it is itself checked, on every operation, against its transcription at 4850a83
+ * (ChatTimelineViewSyncShownRowsDifferentialTest). It shares its deciders with the list sync, so
+ * that chain holds only where the transcription's test exercises them; the two it once missed are
+ * pinned there by cases of their own.
  *
  * Nothing else may add or remove a view, so the view at an index is always the view of
  * the row at that index, and a view is found again by its index alone.

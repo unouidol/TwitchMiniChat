@@ -23,6 +23,33 @@ the anchor to protect, and it is not a constraint on anything any more.
 build**, because the chat work changes the application in between. The two runs under *Status*
 are results for the code they were made against, not for 5.6.0.
 
+**When it is re-run for 5.6.0, the stable flavour's chat checks are part of it, and BLOCKING**
+(2026-11-09, by the owner's ruling). This round, and every chat round, ran the dev flavour. The
+5.6.0 round installs a release-signed stable build over the published one; the phone's stable app
+is 5.5.1, from before 5d, so that is the first and only time the stable flavour executes the chat
+work before users do. The checks are in `docs/manual-plan-5d-recyclerview.md`, section M, *The
+hands-on pass*, case 2; `RELEASE-STATE.md` records the same gate under *5.6.0 in progress*.
+
+**Nothing from 5d's hands-on pass of 2026-11-09 is still queued to the 5.6.0 re-run as a check of
+its own**, by the owner's rulings. Case 6's tall row (section M) is subsumed, and case 8 is closed:
+- **The row taller than the list (U2/U3): SUBSUMED, not a separate check** (2026-11-10).
+  - It is subsumed by the defect that the chat list has no minimum height (5d's plan, *Backlog*),
+    and the case goes with it.
+  - The device step measured the list at 200 px with the stream and the picker open, and at 66 px
+    with the stream on and the keyboard up, both in portrait. An ordinary two-line message is
+    taller than that.
+  - The harness row is cancelled, and nothing is sent to any channel. Whether a tall row should show
+    its top rather than its bottom stays open, attached to that defect.
+- **Case 8, TalkBack: CLOSED BY READING, not forgotten; its retry here is cancelled** (the owner's
+  ruling, 2026-11-09). The read, traced in 5d's plan (*Recorded results*), closes that if the list
+  is activated the dismissal runs: `setOnClickListener` makes the list clickable, so it offers
+  `ACTION_CLICK`, and RecyclerView's delegate, `AccessibilityDelegateCompat` and the platform
+  delegate hand that to `View`, whose `ACTION_CLICK` calls `performClick` and so
+  `clearChannelFocusClickListener`. It does not close whether TalkBack can place its focus on the
+  empty area at all. That leaves no question a user faces, and this is REASONING, not proof: a
+  screen reader moves between elements and empty space is not one, so the gesture is probably not
+  a screen-reader user's, who would dismiss with Back.
+
 While the anchor stood, a build was matched to the round like this:
 
 | | |

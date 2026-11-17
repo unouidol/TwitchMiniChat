@@ -29,15 +29,19 @@ sealed interface ShownRowsUpdate {
 }
 
 /**
- * Translates between a row's index in the timeline and its position among the shown rows,
- * and says what each change of the timeline does to the list of shown rows. Pure.
+ * Translates a row's index in the timeline into its position among the shown rows, and says
+ * what each change of the timeline does to the list of shown rows. Pure.
  *
  * Which rows are shown is [ChatTimelineVisibility] over the rows and the hidden users. The
- * translations take `hiddenRowCount`, how many of the rows are not shown, which the caller
+ * translation takes `hiddenRowCount`, how many of the rows are not shown, which the caller
  * keeps as rows come and go. With no row hidden - no user hidden, or only users with no row
- * in the timeline - a row's position is its index, and nothing is counted. Otherwise a
+ * in the timeline - a row's position is its index, and nothing is counted. Otherwise the
  * translation counts the shown rows from whichever end of the timeline is nearer, so a row
  * at either end, as an appended message is, costs a read or two.
+ *
+ * The way back, from a position to a timeline index, is not here: a list holding only the
+ * shown rows never needs it. It is in the unit tests, with ChatTimelineViewSync, the sync from
+ * before 5d that kept a view for every row and placed each at its timeline index.
  */
 object ChatTimelineShownRows {
 
@@ -60,33 +64,6 @@ object ChatTimelineShownRows {
         return rows.size - hiddenRowCount - 1 - shownAfter
     }
 
-    /**
-     * The timeline index of the row at [position] among the shown rows. [hiddenRowCount] must
-     * be how many of [rows] are not shown.
-     */
-    fun timelineIndexOf(rows: List<ChatTimelineRow>, hiddenUsers: Set<String>, hiddenRowCount: Int, position: Int): Int {
-        val shownCount = rows.size - hiddenRowCount
-        if (position !in 0 until shownCount) throw IndexOutOfBoundsException("position $position of $shownCount shown rows")
-        if (hiddenRowCount == 0) return position
-
-        val isShownAt = { index: Int -> ChatTimelineVisibility.isShown(rows[index], hiddenUsers) }
-        val fromEnd = shownCount - 1 - position
-        if (position < fromEnd) return timelineIndexOf(rows.size, position, isShownAt)
-
-        /*
-         * Nearer the end, or as near: the shown row that many shown rows before the last. The
-         * last shown position, where an appended row lands, is always counted from the end,
-         * in one read, however many rows before it are hidden.
-         */
-        var seen = 0
-        for (index in rows.size - 1 downTo 0) {
-            if (!isShownAt(index)) continue
-            if (seen == fromEnd) return index
-            seen++
-        }
-        throw IndexOutOfBoundsException("position $position of $shownCount shown rows")
-    }
-
     /** How many rows before [timelineIndex] are shown, as [isShownAt] says of each index. */
     fun positionOf(timelineIndex: Int, isShownAt: (Int) -> Boolean): Int {
         var position = 0
@@ -94,17 +71,6 @@ object ChatTimelineShownRows {
             if (isShownAt(index)) position++
         }
         return position
-    }
-
-    /** The index, among [size] rows, of the one at [position] among those [isShownAt] says are shown. */
-    fun timelineIndexOf(size: Int, position: Int, isShownAt: (Int) -> Boolean): Int {
-        var seen = 0
-        for (index in 0 until size) {
-            if (!isShownAt(index)) continue
-            if (seen == position) return index
-            seen++
-        }
-        throw IndexOutOfBoundsException("position $position of $seen shown rows")
     }
 
     /**

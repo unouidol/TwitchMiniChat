@@ -9,10 +9,9 @@
     <string name="hint_channel_name">Type Channel Name here</string>
     <string name="refresh_chat">Refresh chat</string>
     <string name="chat_messages">Chat messages</string>
-    <string name="stream_off">Video ON</string>
-    <string name="stream_on">Video OFF</string>
-    <string name="mute">Mute</string>
-    <string name="unmute">Unmute</string>
+    <!-- The stream button: it shows and hides the player's frame, which does not autoplay. -->
+    <string name="stream_show">Show stream</string>
+    <string name="stream_hide">Hide stream</string>
     <string name="stream_player">Stream player</string>
     <string name="account_not_found">Account not found</string>
     <string name="status_connecting">Connecting as @%1$s on #%2$s…</string>
@@ -22,7 +21,6 @@
     <string name="status_backend_session_reauthorize">Session expired for @%1$s. Return to Accounts and tap Refresh to reauthorize.</string>
     <string name="status_backend_auth_failed">Could not authenticate @%1$s. Check the connection or reauthorize the account manually.</string>
     <string name="status_read_error">Read error: %1$s</string>
-    <string name="status_send_error">Send error: %1$s</string>
     <string name="status_disconnected_account">Disconnected (@%1$s)</string>
     <string name="delete_account">Delete account</string>
     <string name="reauthorize_account">Reauthorize account</string>
@@ -208,6 +206,7 @@
     <string name="terms_gate_decline">Decline and close</string>
     <string name="terms_gate_accept_checkbox">I have read and agree to the Terms of Use and Privacy Policy.</string>
     <string name="terms_gate_crash_reporting">To find and fix problems, TMC sends anonymous crash and error reports: device model, Android version, app version and a technical stack trace. They never include your Twitch account, channels or chat messages. You can turn this off at any time in Safety &amp; Privacy.</string>
+    <string name="terms_gate_github">TMC loads its stream player page from GitHub, and at most once a day asks GitHub whether a newer version exists. GitHub sees your IP address, and for the player the channel you open, but never your Twitch account.</string>
 
     <string name="blocked_users_title">Blocked users</string>
     <string name="blocked_users_subtitle">Users hidden in this app can be restored here.</string>
@@ -572,4 +571,39 @@
 
     <!-- Login screen footer -->
     <string name="app_version_label">Version %1$s (build %2$d, %3$s)</string>
+
+    <!--
+        The welcome page (WelcomeDialogFragment) and the Bug report page. Every title is
+        formatted with the installed version; only welcome_title_updated shows it. The
+        update notice names the new version and nothing else: no countdown and no urgency,
+        because alerts inform and the user decides.
+    -->
+    <string name="about_tmc">About TMC</string>
+    <string name="welcome_title_first_launch">Welcome to Twitch Mini Chat</string>
+    <string name="welcome_title_updated">Welcome to Twitch Mini Chat %1$s</string>
+    <string name="welcome_title_update_available">Update available</string>
+    <string name="welcome_update_notice">Twitch Mini Chat %1$s is available.</string>
+    <string name="welcome_download">Download update</string>
+    <string name="welcome_download_description">Download Twitch Mini Chat %1$s in your browser</string>
+    <string name="welcome_version_latest">You have version %1$s. No newer version was found at the last check.</string>
+    <string name="welcome_version_installed">You have version %1$s.</string>
+    <string name="welcome_discord_intro">Join the TMC community on Discord for news, help and feedback.</string>
+    <string name="welcome_discord">Join Discord</string>
+    <string name="welcome_discord_description">Open the TMC Discord server</string>
+    <string name="welcome_bug_report">Found a bug or a problem? Report it on Discord, in the #%1$s channel.</string>
+    <string name="welcome_kofi_intro">TMC is free. If you would like to support its development, you can do so on Ko-fi.</string>
+    <string name="welcome_kofi">Support TMC on Ko-fi</string>
+    <string name="welcome_kofi_description">Open the TMC page on Ko-fi</string>
+    <string name="welcome_where_again">You can open this page again from Safety &amp; Privacy, under About TMC.</string>
+    <string name="welcome_continue">Continue</string>
+    <string name="welcome_not_now">Not now</string>
+    <string name="welcome_close">Close</string>
+    <string name="project_link_no_app">No app on this phone can open this link.</string>
+
+    <string name="bug_report">Bug report</string>
+    <string name="bug_report_where">Bugs and problems are reported on the TMC Discord server, in the #%1$s channel.</string>
+    <string name="bug_report_include">Describe what you did, what you expected, and what happened instead. Include your phone model and Android version, and a screenshot if you can.</string>
+    <string name="bug_report_diagnostics">If more detail is needed, you may be asked there for a diagnostics file.</string>
+    <string name="bug_report_never_share">Never share your Twitch password or a sign-in code.</string>
+    <string name="bug_report_open_discord">Open Discord</string>
 </resources>

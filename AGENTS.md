@@ -91,6 +91,13 @@ Each entry is something git, the GitHub command-line interface (`gh`), GitHub it
 - **Why one command:** the check exists because a repository's configuration can make git run programs, so an exception declares that directory's owner trusted, and git's suggestion writes it into the global configuration, where it holds for every later command on that machine. That much is git's documentation, not observed. The global configuration is outside this repository, where an edit cannot be reviewed in a diff or undone with `git checkout`: the reason given above for untracked local configuration. Reading a worktree's state needs that trust for one command, and a `-c` override is documented to end with the command.
 - **Observed first-hand** on nbpromec1 on 2026-10-20, with git 2.45.1, on a worktree whose `.git` was owned by `BUILTIN/Administrators`: the refusal and its message, `git worktree list` still listing the worktree, and the one-command override reading it.
 
+**`git diff --quiet` reports no difference for a path that is in neither tree, so a comparison on a wrong path passes.**
+
+- **Symptom:** `git diff --quiet <a> <b> -- <path>` exits 0, the answer for "identical", when `<path>` exists at neither commit. It prints nothing on stdout or stderr, and `git diff --stat` prints nothing either. Nothing fails: a mistyped path compares nothing and reads as a match.
+- **How to recognise it:** only by checking the path itself. `git rev-parse -q --verify <rev>:<path>` prints nothing and exits 1 for a path missing at `<rev>`. The command itself works: on a file that does differ, `git diff --quiet` exits 1. What was never compared is the path.
+- **What worked:** compare blobs instead. `git rev-parse -q --verify <a>:<path>` and `git rev-parse -q --verify <b>:<path>` must each print an object name, and the two must be equal. A path missing on either side then prints nothing and fails the comparison, instead of passing it. All four comparisons of the occasion below were rerun that way.
+- **Observed first-hand** on nbpromec1 on 2026-11-06, with git 2.45.1.windows.1. Four files were compared between `main-v5` and a feature branch with `git diff --quiet`, one of them given without its `chat/` directory, and all four read identical. Rerun by blob, with each path checked to exist, the four matched. The same command on the wrong path, run again that day, exited 0 with nothing on stderr; on a file that differs, it exited 1.
+
 **`gh pr merge --delete-branch` deletes the local branch too, not only the remote one.**
 
 - **Symptom:** when the merge returns, the pull request's branch is gone from the clone as well as from GitHub. Nothing fails, so nothing stops you: the option reaches further than its name says, and in the non-interactive shell it was run from, gh printed nothing at all.
@@ -134,11 +141,13 @@ On Linux or in GitHub Actions, use `./gradlew` with the same tasks.
 
 Device-dependent behavior cannot be proven by local unit tests. Changes involving GeckoView, OAuth callbacks, Firebase Cloud Messaging, the software keyboard, external links, notifications, or layout behavior also require a short manual test plan and Logcat tags or observable results in the pull request.
 
+**Never screenshot the accounts page of the stable app** (owner's ruling, 2026-11-14). The accounts page is the page that lists the signed-in accounts. When a screenshot of it is needed, for a test, the user guide or a report, take it on the dev app ("TwitchMiniChat Dev") only. The stable app on the test phone holds accounts that must not be made public, and a dialog over that page does not make a screenshot of it safe to publish.
+
 **Every claim states its provenance.** Say whether something was executed or reasoned about statically, and never let the two read alike. A Gradle task reported as `UP-TO-DATE` did not run: its cached result may well still be valid, but presenting it as a fresh verification is false. Anyone writing "verified" reports the counts that support it — tests run and failed, warnings by severity — because a claim carrying no numbers cannot be checked by the next reader.
 
 **A verification holds at the moment it was made, and not after.** Anything happening between the check and the act it authorizes voids it: a rebase, a commit from another session, a merged pull request, an edit to the working tree. Re-run it immediately before the operation it is meant to justify, rather than citing the earlier run.
 
-**Address a continuous integration run by the exact SHA of the current head, never by branch.** A branch-scoped query returns the most recent run the service happens to know for that branch, which after a force-push is often the *previous* head's — and it is usually green, because that head passed. The answer then reads as a success for code nobody has tested, which is worse than an error, because nothing looks wrong. Read the head with `git rev-parse HEAD`, ask for that commit's run with `gh run list --commit <sha>` rather than `--branch`, and check that the SHA in the answer is the one asked about. The head the pull request itself reports lags a force-push by some seconds, so re-read it instead of trusting the first answer. Step 6 of the release procedure depends on this: "merge only after continuous integration passes" means the run for the commit being merged, and pinning the merge with `--match-head-commit` is worth nothing if the run that authorized it belongs to a different commit.
+**Address a continuous integration run by the exact SHA of the current head, never by branch.** A branch-scoped query returns the most recent run the service happens to know for that branch, which after a force-push is often the *previous* head's — and it is usually green, because that head passed. The answer then reads as a success for code nobody has tested, which is worse than an error, because nothing looks wrong. Read the head with `git rev-parse HEAD`, ask for that commit's run with `gh run list --commit <sha>` rather than `--branch`, and check that the SHA in the answer is the one asked about. The head the pull request itself reports lags a force-push by some seconds, so re-read it instead of trusting the first answer. Step 3 of the release procedure depends on this: "merge it only after continuous integration passes" means the run for the commit being merged, and pinning the merge with `--match-head-commit` is worth nothing if the run that authorized it belongs to a different commit.
 
 **A missing value is asked for, never guessed.** An instruction carrying an unresolved placeholder, a reference to something that does not exist, or a figure nobody measured is not carried out by inferring what was probably meant. Stop and ask. An invented value inside a binding specification is worse than a task left undone, because the undone task is visible and the invention is not: it reads exactly like a measurement, and every later decision made on top of it inherits the error without a way to notice.
 
@@ -187,12 +196,47 @@ download buttons silently, with no error anywhere in this repository.
 - Keep `versionName` equal to the tag without its leading `v`, and raise `versionCode` on
   every published build. A build whose `versionCode` is not higher than the installed one
   cannot update it.
-- Raise the fallback version in `unouidol/tmc-site`, `index.html`, in the same step that
-  raises `versionName`. The page fills its three `data-tmc-version` elements from the
-  releases API at runtime and overwrites whatever the file says, so that number is what a
-  visitor reads until the call answers, and what one whose browser never runs the script
-  reads for good. Left behind, it advertises the previous release from the page that
-  announces the new one.
+- Raise the fallback version in `unouidol/tmc-site`, `index.html`, at publication, once the
+  GitHub release is out, not when `versionName` is raised. The page fills its three
+  `data-tmc-version` elements from the releases API at runtime and overwrites whatever the
+  file says, so that number is what a visitor reads until the call answers, and what one
+  whose browser never runs the script reads for good. Left behind after publication, it
+  advertises the previous release from the page that announces the new one.
+  - **Why at publication** (Federico's ruling, 2026-11-13): a merge on that site may go live
+    at any moment. A fallback raised with `versionName` would advertise a version that nobody
+    can download for as long as the release takes to build, verify and test. The ruling
+    stands.
+  - Until then this sentence said "in the same step that raises `versionName`".
+  - **A merge on `tmc-site` does not prove the page changed.** Until 2026-11-14 the ruling
+    above said that "a merge on that site is live at once". Nobody had observed that.
+    - **2026-11-14: a merge did not go live.** `tmc-site#2` raised the fallback to 5.6.0 and
+      was merged as `9ba7c24`. For at least 3 minutes afterwards,
+      `https://tmc.ircminichat.party` still served the 5.5.0 fallback, with
+      `cf-cache-status: DYNAMIC`. The repository then had no deployment, commit status,
+      check or workflow tied to its commits. Cloudflare was not inspected. By Federico's
+      account, the site was still published by uploading its files by hand in Cloudflare,
+      so a merge changed nothing online.
+    - **2026-11-16: a merge went live.** That day Federico connected a Cloudflare Pages
+      project to `unouidol/tmc-site`, with production branch `main` and no build command,
+      and moved the domain to it: his account, not inspected in Cloudflare. What follows was
+      observed first-hand. `tmc-site#4` merged as `59c00ab` at 08:29:12 UTC. Pages
+      reported "Deployed successfully" on that commit at 08:29:25. The first fetch after
+      the merge, at 08:29:36 with `cf-cache-status: DYNAMIC`, already served its text. One
+      merge was observed: it shows that the connection works, not how long a deploy always
+      takes.
+      - **What a reader now sees on GitHub:** Cloudflare's app posted a `Cloudflare Pages`
+        check on `679579a`, on #4's head and on its merge, the head's with a preview URL for
+        the branch. `9ba7c24`, merged on 2026-11-14, has none. A second check,
+        `Workers Builds: tmc-site`, failed on #4's branch push with "This Worker does not
+        exist on your account." It is not the Pages deployment, and was not examined.
+      - **What a comparison has to allow for:** the served page is not byte for byte the
+        merged file. Cloudflare adds a hidden `cdn-cgi/content` link after `<body>` and a
+        challenge-platform script before `</body>`. With those two set aside, the page
+        matched the merged `index.html` both before and after #4's merge.
+    - **The consequence for the procedure stays:** after a merge on `tmc-site`, fetch the live
+      page, bypassing caches, and compare its fallback with the merged file. Until they match,
+      the change is merged but not live, and is recorded as open in `RELEASE-STATE.md`. A
+      `Cloudflare Pages` check that reads "Deployed successfully" does not replace that fetch.
 - Write release notes for users rather than for developers, following the structure of the
   previous releases: what the application is, what changed, what to download, how to
   install, and contacts.
@@ -202,18 +246,28 @@ Release procedure:
 1. Branch `release/X.Y.Z` from the current `main-v5` and land every change intended for the
    release on that branch.
 2. Update `versionCode` and `versionName` in `app/build.gradle.kts`.
-3. Run the repository-wide verification baseline, then `:app:assembleStableRelease`.
-4. Verify the built artifacts before anything is published: the signer is the release
+3. Run the repository-wide verification baseline on the branch. Open a pull request into
+   `main-v5`, and merge it only after continuous integration passes on its exact head.
+   Continuous integration runs only for `main-v5`, so a release tagged from a release
+   branch alone is never verified by it.
+4. Build `:app:assembleStableRelease` from `main-v5` at that merge's commit. The tree must
+   be clean: `git status --porcelain --untracked-files=all` prints nothing.
+   - **Why the merge comes before the build** (Federico's ruling, 2026-11-13): this
+     repository squash-merges. A build of the release branch's head would name a commit in
+     its label that the merge does not keep on `main-v5`. Built from `main-v5`, the APK's
+     embedded commit is on the primary branch, and it is the commit the tag points at.
+     5.5.1's `007ee55` is built that way.
+   - Until then, the build was step 3 and the merge step 6.
+   - **If step 5 or 6 finds a defect,** its fix lands by a pull request of its own, and the
+     build is made again from `main-v5`. The earlier artifacts are void.
+5. Verify the built artifacts before anything is published: the signer is the release
    certificate and not the Android debug certificate, the package is
    `com.fs.twitchminichat` without the development suffix, and `versionCode` and
    `versionName` match the intended release.
-5. Install the arm64 APK over the currently published stable build on a real device and
+6. Install the arm64 APK over the currently published stable build on a real device and
    confirm it updates in place.
-6. Open a pull request into `main-v5` and merge it only after continuous integration
-   passes. Continuous integration runs only for `main-v5`, so a release tagged from a
-   release branch alone is never verified by it.
 7. Confirm that `main-v5` contains exactly the code the artifacts were built from, then tag
-   it.
+   it. Under step 4 that is the commit the build was made from.
 8. Publish the release with the exact artifacts that were verified and installed. Never
    rebuild between verification and publication: Android builds are not reproducible byte
    for byte, so a rebuilt artifact is not the one that was tested and its checksums no
