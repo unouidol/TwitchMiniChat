@@ -16,6 +16,9 @@ import org.junit.Test
  * - the backoff's cap is 16 s instead of 15 s, the sequence Chatterino2 uses;
  * - "a failed token step schedules nothing" holds only for a failure that is not
  *   transient. A transient one now stays in the reconnect cycle.
+ *
+ * Added after the first device trial of that fix (V1, 2026-11-17): a network that
+ * becomes available starts the backoff again, in every state.
  */
 class ChatReconnectControllerTest {
 
@@ -197,7 +200,7 @@ class ChatReconnectControllerTest {
         assertTrue(logLines.contains("DEBUG reconnect start reason=network"))
     }
 
-    /** Outside the transient-failure state, the network callback does nothing. */
+    /** Outside the transient-failure state, the network callback starts nothing. */
     @Test
     fun theNetworkCallbackIsIgnoredOutsideTheTransientState() {
         controller.onNetworkAvailable()
@@ -227,6 +230,84 @@ class ChatReconnectControllerTest {
         assertEquals(1, attemptsBegun)
         assertTrue(controller.retryPending)
         assertTrue(logLines.contains("DEBUG network available, retry held by Retry-After"))
+    }
+
+    /**
+     * V1 on the device, 2026-11-17: the outage grew the backoff to 16 s; the attempt the
+     * callback started opened its socket on the first network; the default moved to a
+     * second network and that socket ended. Its retry waits 1 s, not 16.
+     */
+    @Test
+    fun aNetworkThatBecomesTheDefaultStartsTheBackoffAgain() {
+        pageConnect()
+        repeat(5) {
+            failTransiently()
+            scheduler.runNext()
+        }
+        failTransiently()
+
+        controller.onNetworkAvailable()
+        controller.finishTokenAttempt()
+        controller.onClientOpening()
+        controller.onNetworkAvailable()
+        controller.onConnectionClosed(resetBackoff = false)
+        controller.scheduleAfterSessionEnded()
+
+        assertEquals(
+            listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 16_000L, 1_000L),
+            scheduler.delays
+        )
+        assertEquals(7, attemptsBegun)
+    }
+
+    /** Outside the transient state too, a network change times the next retry from the first delay. */
+    @Test
+    fun aNetworkChangeResetsTheBackoffOfTheSessionPath() {
+        repeat(5) {
+            controller.scheduleAfterSessionEnded()
+            scheduler.runNext()
+            controller.finishTokenAttempt()
+        }
+
+        controller.onNetworkAvailable()
+        controller.scheduleAfterSessionEnded()
+
+        assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 1_000L), scheduler.delays)
+        assertEquals("the callback itself started nothing", 5, attemptsBegun)
+    }
+
+    /** A retry already pending keeps its delay; only the next one starts again. */
+    @Test
+    fun aNetworkChangeLeavesThePendingRetryAsScheduled() {
+        repeat(4) {
+            controller.scheduleAfterSessionEnded()
+            scheduler.runNext()
+            controller.finishTokenAttempt()
+        }
+        controller.scheduleAfterSessionEnded()
+
+        controller.onNetworkAvailable()
+
+        assertEquals(1, scheduler.pending.size)
+        assertEquals(16_000L, scheduler.delays.last())
+        scheduler.runNext()
+        controller.finishTokenAttempt()
+        controller.scheduleAfterSessionEnded()
+        assertEquals(1_000L, scheduler.delays.last())
+    }
+
+    /** The reset does not shorten a Retry-After: a second 429 after a network change waits it again. */
+    @Test
+    fun aNetworkChangeDoesNotShortenRetryAfter() {
+        pageConnect()
+        failTransiently(minimumDelayMs = 60_000L)
+
+        controller.onNetworkAvailable()
+        scheduler.runNext()
+        failTransiently(minimumDelayMs = 60_000L)
+
+        assertEquals(listOf(60_000L, 60_000L), scheduler.delays)
+        assertEquals(2, attemptsBegun)
     }
 
     /**

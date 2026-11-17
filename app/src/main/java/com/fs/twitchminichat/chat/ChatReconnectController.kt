@@ -122,14 +122,25 @@ class ChatReconnectController(
     }
 
     /**
-     * The phone's default network became available. After a transient token failure,
-     * attempts at once instead of waiting for the backoff; otherwise does nothing.
+     * The phone's default network became available, or moved to another network.
+     *
+     * The backoff starts again from its first delay, in every state: the delays it grew
+     * to measured the path that just went away. Seen on the device for #115: the attempt
+     * this callback started opened its socket on the first network to come back, the
+     * default moved to a second network 1.4 s later, the socket ended 0.3 s after that,
+     * and its retry waited the 16 s the outage had built up. A retry already pending keeps its delay, so a
+     * Retry-After hold stays whole; only the next delay is timed from the start.
+     *
+     * After a transient token failure, also attempts at once instead of waiting for the
+     * pending retry; otherwise starts nothing.
      *
      * The attempt goes through [connect], so it passes the same guard as every other:
      * it starts nothing while an attempt runs or a client exists, and the attempt it
      * starts cancels the retry it replaces ([beginTokenAttempt]).
      */
     fun onNetworkAvailable() {
+        backoff.reset()
+
         log.write(
             ChatReconnectLog.Level.DEBUG,
             "network available awaitingRetry=$awaitingTransientRetry"
