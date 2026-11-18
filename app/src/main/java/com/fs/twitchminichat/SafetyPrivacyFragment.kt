@@ -135,7 +135,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                 Toast.makeText(
                     requireContext(),
                     serverResult.message,
-                    Toast.LENGTH_SHORT
+                    Toast.LENGTH_LONG
                 ).show()
                 return@serverResult
             }

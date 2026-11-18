@@ -957,7 +957,7 @@ object FcmRegistrationUploader {
 
     private fun showToast(context: Context, text: String) {
         Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context.applicationContext, text, Toast.LENGTH_LONG).show()
         }
     }
     /**
