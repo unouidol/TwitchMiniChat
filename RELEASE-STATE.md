@@ -178,6 +178,28 @@ merge produces, which is a second edit this file kept needing.
 Until 5.6.0 was published this section read the log from `v5.5.1`. Everything between `v5.5.1`
 and `v5.6.0` shipped in 5.6.0.
 
+### The web copy of the data deletion page is prepared and must not be published yet
+
+The bundled `app/src/main/assets/policies/data_deletion.html` says "before 5.6.0" where it
+said "before 5.5.2", in both of its places, and is dated "Last updated: 2026-11-18". This
+closes #118: 5.5.2 was never published, and the option it named, "Erase everything on this
+device", was removed by `f31c220` (#49), whose first release tag is `v5.6.0`. Its published
+copy is prepared on the branch `prepare/policies-5.6.1` of `unouidol/unouidol.github.io`.
+
+- **Pushed on 2026-11-18.** Its head is `f3a6793`, one commit on that repository's `main` at
+  `20e40a6`. It changes `tmc/data-deletion.html` only.
+- **No pull request, no merge.** That repository's `main` is served live by GitHub Pages, so a
+  merge there is the publication, and publishing is a release step.
+- **Compared on 2026-11-18:** the branch's file is byte for byte the bundled copy, blob
+  `aa16fae`, after the three link substitutions, LF line endings and one trailing newline
+  that *Two web copies are written and must not be published yet* describes.
+- **Publish it at the 5.6.1 release, immediately before the tag:** between steps 7 and 8 of
+  the procedure in `AGENTS.md`. Regenerate it from the bundled copy of the built commit and
+  compare it with the branch, publish it, then fetch it back and compare it with the copy in
+  the APK.
+- **`CURRENT_TERMS_VERSION` stays at 3.** By the criterion of 2026-09-26 this is a correction,
+  not a material change.
+
 ## What 5.5.1 shipped
 
 Everything between the `v5.5.0` and `v5.5.1` tags, kept here because the reasoning behind
