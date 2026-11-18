@@ -2786,7 +2786,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         Toast.makeText(
                             requireContext(),
                             getString(R.string.chat_send_write_failed),
-                            Toast.LENGTH_SHORT
+                            Toast.LENGTH_LONG
                         ).show()
                     }
 
@@ -2799,7 +2799,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         Toast.makeText(
                             requireContext(),
                             getString(R.string.chat_send_write_failed),
-                            Toast.LENGTH_SHORT
+                            Toast.LENGTH_LONG
                         ).show()
                     }
                 }
@@ -3424,7 +3424,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             } else {
                 "User already blocked: @$user"
             },
-            Toast.LENGTH_SHORT
+            Toast.LENGTH_LONG
         ).show()
     }
 
