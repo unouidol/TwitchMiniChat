@@ -206,7 +206,7 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
                 Log.d(TAG_DEVICE_ERASE, "Firebase token deletion ok=$tokenOk")
 
-                GeckoSessionManager.clearAllWebData(requireContext()) webData@{ webDataOk, webDataMessage ->
+                GeckoSessionManager.clearAllWebData(requireContext()) webData@{ webDataOk, _ ->
                     if (!isAdded) return@webData
 
                     Log.d(TAG_DEVICE_ERASE, "Gecko data clear completed ok=$webDataOk")
@@ -228,7 +228,16 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
                      * fails locally, not for want of a network, so nothing about it says
                      * the erase would go better later. Refusing the erase the user came
                      * for because of it denies them the thing they asked for. The failure
-                     * is reported in the same message instead, and the erase completes.
+                     * is reported instead, and the erase completes.
+                     *
+                     * How it is reported changed on 2026-11-17, with #116. Until then it
+                     * was a clause appended to the outcome, in one toast. Android 12 and
+                     * later show at most two lines of a toast for this app, and every
+                     * outcome already took two lines or more on its own, so the clause,
+                     * being last, was the part that was never seen. It is now a toast of
+                     * its own, shown after the outcome's (see DeviceEraseNotice), and
+                     * without GeckoView's error text, which is technical and made it
+                     * longer.
                      *
                      * What #40 fixed stands: the browser data is still cleared here, and
                      * before the wipe. Only its all-or-nothing rule is gone.
@@ -244,11 +253,11 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
 
                     Log.d(TAG_DEVICE_ERASE, "erase outcome=$outcome")
 
-                    Toast.makeText(
-                        requireContext(),
-                        eraseMessage(outcome, webDataOk, webDataMessage),
-                        Toast.LENGTH_LONG
-                    ).show()
+                    DeviceEraseNotice.show(
+                        context = requireContext(),
+                        outcome = outcome,
+                        webDataCleared = webDataOk
+                    )
 
                     restartAppAfterLocalClear()
                 }
@@ -293,29 +302,6 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
         OwedServerOperationWorker.enqueue(ctx)
 
         Log.d(logTag, "Firebase token deletion recorded as owed")
-    }
-
-    /**
-     * Builds the single message the erase shows, adding the browser clause when it applies.
-     */
-    private fun eraseMessage(
-        outcome: DeviceEraseOutcome,
-        webDataOk: Boolean,
-        webDataMessage: String
-    ): String {
-        val outcomeText = getString(
-            when (outcome) {
-                DeviceEraseOutcome.NOT_REGISTERED -> R.string.erase_device_not_registered
-                DeviceEraseOutcome.REMOVED_FROM_SERVER -> R.string.erase_device_removed
-                DeviceEraseOutcome.ALERTS_STOPPED -> R.string.erase_device_alerts_stopped
-                DeviceEraseOutcome.NOTHING_REACHED -> R.string.erase_device_nothing_reached
-            }
-        )
-
-        if (webDataOk) return outcomeText
-
-        return outcomeText + " " +
-                getString(R.string.erase_device_web_data_failed, webDataMessage)
     }
 
     private fun clearLocalDataKeepingAccounts() {

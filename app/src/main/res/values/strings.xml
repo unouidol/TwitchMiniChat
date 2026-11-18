@@ -36,8 +36,13 @@
     <string name="oauth_start_failed">Twitch login could not be started safely. Please try again.</string>
     <string name="oauth_browser_unavailable">No web browser is available for Twitch login.</string>
     <string name="oauth_finalize_failed">Twitch login could not be completed.</string>
-    <string name="backend_session_persist_failed">Twitch login completed, but the secure backend session could not be saved. Please try again.</string>
-    <string name="account_add_failed">Twitch login completed, but the account could not be saved. Your existing accounts were left untouched. Please try again.</string>
+    <!--
+        These two are toasts. Android 12 and later show at most two lines of a toast for
+        this app, and cut the rest without a sign (#116). Keep them within two lines at
+        the default display size and font size.
+    -->
+    <string name="backend_session_persist_failed">Logged in to Twitch, but the secure session could not be saved. Please try again.</string>
+    <string name="account_add_failed">The account could not be saved; your other accounts are untouched. Please try again.</string>
     <string name="system_bullet">• %1$s</string>
     <string name="invalid_channel_name">Invalid Channel Name</string>
     <string name="channel_switch">Channel Switch → #%1$s</string>
@@ -62,7 +67,6 @@
     <string name="account_remove_dialog_positive">Remove account</string>
     <string name="account_remove_dialog_cancel">Cancel</string>
     <string name="account_remove_done">Account removed and local profile data deleted.</string>
-    <string name="account_remove_done_backend_warning">Account removed locally, but TMC could not confirm server notification disable. If notifications continue, use Privacy &amp; Safety to remove device and server data.</string>
     <string name="account_remove_failed">Could not remove this account.</string>
 
     <string name="catch_presets">Catch presets</string>
@@ -136,11 +140,20 @@
     <string name="local_data_cleared_accounts_kept">Local data cleared, accounts kept</string>
 
     <!--
-        Shown after an account removal whose alert disable did not reach the backend. It
-        must not promise that the alerts have stopped, because they have not, and it must
-        not ask the user to do anything, because there is nothing for them to do.
+        The dialog shown after an account removal whose alert disable did not reach the
+        backend. It must not promise that the alerts have stopped, because they have not,
+        and it must not ask the user to do anything, because there is nothing for them to
+        do. "Stops when the server confirms" is what the owed-work queue does: it clears
+        the owed disable on the backend's success response (OwedServerOperationRunner).
+        Signing the same account in again here also cancels it, which the text leaves
+        unsaid: then the alerts are wanted again.
+
+        A dialog, not a toast, since #116: as a toast this text took three lines and
+        Android 12 and later show two, so its end was cut. The account page stays open
+        after a removal, so a dialog can wait for the user to read it.
     -->
-    <string name="account_remove_alerts_owed">This account is gone from this phone, but alerts for it may keep arriving for a while. Twitch Mini Chat keeps trying to switch them off on its own.</string>
+    <string name="account_remove_alerts_owed_title">Account removed</string>
+    <string name="account_remove_alerts_owed">Alerts for this account may still arrive for a while. TMC keeps trying to switch them off on its own, and stops when the server confirms.</string>
 
     <!--
         The four outcomes of the single erase. None of them may claim more than the
@@ -155,12 +168,20 @@
         phone's registration only, deliberately - an orphaned row from an earlier
         installation can still exist, and this message is not a statement about
         everything the server holds.
+
+        They are toasts, because the erase restarts the app at once and a toast is the
+        one message that outlives the restart. Android 12 and later show at most two
+        lines of a toast for this app, and cut the rest without a sign (#116). Keep each
+        within two lines at the default display size and font size. The same goes for
+        erase_device_web_data_failed, a second toast shown after the outcome's when the
+        built-in browser could not be cleared. It carries no error text: GeckoView's
+        message is technical, and appended to the outcome it was what the limit cut.
     -->
-    <string name="erase_device_not_registered">Everything on this phone is erased. It was not registered for alerts, so there was nothing to remove from the server.</string>
+    <string name="erase_device_not_registered">Erased. This phone was not registered for alerts: nothing to remove from the server.</string>
     <string name="erase_device_removed">Everything erased, and this device removed from the server</string>
-    <string name="erase_device_alerts_stopped">Everything on this phone is erased and it has stopped receiving alerts. This device could not be removed from the server now; the server drops the registration the next time it tries to reach it.</string>
-    <string name="erase_device_nothing_reached">Everything on this phone is erased, but alerts can still arrive. Twitch Mini Chat keeps trying to stop them on its own, as soon as this phone is online again.</string>
-    <string name="erase_device_web_data_failed">The built-in browser data could not be cleared: %1$s</string>
+    <string name="erase_device_alerts_stopped">Erased. This phone gets no more alerts; the server drops it when it next tries to reach it.</string>
+    <string name="erase_device_nothing_reached">Erased. Alerts may still arrive for a while; TMC keeps trying to stop them on its own.</string>
+    <string name="erase_device_web_data_failed">Browser data could not be cleared.</string>
     <string name="hidden_user_placeholder">\@username</string>
     <string name="unblock">Unblock</string>
 
@@ -237,7 +258,7 @@
     <string name="pcg_pokedex_read_timeout">Couldn’t read the Pokédex yet. Keep Pokédex open with Spawnable only, then try again.</string>
 
     <string name="pcg_inventory_wrong_tab">Load the Inventory tab and press Update Inventory to update your Poké Ball list.</string>
-    <string name="pcg_pokedex_wrong_tab">Load the Pokédex tab and press Update Pokédex to update your missing Pokédex entries.</string>
+    <string name="pcg_pokedex_wrong_tab">Load the Pokédex tab and press Update Pokédex to update your missing entries.</string>
 
     <string name="pcg_inventory_updated">Poké Ball inventory updated.</string>
 

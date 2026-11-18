@@ -213,11 +213,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
                  * gone, the alerts may not be yet.
                  */
                 if (isAdded) {
-                    Toast.makeText(
-                        requireContext(),
-                        getString(R.string.account_remove_alerts_owed),
-                        Toast.LENGTH_LONG
-                    ).show()
+                    showAlertsOwedDialog()
                 }
             }
         ) { result ->
@@ -242,6 +238,23 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
                 Toast.LENGTH_LONG
             ).show()
         }
+    }
+
+    /**
+     * Tells the user that the removed account's alerts may still arrive, and that TMC
+     * finishes switching them off by itself.
+     *
+     * A dialog with one OK button, not a toast, since #116. As a toast the text took
+     * three lines, and Android 12 and later show at most two lines of a toast for this
+     * app, so its end was cut. This page stays open after a removal, so a dialog can
+     * wait until the user has read it.
+     */
+    private fun showAlertsOwedDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.account_remove_alerts_owed_title)
+            .setMessage(R.string.account_remove_alerts_owed)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun normalizeChannel(raw: String): String {

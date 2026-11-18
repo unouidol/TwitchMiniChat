@@ -168,17 +168,6 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.account_remove_done_backend_warning` appears to be unused"
-        errorLine1="    &lt;string name=&quot;account_remove_done_backend_warning&quot;>Account removed locally, but TMC could not confirm server notification disable. If notifications continue, use Privacy &amp;amp; Safety to remove device and server data.&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="66"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.quick_catch_spawn_subtitle_types_time` appears to be unused"
         errorLine1="    &lt;string name=&quot;quick_catch_spawn_subtitle_types_time&quot;>%1$s • %2$ds&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
