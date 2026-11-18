@@ -1475,30 +1475,62 @@ Two facts that a list of branches does not show, recorded on 2026-11-10 by the o
 
 ## Test device
 
-**Refreshed on 2026-11-17, at the end of #123's device step** (the fix for #115). Read from the
-device over adb at 14:48, on the OnePlus AC2003 (Android 12, API 31). The version and build number
+**Refreshed on 2026-11-18, at the end of #127's device step** (the fix for #116). Read from the
+device over adb at 08:34, on the OnePlus AC2003 (Android 12, API 31). The version and build number
 are what the phone's package manager reports. The sha256 was read on the phone with `sha256sum` on
 the path `pm path` gives.
 
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.6.0 (9) | `5ae4bf2`, tag `v5.6.0` | `fd06d29e470337465f964841cce8f58551fe1497a45792daa5a8e4fbf0745ff3` | 2026-11-13 17:44 |
-| Dev | `com.fs.twitchminichat.dev` | 5.6.0-dev (9) | `7b9ac3a`, tag `device-test/5.6.0-dev-9-7b9ac3a`, #123 | `be5641e7a8e34c81bdf2ab1e9a4fd420bc124bfa4d94cecef711dfa3ea63c07d` | 2026-11-17 14:27 |
+| Dev | `com.fs.twitchminichat.dev` | 5.6.0-dev (9) | `5354d8d`, tag `device-test/5.6.0-dev-9-5354d8d`, #127 | `ce937e79249d03cdcd0c436ec27f78b1ce2b47ab3186c8e1f025909556807a84` | 2026-11-18 08:08 |
 
 - **The stable app is unchanged since 2026-11-14:** the published 5.6.0, same sha256 and last
-  update.
-- **The dev app is #123's tested head, NOT MERGED.**
-  - It is the dev debug build from `7b9ac3a`, built on `nbpromec1` with a clean tree, and its
-    code carries `7b9ac3a` with no `+`.
+  update, read again on 2026-11-18.
+- **The dev app is #127's tested head `5354d8d`, merged on 2026-11-18 as `507c3c3`.**
+  - Under `app/` the two commits have the same tree, `91ca4742…`, so its code is `main-v5` at
+    `507c3c3`.
+  - Its embedded commit `5354d8d` is not on `main-v5`. It is reached by the tag
+    `device-test/5.6.0-dev-9-5354d8d` and the kept branch `fix/f2-truncated-toasts`.
+  - It is the dev debug build from `5354d8d`, built on `nbpromec1` with a clean tree. Its code
+    carries `5354d8d` with no `+`: read in the dex of the built APK, whose sha256 is the installed
+    one.
   - It was installed with `adb install -r` over the dev app only, with its data kept:
     `firstInstallTime` 2026-10-05 is unchanged.
-  - **Its reconnect differs from `main-v5`:**
-    - a network failure of the token step keeps the reconnect cycle going, with the status
-      "Connection lost. Reconnecting…";
-    - a network that becomes available triggers an attempt and restarts the backoff.
-  - **A check of the reconnect on this build is a check of #123, not of `main-v5`,** until #123
-    merges.
+  - **The install sequence during #127's device step:**
+    - the same build at 07:50;
+    - at 08:02, a build of the same commit with a test hook that was never committed, on the
+      chat's Refresh long press;
+    - this build again at 08:08.
   - The tag was pushed and confirmed with `git ls-remote --tags origin` before this record was
+    written.
+- **What it replaced:** #123's head `7b9ac3a`, sha256 `be5641e7…3ea63c07d`, recorded below.
+- **"Disable permission monitoring": its state since 2026-11-14 was not read.**
+
+**Until 2026-11-18 this section read as follows, refreshed on 2026-11-17, at the end of #123's
+device step** (the fix for #115). It was rewritten as history on 2026-11-18.
+- **Why:** #123 merged on 2026-11-17 as `be27570`, so the dev app line no longer calls it not
+  merged.
+- **Gone:** its two points on how that build's reconnect differed from `main-v5`, which the merge
+  made untrue.
+
+| App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
+|---|---|---|---|---|---|
+| Stable | `com.fs.twitchminichat` | 5.6.0 (9) | `5ae4bf2`, tag `v5.6.0` | `fd06d29e470337465f964841cce8f58551fe1497a45792daa5a8e4fbf0745ff3` | 2026-11-13 17:44 |
+| Dev | `com.fs.twitchminichat.dev` | 5.6.0-dev (9) | `7b9ac3a`, tag `device-test/5.6.0-dev-9-7b9ac3a`, #123 | `be5641e7a8e34c81bdf2ab1e9a4fd420bc124bfa4d94cecef711dfa3ea63c07d` | 2026-11-17 14:27 |
+
+- **The stable app was unchanged since 2026-11-14:** the published 5.6.0, same sha256 and last
+  update.
+- **The dev app was #123's tested head `7b9ac3a`, merged on 2026-11-17 as `be27570`.**
+  - Under `app/` the two commits have the same tree, `3271ea92…`, so its code was `main-v5` at
+    `be27570`.
+  - Its embedded commit `7b9ac3a` is not on `main-v5`. It is reached by the tag
+    `device-test/5.6.0-dev-9-7b9ac3a` and the kept branch `fix/f1-reconnect-transient-token-failure`.
+  - It was the dev debug build from `7b9ac3a`, built on `nbpromec1` with a clean tree, and its
+    code carries `7b9ac3a` with no `+`.
+  - It was installed with `adb install -r` over the dev app only, with its data kept:
+    `firstInstallTime` 2026-10-05 was unchanged.
+  - The tag was pushed and confirmed with `git ls-remote --tags origin` before that record was
     written.
 - **What it replaced:** the round's D, `5ae4bf2`, sha256 `a754cf4f…ba9eeb2`. That commit is on
   `main-v5`, so it needs no tag. #115's investigation ran on it.

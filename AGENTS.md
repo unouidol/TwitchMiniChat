@@ -127,6 +127,19 @@ Each entry is something git, the GitHub command-line interface (`gh`), GitHub it
 - **What was done, and has since run:** each program named by a variable, defaulting to the name on PATH (`ADB="${ADB:-adb}"`, `PYTHON="${PYTHON:-python}"`), and set for the machine when the script runs there. On DESKTOP-BCT68L9 `py --version` printed Python 3.14.0, so `PYTHON=py`. `docs/manual-plan-5d-recyclerview.md` records the script run on the round's second machine. Under *Every APK of the round comes from one machine*, "The second machine, read on 2026-11-03 from nothing", `nbpromec1`, lists "The host scripts' tools. `PYTHON=py`, Python 3.10.0; `DESKTOP-BCT68L9` used 3.14.0, and a bare `python` on `nbpromec1` is 3.7.0." Its *Recorded results* for "The second sitting, 2026-11-03, on `nbpromec1`" say of the excluded launch at 08:57: "How it ran: `run.sh` from `%USERPROFILE%\tmc-5d-round\C`, extracted from `92fbb4a` and checked file by file against it". `run.sh` at `92fbb4a` has the two variables, added in `03a8775`. That it ran is read from that record, not seen by whoever wrote this entry.
 - **Observed first-hand** on DESKTOP-BCT68L9 on 2026-11-02, with git 2.52.0.windows.1's Git Bash, reading `experiment/startup-5d/run.sh` at `cee6695` before any launch: the adb path's directory did not exist, and `python` printed the Store's message and exited 49. The script itself was not run with them. That it could not have completed a launch there, and would have failed loudly, is read from it. It cost time and no evidence.
 
+**On Windows, `git worktree remove` fails with "Filename too long" on a worktree that holds build output, after deleting part of it.**
+
+- **Symptom:** the command fails with `failed to delete …: Filename too long`, on a path in Gradle's output under `app/build` that is longer than the 260 characters Windows allows. The paths there were 266 characters. It fails part-way. The worktree's `.git` file and its metadata in `.git/worktrees/<name>` are already deleted, so the folder is left on disk, unregistered, and git can no longer remove it.
+- **How to recognise it:** that message, naming a path in `app/build`. The failure does not leave things as they were: what is left is a folder git no longer knows. Like the copy and delete under *Change discipline*, a step that fails part-way leaves a state of its own.
+- **What worked:**
+  1. Check what was left, file by file, against the commit's blobs.
+  2. Only then, in a command of its own, delete the folder with PowerShell 7: `Remove-Item -LiteralPath <path> -Recurse -Force`. It removed the long paths that git could not.
+- **What to do instead next time, not yet tried:**
+  1. Read the worktree's state first, as a step of its own (see *Change discipline*).
+  2. Delete `app/build` with the same `Remove-Item`. It is ignored build output, so nothing in it is work or evidence.
+  3. Then run `git worktree remove`.
+- **Not observed first-hand by whoever wrote this entry.** Federico's account and a note an earlier session left on nbpromec1 both record it, on nbpromec1, on 2026-11-17, with git 2.45.1.windows.1, removing the worktree `TwitchMiniChat-wt-5d`. The details come from the note: the 266-character paths, the `.git` file and metadata already deleted, and the file-by-file check before the folder was deleted.
+
 ## Required verification
 
 Run the checks relevant to the change. The repository-wide baseline is:
@@ -142,6 +155,11 @@ On Linux or in GitHub Actions, use `./gradlew` with the same tasks.
 Device-dependent behavior cannot be proven by local unit tests. Changes involving GeckoView, OAuth callbacks, Firebase Cloud Messaging, the software keyboard, external links, notifications, or layout behavior also require a short manual test plan and Logcat tags or observable results in the pull request.
 
 **Never screenshot the accounts page of the stable app** (owner's ruling, 2026-11-14). The accounts page is the page that lists the signed-in accounts. When a screenshot of it is needed, for a test, the user guide or a report, take it on the dev app ("TwitchMiniChat Dev") only. The stable app on the test phone holds accounts that must not be made public, and a dialog over that page does not make a screenshot of it safe to publish.
+
+**Never touch the PCG manual update buttons in a device test** (owner's ruling, 2026-11-18).
+- **What is fixed:** "Update Inventory" and "Update Pokédex", and the probes behind them, stay as they are in every build installed for a test. No hook on them, and no change to what they do. Their probes are calibrated to avoid misreads on a wrong tab, timeouts and wrong filters.
+- **What may change:** other TMC buttons, as each test plan says. In #127's device step, for example, the chat's Refresh long press carried a test hook, in a build that was never committed, and the clean build was installed again afterwards.
+- **What follows:** each of the two buttons is enabled only on its own tab, so a message that only their rejection paths show cannot be reached on the device. #127 checked `pcg_pokedex_wrong_tab` without the device, and its pull request says so.
 
 **Every claim states its provenance.** Say whether something was executed or reasoned about statically, and never let the two read alike. A Gradle task reported as `UP-TO-DATE` did not run: its cached result may well still be valid, but presenting it as a fresh verification is false. Anyone writing "verified" reports the counts that support it — tests run and failed, warnings by severity — because a claim carrying no numbers cannot be checked by the next reader.
 
