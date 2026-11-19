@@ -11,12 +11,22 @@ import java.util.Locale
  * Exact PCG names always outrank aliases. An alias is indexed only when every
  * occurrence belongs to the same canonical entry, preventing load order from
  * silently changing one form into another.
+ *
+ * @property mainDexSpeciesResult the catalog's main-Pokédex species, built once with the
+ * catalog. It is a failure, and not a broken catalog, when the catalog cannot define its
+ * species unambiguously: spawn resolution keeps working and only the Pokédex fact stays
+ * unknown.
  */
 internal class PokemonTypeDexCatalog private constructor(
     val entries: List<PokemonTypeEntry>,
     private val byCanonicalName: Map<String, PokemonTypeEntry>,
-    private val byUniqueAlias: Map<String, PokemonTypeEntry>
+    private val byUniqueAlias: Map<String, PokemonTypeEntry>,
+    val mainDexSpeciesResult: Result<MainDexSpeciesIndex>
 ) {
+
+    /** The catalog's main-Pokédex species; null when [mainDexSpeciesResult] failed. */
+    val mainDexSpecies: MainDexSpeciesIndex?
+        get() = mainDexSpeciesResult.getOrNull()
 
     /** Resolves canonical PCG names first and then safe unique aliases. */
     fun find(rawName: String): PokemonTypeEntry? {
@@ -50,6 +60,8 @@ internal class PokemonTypeDexCatalog private constructor(
                     }
                 }
                 .toMap(LinkedHashMap())
+
+            val mainDexSpeciesNames = MainDexSpeciesIndex.speciesNames(pcgEntries)
 
             val canonicalEntries = pcgEntries.map { catalogEntry ->
                 val canonicalKey = PcgPokemonNameNormalizer.normalize(
@@ -89,7 +101,11 @@ internal class PokemonTypeDexCatalog private constructor(
                     }.filter(String::isNotBlank).distinct(),
                     mappingKind = metadata?.mappingKind ?: "pcg_catalog",
                     locked = metadata?.locked ?: false,
-                    featured = metadata?.featured ?: false
+                    featured = metadata?.featured ?: false,
+                    mainDexSpecies = mainDexSpeciesNames.getValue(
+                        MainDexSpeciesIndex.cleanSourceSpecies(catalogEntry.sourceSpecies)
+                    ),
+                    normallySpawnable = catalogEntry.normallySpawnable
                 )
             }
 
@@ -122,7 +138,10 @@ internal class PokemonTypeDexCatalog private constructor(
             return PokemonTypeDexCatalog(
                 entries = canonicalEntries,
                 byCanonicalName = byCanonicalName,
-                byUniqueAlias = byUniqueAlias
+                byUniqueAlias = byUniqueAlias,
+                mainDexSpeciesResult = runCatching {
+                    MainDexSpeciesIndex.build(canonicalEntries)
+                }
             )
         }
 
