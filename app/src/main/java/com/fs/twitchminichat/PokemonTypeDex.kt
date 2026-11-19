@@ -15,6 +15,16 @@ object PokemonTypeDex {
         return ensureLoaded(context).find(rawName)
     }
 
+    /**
+     * Main-Pokédex species of the bundled catalog, built once with it.
+     *
+     * Null when the catalog loaded but cannot define its species unambiguously; throws, like
+     * [findByPokemonName], when the catalog itself cannot be loaded.
+     */
+    internal fun mainDexSpeciesIndex(context: Context): MainDexSpeciesIndex? {
+        return ensureLoaded(context).mainDexSpecies
+    }
+
     private fun ensureLoaded(context: Context): PokemonTypeDexCatalog {
         catalog?.let { return it }
 
@@ -49,7 +59,15 @@ object PokemonTypeDex {
         return PokemonTypeDexCatalog.build(
             pcgEntries = pcgCatalog.entries,
             metadataEntries = metadataEntries
-        )
+        ).also { loaded ->
+            loaded.mainDexSpeciesResult.exceptionOrNull()?.let { error ->
+                Log.w(
+                    LOG_TAG,
+                    "Main Pokedex species unavailable; Dex entries stay unknown " +
+                        "errorType=${DiagnosticError.typeOf(error)}"
+                )
+            }
+        }
     }
 
     private const val METADATA_ASSET_PATH = "pokemon_type_dex.json"

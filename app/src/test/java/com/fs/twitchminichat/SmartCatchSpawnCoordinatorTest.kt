@@ -340,7 +340,9 @@ class SmartCatchSpawnCoordinatorTest {
                 aliases = listOf("Cacnea"),
                 mappingKind = "exact",
                 locked = false,
-                featured = false
+                featured = false,
+                mainDexSpecies = "Cacnea",
+                normallySpawnable = true
             )
         }
 
