@@ -660,6 +660,32 @@ halves were read from the clone.
   - **Where that rule comes from:** 5d's plan records it, by the owner's reading of #84. The plan
     notes that this sentence is not in #84's description or in the entry.
 
+## 5.6.1 release — prepared on `release/5.6.1`; not built, not installed, not published
+
+**Prepared on 2026-11-20,** from `main-v5` at `f07fd27` (#131). The branch holds:
+- `versionCode` 10 and `versionName` `5.6.1`;
+- the draft release notes, `docs/release-notes-5.6.1.md`, with the checksums as placeholders;
+- the device round, `docs/manual-plan-5.6.1.md`.
+
+**What it carries:** everything in `git log --first-parent v5.6.0..main-v5`, read with that command.
+It carries #123 (F1), #127 (F2), #129, #130 and #131. F3 (#117) is planned for 5.6.2 and is not in
+it.
+
+**What it waits on, in order,** by `AGENTS.md`'s release procedure and the 5.6.0 rulings, which
+still hold:
+1. **This pull request merges,** after continuous integration on its exact head.
+2. **R and D are built from `main-v5` at that merge,** on `nbpromec1`, with a clean tree, and verified
+   before anything is installed.
+3. **The device round,** `docs/manual-plan-5.6.1.md`. Its item 2, the stable flavour's chat, is
+   BLOCKING.
+4. **Publication.** The web copy of the data deletion page comes first, as *Waiting for release*
+   says, then the tag, the release and the website's fallback, each after Federico's yes.
+
+**The follow-up from 5.6.0's item 9.2 stays open.** It is to observe the update notice on
+Federico's phone when the first release after 5.6.0 is published. In this round it is NOT DONE:
+the phone's stable app is updated to 5.6.1 before publication, so it never runs 5.6.0 while 5.6.1
+is the latest release.
+
 ## 5.6.0 release — published on 2026-11-14
 
 **Published on 2026-11-14,** as *Published* above records. This section keeps the preparation
