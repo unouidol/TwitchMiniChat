@@ -1,8 +1,8 @@
 # Release notes for 5.6.1
 
-**This is the draft body of the `v5.6.1` release. Federico has not approved it yet.** The release
-body is everything between the two markers below, published exactly as it stands. Nothing
-outside the markers belongs in the release.
+**This is the body of the `v5.6.1` release, as Federico approved it on 2026-11-20 and as it was
+published that day.** The release body is everything between the two markers below, published
+exactly as it stands. Nothing outside the markers belongs in the release.
 
 **The two checksums** are those of R, built on `nbpromec1` from `main-v5` at `a11a3a0` with a
 clean tree, verified on 2026-11-20 before the device round, and installed in it
