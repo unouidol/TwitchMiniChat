@@ -1,9 +1,12 @@
 # Release notes for 5.6.1
 
-**This is the draft body of the `v5.6.1` release. Federico has not approved it yet.** The release
-body is everything between the two markers below, published exactly as it stands. Nothing
-outside the markers belongs in the release. The two checksums are placeholders until the
-artifacts are verified. They are then filled from those artifacts, never from a rebuild.
+**This is the body of the `v5.6.1` release, as Federico approved it on 2026-11-20 and as it was
+published that day.** The release body is everything between the two markers below, published
+exactly as it stands. Nothing outside the markers belongs in the release.
+
+**The two checksums** are those of R, built on `nbpromec1` from `main-v5` at `a11a3a0` with a
+clean tree, verified on 2026-11-20 before the device round, and installed in it
+(`docs/manual-plan-5.6.1.md`, *Results*). They were not taken from a rebuild.
 
 **What it was written from.** The pull requests merged on `main-v5` since `v5.6.0`, read on
 2026-11-20: `git log --first-parent v5.6.0..main-v5`, up to `f07fd27` (#131). That is the bodies
@@ -45,10 +48,35 @@ from `v5.6.0`. None of this was run.
   `PcgSpawnAlert*` files and `pcg/PcgNotification*.kt` are as in `v5.6.0`. The only change in
   `FcmRegistrationUploader.kt` is one toast's duration, from #129.
 
-**Not listed, and left for Federico:** #126 (after a failed account removal, the toast "Could not
-remove this account." can be followed by the "Account removed" dialog) and #122 (a 426 from the
-token step shows "Could not authenticate" instead of asking to update TMC). Neither was a 5.6.0
-known issue.
+**Added by Federico's ruling of 2026-11-20: #126.** After a failed account removal, the toast "Could
+not remove this account." can be followed by the "Account removed" dialog. The dialog is new in
+5.6.1 (#127), so the pair can first appear in this release. What is true in that case was read in
+the code at `a11a3a0`, and not run.
+- **When the pair appears.** `AccountRepository.removeById()` returns null, so `removedAccount` is
+  false and the toast is `account_remove_failed`. Then the backend request that switches the
+  profile's alerts off fails, and `onAlertDisableOwed` shows the dialog. Before `removeById()`,
+  `AccountProfileRemovalController.removeAccountFromDevice()` has already set the profile's alerts
+  off locally and cleared its local data, the Pokédex snapshot, inventory, presets, buddy, alert
+  settings and Most Wanted.
+- **`removeById()` returns null in two cases,** and they differ.
+  - **The account id is no longer in the stored list.** The account is already gone from the
+    phone, so the dialog is right and the toast is not. The owed-work queue does not find it in
+    `loadAccounts()`, so `OwedProfileDisablePolicy` answers `DISABLE`. The disable is retried
+    until the server confirms, and then the alerts stop.
+  - **The stored list cannot be read for update** (`loadAccountsForUpdate()` returns null).
+    Nothing is written, so the account stays stored. It is not removed, and the toast is right.
+    `loadAccounts()` reads an unreadable store as an empty list, so the account is missing from the
+    page until the list can be read again. When it is listed again, its alert settings are the
+    defaults: `PcgSpawnAlertModeStore.clearProfile()` removed the saved mode, and `getMode()` then
+    returns `PcgSpawnAlertMode.DEFAULT`, `DEX_AND_TIER_A`. The next start's registration pass,
+    `MainActivity.fetchFcmToken()`, then sends that active selection for it. So its alerts can keep
+    arriving. Any owed disable is then voided as `VOID_SIGNED_IN` and never sent. Removing it again
+    with a network connection switches them off.
+- **The user-facing text** says that the account's data on this phone are deleted either way. It
+  tells the two cases apart by what the user sees in the list, and promises no fix date.
+
+**Not added, by the same ruling: #122.** A 426 from the token step shows "Could not authenticate"
+instead of asking to update TMC. The backend never sends 426 today, so no user can see it.
 
 <!-- release body begins -->
 
@@ -84,6 +112,7 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 - When a Pokémon you are missing spawns for several of your accounts at once, you get one alert per account, as intended. Now and then one of those alerts may play its sound twice. It is harmless. It was not fixed in this update.
 - Right after the chat reconnects, a few messages may be briefly missing. They appear when you switch to another account and back.
 - **With a larger font size, some messages can still be cut short.** On Android 12 and later, the short message that appears at the bottom of the screen after an erase, or after a login that could not be saved, can be cut off after two lines.
+- **Removing an account can show "Could not remove this account." and then "Account removed".** This is rare: it needs the removal to fail on the phone while the TMC server cannot be reached. The account's data on this phone are deleted either way. If the account is no longer in your list, it is removed, and TMC keeps trying to switch its alerts off on its own, as the dialog says. If it shows up in your list again later, it was not removed: its alert settings are back to their defaults, and its alerts may keep arriving. Remove it again while you have a network connection.
 
 ## What to download
 
@@ -93,8 +122,8 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 Requires Android 8.0 or later. SHA-256 checksums are in `SHA256SUMS.txt`:
 
 ```
-<arm64-v8a sha256, filled from the verified artifact>  TwitchMiniChat-Android-arm64-v8a.apk
-<armeabi-v7a sha256, filled from the verified artifact>  TwitchMiniChat-Android-armeabi-v7a.apk
+d888243fe53353cbf1e44dacc77fab07303b10a140a1d58a48eb123f506b8111  TwitchMiniChat-Android-arm64-v8a.apk
+45fd60a45c44aded269a4951a7588d5685e84b06571f02a915ce690ef188145b  TwitchMiniChat-Android-armeabi-v7a.apk
 ```
 
 ## How to install

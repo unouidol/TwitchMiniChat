@@ -200,6 +200,71 @@ release tag points at it.
 
 ---
 
-## Results
+## Results — run on 2026-11-20
 
-Not run yet.
+Run on the OnePlus AC2003 (Android 12, API 31), connected to `nbpromec1`, with R and D built from
+`main-v5` at `a11a3a0` (#132) with a clean tree:
+- R arm64-v8a `d888243f…506b8111`;
+- D arm64-v8a `dddac120…0f26634e1`.
+
+The detailed record, with times and log lines, stays local in the round folder. It holds no
+account names, channel names or message text. Only verdicts are listed here.
+
+**Before item 1: done.**
+- The phone read stable 5.6.0 (9) and dev 5.6.0-dev (9), as `RELEASE-STATE.md`, *Test device*,
+  records.
+- The stable APK pulled from the phone has the sha256 of the published `v5.6.0` arm64 asset,
+  `fd06d29e…0745ff3`. That asset was downloaded, and `sha256sum -c` passed on the published
+  `SHA256SUMS.txt`.
+- The PEM certificates, compared byte for byte:
+  - R's equals the stable app's: `CN=Unouidol`, `aca1170e…22e237ed`;
+  - D's equals the dev app's.
+- D was installed over the dev app with `adb install -r`: `Success`, 5.6.1-dev (10), data kept.
+- The Logcat buffer was raised from 256 KiB to 16 MiB with the owner's consent, and restored to
+  256 KiB at the end.
+
+**PASS**
+- **1. The update in place.**
+  - R was installed over the published 5.6.0: `Success`, 5.6.1 (10), R's sha256, `firstInstallTime`
+    unchanged.
+  - First launch: no terms gate, the page "Welcome to Twitch Mini Chat 5.6.1"
+    (`welcome_title_updated`), no "Update available", and `start decision=UPDATED`.
+  - Second launch: no page, and `start decision=none`.
+  - The version check was not due, so no `update check` line appeared. That is recorded, not
+    failed.
+- **2. The stable flavour's chat (BLOCKING).**
+  - Live messages arrived on three pages, each with `session ready`.
+  - The owner's message was shown as his own, with `outgoing message confirmed`.
+  - A channel switch from the channel bar, and back, on one page: `Recent channel count=…`, then
+    `session ready` at generations 3 and 5.
+  - Show stream and Hide stream worked.
+  - The first attempt switched pages instead of channels, and was redone.
+- **3. F1 on the stable build.**
+  - Airplane mode was on for about 37 s.
+  - During the outage the cycle continued, `token step result=transient cause=network` with delays
+    of 2, 4, 8, 16 and 16 s, and never "Could not authenticate".
+  - `network available awaitingRetry=true`, then `reconnect start reason=network`.
+  - `session ready` came at **T0 + about 1.3 s**, with no touch.
+  - After the default network changed, it came again at T0 + about 5.4 s.
+- **4. The Smart Catch panel, on a base form.**
+  - Spawn: Glameow, a single `NONE` entry that normally spawns.
+  - Two TMC missing-dex alerts arrived.
+  - On the page of an account with the alert, the panel read "Dex entry: Missing", with no Repeat
+    Ball among Smart presets.
+  - No `SMART_CATCH_DEX` line.
+  - **Not reached:** the form case (female, regional, pattern, letter or Mega), because no such
+    spawn occurred. #131's unit tests cover it.
+- **5. The Data Deletion page:** "Last updated: 2026-11-18", "before 5.6.0" in both places, and no
+  "5.5.2".
+
+**NOT DONE, by the plan (item 6)**
+- **The update notice from 5.6.0 to 5.6.1.** The phone's stable app was updated before
+  publication. It is to be confirmed by users after the release.
+- **The account removal dialog and the erase toasts.** They are destructive, and are covered by
+  unit tests and by #127's device checks on the dev app.
+
+**No defect found. Item 2 passed, so R and D stand.**
+
+**The phone at the end,** read at 09:14:
+- stable 5.6.1 (10), sha256 `d888243f…506b8111`, last updated 2026-11-20 08:30:27;
+- dev 5.6.1-dev (10), sha256 `dddac120…0f26634e1`, last updated 2026-11-20 08:18:50.
