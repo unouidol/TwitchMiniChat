@@ -2,8 +2,11 @@
 
 **This is the draft body of the `v5.6.1` release. Federico has not approved it yet.** The release
 body is everything between the two markers below, published exactly as it stands. Nothing
-outside the markers belongs in the release. The two checksums are placeholders until the
-artifacts are verified. They are then filled from those artifacts, never from a rebuild.
+outside the markers belongs in the release.
+
+**The two checksums** are those of R, built on `nbpromec1` from `main-v5` at `a11a3a0` with a
+clean tree, verified on 2026-11-20 before the device round, and installed in it
+(`docs/manual-plan-5.6.1.md`, *Results*). They were not taken from a rebuild.
 
 **What it was written from.** The pull requests merged on `main-v5` since `v5.6.0`, read on
 2026-11-20: `git log --first-parent v5.6.0..main-v5`, up to `f07fd27` (#131). That is the bodies
@@ -119,8 +122,8 @@ Twitch Mini Chat (TMC) is an Android app that combines a lightweight Twitch clie
 Requires Android 8.0 or later. SHA-256 checksums are in `SHA256SUMS.txt`:
 
 ```
-<arm64-v8a sha256, filled from the verified artifact>  TwitchMiniChat-Android-arm64-v8a.apk
-<armeabi-v7a sha256, filled from the verified artifact>  TwitchMiniChat-Android-armeabi-v7a.apk
+d888243fe53353cbf1e44dacc77fab07303b10a140a1d58a48eb123f506b8111  TwitchMiniChat-Android-arm64-v8a.apk
+45fd60a45c44aded269a4951a7588d5685e84b06571f02a915ce690ef188145b  TwitchMiniChat-Android-armeabi-v7a.apk
 ```
 
 ## How to install
