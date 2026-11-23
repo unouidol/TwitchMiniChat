@@ -342,7 +342,8 @@ class SmartCatchSpawnCoordinatorTest {
                 locked = false,
                 featured = false,
                 mainDexSpecies = "Cacnea",
-                normallySpawnable = true
+                normallySpawnable = true,
+                starterFamily = false
             )
         }
 
