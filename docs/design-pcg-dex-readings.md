@@ -1,7 +1,13 @@
 # Design: reading the whole PCG main dex and the alt dex
 
-**Status: design note, no code.** The owner chose this direction on 2026-11-23 ("Design A" of
-that day's investigation). The implementation is not started, and waits for the owner's go.
+**Status: design note, partly implemented.** The owner chose this direction on 2026-11-23
+("Design A" of that day's investigation).
+
+- **Implemented:** reading 3, "Update Alt Dex", store 3 and the panel's Form line, by the pull
+  request that adds *Reading 3 as implemented*, where it is described as built. #137 had added
+  the probes' pin test and the bundled list of the alt dex's forms before it.
+- **Not started:** reading 2, store 2, the run number and the backend field. They wait for the
+  owner's go.
 
 The second capture round ran on 2026-11-23, after the owner approved this note. Its answers are
 under *Open questions*, and its captures under *The second capture round*.
@@ -133,7 +139,10 @@ user a tap on every switch.
 - reading 2 only: that every name resolves to a species of category `STARTERS` or `LEGENDARIES`
   in `MainDexSpeciesIndex`, and carries 🎊 or 🔒 (removed from the stored name, never a reason
   to reject);
-- that two reads one second apart are identical, as the capture script required.
+- that two reads one second apart are identical, as the capture script required;
+- reading 3 only: that the search box is empty, and that the list is not empty. Neither was in
+  this note when the owner approved it. Both were added on 2026-11-23, with the owner's go,
+  while reading 3 was implemented (*Reading 3 as implemented*).
 
 **Known forms, for reading 3.** With "Obtained" off, reading 3 lists only forms not obtained, so
 "obtained" means known but not listed. The app knows a form from two sources:
@@ -317,6 +326,78 @@ clears. Every label is a string in `strings.xml`.
 **PCG gameplay stays manual.** The readings and the panel only observe, cache and display. No
 reading, store change or panel state sends a chat command, queues one, or triggers anything.
 
+## Reading 3 as implemented
+
+What was built on 2026-11-23. Read in code and run in unit tests; not yet run on the device,
+where *Device checks for the implementation* 3, 4, 5 and 7 cover it.
+
+**The script: `pcg_dex_reader.js`.**
+
+- It is last in `manifest.json`'s `js` list, after the three pinned probes, and the manifest's
+  version went from 1.2.1 to 1.3.0, so `ensureBuiltIn` reloads the extension.
+- Once a second, while `.pokedex__container` exists, it sends `pcg_dex_page_read`:
+  - the dex label's text, and whether it is `active`;
+  - each filter's label and live checkbox;
+  - whether the search box is empty, never its text;
+  - the counter's text and the number of entries;
+  - in the alt dex only, each entry's name, sprite number and `grayscale` flag.
+- It never clicks, scrolls, types, focuses or sets a filter. It does not read the title yet:
+  reading 2's run number will need it.
+
+**The gate: `PcgAltDexReadingGate`.** On the Pokédex tab confirmed by the scout, the latest read
+must show:
+
+- "Alt Dex", `active`;
+- "Obtained" present and off, and no other filter on;
+- the search box empty;
+- the counter as "obtained / shown", with obtained 0;
+- as many entries as the counter's shown number;
+- every entry `grayscale`, with a name and a sprite number, and no name twice;
+- at least one entry.
+
+The read before it, one to three seconds earlier by the page's clock, must be the same page.
+
+- **Refused at once,** because only the user can change it: the wrong tab, a dex other than the
+  alt dex, Obtained on, another filter on, a search in the box.
+- **Waited for,** because the page may still be rendering: everything else. The tap waits for its
+  6-second window, the same as "Update Pokédex"'s, and is refused only if it still fails when the
+  window ends, with the message for what it last failed on.
+- Each refusal has its own message in `strings.xml`. One tap takes at most one reading.
+
+**Two conditions this note did not have.**
+
+- **The search box, `.pokedex__search`.** A search narrows the list. Whether the counter's shown
+  number follows it was not observed. If it does, a search leaves every other check passing, and
+  the gate would take a part of the missing forms for all of them. Every known form not listed
+  would then be stored as obtained, and store 3 cannot take that back. So the gate refuses while
+  the box holds text.
+- **The empty list.** Refused, and nothing stored (owner's ruling, 2026-11-23).
+  - **Why:** an empty list cannot be told from a page not yet loaded, and store 3 cannot undo a
+    wrong "obtained": every bundled form would become obtained for good.
+  - The tap waits for its window first, since a page still loading may yet list its forms.
+  - A user who has every form is therefore never read: *Open questions*, 4.
+
+**Reading 1 does not check the search box either.** `content.js` has no reference to it (read in
+code). Whether a search with Spawnable alone could let reading 1 accept a partial list was not
+examined. Reading 1 stays as it is; this is only recorded.
+
+**Store 3: `PcgAltDexSnapshotStore`.**
+
+- Its own preferences file, `pcg_alt_dex_snapshots`, with one key per profile and schema 1.
+- It holds the obtained forms and the last reading's missing forms, each as normalized key, raw
+  name and sprite number, and `readAtMs`.
+- Cleared by the profile's removal (`AccountProfileRemovalController`) and by both local-data
+  resets: `LocalDataCleaner` keeps no file by that name.
+- Nothing in it leaves the phone.
+
+**The panel's Form line.**
+
+- It follows the Dex entry: "Form: Obtained", "Form: Not obtained" or "Form: ?".
+- It is matched by the spawn's exact name, the catalog's name first and then the name chat gave,
+  against the bundled list and store 3's forms. A name that is none of them gets no line.
+- The Dex entry and the Repeat Ball rule are unchanged. The subtitle now allows three lines
+  instead of two, to make room for it.
+
 ## Risks
 
 - **The extension bundle changes.**
@@ -326,8 +407,8 @@ reading, store change or panel state sends a chat command, queues one, or trigge
     not observed here.
   - `content.js` and the scout stay byte for byte, but every build installed for a test carries
     the new script. That needs the owner's go under the 2026-11-18 ruling.
-  - The implementation pull request adds a unit test that pins `content.js`, the scout and
-    `pcg_probe_inventory.js` to their blobs. No such test exists today.
+  - A unit test pins `content.js`, the scout and `pcg_probe_inventory.js` to their blobs:
+    `PcgProbeScriptPinTest`, added by #137 before any behaviour changed.
 - **"Obtained" is shared between the dexes.** A user who turns it on in one dex finds it on in the
   other. Every reading then refuses, with its message, until it is off.
 - **The app sees a main-dex reset only through the title, and only once the user opens the
@@ -366,6 +447,15 @@ is under *The second capture round*.
      whether anything else on the page shows a reset, is known. Resetting changes game state, so a
      test never does it. Device check 8 is the direct check.
    - **Stores 1 and 2 record N** (*Main-dex resets*).
+4. **How can a user who has obtained every form be read?** Open, added on 2026-11-23.
+   - Their alt dex, with "Obtained" off, lists nothing, and an empty list is refused (*Reading 3
+     as implemented*).
+   - Such a user could later be accepted by a separate positive check with "Obtained" on: the
+     counter reading "371 / 371", and no `grayscale` entry. Never by an empty list.
+   - Neither designed nor implemented.
+5. **Does the counter's shown number follow the search box?** Not observed. The gate refuses a
+   search either way, so the answer changes no rule; it would say whether reading 1 is exposed
+   (*Reading 3 as implemented*).
 
 ## Capture method for PCG page investigations
 

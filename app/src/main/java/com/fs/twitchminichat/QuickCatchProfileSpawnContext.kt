@@ -2,6 +2,8 @@ package com.fs.twitchminichat
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.StringRes
+import com.fs.twitchminichat.pcg.PcgAltDexKnownForms
 import com.fs.twitchminichat.pcg.catalog.PcgPokemonNameNormalizer
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 
@@ -12,10 +14,32 @@ enum class QuickCatchDexEntryStatus {
     UNKNOWN
 }
 
-/** Profile-scoped facts used to decorate and rank one global spawn. */
+/**
+ * Alt-dex status of the spawn's exact form, from the profile's accepted "Update Alt Dex"
+ * readings (`PcgAltDexSnapshotStore`).
+ */
+enum class QuickCatchAltDexFormStatus(@param:StringRes @get:StringRes val labelRes: Int) {
+    /** The form is among the readings' obtained forms. */
+    OBTAINED(R.string.quick_catch_form_obtained),
+
+    /** The form is among the last reading's forms not obtained. */
+    NOT_OBTAINED(R.string.quick_catch_form_not_obtained),
+
+    /** A known form with no reading yet, or one no reading has settled. */
+    UNKNOWN(R.string.quick_catch_form_unknown)
+}
+
+/**
+ * Profile-scoped facts used to decorate and rank one global spawn.
+ *
+ * @property altDexFormStatus null when the spawn's exact name is not a known alt-dex form, so
+ * the panel shows no Form line; base forms such as "Vivillon (Meadow)" are main-dex entries.
+ * It never affects the Repeat Ball rule, which follows [dexEntryStatus] alone.
+ */
 data class QuickCatchProfileSpawnContext(
     val dexEntryStatus: QuickCatchDexEntryStatus,
-    val isMostWanted: Boolean?
+    val isMostWanted: Boolean?,
+    val altDexFormStatus: QuickCatchAltDexFormStatus? = null
 ) {
     /** Repeat Ball is recommended only from an affirmative registered-entry fact. */
     val isAlreadyCaught: Boolean?
@@ -42,7 +66,9 @@ object QuickCatchProfileSpawnContextResolver {
         pokedexSnapshot: PcgPokedexSnapshot?,
         mostWantedNames: Set<String>?,
         speciesIndex: MainDexSpeciesIndex?,
-        onUnresolvedMissingKey: (String) -> Unit = {}
+        onUnresolvedMissingKey: (String) -> Unit = {},
+        altDexSnapshot: PcgAltDexSnapshot? = null,
+        knownAltDexFormKeys: Set<String>? = null
     ): QuickCatchProfileSpawnContext {
         if (spawn == null) {
             return QuickCatchProfileSpawnContext(
@@ -71,8 +97,47 @@ object QuickCatchProfileSpawnContextResolver {
 
         return QuickCatchProfileSpawnContext(
             dexEntryStatus = dexEntryStatus,
-            isMostWanted = isMostWanted
+            isMostWanted = isMostWanted,
+            altDexFormStatus = altDexFormStatus(
+                spawn = spawn,
+                altDexSnapshot = altDexSnapshot,
+                knownAltDexFormKeys = knownAltDexFormKeys
+            )
         )
+    }
+
+    /**
+     * Alt-dex status of the spawn's exact form, or null when it is not a known form.
+     *
+     * A form is known when it is in [knownAltDexFormKeys], the bundled list, or in
+     * [altDexSnapshot]. The spawn is matched by its exact name, the catalog's name first and
+     * then the name chat gave, never by species: the alt dex holds one entry per form.
+     *
+     * - OBTAINED when the form is among the snapshot's obtained forms;
+     * - NOT_OBTAINED when it is among the last reading's forms not obtained;
+     * - UNKNOWN for a known form in neither, including every form before the first reading.
+     */
+    private fun altDexFormStatus(
+        spawn: SpawnSnapshot,
+        altDexSnapshot: PcgAltDexSnapshot?,
+        knownAltDexFormKeys: Set<String>?
+    ): QuickCatchAltDexFormStatus? {
+        val obtainedKeys = altDexSnapshot?.obtainedKeys().orEmpty()
+        val missingKeys = altDexSnapshot?.missingKeys().orEmpty()
+        val knownKeys = knownAltDexFormKeys.orEmpty() + obtainedKeys + missingKeys
+        if (knownKeys.isEmpty()) return null
+
+        val formKey = sequenceOf(spawn.displayName, spawn.rawName)
+            .map(PcgPokemonNameNormalizer::normalize)
+            .filter(String::isNotEmpty)
+            .firstOrNull(knownKeys::contains)
+            ?: return null
+
+        return when (formKey) {
+            in obtainedKeys -> QuickCatchAltDexFormStatus.OBTAINED
+            in missingKeys -> QuickCatchAltDexFormStatus.NOT_OBTAINED
+            else -> QuickCatchAltDexFormStatus.UNKNOWN
+        }
     }
 
     /**
@@ -211,14 +276,31 @@ object QuickCatchProfileSpawnContextProvider {
         } else {
             loadSpeciesIndex { PokemonTypeDex.mainDexSpeciesIndex(context) }
         }
+        val altDexSnapshot = if (spawn == null) {
+            null
+        } else {
+            PcgAltDexSnapshotStore.load(context = context, profileId = canonicalProfileId)
+        }
+        val knownAltDexFormKeys = if (spawn == null) {
+            null
+        } else {
+            loadKnownAltDexFormKeys { PcgAltDexKnownForms.load(context) }
+        }
 
         return QuickCatchProfileSpawnContextResolver.resolve(
             spawn = spawn,
             pokedexSnapshot = pokedexSnapshot,
             mostWantedNames = mostWantedNames,
             speciesIndex = speciesIndex,
-            onUnresolvedMissingKey = unresolvedKeyReporter::report
+            onUnresolvedMissingKey = unresolvedKeyReporter::report,
+            altDexSnapshot = altDexSnapshot,
+            knownAltDexFormKeys = knownAltDexFormKeys
         )
+    }
+
+    /** A bundled list that cannot be read leaves only the stored forms known. */
+    internal fun loadKnownAltDexFormKeys(load: () -> List<PcgAltDexForm>): Set<String>? {
+        return runCatching(load).getOrNull()?.mapTo(HashSet(), PcgAltDexForm::key)
     }
 
     /** A catalog that cannot be read leaves the Pokédex fact unknown, never registered. */

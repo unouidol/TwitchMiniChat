@@ -93,15 +93,31 @@ object QuickCatchSpawnHeaderFormatter {
             currentSpawnRemainingSec(spawn, nowMs)
         )
 
-        return QuickCatchSpawnHeaderModel(
-            title = spawn.displayName,
-            metadata = metadata,
-            subtitle = context.getString(
+        // The Form line follows the Dex entry, and only for a known alt-dex form.
+        val formText = profileSpawnContext.altDexFormStatus?.let { status ->
+            context.getString(status.labelRes)
+        }
+        val subtitle = if (formText == null) {
+            context.getString(
                 R.string.quick_catch_spawn_profile_status,
                 dexText,
                 mostWantedText,
                 remainingText
             )
+        } else {
+            context.getString(
+                R.string.quick_catch_spawn_profile_status_with_form,
+                dexText,
+                formText,
+                mostWantedText,
+                remainingText
+            )
+        }
+
+        return QuickCatchSpawnHeaderModel(
+            title = spawn.displayName,
+            metadata = metadata,
+            subtitle = subtitle
         )
     }
 

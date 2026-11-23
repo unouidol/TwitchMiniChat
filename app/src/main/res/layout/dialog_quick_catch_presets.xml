@@ -61,7 +61,8 @@
         android:ellipsize="end"
         android:textAppearance="?android:attr/textAppearanceSmall" />
 
-    <!-- Active-profile Dex/Most Wanted facts plus the global spawn timer. -->
+    <!-- Active-profile Dex/Form/Most Wanted facts plus the global spawn timer. A third
+         line leaves room for the Form fact, which known alt-dex forms add. -->
     <TextView
         android:id="@+id/txtQuickCatchSpawnSubtitle"
         android:layout_width="match_parent"
@@ -69,7 +70,7 @@
         android:layout_marginTop="4dp"
         android:layout_marginBottom="8dp"
         android:textAppearance="?android:attr/textAppearanceSmall"
-        android:maxLines="2" />
+        android:maxLines="3" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerQuickCatchPresets"

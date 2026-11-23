@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "PCG Probe",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "pcg-probe@example.com"
@@ -25,7 +25,8 @@
       "js": [
         "pcg_tab_state_scout.js",
         "pcg_probe_inventory.js",
-        "content.js"
+        "content.js",
+        "pcg_dex_reader.js"
       ]
     }
   ]
