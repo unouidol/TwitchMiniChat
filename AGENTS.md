@@ -134,11 +134,16 @@ Each entry is something git, the GitHub command-line interface (`gh`), GitHub it
 - **What worked:**
   1. Check what was left, file by file, against the commit's blobs.
   2. Only then, in a command of its own, delete the folder with PowerShell 7: `Remove-Item -LiteralPath <path> -Recurse -Force`. It removed the long paths that git could not.
-- **What to do instead next time, not yet tried:**
+- **What to do instead next time.** It was tried on 2026-11-18 and worked first time. Until 2026-11-20 this item read "not yet tried".
   1. Read the worktree's state first, as a step of its own (see *Change discipline*).
   2. Delete `app/build` with the same `Remove-Item`. It is ignored build output, so nothing in it is work or evidence.
   3. Then run `git worktree remove`.
 - **Not observed first-hand by whoever wrote this entry.** Federico's account and a note an earlier session left on nbpromec1 both record it, on nbpromec1, on 2026-11-17, with git 2.45.1.windows.1, removing the worktree `TwitchMiniChat-wt-5d`. The details come from the note: the 266-character paths, the `.git` file and metadata already deleted, and the file-by-file check before the folder was deleted.
+- **The procedure above, tried on 2026-11-18: not observed first-hand by whoever wrote this either.** Federico's account says that the removal of F3's worktree, following it, worked first time. A note an earlier session left on nbpromec1 gives the details:
+  - git 2.45.1.windows.1, on a throwaway worktree detached at `cbb772d`;
+  - the worktree's state was read first, and the files to keep were copied and checked by hash;
+  - `app/build` was then deleted with `Remove-Item -LiteralPath … -Recurse -Force`;
+  - `git worktree remove --force` completed with no error. `--force` was needed because the worktree held scratch edits.
 
 ## Required verification
 
