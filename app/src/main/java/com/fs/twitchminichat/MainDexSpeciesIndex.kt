@@ -5,21 +5,46 @@ import com.fs.twitchminichat.pcg.catalog.PcgPokemonNameNormalizer
 import com.fs.twitchminichat.pcg.catalog.PcgVariantKind
 
 /**
+ * The category under which the Pokémon Community Game (PCG) main Pokédex lists a species.
+ *
+ * Each is one filter of the page: "Spawnable", "Starters" and "Legendaries". The three split
+ * the 1025 species with no overlap, 822, 81 and 122 when the page was captured on
+ * 2026-11-23. Today's Pokédex reading is taken with "Spawnable" alone, so it never lists a
+ * [STARTERS] or [LEGENDARIES] species, missing or not.
+ */
+internal enum class MainDexCategory {
+    SPAWNABLE,
+    STARTERS,
+    LEGENDARIES
+}
+
+/**
  * One species of the PCG main Pokédex, as the bundled catalog defines it.
  *
  * @property key normalized species name: the identity compared between a spawn and the
  * stored missing entries.
  * @property name the species' name in tmc-backend's species table ("Nidoran♀", "Unown").
- * @property coveredBySpawnableSnapshot whether a Spawnable-only Pokédex capture lists this
- * species while it is missing, so that its absence from the capture means it is registered.
- * It is the `normallySpawnable` of the catalog entry named after the species, or, for a
- * species without one, true only when every one of its forms is normally spawnable.
+ * @property category the page's category for this species, read from two flags of the
+ * catalog entry named after the species: [MainDexCategory.STARTERS] when its `starterFamily`
+ * is set, otherwise [MainDexCategory.LEGENDARIES] when its `normallySpawnable` is not, and
+ * otherwise [MainDexCategory.SPAWNABLE]. A species without such an entry is a starter when
+ * any of its forms is one, and legendary when any is not normally spawnable.
+ * `MainDexSpeciesIndexTest` checks the result species by species against the captured page.
  */
 internal data class MainDexSpecies(
     val key: String,
     val name: String,
+    val category: MainDexCategory
+) {
+    /**
+     * Whether a Spawnable-only Pokédex capture lists this species while it is missing, so
+     * that its absence from the capture means it is registered. Only
+     * [MainDexCategory.SPAWNABLE] species are: a missing starter or legendary is absent from
+     * that capture too.
+     */
     val coveredBySpawnableSnapshot: Boolean
-)
+        get() = category == MainDexCategory.SPAWNABLE
+}
 
 /**
  * Resolves catalog names and stored Pokédex keys to main-Pokédex species.
@@ -125,8 +150,7 @@ internal class MainDexSpeciesIndex private constructor(
                 speciesByKey[key] = MainDexSpecies(
                     key = key,
                     name = names.single(),
-                    coveredBySpawnableSnapshot = ordinaryEntry?.normallySpawnable
-                        ?: forms.all(PokemonTypeEntry::normallySpawnable)
+                    category = categoryOf(ordinaryEntry?.let(::listOf) ?: forms)
                 )
             }
 
@@ -140,6 +164,19 @@ internal class MainDexSpeciesIndex private constructor(
                 speciesByCatalogKey = speciesByCatalogKey,
                 speciesByKey = speciesByKey
             )
+        }
+
+        /**
+         * Category from the entries that carry a species' flags: its ordinary entry alone,
+         * or every form when it has none. Either doubt leaves the species out of
+         * [MainDexCategory.SPAWNABLE], so that no absence is ever read as registered.
+         */
+        private fun categoryOf(flagEntries: List<PokemonTypeEntry>): MainDexCategory {
+            return when {
+                flagEntries.any(PokemonTypeEntry::starterFamily) -> MainDexCategory.STARTERS
+                !flagEntries.all(PokemonTypeEntry::normallySpawnable) -> MainDexCategory.LEGENDARIES
+                else -> MainDexCategory.SPAWNABLE
+            }
         }
 
         /** The catalog's source species without its regional suffix ("Marowak-Alola" to "Marowak"). */

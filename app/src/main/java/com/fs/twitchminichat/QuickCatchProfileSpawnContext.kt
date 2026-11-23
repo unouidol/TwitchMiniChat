@@ -83,7 +83,8 @@ object QuickCatchProfileSpawnContextResolver {
      *
      * - MISSING when the spawn's species is among the species of the missing entries;
      * - REGISTERED only when, in addition to not being MISSING, the spawn is a catalog name
-     *   and its species is one that a Spawnable-only capture lists while it is missing;
+     *   and its species is one that a Spawnable-only capture lists while it is missing: one
+     *   of PCG's Spawnable category, never a starter or a legendary;
      * - UNKNOWN in every other case: no capture, no species index, a spawn the catalog does
      *   not know, or a species the capture does not cover.
      *

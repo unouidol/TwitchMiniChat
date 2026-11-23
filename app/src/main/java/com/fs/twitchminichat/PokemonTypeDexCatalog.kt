@@ -105,7 +105,8 @@ internal class PokemonTypeDexCatalog private constructor(
                     mainDexSpecies = mainDexSpeciesNames.getValue(
                         MainDexSpeciesIndex.cleanSourceSpecies(catalogEntry.sourceSpecies)
                     ),
-                    normallySpawnable = catalogEntry.normallySpawnable
+                    normallySpawnable = catalogEntry.normallySpawnable,
+                    starterFamily = catalogEntry.starterFamily
                 )
             }
 

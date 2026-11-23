@@ -9,6 +9,8 @@ import com.fs.twitchminichat.pcg.catalog.PcgPokemonTier
  * tmc-backend's `main_dex_species_table_v1.json` names it ("Marowak" for "Sin Alo Marowak").
  * See [MainDexSpeciesIndex].
  * @property normallySpawnable the catalog's `normallySpawnable` for this exact name.
+ * @property starterFamily the catalog's `starterFamily` for this exact name. The catalog sets it
+ * only on the name of each starter species itself ("Typhlosion", not "His Typhlosion").
  */
 data class PokemonTypeEntry(
     val sourceKey: String,
@@ -26,7 +28,8 @@ data class PokemonTypeEntry(
     val locked: Boolean,
     val featured: Boolean,
     val mainDexSpecies: String,
-    val normallySpawnable: Boolean
+    val normallySpawnable: Boolean,
+    val starterFamily: Boolean
 ) {
     // backward-compatible alias for old code
     val key: String
