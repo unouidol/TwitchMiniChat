@@ -55,7 +55,8 @@ internal object BundledPcgCatalogFixture {
         )
     }
 
-    private fun findAppModuleDirectory(): Path {
+    /** The `app` module's directory, found from the test's working directory upwards. */
+    internal fun findAppModuleDirectory(): Path {
         val start = Path.of(System.getProperty("user.dir"))
             .toAbsolutePath()
             .normalize()
