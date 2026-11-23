@@ -185,9 +185,13 @@ With the design:
 - A missing or failing new script never disables "Update Pokédex": the last row keeps today's
   behaviour.
 - **In the main dex, "Update Pokédex" is enabled exactly when it is today.**
-- **In the alt dex it goes from enabled to disabled.** By the code, a tap there today is rejected
-  at once with `pcg_pokedex_spawnable_only_required`. The alt dex has no "Spawnable" filter, so
-  `content.js` reports `spawnable_filter_off`. Read in code, not tried on the device.
+- **In the alt dex it goes from enabled to disabled.** A tap there with the clean build is not
+  rejected at once, as this note said from the code until #138's device step.
+  - **Observed on 2026-11-23, on `a11a3a0`:** the Pokédex state was 14 seconds old
+    (`fresh=false`). The tap armed and timed out after 6 seconds ("manual pokedex registration
+    timed out"), with the timeout's message.
+  - **Not examined:** why the state was old. It fits `content.js` reporting nothing new while the
+    alt dex is shown.
 
 **The request: `requestManualPokedexUpdate` (`GeckoSessionManager.kt:1793`).**
 
@@ -328,8 +332,8 @@ reading, store change or panel state sends a chat command, queues one, or trigge
 
 ## Reading 3 as implemented
 
-What was built on 2026-11-23. Read in code and run in unit tests; not yet run on the device,
-where *Device checks for the implementation* 3, 4, 5 and 7 cover it.
+What was built on 2026-11-23. Read in code and run in unit tests, then tried on the device in
+#138's device step, at the end of this section.
 
 **The script: `pcg_dex_reader.js`.**
 
@@ -397,6 +401,63 @@ examined. Reading 1 stays as it is; this is only recorded.
   against the bundled list and store 3's forms. A name that is none of them gets no line.
 - The Dex entry and the Repeat Ball rule are unchanged. The subtitle now allows three lines
   instead of two, to make room for it.
+
+**The device step, 2026-11-23** (#138, the owner's go that day). Observed on the test phone, on the
+dev app only, with the owner's PCG account. The record of the build is under *Test device* in
+`RELEASE-STATE.md`.
+
+- **Reading 1 behaves as before.** The same sequence ran on the clean dev build of `main-v5` at
+  `a11a3a0` and on #138's build `33a1b4d`. From `a11a3a0` to `c0f388f`, the base of #138, only
+  #134's catalog and panel files and the unread forms asset changed, so reading 1's code is the
+  same in both builds (read in the diff).
+  - **Main dex, Spawnable alone, counter "0 / 3":** the same `PCG_PROBE` lines, in the same order,
+    on both builds:
+    - "manual pokedex registration completed from recent passive Spawnable-only snapshot";
+    - "manual pokedex upload accepted count=3";
+    - `upload_dex_list responseCode=200`.
+  - **Store 1:** the same profile key and the same 3 missing keys, by hash; only `updatedAtMs`
+    differed.
+  - **Spawnable + Starters:** "manual pokedex rejected because Spawnable-only filter is required
+    otherFilterCount=1", with the toast "Set the Pokédex filter to Spawnable only, then try
+    again.", on both builds.
+    - On #138's build, a first tap went to the timeout instead, because the page's state was 114
+      seconds old after the app had been in the background.
+    - With Starters turned off and on again just before the next tap, the state was 1.9 seconds
+      old, and the tap was rejected at once.
+  - `register_fcm responseCode=403` followed every upload on both builds: older than this change,
+    and not examined.
+- **The probes inside the installed APK.** `content.js`, the scout and `pcg_probe_inventory.js`
+  were the exact CRLF form of `4d07adb`, `23f1fd0` and `4bdebb1`, the working copy's bytes under
+  `core.autocrlf`. `pcg_dex_reader.js` and `manifest.json` were #138's blobs, and
+  `extensions.json` listed the probe at `1.3.0`.
+- **The buttons:**
+  - Inventory tab: only "Update Inventory" enabled.
+  - Main dex: only "Update Pokédex" enabled.
+  - Alt dex: only "Update Alt Dex" enabled.
+  - The three labels wrapped to two lines each, with nothing cut off.
+- **Reading 3, accepted** in the alt dex with Obtained off, at "0 / 61":
+  - "manual alt dex reading accepted listed=61 obtained=310 bundled=371 listedNotBundled=0
+    obtainedListedAgain=0", 54 ms after "armed";
+  - the toast "Alt Dex saved on this phone. Forms not obtained: 61.";
+  - store 3 held 310 obtained and 61 missing forms, under the same profile key as store 1.
+- **Reading 3, refused** with Obtained on, at "310 / 371": "manual alt dex rejected
+  reason=OBTAINED_ON", with the toast "Turn off the Obtained filter, then press Update Alt Dex.".
+  Store 3 was byte for byte unchanged.
+- **Not reached:**
+  - `pcg_alt_dex_not_alt_dex`: in the main dex the button is disabled, so the message can only
+    follow a switch of dex during a tap's window. The unit tests cover it.
+  - The search box and the empty list were not tried on the device. The unit tests cover them.
+  - The Form line: no alt-dex form spawned during the step. The unit tests cover it.
+- **The line "dex page read" is written only when the dex shown changes,** and its entry count
+  is the page's at that moment:
+  - 1396 when the main dex was first read. That is 1025 + 371, both dexes together: inferred from
+    the sum, not read.
+  - 3 when the alt dex was first shown: the main dex's list.
+  - 61 when the main dex was shown again: the alt dex's list.
+
+  That fits the page changing its label before its list (inferred). The tap came 20 seconds after
+  the switch, and its accepted read had 61 entries, matching the counter. By the code, a read
+  taken during a switch fails the gate's count and stability checks; not tried.
 
 ## Risks
 
@@ -495,6 +556,16 @@ Two things the 2026-11-23 round learnt about the method:
   was 1.2.1.4.
 - **GeckoView's message bridge rejects an array of arrays of mixed types** ("Invalid event data
   property"). Metadata is sent as a JSON string.
+
+One thing #138's device step learnt, on 2026-11-23:
+
+- **A notification can take a tap meant for the app.**
+  - A tap sent with `adb shell input tap` at the top of the screen, where the update buttons are,
+    landed on a Discord notification banner that had appeared a second earlier, and opened
+    Discord. Nothing was written there.
+  - The step went on with "Do not disturb" on, switched on by the owner. Every tap was sent only
+    after a check, in the same command, that the dev app's `PcgActivity` had the focus and that
+    `zen_mode` was not 0.
 
 ## Device checks for the implementation
 

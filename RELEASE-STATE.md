@@ -1599,24 +1599,59 @@ Two facts that a list of branches does not show, recorded on 2026-11-10 by the o
 
 ## Test device
 
-**Refreshed on 2026-11-20, at the end of the 5.6.1 device round** (`docs/manual-plan-5.6.1.md`).
-Read from the device over adb at 09:14 CET, on the OnePlus AC2003 (Android 12, API 31). The
-version and build number are what the phone's package manager reports. The sha256 was read on the
-phone with `sha256sum` on the path `pm path` gives.
+**Refreshed on 2026-11-23, at the end of #138's device step** (reading 3, "Update Alt Dex", of
+`docs/design-pcg-dex-readings.md`). Read from the device over adb between 15:56 and 16:07 CET, on
+the OnePlus AC2003 (Android 12, API 31). The version and build number are what the phone's
+package manager reports. The sha256 was read on the phone with `sha256sum` on the path `pm path`
+gives.
+
+| App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
+|---|---|---|---|---|---|
+| Stable | `com.fs.twitchminichat` | 5.6.1 (10) | `a11a3a0`, tag `v5.6.1` | `d888243fe53353cbf1e44dacc77fab07303b10a140a1d58a48eb123f506b8111` | 2026-11-20 08:30:27 |
+| Dev | `com.fs.twitchminichat.dev` | 5.6.1-dev (10) | `33a1b4d`, tag `device-test/5.6.1-dev-10-33a1b4d`, #138 | `4676b807b493dfcaa2819914f0e6f6fd9f75615979ee37c8340fd8d02931187a` | 2026-11-23 16:00:21 |
+
+- **The stable app is unchanged since 2026-11-20:** the published 5.6.1, with the same sha256 and
+  last update, read at 15:56 and again at 16:11. It was not opened.
+- **The dev app is #138's tested head `33a1b4d`, merged on 2026-11-23 as `d7a2036`.**
+  - The two commits have the same tree, `b74b62d…`, so its code is `main-v5` at `d7a2036`.
+  - Its embedded commit `33a1b4d` is not on `main-v5`. It is reached by the tag
+    `device-test/5.6.1-dev-10-33a1b4d` and the kept branch `feat/pcg-alt-dex-reading`.
+  - It is the dev debug build from `33a1b4d`, built on `nbpromec1` with a clean tree. Its login
+    screen reads "Version 5.6.1-dev (build 10, 33a1b4d)", with no `+`. The built APK's sha256 is
+    the installed one.
+  - It was installed with `adb install -r` over the dev app only, with its data kept:
+    `firstInstallTime` 2026-10-05 11:42:01 is unchanged.
+  - GeckoView's `extensions.json` lists `pcg-probe@example.com` at `1.3.0`, active, read after
+    the device step.
+  - **It stays until the release round,** by the owner's instruction for #138: nothing was
+    restored after the device step.
+  - The tag was pushed and confirmed with `git ls-remote --tags origin` before this record was
+    written.
+- **What it replaced:** the 5.6.1 round's D, `a11a3a0`, sha256 `dddac120…f26634e1`, read on the
+  phone at 15:56, before the install.
+  - Its last update then read 2026-11-23 10:11:41, not the 08:35:12 recorded below, with the same
+    sha256. That D was reinstalled once more after the second capture round of that morning is
+    inferred, not read.
+- **"Disable permission monitoring": its state since 2026-11-14 was not read.**
+
+**Until 2026-11-23 this section read as follows, refreshed on 2026-11-20, at the end of the 5.6.1
+device round** (`docs/manual-plan-5.6.1.md`). It was rewritten as history on 2026-11-23, in the
+past tense. It was read from the device over adb at 09:14 CET, on the OnePlus AC2003 (Android 12,
+API 31).
 
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.6.1 (10) | `a11a3a0`, tag `v5.6.1` | `d888243fe53353cbf1e44dacc77fab07303b10a140a1d58a48eb123f506b8111` | 2026-11-20 08:30:27 |
 | Dev | `com.fs.twitchminichat.dev` | 5.6.1-dev (10) | `a11a3a0`, on `main-v5` | `dddac120a5fa08abb04a7d5f965f36e349a7effd3cebe42cc75535e0f26634e1` | 2026-11-23 08:35:12 |
 
-- **The stable app is the published 5.6.1:** R's arm64 APK, the published
+- **The stable app was the published 5.6.1:** R's arm64 APK, the published
   `TwitchMiniChat-Android-arm64-v8a.apk`. It was installed with `adb install -r` over the
-  published 5.6.0, with its data kept: `firstInstallTime` 2026-04-08 is unchanged.
-- **The dev app is the round's D,** the dev debug build from `a11a3a0`. It was built on `nbpromec1`
-  with a clean tree, and its dex carries `a11a3a0` with no `+`.
+  published 5.6.0, with its data kept: `firstInstallTime` 2026-04-08 was unchanged.
+- **The dev app was the round's D,** the dev debug build from `a11a3a0`. It was built on `nbpromec1`
+  with a clean tree, and its dex carried `a11a3a0` with no `+`.
   - It was installed with `adb install -r` over the dev app only, with its data kept:
-    `firstInstallTime` 2026-10-05 is unchanged.
-  - Its commit is on `main-v5`, so it needs no device-test tag.
+    `firstInstallTime` 2026-10-05 was unchanged.
+  - Its commit was on `main-v5`, so it needed no device-test tag.
 - **The dev app's last update was corrected on 2026-11-23** (#134). Read from the device over adb at
   09:23 CET: the same version, commit and sha256, so the same D, reinstalled. Until then the row
   read 2026-11-20 08:18:50.
