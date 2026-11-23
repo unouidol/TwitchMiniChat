@@ -1607,7 +1607,7 @@ phone with `sha256sum` on the path `pm path` gives.
 | App | Package | Version (build) | Commit | Installed APK, sha256 | Last updated, phone time |
 |---|---|---|---|---|---|
 | Stable | `com.fs.twitchminichat` | 5.6.1 (10) | `a11a3a0`, tag `v5.6.1` | `d888243fe53353cbf1e44dacc77fab07303b10a140a1d58a48eb123f506b8111` | 2026-11-20 08:30:27 |
-| Dev | `com.fs.twitchminichat.dev` | 5.6.1-dev (10) | `a11a3a0`, on `main-v5` | `dddac120a5fa08abb04a7d5f965f36e349a7effd3cebe42cc75535e0f26634e1` | 2026-11-20 08:18:50 |
+| Dev | `com.fs.twitchminichat.dev` | 5.6.1-dev (10) | `a11a3a0`, on `main-v5` | `dddac120a5fa08abb04a7d5f965f36e349a7effd3cebe42cc75535e0f26634e1` | 2026-11-23 08:35:12 |
 
 - **The stable app is the published 5.6.1:** R's arm64 APK, the published
   `TwitchMiniChat-Android-arm64-v8a.apk`. It was installed with `adb install -r` over the
@@ -1617,6 +1617,16 @@ phone with `sha256sum` on the path `pm path` gives.
   - It was installed with `adb install -r` over the dev app only, with its data kept:
     `firstInstallTime` 2026-10-05 is unchanged.
   - Its commit is on `main-v5`, so it needs no device-test tag.
+- **The dev app's last update was corrected on 2026-11-23** (#134). Read from the device over adb at
+  09:23 CET: the same version, commit and sha256, so the same D, reinstalled. Until then the row
+  read 2026-11-20 08:18:50.
+  - **Why it changed:** that morning the dev app ran three throwaway capture builds of the PCG
+    Pokédex investigation, the owner's decision for it, never committed. They were C at 08:09:04,
+    C2 at 08:15:55 and C3 at 08:19:32, read on the phone at the time.
+  - **How D came back:** D was reinstalled with `adb install -r` at 08:35:12, with its data kept,
+    and `firstInstallTime` 2026-10-05 is unchanged. GeckoView's `extensions.json` lists the PCG
+    probe at `1.2.1` again, read at 08:41 and again at 09:23.
+  - **The stable app:** read at the same time, and unchanged.
 - **What they replaced:**
   - stable: the published 5.6.0, `fd06d29e…0745ff3`;
   - dev: #127's head `5354d8d`, `ce937e79…6807a84`, both read on the phone at 08:12 CET before the
