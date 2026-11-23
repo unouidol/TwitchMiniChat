@@ -18,9 +18,19 @@ Provenance is marked throughout:
 These stay byte for byte as they are at `a11a3a0`:
 
 - `app/src/main/assets/pcg_probe/content.js` (blob `4d07adb`);
-- `app/src/main/assets/pcg_probe/pcg_tab_state_scout.js` (blob `23f1fd0`);
-- the "Update Pokédex" reading behind them: its gate, its messages, `PcgPokedexSnapshotStore`, and
-  its upload to `/upload_dex_list`.
+- `app/src/main/assets/pcg_probe/pcg_tab_state_scout.js` (blob `23f1fd0`).
+
+Reading 1, today's "Update Pokédex" reading, behaves exactly as it does today:
+
+- its gate and its messages;
+- its write to `PcgPokedexSnapshotStore`;
+- its upload to `/upload_dex_list`.
+
+Any page state that is not reading 2's goes through "Update Pokédex" by today's path, with
+today's message. Two things change around reading 1:
+
+- **"Update Pokédex"'s enabling, and one branch of its request:** see *The two buttons*.
+- **An optional run number in its store:** see *Main-dex resets*.
 
 `pcg_probe_inventory.js` and "Update Inventory" stay as they are too, under the owner's ruling of
 2026-11-18 in `AGENTS.md`.
@@ -68,9 +78,9 @@ their provenance (#134).
 
 ## The three readings
 
-Each reading has its own button. One tap takes at most one reading and sends nothing to chat.
-None of them clicks, scrolls or changes a filter: the user sets the page, and the app only reads
-it.
+Two buttons take the three readings (*The two buttons*). One tap takes at most one reading and
+sends nothing to chat. No reading clicks, scrolls or changes a filter: the user sets the page,
+and the app only reads it.
 
 | | Reading 1 (today's, unchanged) | Reading 2 (new) | Reading 3 (new) |
 |---|---|---|---|
@@ -81,14 +91,14 @@ it.
 | Obtained | off | off | off |
 | Lists | the missing Spawnable species | the missing starters and legendaries | the forms not obtained |
 | Read by | `content.js` | a new passive script | the same new script |
-| Button | "Update Pokédex" | new | new |
+| Button | "Update Pokédex" | "Update Pokédex" | "Update Alt Dex" (new) |
 
 **The gates exclude one another.**
 
 - Reading 1 needs Spawnable on; reading 2 needs it off.
 - Reading 3 needs the alt dex. There `content.js` already reports `valid=false` and never
   extracts (observed).
-- No page state can satisfy two readings, so no tap can produce two readings.
+- No page state can satisfy two readings, so a tap of either button takes at most one.
 
 **Obtained stays off in all three.** The filter is shared between the dexes, so this saves the
 user a tap on every switch.
@@ -116,6 +126,58 @@ user a tap on every switch.
 A form PCG adds later, and that the user obtains before any reading lists it, stays "?". This
 depends on *Open question 1*.
 
+## The two buttons
+
+"Update Pokédex" takes reading 1 or reading 2, depending on the page state when it is tapped. A
+new "Update Alt Dex" takes reading 3.
+
+**Where the buttons learn the page state.** The page state they need comes from the new passive
+script: the dex label, the live filter checkboxes and the title. The script reports them as a
+state message, as the scout reports the tab. Neither `content.js` nor the scout is changed to
+report anything.
+
+**Enabling: `buildManualUpdateButtonState` (`GeckoSessionManager.kt:486-519`).** Today:
+
+- `pokedexEnabled` is `isPokedexConfirmedActive`, from the scout alone;
+- the scout reports `pokedex` in both dexes (observed);
+- so "Update Pokédex" is enabled in the alt dex too.
+
+With the design:
+
+| New script's state | "Update Pokédex" | "Update Alt Dex" |
+|---|---|---|
+| fresh, "Main Dex" | as today: enabled when the Pokédex tab is confirmed | disabled |
+| fresh, "Alt Dex" | disabled | enabled when the Pokédex tab is confirmed |
+| absent or stale | as today | disabled |
+
+- `PcgManualUpdateButtonState` gains `altDexEnabled`, and `reason` gains a value for the alt dex.
+  `PcgActivity` gets the second button, with its label in `strings.xml`.
+- A missing or failing new script never disables "Update Pokédex": the last row keeps today's
+  behaviour.
+- **In the main dex, "Update Pokédex" is enabled exactly when it is today.**
+- **In the alt dex it goes from enabled to disabled.** By the code, a tap there today is rejected
+  at once with `pcg_pokedex_spawnable_only_required`. The alt dex has no "Spawnable" filter, so
+  `content.js` reports `spawnable_filter_off`. Read in code, not tried on the device.
+
+**The request: `requestManualPokedexUpdate` (`GeckoSessionManager.kt:1793`).**
+
+- **Today:** a Pokédex state with `needsSpawnableOnlyHint`, meaning Spawnable off or another filter
+  on, is rejected at once with `pcg_pokedex_spawnable_only_required`. Reading 2's state is such a
+  state.
+- **The design changes that branch only.**
+  - When the new script's fresh state is exactly reading 2's gate, the tap takes reading 2, with
+    its own manual window, timeout and messages.
+  - In any other state the branch rejects exactly as today.
+- **Every other branch stays as it is:**
+  - the wrong tab;
+  - the probe not confirming the tab;
+  - the recent Spawnable-only snapshot;
+  - the armed window and its timeout.
+
+**This changes what "Update Pokédex" does, so it needs the owner's go.** The 2026-11-18 ruling
+keeps "Update Pokédex" as it is in every build installed for a test. The new script needs the
+same go when it is implemented.
+
 ## The three stores
 
 They are three separate stores, each with its own preferences file and schema, never merged. Each
@@ -126,8 +188,9 @@ is per profile, and each is cleared when its profile is removed and by the local
 |---|---|---|---|
 | Written by | reading 1, unchanged | reading 2 | reading 3 |
 | Holds | missing name keys, `updatedAtMs` | missing name keys, the categories read (`STARTERS`, `LEGENDARIES`), `readAtMs` | obtained forms and the last reading's missing forms; each form as normalized key, raw name and sprite number; `readAtMs` |
+| Main-dex run | the title's N, only if *Open question 3* confirms it counts runs | the same | none |
 | On a new accepted reading | replaced | replaced | obtained forms: **only grow**, by the known forms the reading does not list; missing forms: replaced |
-| A main-dex reset in PCG | stale until the next reading (as today) | stale until the next reading | unaffected: PCG never resets the alt dex |
+| A main-dex reset in PCG | stale from a different N until the next reading; unseen otherwise, as today | the same | unaffected: PCG never resets the alt dex |
 
 **Why store 3 only grows:** a form once obtained stays obtained, because PCG never resets the
 alt dex. The price is that a wrong "obtained" cannot be corrected by a later reading, only by
@@ -135,6 +198,28 @@ clearing the profile's data. The acceptance checks above exist to keep a half-re
 
 Raw names and sprite numbers are stored because 22 alt-dex names are unknown to the catalog, and
 15 of them resolve to no species (observed).
+
+### Main-dex resets
+
+Nothing in the design expires with time. A stored list stops counting only when:
+
+- its next accepted reading replaces it; or
+- the app sees a main-dex reset, as below.
+
+**If the second capture round confirms that the page title's "Pokedex #N" counts main-dex runs:**
+
+- stores 1 and 2 record the N they were read under, taken from the new script's fresh state when
+  the reading is accepted;
+- when the page shows a different N, that store is stale until its next reading;
+- meanwhile the panel reads its species as Unknown, never Registered;
+- store 3 is not affected.
+
+Store 1 gets the N as an optional field under its current `schemaVersion` 1, because
+`PcgPokedexSnapshotStore` reads any other schema version as no snapshot. A snapshot without the
+field means "run unknown", never a reset.
+
+**If the round does not confirm it,** *Open question 3* stays open and nothing changes. No
+time-based expiry stands in for it.
 
 ## The backend field
 
@@ -161,8 +246,12 @@ for example:
    as `main_dex_key` matches today.
 5. With no field stored, behave exactly as today. Old clients never send it.
 
-Whether a stored list stops counting after some age is the owner's decision. No figure is
-assumed here.
+**No age limit.** A list never expires with time, on the server as in the app.
+
+- The server keeps the last uploaded lists until the next upload replaces them.
+- It is not told about a main-dex reset: after one, its lists stay as they were until the user's
+  next reading is uploaded, as `wanted_pokemon` does today.
+- `read_at` records when the list was read. Nothing expires on it.
 
 The alt dex is not uploaded in this design. A "missing in alt dex" alert would be a separate
 project:
@@ -179,10 +268,12 @@ Authentication stays the backend session's Bearer, as for today's upload.
 
 - **Missing:** the species is in store 1's or store 2's missing set.
 - **Registered:**
-  - a Spawnable species not in store 1, when store 1 has a reading; or
-  - a starter or legendary not in store 2, when store 2 has a reading.
-- **Unknown:** every other case. That includes a starter or legendary while store 2 has no
-  reading (#134), and any species whose store has no reading.
+  - a Spawnable species not in store 1, when store 1 has a reading that is not stale; or
+  - a starter or legendary not in store 2, when store 2 has a reading that is not stale.
+- **Unknown:** every other case. That includes:
+  - a starter or legendary while store 2 has no reading (#134);
+  - any species whose store has no reading;
+  - any species whose store is stale after a reset (*Main-dex resets*).
 
 The Repeat Ball bonus stays tied to Registered only.
 
@@ -212,9 +303,10 @@ reading, store change or panel state sends a chat command, queues one, or trigge
 - **`grayscale` rests on one obtained sample** (*Open question 2*).
 - **"Obtained" is shared between the dexes.** A user who turns it on in one dex finds it on in the
   other. Every reading then refuses, with its message, until it is off.
-- **Main-dex resets are invisible to the app** (*Open question 3*). Stores 1 and 2 can say
-  Registered for a species the user has not yet caught again since the reset. That is true of
-  store 1 today.
+- **Main-dex resets are invisible to the app until *Open question 3* is settled.** Until then,
+  stores 1 and 2 can say Registered for a species the user has not caught again since a reset.
+  Store 1 can do that today too. If the title counts runs, the recorded N closes the gap in the
+  app. The server's lists stay as they were until the next upload.
 
 ## Open questions
 
@@ -224,10 +316,11 @@ reading, store change or panel state sends a chat command, queues one, or trigge
 2. **Is `grayscale` absent on every obtained entry, and present on every missing one, with many
    entries obtained?** Observed with one obtained entry. The counter's obtained number gives the
    check: it must equal the count of entries without `grayscale`.
-3. **What does the page look like after a main-dex reset?** Not observed. Resetting changes game
-   state, so a test never does it. The title read "Pokedex #1"; whether it counts runs is not
-   known. If it does, store 2 can record it and treat a different title as stale. Store 1 stays
-   as it is.
+3. **Does the page title's "Pokedex #N" count main-dex runs, and what else shows a reset?** Not
+   observed. Resetting changes game state, so a test never does it. The dev account's title read
+   "Pokedex #1".
+   - If N counts runs, stores 1 and 2 record it (*Main-dex resets*).
+   - If not, the question stays open, with no time-based expiry in its place.
 
 ## Capture method for PCG page investigations
 
@@ -271,19 +364,42 @@ Two things the 2026-11-23 round learnt about the method:
 
 All on the dev app. The stable app's accounts page is never screenshotted.
 
-1. **Reading 1 unchanged.**
-   - The two scripts' blobs equal `a11a3a0`'s, inside the installed APK.
-   - With Spawnable alone, `content.js` logs its extraction as before.
-   - Store 1 is not written by readings 2 and 3.
-2. **Reading 2.**
-   - Accepted with Starters + Legendaries, Spawnable and Obtained off. Its count equals the
+1. **Reading 1 behaves exactly as before.** Run the same sequence twice, with the same account
+   and the same page states: first on the clean dev build of `main-v5` from before the change,
+   then on the new build.
+   - The blobs of `content.js` and the scout inside the installed APK equal `a11a3a0`'s.
+   - In the main dex, "Update Pokédex" is enabled and disabled in the same states on both builds.
+   - With Spawnable alone, one tap gives the same `PCG_PROBE` lines in the same order on both
+     builds:
+     - the passive extraction;
+     - "manual pokedex registration completed from recent passive Spawnable-only snapshot", or
+       "armed" followed by the completion;
+     - the upload, and the same toast.
+   - Store 1's snapshot holds the same missing keys on both builds, and their count equals the
+     counter's shown number. Its only new content is the run number, if *Open question 3*
+     confirmed it.
+   - The upload carries the same `wanted_pokemon`. On the server, `[DEX] saved … wanted_count=`
+     reads the same.
+   - The rejections are the same:
+     - outside the Pokédex tab: `pcg_pokedex_wrong_tab`;
+     - with a filter combination that is neither reading 1's nor reading 2's, such as Spawnable +
+       Starters: `pcg_pokedex_spawnable_only_required` at once.
+   - This check presses "Update Pokédex" in a device test, so it needs the owner's go under the
+     2026-11-18 ruling.
+2. **Reading 2, through "Update Pokédex".**
+   - Accepted with Starters + Legendaries on, Spawnable and Obtained off. Its count equals the
      counter.
-   - Rejected, each with its message, for each other combination and in the alt dex.
-3. **Reading 3.**
+   - Store 1 is not written.
+   - Every other combination takes today's path, as in check 1.
+3. **Reading 3, through "Update Alt Dex".**
    - Accepted in the alt dex with Obtained off.
-   - Rejected in the main dex, and in the alt dex with Obtained on.
-4. **Gates.**
-   - Each new button is enabled only in its own state.
+   - Refused in the alt dex with Obtained on, with its message.
+   - Never offered in the main dex: the button is disabled there.
+4. **The buttons' enabling.**
+   - Main dex: "Update Pokédex" enabled as today, and "Update Alt Dex" disabled.
+   - Alt dex: "Update Pokédex" disabled, and "Update Alt Dex" enabled.
+   - Before the new script's first state arrives, "Update Pokédex" behaves as today, and "Update
+     Alt Dex" is disabled.
    - `content.js` never extracts in the alt dex.
 5. **Panel.**
    - A starter, a legendary and an alt form, each before and after its reading.
@@ -292,11 +408,16 @@ All on the dev app. The stable app's accounts page is never screenshotted.
    - an upload with the field, then one without it, leaves the field stored;
    - a spawn of a missing starter targets the profile.
 7. **Clean-up:** the profile's removal and the local-data reset clear stores 2 and 3.
+8. **A reset:** checked only if *Open question 3* was confirmed, and the owner resets the main dex
+   for the owner's own play. A test never does.
+   - The page then shows a new N.
+   - Stores 1 and 2 read as stale, and their species as Unknown, until each one's next reading.
 
 ## The second capture round
 
 After this note is approved, on the dev app, with the owner's own PCG account, which has a real
-Pokédex. It follows the method above and answers open questions 1 and 2.
+Pokédex. It follows the method above. It answers open questions 1 and 2, and question 3 as far
+as the title can.
 
 | Page state | What it answers |
 |---|---|
@@ -305,5 +426,7 @@ Pokédex. It follows the method above and answers open questions 1 and 2.
 | Main Dex, Spawnable + Obtained | question 2 in the main dex, with the counter |
 | Main Dex, Starters + Legendaries + Obtained | question 2 for the 🎊 and 🔒 entries |
 | Main Dex, Starters + Legendaries | reading 2's state, with a real account |
+| Main Dex, any of the above | question 3: the title's "Pokedex #N", against the main-dex runs the owner knows the account has had |
 
-Question 3 stays open unless the owner chooses to reset the main dex. A test never does.
+**Question 3 is settled only if the title's N matches the runs the owner knows of.** Otherwise it
+stays open. A test never resets the main dex.
