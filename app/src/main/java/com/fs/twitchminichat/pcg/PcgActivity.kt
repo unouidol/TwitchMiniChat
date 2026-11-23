@@ -21,10 +21,12 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     private lateinit var btnRegisterPokedex: Button
     private lateinit var btnRegisterInventory: Button
+    private lateinit var btnRegisterAltDex: Button
     private lateinit var btnRefreshPcgExtension: ImageButton
 
     private lateinit var progressRegisterPokedex: ProgressBar
     private lateinit var progressRegisterInventory: ProgressBar
+    private lateinit var progressRegisterAltDex: ProgressBar
 
     private var latestManualUpdateButtonState: GeckoSessionManager.PcgManualUpdateButtonState? = null
 
@@ -33,6 +35,9 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
 
     private var inventoryProgressAnimator: ValueAnimator? = null
     private var inventoryRestoreRunnable: Runnable? = null
+
+    private var altDexProgressAnimator: ValueAnimator? = null
+    private var altDexRestoreRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,10 +74,12 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     private fun setupManualPcgDataUpdateButtons() {
         btnRegisterPokedex = findViewById(R.id.btnRegisterPokedex)
         btnRegisterInventory = findViewById(R.id.btnRegisterInventory)
+        btnRegisterAltDex = findViewById(R.id.btnRegisterAltDex)
         btnRefreshPcgExtension = findViewById(R.id.btnRefreshPcgExtension)
 
         progressRegisterPokedex = findViewById(R.id.progressRegisterPokedex)
         progressRegisterInventory = findViewById(R.id.progressRegisterInventory)
+        progressRegisterAltDex = findViewById(R.id.progressRegisterAltDex)
 
         applyManualUpdateButtonsDisabled()
 
@@ -92,6 +99,15 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
                     if (accountId.isBlank()) return false
 
                     return GeckoSessionManager.requestManualInventoryUpdate(
+                        context = this@PcgActivity,
+                        accountId = accountId
+                    )
+                }
+
+                override fun requestManualAltDexUpdate(): Boolean {
+                    if (accountId.isBlank()) return false
+
+                    return GeckoSessionManager.requestManualAltDexUpdate(
                         context = this@PcgActivity,
                         accountId = accountId
                     )
@@ -121,6 +137,17 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
             controller.onRegisterInventoryClicked()
         }
 
+        btnRegisterAltDex.setOnClickListener {
+            if (accountId.isBlank()) return@setOnClickListener
+
+            showAltDexButtonProgressFeedback(
+                button = btnRegisterAltDex,
+                progressBar = progressRegisterAltDex
+            )
+
+            controller.onRegisterAltDexClicked()
+        }
+
         btnRefreshPcgExtension.setOnClickListener {
             refreshPcgExtensionFromUserTap()
         }
@@ -138,15 +165,17 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
     }
 
     /**
-     * Disables both manual update buttons until GeckoSessionManager reports a fresh
+     * Disables the manual update buttons until GeckoSessionManager reports a fresh
      * confirmed PCG tab state.
      */
     private fun applyManualUpdateButtonsDisabled() {
         btnRegisterInventory.isEnabled = false
         btnRegisterPokedex.isEnabled = false
+        btnRegisterAltDex.isEnabled = false
 
         btnRegisterInventory.alpha = DISABLED_BUTTON_ALPHA
         btnRegisterPokedex.alpha = DISABLED_BUTTON_ALPHA
+        btnRegisterAltDex.alpha = DISABLED_BUTTON_ALPHA
     }
 
     /**
@@ -181,11 +210,15 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         val inventoryFeedbackRunning = inventoryProgressAnimator != null || inventoryRestoreRunnable != null
         val pokedexFeedbackRunning = pokedexProgressAnimator != null || pokedexRestoreRunnable != null
 
+        val altDexFeedbackRunning = altDexProgressAnimator != null || altDexRestoreRunnable != null
+
         val inventoryEnabled = state.inventoryEnabled && !inventoryFeedbackRunning
         val pokedexEnabled = state.pokedexEnabled && !pokedexFeedbackRunning
+        val altDexEnabled = state.altDexEnabled && !altDexFeedbackRunning
 
         btnRegisterInventory.isEnabled = inventoryEnabled
         btnRegisterPokedex.isEnabled = pokedexEnabled
+        btnRegisterAltDex.isEnabled = altDexEnabled
 
         btnRegisterInventory.alpha = if (inventoryEnabled) {
             ENABLED_BUTTON_ALPHA
@@ -194,6 +227,12 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         }
 
         btnRegisterPokedex.alpha = if (pokedexEnabled) {
+            ENABLED_BUTTON_ALPHA
+        } else {
+            DISABLED_BUTTON_ALPHA
+        }
+
+        btnRegisterAltDex.alpha = if (altDexEnabled) {
             ENABLED_BUTTON_ALPHA
         } else {
             DISABLED_BUTTON_ALPHA
@@ -395,6 +434,83 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         pokedexRestoreRunnable = null
     }
 
+    /**
+     * Shows the Update Alt Dex checking feedback, with the same pattern as Update Pokédex.
+     *
+     * This is UI-only. The real result is still decided by GeckoSessionManager, which
+     * waits at most about 6 seconds for the page; the feedback lasts a little longer so the
+     * button is not tappable again while that result is pending.
+     */
+    private fun showAltDexButtonProgressFeedback(
+        button: Button,
+        progressBar: ProgressBar
+    ) {
+        cancelAltDexButtonProgressFeedback(button = button)
+
+        button.isEnabled = false
+        button.alpha = DISABLED_BUTTON_ALPHA
+        button.setText(R.string.pcg_register_alt_dex_checking)
+
+        progressBar.max = PROGRESS_BAR_MAX
+        progressBar.progress = 0
+        progressBar.visibility = View.VISIBLE
+
+        altDexProgressAnimator = ValueAnimator.ofInt(0, PROGRESS_BAR_MAX).apply {
+            duration = ALT_DEX_BUTTON_FEEDBACK_MS
+            interpolator = LinearInterpolator()
+            addUpdateListener { animation ->
+                progressBar.progress = animation.animatedValue as Int
+            }
+            start()
+        }
+
+        val restoreRunnable = Runnable {
+            restoreAltDexButtonFeedback(
+                button = button,
+                progressBar = progressBar
+            )
+        }
+
+        altDexRestoreRunnable = restoreRunnable
+        button.postDelayed(restoreRunnable, ALT_DEX_BUTTON_FEEDBACK_MS)
+    }
+
+    /**
+     * Restores the Update Alt Dex button and progress bar after the checking window.
+     */
+    private fun restoreAltDexButtonFeedback(
+        button: Button,
+        progressBar: ProgressBar
+    ) {
+        altDexProgressAnimator?.cancel()
+        altDexProgressAnimator = null
+        altDexRestoreRunnable = null
+
+        if (!isFinishing && !isDestroyed) {
+            button.setText(R.string.pcg_register_alt_dex)
+
+            progressBar.progress = 0
+            progressBar.visibility = View.INVISIBLE
+
+            applyLatestManualUpdateButtonState()
+        }
+    }
+
+    /**
+     * Cancels pending Update Alt Dex button feedback work.
+     */
+    private fun cancelAltDexButtonProgressFeedback(
+        button: Button
+    ) {
+        altDexProgressAnimator?.cancel()
+        altDexProgressAnimator = null
+
+        altDexRestoreRunnable?.let { runnable ->
+            button.removeCallbacks(runnable)
+        }
+        altDexRestoreRunnable = null
+    }
+
     override fun onDestroy() {
         if (accountId.isNotBlank()) {
             GeckoSessionManager.setManualUpdateButtonStateListener(
@@ -412,6 +528,12 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
         if (this::btnRegisterInventory.isInitialized) {
             cancelInventoryButtonProgressFeedback(
                 button = btnRegisterInventory
+            )
+        }
+
+        if (this::btnRegisterAltDex.isInitialized) {
+            cancelAltDexButtonProgressFeedback(
+                button = btnRegisterAltDex
             )
         }
 
@@ -448,6 +570,11 @@ class PcgActivity : AppCompatActivity(R.layout.activity_pcg) {
          * Visual window for Register Inventory.
          */
         private const val INVENTORY_BUTTON_FEEDBACK_MS = 6_500L
+
+        /**
+         * Visual window for Update Alt Dex, a little longer than its 6-second wait.
+         */
+        private const val ALT_DEX_BUTTON_FEEDBACK_MS = 6_500L
 
         fun start(ctx: Context, accountId: String) {
             ctx.startActivity(

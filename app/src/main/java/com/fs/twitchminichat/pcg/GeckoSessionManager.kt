@@ -12,6 +12,8 @@ import com.fs.twitchminichat.DiagnosticError
 import com.fs.twitchminichat.FcmRegistrationUploader
 import com.fs.twitchminichat.InventoryBallItem
 import com.fs.twitchminichat.InventoryBallStore
+import com.fs.twitchminichat.PcgAltDexForm
+import com.fs.twitchminichat.PcgAltDexSnapshotStore
 import com.fs.twitchminichat.PcgPokedexSnapshotStore
 import com.fs.twitchminichat.PcgProfileAlertSelectionStore
 import com.fs.twitchminichat.R
@@ -59,8 +61,25 @@ object GeckoSessionManager {
 
     private const val TYPE_PCG_TAB_STATE = "pcg_tab_state"
 
+    /** Sent once a second by pcg_dex_reader.js while the Pokédex markup exists. */
+    private const val TYPE_PCG_DEX_PAGE_READ = "pcg_dex_page_read"
+
     private val lastPcgPokedexStates =
         ConcurrentHashMap<String, PcgPokedexState>()
+
+    /**
+     * The latest read of the Pokédex page by pcg_dex_reader.js, and the read before it.
+     *
+     * RAM only. The latest says which dex the page shows, for the buttons; the two together
+     * are what an "Update Alt Dex" tap is checked against. Nothing is stored from them until
+     * that tap's checks all hold.
+     */
+    private val lastDexPageReads =
+        ConcurrentHashMap<String, DexPageReads>()
+
+    /** One "Update Alt Dex" tap per session, waiting at most its window for the page. */
+    private val pendingManualAltDexRequests =
+        ConcurrentHashMap<String, PendingAltDexRequest>()
 
     /**
      * How long a manual PCG update request waits for a fresh probe snapshot before
@@ -204,9 +223,32 @@ object GeckoSessionManager {
     data class PcgManualUpdateButtonState(
         val inventoryEnabled: Boolean,
         val pokedexEnabled: Boolean,
+        /** "Update Alt Dex": only on the confirmed Pokédex tab, while it shows the alt dex. */
+        val altDexEnabled: Boolean,
         val inventoryCoolingDown: Boolean,
         val activeTab: String?,
         val reason: String
+    )
+
+    /**
+     * The latest Pokédex page read and the one before it, with the profile of the session
+     * that received them.
+     */
+    private data class DexPageReads(
+        val latest: PcgDexPageRead,
+        val previous: PcgDexPageRead?,
+        val profileId: String
+    )
+
+    /**
+     * One "Update Alt Dex" tap still waiting for the page.
+     *
+     * @property lastWaitReason what the latest check was waiting on, reported if the tap's
+     * window ends first.
+     */
+    private data class PendingAltDexRequest(
+        val requestedAtMs: Long,
+        val lastWaitReason: PcgAltDexRejection
     )
 
     /**
@@ -503,14 +545,25 @@ object GeckoSessionManager {
         val inventoryTabConfirmed = tabState?.isInventoryConfirmedActive == true
         val pokedexTabConfirmed = tabState?.isPokedexConfirmedActive == true
 
+        /*
+         * The scout reports "pokedex" in both dexes, so which dex is shown comes from
+         * pcg_dex_reader.js alone. Without a fresh read from it - the script missing, failing
+         * or not yet started - "Update Pokédex" is enabled exactly as before, and "Update
+         * Alt Dex" stays disabled.
+         */
+        val altDexShown = pokedexTabConfirmed &&
+                getFreshDexPageRead(sessionKey)?.isAltDex == true
+
         return PcgManualUpdateButtonState(
             inventoryEnabled = inventoryTabConfirmed && !inventoryCoolingDown,
-            pokedexEnabled = pokedexTabConfirmed,
+            pokedexEnabled = pokedexTabConfirmed && !altDexShown,
+            altDexEnabled = altDexShown,
             inventoryCoolingDown = inventoryCoolingDown,
             activeTab = tabState?.activeTab,
             reason = when {
                 inventoryCoolingDown && inventoryTabConfirmed -> "inventory_startup_cooldown"
                 inventoryTabConfirmed -> "inventory_active"
+                altDexShown -> "pokedex_alt_dex_active"
                 pokedexTabConfirmed -> "pokedex_active"
                 tabState == null -> "no_fresh_tab_state"
                 tabState.activeTab == "other" -> "other_pcg_tab"
@@ -607,6 +660,32 @@ object GeckoSessionManager {
         )
     }
 
+    /**
+     * [showManualUpdateResultToastOnMain] for a message already formatted, with the same
+     * delay from the button press.
+     */
+    private fun showManualUpdateResultTextToastOnMain(
+        appContext: Context,
+        requestedAtMs: Long,
+        text: String,
+        debugLabel: String
+    ) {
+        val elapsedMs = SystemClock.elapsedRealtime() - requestedAtMs
+        val delayMs = (MANUAL_PCG_RESULT_TOAST_MIN_DELAY_MS - elapsedMs).coerceAtLeast(0L)
+
+        Log.d(
+            "PCG_PROBE",
+            "schedule manual $debugLabel result toast elapsedMs=$elapsedMs delayMs=$delayMs"
+        )
+
+        mainHandler.postDelayed(
+            {
+                Toast.makeText(appContext, text, Toast.LENGTH_LONG).show()
+            },
+            delayMs
+        )
+    }
+
     private fun pcgSessionKey(accountId: String): String {
         return "pcg:$accountId"
     }
@@ -673,6 +752,199 @@ object GeckoSessionManager {
         )
 
         return if (fresh) state else null
+    }
+
+    /** The latest Pokédex page read, while it is still the page's current state. */
+    private fun getFreshDexPageRead(sessionKey: String): PcgDexPageRead? {
+        val latest = lastDexPageReads[sessionKey]?.latest ?: return null
+        val ageMs = SystemClock.elapsedRealtime() - latest.receivedAtMs
+        return latest.takeIf { ageMs in 0L..PcgAltDexReadingGate.READ_MAX_AGE_MS }
+    }
+
+    private fun dexShownLabel(read: PcgDexPageRead?): String {
+        return when {
+            read == null -> "none"
+            read.isAltDex -> "alt_dex"
+            read.isMainDex -> "main_dex"
+            else -> "unknown_dex"
+        }
+    }
+
+    /**
+     * Keeps the latest two Pokédex page reads, and lets a waiting "Update Alt Dex" tap check
+     * them.
+     *
+     * A read is never stored or sent anywhere by itself: only an accepted tap stores what the
+     * page showed, and only on this phone.
+     */
+    private fun handleDexPageRead(
+        appContext: Context,
+        accountId: String,
+        profileId: String,
+        payload: JSONObject
+    ) {
+        val sessionKey = pcgSessionKey(accountId)
+        val read = PcgDexPageRead.fromPayload(
+            payload = payload,
+            receivedAtMs = SystemClock.elapsedRealtime()
+        )
+
+        val before = lastDexPageReads[sessionKey]
+        lastDexPageReads[sessionKey] = DexPageReads(
+            latest = read,
+            previous = before?.latest,
+            profileId = profileId
+        )
+
+        // Logged when the dex shown changes, not once a second.
+        val shownBefore = dexShownLabel(before?.latest)
+        val shownNow = dexShownLabel(read)
+        if (shownBefore != shownNow) {
+            Log.d(
+                "PCG_PROBE",
+                "dex page read shows=$shownNow previously=$shownBefore " +
+                        "entryCount=${read.entryCount} entriesIncluded=${read.entries != null}"
+            )
+            notifyManualUpdateButtonStateChanged(sessionKey)
+        }
+
+        completeOrRejectPendingManualAltDexUpdate(
+            appContext = appContext,
+            sessionKey = sessionKey
+        )
+    }
+
+    /**
+     * Checks a waiting "Update Alt Dex" tap against the latest page reads.
+     *
+     * It accepts at most one reading per tap, and the tap ends when it is accepted or
+     * refused. It never changes the page, sends anything to PCG or chat, or retries a tap.
+     */
+    private fun completeOrRejectPendingManualAltDexUpdate(
+        appContext: Context,
+        sessionKey: String
+    ) {
+        val pending = pendingManualAltDexRequests[sessionKey] ?: return
+
+        val tabState = getFreshPcgTabState(sessionKey = sessionKey)
+        if (tabState != null && tabState.hasKnownActiveTab && !tabState.isPokedexConfirmedActive) {
+            if (pendingManualAltDexRequests.remove(sessionKey, pending)) {
+                Log.d("PCG_PROBE", "manual alt dex rejected reason=${PcgAltDexRejection.WRONG_TAB.name}")
+                showManualUpdateResultToastOnMain(
+                    appContext = appContext,
+                    requestedAtMs = pending.requestedAtMs,
+                    messageRes = PcgAltDexRejection.WRONG_TAB.messageRes,
+                    debugLabel = "alt_dex_wrong_tab_from_tab_state"
+                )
+            }
+            return
+        }
+
+        if (tabState?.isPokedexConfirmedActive != true) {
+            // The tab is not known yet; the window keeps the tap alive until it is.
+            return
+        }
+
+        val reads = lastDexPageReads[sessionKey]
+        when (
+            val decision = PcgAltDexReadingGate.evaluate(
+                latest = reads?.latest,
+                previous = reads?.previous,
+                nowMs = SystemClock.elapsedRealtime()
+            )
+        ) {
+            is PcgAltDexGateDecision.Accept -> {
+                if (reads != null && pendingManualAltDexRequests.remove(sessionKey, pending)) {
+                    saveManualAltDexReading(
+                        appContext = appContext,
+                        profileId = reads.profileId,
+                        forms = decision.forms,
+                        requestedAtMs = pending.requestedAtMs
+                    )
+                }
+            }
+
+            is PcgAltDexGateDecision.Reject -> {
+                if (pendingManualAltDexRequests.remove(sessionKey, pending)) {
+                    Log.d("PCG_PROBE", "manual alt dex rejected reason=${decision.reason.name}")
+                    showManualUpdateResultToastOnMain(
+                        appContext = appContext,
+                        requestedAtMs = pending.requestedAtMs,
+                        messageRes = decision.reason.messageRes,
+                        debugLabel = "alt_dex_${decision.reason.name.lowercase()}"
+                    )
+                }
+            }
+
+            is PcgAltDexGateDecision.Wait -> {
+                if (decision.reason != pending.lastWaitReason) {
+                    Log.d("PCG_PROBE", "manual alt dex still pending reason=${decision.reason.name}")
+                }
+                pendingManualAltDexRequests.replace(
+                    sessionKey,
+                    pending,
+                    pending.copy(lastWaitReason = decision.reason)
+                )
+            }
+        }
+    }
+
+    /**
+     * Stores one accepted alt-dex reading for [profileId], on this phone only.
+     *
+     * Nothing is uploaded: the alt dex never leaves the phone in this design.
+     */
+    private fun saveManualAltDexReading(
+        appContext: Context,
+        profileId: String,
+        forms: List<PcgAltDexForm>,
+        requestedAtMs: Long
+    ) {
+        val knownForms = runCatching {
+            PcgAltDexKnownForms.load(appContext)
+        }.getOrElse { error ->
+            // Without the bundled list, forms never listed stay "?" rather than "obtained".
+            Log.w(
+                "PCG_PROBE",
+                "bundled alt dex forms unreadable errorType=${DiagnosticError.typeOf(error)}"
+            )
+            emptyList()
+        }
+
+        val snapshot = PcgAltDexSnapshotStore.saveReading(
+            context = appContext,
+            profileId = profileId,
+            knownForms = knownForms,
+            listed = forms
+        )
+
+        if (snapshot == null) {
+            Log.w("PCG_PROBE", "manual alt dex reading not stored because the profile is blank")
+            showManualUpdateResultToastOnMain(
+                appContext = appContext,
+                requestedAtMs = requestedAtMs,
+                messageRes = PcgAltDexRejection.PAGE_UNREADABLE.messageRes,
+                debugLabel = "alt_dex_no_profile"
+            )
+            return
+        }
+
+        val bundledKeys = knownForms.mapTo(HashSet(), PcgAltDexForm::key)
+        val obtainedKeys = snapshot.obtainedKeys()
+        Log.d(
+            "PCG_PROBE",
+            "manual alt dex reading accepted listed=${forms.size} " +
+                    "obtained=${snapshot.obtained.size} bundled=${knownForms.size} " +
+                    "listedNotBundled=${forms.count { it.key !in bundledKeys }} " +
+                    "obtainedListedAgain=${forms.count { it.key in obtainedKeys }}"
+        )
+
+        showManualUpdateResultTextToastOnMain(
+            appContext = appContext,
+            requestedAtMs = requestedAtMs,
+            text = appContext.getString(R.string.pcg_alt_dex_updated, forms.size),
+            debugLabel = "alt_dex_accepted"
+        )
     }
 
     /**
@@ -871,6 +1143,10 @@ object GeckoSessionManager {
             appContext = appContext,
             sessionKey = sessionKey,
             state = state
+        )
+        completeOrRejectPendingManualAltDexUpdate(
+            appContext = appContext,
+            sessionKey = sessionKey
         )
         notifyManualUpdateButtonStateChanged(sessionKey)
         scheduleManualUpdateButtonStateExpiry(sessionKey)
@@ -1585,6 +1861,15 @@ object GeckoSessionManager {
                                                 )
                                             }
 
+                                            TYPE_PCG_DEX_PAGE_READ -> {
+                                                handleDexPageRead(
+                                                    appContext = appContext,
+                                                    accountId = accountId,
+                                                    profileId = profileId,
+                                                    payload = payload
+                                                )
+                                            }
+
                                             TYPE_PCG_INVENTORY_WRONG_TAB -> {
                                                 Log.d("PCG_PROBE", "ignored JavaScript inventory wrong-tab signal")
                                             }
@@ -1965,6 +2250,100 @@ object GeckoSessionManager {
     }
 
     /**
+     * Takes reading 3, "Update Alt Dex", for one user tap.
+     *
+     * The tap is checked against pcg_dex_reader.js's latest reads of the page
+     * ([PcgAltDexReadingGate]). It is accepted at once when they already pass, refused at
+     * once when only the user can fix the page, and otherwise waits at most
+     * [MANUAL_PCG_UPDATE_TIMEOUT_MS] for the page to settle. One tap takes at most one
+     * reading, stores it on this phone only, and sends nothing to chat, PCG or the server.
+     */
+    fun requestManualAltDexUpdate(
+        context: Context,
+        accountId: String
+    ): Boolean {
+        val sessionKey = pcgSessionKey(accountId)
+
+        if (!sessions.containsKey(sessionKey)) {
+            Log.w(
+                "PCG_PROBE",
+                "manual alt dex reading ignored, PCG session not ready"
+            )
+            return false
+        }
+
+        val appContext = context.applicationContext
+        val requestedAtMs = SystemClock.elapsedRealtime()
+
+        val tabState = getFreshPcgTabState(sessionKey = sessionKey)
+        if (tabState?.isPokedexConfirmedActive != true) {
+            Log.d(
+                "PCG_PROBE",
+                "manual alt dex rejected because Pokédex tab is not confirmed active " +
+                        "knownActiveTab=${tabState?.hasKnownActiveTab == true}"
+            )
+            showManualUpdateResultToastOnMain(
+                appContext = appContext,
+                requestedAtMs = requestedAtMs,
+                messageRes = PcgAltDexRejection.WRONG_TAB.messageRes,
+                debugLabel = "alt_dex_not_confirmed_active"
+            )
+            return true
+        }
+
+        pendingManualAltDexRequests[sessionKey] = PendingAltDexRequest(
+            requestedAtMs = requestedAtMs,
+            lastWaitReason = PcgAltDexRejection.NO_READ
+        )
+
+        Log.d(
+            "PCG_PROBE",
+            "manual alt dex reading armed timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
+        )
+
+        scheduleManualAltDexTimeout(
+            appContext = appContext,
+            sessionKey = sessionKey,
+            requestedAtMs = requestedAtMs
+        )
+
+        completeOrRejectPendingManualAltDexUpdate(
+            appContext = appContext,
+            sessionKey = sessionKey
+        )
+
+        return true
+    }
+
+    /** Ends a waiting "Update Alt Dex" tap with what it was last waiting on. */
+    private fun scheduleManualAltDexTimeout(
+        appContext: Context,
+        sessionKey: String,
+        requestedAtMs: Long
+    ) {
+        mainHandler.postDelayed({
+            val pending = pendingManualAltDexRequests[sessionKey]
+                ?.takeIf { it.requestedAtMs == requestedAtMs }
+                ?: return@postDelayed
+
+            if (pendingManualAltDexRequests.remove(sessionKey, pending)) {
+                Log.d(
+                    "PCG_PROBE",
+                    "manual alt dex reading timed out reason=${pending.lastWaitReason.name} " +
+                            "timeoutMs=$MANUAL_PCG_UPDATE_TIMEOUT_MS"
+                )
+
+                showManualUpdateResultToastOnMain(
+                    appContext = appContext,
+                    requestedAtMs = requestedAtMs,
+                    messageRes = pending.lastWaitReason.messageRes,
+                    debugLabel = "alt_dex_timeout"
+                )
+            }
+        }, MANUAL_PCG_UPDATE_TIMEOUT_MS)
+    }
+
+    /**
      * Reloads the active PCG Gecko session for the selected account.
      *
      * This is intentionally user-triggered: the app refreshes the PCG surface only
@@ -2027,6 +2406,9 @@ object GeckoSessionManager {
 
         lastPcgTabStates.remove(sessionKey)
         lastPcgPokedexStates.remove(sessionKey)
+
+        lastDexPageReads.remove(sessionKey)
+        pendingManualAltDexRequests.remove(sessionKey)
 
         /*
          * recentManualPokedexUploadKeys is keyed as:

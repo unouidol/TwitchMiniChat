@@ -41,6 +41,24 @@ class PcgManualDataUpdateController(
          * because the Activity has no account ID yet or the PCG session is not ready.
          */
         fun requestManualInventoryUpdate(): Boolean
+
+        /**
+         * Requests one alt-dex reading ("Update Alt Dex"), stored on this phone only.
+         *
+         * Returns false when the request cannot even be armed, for example
+         * because the Activity has no account ID yet or the PCG session is not ready.
+         */
+        fun requestManualAltDexUpdate(): Boolean
+    }
+
+    /**
+     * Called when the user presses Update Alt Dex.
+     *
+     * No immediate toast is shown here. GeckoSessionManager shows either the saved
+     * reading's confirmation or the message for the check that failed.
+     */
+    fun onRegisterAltDexClicked() {
+        bridge.requestManualAltDexUpdate()
     }
 
     /**

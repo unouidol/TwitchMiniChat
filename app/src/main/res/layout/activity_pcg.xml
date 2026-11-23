@@ -99,6 +99,41 @@
 
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/containerRegisterAltDex"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnRegisterAltDex"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:drawablePadding="4dp"
+                android:gravity="center"
+                android:minWidth="48dp"
+                android:minHeight="48dp"
+                android:text="@string/pcg_register_alt_dex"
+                android:textSize="11sp"
+                app:drawableStartCompat="@drawable/ic_pokedex_24"
+                app:drawableTint="?android:attr/textColorPrimary" />
+
+            <ProgressBar
+                android:id="@+id/progressRegisterAltDex"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="3dp"
+                android:indeterminate="false"
+                android:max="1000"
+                android:progress="0"
+                android:visibility="invisible" />
+
+        </LinearLayout>
+
 
     </LinearLayout>
 
