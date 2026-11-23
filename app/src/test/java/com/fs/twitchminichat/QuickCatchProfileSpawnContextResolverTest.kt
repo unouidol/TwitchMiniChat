@@ -140,8 +140,52 @@ class QuickCatchProfileSpawnContextResolverTest {
     @Test
     fun pcgSinAndCloneFormsMatchTheirSpecies() {
         assertEquals(MISSING, status(spawn("Sin Alo Marowak"), missing = setOf("marowak")))
+        assertEquals(REGISTERED, status(spawn("Sin Alo Marowak"), missing = emptySet()))
         assertEquals(MISSING, status(spawn("Venusaur (Clone)"), missing = setOf("venusaur")))
-        assertEquals(REGISTERED, status(spawn("Venusaur (Clone)"), missing = emptySet()))
+        // Venusaur is a starter, which a Spawnable-only capture never lists.
+        assertEquals(UNKNOWN, status(spawn("Venusaur (Clone)"), missing = emptySet()))
+    }
+
+    /**
+     * PCG lists the 81 starters under "Starters", never under "Spawnable", so today's
+     * Spawnable-only reading cannot show one missing. Its absence from the capture proves
+     * nothing: UNKNOWN, and no Repeat Ball bonus. Until this rule, the panel said Registered.
+     */
+    @Test
+    fun starterAbsentFromTheCaptureIsUnknownWithoutRepeatBall() {
+        listOf("Piplup", "Bulbasaur", "His Typhlosion", "Venusaur (Clone)").forEach { name ->
+            val starter = spawn(name)
+            val context = resolve(starter, missing = setOf("pikachu"))
+
+            assertEquals(name, UNKNOWN, context.dexEntryStatus)
+            assertNull(name, context.isAlreadyCaught)
+            assertEquals(name, 0, repeatBallScore(starter, context))
+        }
+        // A starter in the missing set is still direct evidence.
+        assertEquals(MISSING, status(spawn("Piplup"), missing = setOf("piplup")))
+    }
+
+    /** The 122 legendaries are a category of their own too, and a capture never lists them. */
+    @Test
+    fun legendaryAbsentFromTheCaptureIsUnknownWithoutRepeatBall() {
+        listOf("Mewtwo", "Fire Arceus", "Basculegion (F)").forEach { name ->
+            val legendary = spawn(name)
+            val context = resolve(legendary, missing = setOf("pikachu"))
+
+            assertEquals(name, UNKNOWN, context.dexEntryStatus)
+            assertNull(name, context.isAlreadyCaught)
+            assertEquals(name, 0, repeatBallScore(legendary, context))
+        }
+    }
+
+    @Test
+    fun spawnableSpeciesAbsentFromTheCaptureIsRegisteredWithRepeatBall() {
+        val cacnea = spawn("Cacnea")
+        val context = resolve(cacnea, missing = setOf("pikachu"))
+
+        assertEquals(REGISTERED, context.dexEntryStatus)
+        assertEquals(true, context.isAlreadyCaught)
+        assertEquals(75, repeatBallScore(cacnea, context))
     }
 
     @Test
@@ -254,8 +298,12 @@ class QuickCatchProfileSpawnContextResolverTest {
     /**
      * Every catalog name, as a spawn: MISSING with its own name or its species' name in the
      * missing set, MISSING with any other form of its species there, and otherwise
-     * REGISTERED when its species is covered, UNKNOWN when it is not. A missing set holding
-     * every other species never makes it MISSING.
+     * REGISTERED when the PCG page listed its species under Spawnable, UNKNOWN when it listed
+     * it under Starters or Legendaries. A missing set holding every other species never makes
+     * it MISSING.
+     *
+     * The expected status comes from the captured page, not from the index's own coverage,
+     * so that the table cannot agree with a wrong coverage rule.
      */
     @Test
     fun everyCatalogNameFollowsTheRule() {
@@ -264,6 +312,9 @@ class QuickCatchProfileSpawnContextResolverTest {
         val speciesKeyByName = entries.associate { entry ->
             entry.normalizedName to index.speciesOf(entry.normalizedName)!!.key
         }
+        val capturedSpawnableKeys = CapturedPcgMainDexCategories.entriesByCategory
+            .getValue(MainDexCategory.SPAWNABLE)
+            .mapTo(HashSet()) { pageEntry -> index.speciesOf(pageEntry.name)!!.key }
         val failures = mutableListOf<String>()
 
         entries.forEach { entry ->
@@ -281,14 +332,15 @@ class QuickCatchProfileSpawnContextResolverTest {
             check("species name", setOf(species.key), MISSING)
             sameSpecies.forEach { form -> check("form $form", setOf(form), MISSING) }
 
-            val absentStatus = if (species.coveredBySpawnableSnapshot) REGISTERED else UNKNOWN
+            val absentStatus = if (species.key in capturedSpawnableKeys) REGISTERED else UNKNOWN
             check("empty", emptySet(), absentStatus)
             check("every other species", otherSpecies, absentStatus)
             counts[absentStatus.name] = (counts[absentStatus.name] ?: 0) + 1
         }
 
         assertEquals(emptyList<String>(), failures)
-        assertEquals(sortedMapOf("REGISTERED" to 1_209, "UNKNOWN" to 165), counts)
+        // 1,118 names of Spawnable species; 165 of legendary species and 91 of starter species.
+        assertEquals(sortedMapOf("REGISTERED" to 1_118, "UNKNOWN" to 256), counts)
     }
 
     private fun repeatBallScore(

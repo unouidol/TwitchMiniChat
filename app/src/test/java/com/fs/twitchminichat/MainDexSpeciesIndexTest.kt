@@ -138,20 +138,55 @@ class MainDexSpeciesIndexTest {
         assertEquals(ordinaryKeys, namedAfterTheirSpecies)
     }
 
+    /**
+     * Every species is in the category the PCG page listed it under, species by species, and
+     * only the 822 Spawnable ones are covered by today's Spawnable-only reading.
+     *
+     * The captured lists are the page's, not the catalog's: see [CapturedPcgMainDexCategories].
+     * When this fails after a catalog change, capture the page again before deciding which
+     * side is wrong.
+     */
     @Test
-    fun coverageFollowsTheOrdinaryEntryOrEveryForm() {
-        assertEquals(903, index.species.count(MainDexSpecies::coveredBySpawnableSnapshot))
-        assertFalse(index.speciesOf("Arceus")!!.coveredBySpawnableSnapshot)
-        assertTrue(index.speciesOf("Vivillon")!!.coveredBySpawnableSnapshot)
-        assertTrue(index.speciesOf("Unown")!!.coveredBySpawnableSnapshot)
-        // "Basculegion (F)" is normally spawnable and "Basculegion (M)" is not.
-        assertFalse(index.speciesOf("Basculegion (F)")!!.coveredBySpawnableSnapshot)
+    fun categoriesMatchTheCapturedPcgPageSpeciesBySpecies() {
+        val captured = CapturedPcgMainDexCategories.entriesByCategory
 
-        // Basculegion (F) is the one name whose own flag differs from its species' coverage.
-        val differing = entries.filter { entry ->
-            entry.normallySpawnable != index.speciesOf(entry.displayName)!!.coveredBySpawnableSnapshot
+        assertEquals(822, captured.getValue(MainDexCategory.SPAWNABLE).size)
+        assertEquals(81, captured.getValue(MainDexCategory.STARTERS).size)
+        assertEquals(122, captured.getValue(MainDexCategory.LEGENDARIES).size)
+        assertEquals((1..1_025).toList(), captured.values.flatten().map { entry -> entry.number }.sorted())
+
+        val capturedCategoryBySpecies = captured.flatMap { (category, pageEntries) ->
+            pageEntries.map { entry ->
+                requireNotNull(index.speciesOf(entry.name)) { "No species for ${entry.name}" }.key to category
+            }
         }
-        assertEquals(listOf("Basculegion (F)"), differing.map(PcgPokemonCatalogEntry::displayName))
+        // Each page entry is a different species.
+        assertEquals(1_025, capturedCategoryBySpecies.toMap().size)
+        assertEquals(
+            capturedCategoryBySpecies.toMap(),
+            index.species.associate { species -> species.key to species.category }
+        )
+        assertEquals(822, index.species.count(MainDexSpecies::coveredBySpawnableSnapshot))
+    }
+
+    @Test
+    fun aSpeciesFormsShareItsCategory() {
+        // The catalog marks only "Typhlosion" a starter, yet every Typhlosion is in Starters.
+        listOf(
+            "Piplup", "Typhlosion", "His Typhlosion", "Blaziken (F)", "Venusaur (Clone)",
+            "PCG Chikorita"
+        ).forEach { name ->
+            assertEquals(name, MainDexCategory.STARTERS, index.speciesOf(name)!!.category)
+            assertFalse(name, index.speciesOf(name)!!.coveredBySpawnableSnapshot)
+        }
+        listOf("Arceus", "Fire Arceus", "Mewtwo").forEach { name ->
+            assertEquals(name, MainDexCategory.LEGENDARIES, index.speciesOf(name)!!.category)
+        }
+        // "Basculegion (F)" is normally spawnable and "Basculegion (M)", its main-dex entry, is not.
+        assertEquals(MainDexCategory.LEGENDARIES, index.speciesOf("Basculegion (F)")!!.category)
+        listOf("Vivillon", "Vivillon (Jungle)", "Unown (Q)", "Cacnea").forEach { name ->
+            assertTrue(name, index.speciesOf(name)!!.coveredBySpawnableSnapshot)
+        }
     }
 
     @Test
