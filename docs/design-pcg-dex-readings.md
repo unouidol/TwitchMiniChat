@@ -1,15 +1,20 @@
 # Design: reading the whole PCG main dex and the alt dex
 
 **Status: design note, no code.** The owner chose this direction on 2026-11-23 ("Design A" of
-that day's investigation). Nothing in it is started:
+that day's investigation). The implementation is not started, and waits for the owner's go.
 
-- the implementation waits for the owner's go;
-- the second capture round (*Open questions*) waits for the owner's approval of this note.
+The second capture round ran on 2026-11-23, after the owner approved this note. Its answers are
+under *Open questions*, and its captures under *The second capture round*.
 
 Provenance is marked throughout:
 
-- **Observed:** seen on the test phone on 2026-11-23, in the dev app, with one Pokémon Community
-  Game (PCG) account whose main dex had one obtained entry and whose alt dex had none.
+- **Observed:** seen on the test phone on 2026-11-23, in the dev app, in one of two capture rounds:
+  - the first, with one Pokémon Community Game (PCG) account whose main dex had one obtained
+    entry and whose alt dex had none;
+  - the second, with the owner's own account, whose main dex had 971 of 1025 entries obtained,
+    and whose alt dex 310 of 371 forms.
+
+  "Observed" alone means the first round; what the second round saw is stated where it stands.
 - **Read in code:** read statically, not run.
 - **Not observed:** stated as such, and listed again under *Open questions*.
 
@@ -60,10 +65,10 @@ Today TMC takes one reading of the PCG Pokédex, "Update Pokédex". It is taken 
 | Main and alt dex share the page's markup (`.pokedex__container`, `.pokedex__grid`, `.pokedex__entry`, `.pokedex__entry-name`). Only `label.alt-dex-label > span` tells them apart: "Main Dex" with class `""`, or "Alt Dex" with class `active`. | Observed |
 | The scout and `content.js` report `pokedex` for both dexes. The active header button is marked only by `disabled`, so both fall back to "the Pokédex markup exists". | Observed |
 | Main-dex filters: "Spawnable", "Starters", "Legendaries", "Obtained". The alt dex has only "Obtained"; the other three are removed from its markup. | Observed |
-| "Obtained" off lists only missing entries. "Obtained" on adds the obtained ones. "Obtained" alone lists nothing. | Observed in the main dex. In the alt dex, not observed: the account had no form. |
+| "Obtained" off lists only missing entries. "Obtained" on adds the obtained ones. In the main dex, "Obtained" alone lists nothing. | Observed in the main dex in both rounds, except "Obtained" alone, seen in the first only. In the alt dex, observed in the second round (*Open question 1*). |
 | The "Obtained" state carries over when switching between main and alt dex. | Observed once |
 | `.pokedex__counter` reads "obtained / shown". | Observed: "1 / 203" with Starters + Legendaries + Obtained |
-| A missing entry's sprite has the class `grayscale`; the one obtained entry, Piplup, had none. | Observed, one obtained sample only |
+| A missing entry's sprite has the class `grayscale`; an obtained entry's has none. | Observed: in the first round on one obtained entry, Piplup; in the second on 819, 152 and 310 obtained entries, with every missing entry marked (*Open question 2*). |
 | The sprite URL ends in `/pokemon/<number>.png`. Main-dex numbers are the national numbers 1 to 1025, in page order. Alt-dex numbers run from 10004 to 100432. | Observed |
 | Every starter's name starts with 🎊. Every legendary's starts with 🔒, and so do 46 alt-dex forms. `content.js` removes 🎊 and rejects any list containing 🔒. | Observed. The `content.js` behaviour is read in code. |
 | Every entry is in the page from the start, with nothing loaded while scrolling, and the count of entries equals the counter. | Observed, on the phone layout |
@@ -71,6 +76,20 @@ Today TMC takes one reading of the PCG Pokédex, "Update Pokédex". It is taken 
 | The alt dex has 371 forms: 349 catalog names and 22 names the catalog does not know (11 Mega forms, 4 PCG forms, and others). | Observed |
 | The alt dex shows no progress line of its own: the two lines on its page are the main dex's. | Observed |
 | `/upload_dex_list` stores only `profile_id`, `profile_label`, `updated_at` and `wanted_pokemon`, rewriting the profile's file each time. A field it does not know is dropped without error. A missing `wanted_pokemon` is stored as an empty list. | Read in code, tmc-backend `8ccf210` |
+
+**What the second round saw again, on an account with most entries obtained:**
+
+- the markup and the dex label, and each dex's filters;
+- the sprite numbers, 1 to 1025 in page order and 10004 to 100432 in the alt dex;
+- 🎊 on every starter, and 🔒 on every legendary and on 46 alt-dex forms;
+- every entry in the page, with the count of entries equal to the counter;
+- no progress line of the alt dex's own.
+
+**What it adds:**
+
+- **The categories are the same on both accounts.** Spawnable, Starters and Legendaries listed
+  the fixture's 822, 81 and 122 species, by sprite number and name.
+- **So are the alt dex's 371 forms**, by sprite number and name.
 
 The categories as captured are committed as a test fixture,
 `app/src/test/resources/pcg_main_dex_categories/pcg_main_dex_categories_2026-11-23.json`, with
@@ -120,11 +139,13 @@ user a tap on every switch.
 "obtained" means known but not listed. The app knows a form from two sources:
 
 - a bundled list of the alt dex's forms, captured with its provenance as the category fixture
-  was;
+  was. Both rounds' accounts showed the same 371 forms;
 - any name that an accepted reading has listed.
 
-A form PCG adds later, and that the user obtains before any reading lists it, stays "?". This
-depends on *Open question 1*.
+A form PCG adds later, and that the user obtains before any reading lists it, stays "?".
+
+*Open question 1* is answered: with "Obtained" off the alt dex lists only the forms not obtained,
+so reading 3 stands as designed.
 
 ## The two buttons
 
@@ -188,7 +209,7 @@ is per profile, and each is cleared when its profile is removed and by the local
 |---|---|---|---|
 | Written by | reading 1, unchanged | reading 2 | reading 3 |
 | Holds | missing name keys, `updatedAtMs` | missing name keys, the categories read (`STARTERS`, `LEGENDARIES`), `readAtMs` | obtained forms and the last reading's missing forms; each form as normalized key, raw name and sprite number; `readAtMs` |
-| Main-dex run | the title's N, only if *Open question 3* confirms it counts runs | the same | none |
+| Main-dex run | the title's N (*Main-dex resets*) | the same | none |
 | On a new accepted reading | replaced | replaced | obtained forms: **only grow**, by the known forms the reading does not list; missing forms: replaced |
 | A main-dex reset in PCG | stale from a different N until the next reading; unseen otherwise, as today | the same | unaffected: PCG never resets the alt dex |
 
@@ -206,7 +227,8 @@ Nothing in the design expires with time. A stored list stops counting only when:
 - its next accepted reading replaces it; or
 - the app sees a main-dex reset, as below.
 
-**If the second capture round confirms that the page title's "Pokedex #N" counts main-dex runs:**
+**The page title's "Pokedex #N" counts main-dex runs, as far as the second round can show**
+(*Open question 3*). So:
 
 - stores 1 and 2 record the N they were read under, taken from the new script's fresh state when
   the reading is accepted;
@@ -218,8 +240,14 @@ Store 1 gets the N as an optional field under its current `schemaVersion` 1, bec
 `PcgPokedexSnapshotStore` reads any other schema version as no snapshot. A snapshot without the
 field means "run unknown", never a reset.
 
-**If the round does not confirm it,** *Open question 3* stays open and nothing changes. No
-time-based expiry stands in for it.
+**A reset itself was not observed.** If N ever behaves otherwise, the rule still never makes the
+panel say Registered where today's code would not. This is reasoned, not observed:
+
+- if N did not change at a reset, no store would turn stale, which is today's behaviour;
+- if N changed without a reset, a store would turn stale, and its species would read Unknown
+  until the next reading.
+
+Device check 8 is the direct check. No time-based expiry stands in for it.
 
 ## The backend field
 
@@ -300,27 +328,44 @@ reading, store change or panel state sends a chat command, queues one, or trigge
     the new script. That needs the owner's go under the 2026-11-18 ruling.
   - The implementation pull request adds a unit test that pins `content.js`, the scout and
     `pcg_probe_inventory.js` to their blobs. No such test exists today.
-- **`grayscale` rests on one obtained sample** (*Open question 2*).
 - **"Obtained" is shared between the dexes.** A user who turns it on in one dex finds it on in the
   other. Every reading then refuses, with its message, until it is off.
-- **Main-dex resets are invisible to the app until *Open question 3* is settled.** Until then,
-  stores 1 and 2 can say Registered for a species the user has not caught again since a reset.
-  Store 1 can do that today too. If the title counts runs, the recorded N closes the gap in the
-  app. The server's lists stay as they were until the next upload.
+- **The app sees a main-dex reset only through the title, and only once the user opens the
+  Pokédex again.** Until then, stores 1 and 2 can say Registered for a species the user has not
+  caught again since the reset. Store 1 can do that today too. The server's lists stay as they
+  were until the next upload.
 
 ## Open questions
 
-1. **Does "Obtained" off in the alt dex hide the obtained forms?** Not observed: the account had
-   no form. Reading 3 depends on it. If the answer is no, reading 3 needs "Obtained" on and the
-   `grayscale` marker instead, at the cost of two taps on the shared filter.
+The second capture round answered them on 2026-11-23, as far as each answer says. The evidence
+is under *The second capture round*.
+
+1. **Does "Obtained" off in the alt dex hide the obtained forms?** Yes.
+   - With it off, the alt dex listed 61 forms, all `grayscale`.
+   - They were exactly the 61 `grayscale` forms of the list with it on, by sprite number and name.
+   - None of the 310 obtained forms was listed.
+
+   Reading 3 stands as designed, with "Obtained" off.
 2. **Is `grayscale` absent on every obtained entry, and present on every missing one, with many
-   entries obtained?** Observed with one obtained entry. The counter's obtained number gives the
-   check: it must equal the count of entries without `grayscale`.
-3. **Does the page title's "Pokedex #N" count main-dex runs, and what else shows a reset?** Not
-   observed. Resetting changes game state, so a test never does it. The dev account's title read
-   "Pokedex #1".
-   - If N counts runs, stores 1 and 2 record it (*Main-dex resets*).
-   - If not, the question stays open, with no time-based expiry in its place.
+   entries obtained?** Yes. In the three states with "Obtained" on, the entries without
+   `grayscale` matched the counter's obtained number:
+   - 310 and 310 in the alt dex;
+   - 819 and 819 with Spawnable;
+   - 152 and 152 with Starters + Legendaries.
+
+   In every state with "Obtained" off, every entry had it, and the counter's obtained number was 0.
+3. **Does the page title's "Pokedex #N" count main-dex runs, and what else shows a reset?**
+   - **The title** read "Pokedex #6" in every state of the second round, in the main and the alt
+     dex.
+   - **The runs:** the owner has reset the account's main dex 5 times. 6 is the account's runs as
+     the owner counts them: the first, and one after each reset.
+   - **The first round's account** read "Pokedex #1"; how many resets it had was not asked. The
+     two accounts read different N on the same day, so N belongs to the account, not to the
+     page.
+   - **What this does not show:** a reset was not observed. So neither the moment N changes, nor
+     whether anything else on the page shows a reset, is known. Resetting changes game state, so a
+     test never does it. Device check 8 is the direct check.
+   - **Stores 1 and 2 record N** (*Main-dex resets*).
 
 ## Capture method for PCG page investigations
 
@@ -356,7 +401,8 @@ Two things the 2026-11-23 round learnt about the method:
 - **The capture build raises the manifest's version** (1.2.1 to 1.2.1.x), because GeckoView is
   documented to keep the extension it already has otherwise; every capture build raised it, so
   that case was not observed. The clean build's own version then brought the clean extension
-  back, after the PCG screen was opened once (observed).
+  back, after the PCG screen was opened once. Observed in both rounds; the second round's build
+  was 1.2.1.4.
 - **GeckoView's message bridge rejects an array of arrays of mixed types** ("Invalid event data
   property"). Metadata is sent as a JSON string.
 
@@ -376,8 +422,7 @@ All on the dev app. The stable app's accounts page is never screenshotted.
        "armed" followed by the completion;
      - the upload, and the same toast.
    - Store 1's snapshot holds the same missing keys on both builds, and their count equals the
-     counter's shown number. Its only new content is the run number, if *Open question 3*
-     confirmed it.
+     counter's shown number. Its only new content is the run number.
    - The upload carries the same `wanted_pokemon`. On the server, `[DEX] saved … wanted_count=`
      reads the same.
    - The rejections are the same:
@@ -408,16 +453,16 @@ All on the dev app. The stable app's accounts page is never screenshotted.
    - an upload with the field, then one without it, leaves the field stored;
    - a spawn of a missing starter targets the profile.
 7. **Clean-up:** the profile's removal and the local-data reset clear stores 2 and 3.
-8. **A reset:** checked only if *Open question 3* was confirmed, and the owner resets the main dex
-   for the owner's own play. A test never does.
+8. **A reset:** checked only when the owner resets the main dex for the owner's own play. A test
+   never does. It is the direct observation that *Open question 3* lacks.
    - The page then shows a new N.
    - Stores 1 and 2 read as stale, and their species as Unknown, until each one's next reading.
 
 ## The second capture round
 
-After this note is approved, on the dev app, with the owner's own PCG account, which has a real
-Pokédex. It follows the method above. It answers open questions 1 and 2, and question 3 as far
-as the title can.
+Run on 2026-11-23, after this note was approved, on the dev app, with the owner's own PCG
+account, which has a real Pokédex. It follows the method above. It answers open questions 1 and
+2, and question 3 as far as the title can.
 
 | Page state | What it answers |
 |---|---|
@@ -430,3 +475,29 @@ as the title can.
 
 **Question 3 is settled only if the title's N matches the runs the owner knows of.** Otherwise it
 stays open. A test never resets the main dex.
+
+### Results, 2026-11-23
+
+**How it ran:**
+
+- The capture build was built from `30610e8`. Its `content.js`, scout and
+  `pcg_probe_inventory.js` matched `main-v5`'s blobs, in the tree and inside the APK.
+- Neither "Update Inventory" nor "Update Pokédex" was pressed.
+- Every Pokédex state read "Pokedex #6". The progress lines read "National Dex: 971 / 1025
+  (94.73%)" and "Spawnable: 819 / 822 (99.64%)" in every one, the alt dex's included. 971 is
+  819 + 152.
+
+| Page state | Counter | Entries | Without `grayscale` |
+|---|---|---|---|
+| Main Dex, Spawnable: reading 1's state, as the page opened | "0 / 3" | 3 | 0 |
+| Main Dex, Starters + Legendaries: reading 2's state | "0 / 51" | 51 | 0 |
+| Main Dex, Starters + Legendaries + Obtained | "152 / 203" | 203 | 152 |
+| Main Dex, Spawnable + Obtained | "819 / 822" | 822 | 819 |
+| Alt Dex, Obtained on | "310 / 371" | 371 | 310 |
+| Alt Dex, Obtained off | "0 / 61" | 61 | 0 |
+
+**What the lists show:**
+
+- **"Obtained" off lists exactly the missing entries.** In each dex, the list with "Obtained" off
+  was exactly the `grayscale` entries of the same filters with it on, by sprite number and name.
+- **The title's N matched the runs the owner knows of** (*Open question 3*).
