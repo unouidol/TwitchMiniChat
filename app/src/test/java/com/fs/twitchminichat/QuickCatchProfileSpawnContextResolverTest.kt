@@ -165,7 +165,12 @@ class QuickCatchProfileSpawnContextResolverTest {
         assertEquals(MISSING, status(spawn("Piplup"), missing = setOf("piplup")))
     }
 
-    /** The 122 legendaries are a category of their own too, and a capture never lists them. */
+    /**
+     * The 122 legendaries are a category of their own too, and a capture never lists them.
+     *
+     * "Basculegion (F)" is the catalog's one normally spawnable name of a legendary species: the
+     * page lists Basculegion under Legendaries, as "Basculegion (M)". It is judged by its species.
+     */
     @Test
     fun legendaryAbsentFromTheCaptureIsUnknownWithoutRepeatBall() {
         listOf("Mewtwo", "Fire Arceus", "Basculegion (F)").forEach { name ->

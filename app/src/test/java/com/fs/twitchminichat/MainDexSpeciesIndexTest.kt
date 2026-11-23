@@ -182,8 +182,18 @@ class MainDexSpeciesIndexTest {
         listOf("Arceus", "Fire Arceus", "Mewtwo").forEach { name ->
             assertEquals(name, MainDexCategory.LEGENDARIES, index.speciesOf(name)!!.category)
         }
-        // "Basculegion (F)" is normally spawnable and "Basculegion (M)", its main-dex entry, is not.
-        assertEquals(MainDexCategory.LEGENDARIES, index.speciesOf("Basculegion (F)")!!.category)
+        // The catalog marks "Basculegion (F)" normally spawnable and "Basculegion (M)" not. The page
+        // lists the species once, as "Basculegion (M)" under Legendaries; "Basculegion (F)" is an
+        // alt-dex form, in no main-dex category. The species, both forms included, is legendary.
+        val captured = CapturedPcgMainDexCategories.entriesByCategory
+        assertTrue(
+            CapturedPcgMainDexCategories.Entry(902, "Basculegion (M)") in
+                captured.getValue(MainDexCategory.LEGENDARIES)
+        )
+        assertTrue(captured.values.flatten().none { entry -> entry.name == "Basculegion (F)" })
+        listOf("Basculegion (M)", "Basculegion (F)").forEach { name ->
+            assertEquals(name, MainDexCategory.LEGENDARIES, index.speciesOf(name)!!.category)
+        }
         listOf("Vivillon", "Vivillon (Jungle)", "Unown (Q)", "Cacnea").forEach { name ->
             assertTrue(name, index.speciesOf(name)!!.coveredBySpawnableSnapshot)
         }
