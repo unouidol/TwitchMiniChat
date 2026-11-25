@@ -1,6 +1,8 @@
 # Design: an alert for missing alt dex forms
 
-**Status: design note. Nothing here is implemented.** The owner asked for it on 2026-11-25, with
+**Status: design note. The backend half is merged, not deployed:** tmc-backend#9, `53fe1b4`, on
+2026-11-25. Its deploy needs the owner's yes, after tmc-backend#8's. **The app half is not
+implemented.** The owner asked for this note on 2026-11-25, with
 the decisions below, and answered its open questions the same day. It covers the app
 (`unouidol/TwitchMiniChat`) and the backend (`unouidol/tmc-backend`, private), the two backend
 fixes of tmc-backend#5, and the deletion of Most Wanted watchlists, all three to ship in the same
@@ -76,6 +78,17 @@ Provenance is marked throughout:
 
       No apostrophe or accent is substituted.
 
+**Accepted on 2026-11-25, after the backend was written:**
+
+15. **`/upload_alt_dex` stores nothing while the category is off on the server** (*a*, *When
+    the server refuses*). It answers 409 `alt_dex_alerts_off` unless a device record has the
+    category on for that profile. For the app this means:
+    - turning the category on sends the selection first, and the upload only after the
+      server has acknowledged that selection;
+    - a 409 is shown to the user with a string of its own and is never retried
+      automatically;
+    - a unit test covers that order.
+
 ## What stays exactly as it is
 
 - **Reading 3 itself:** "Update Alt Dex", `PcgAltDexReadingGate`, `pcg_dex_reader.js` and store 3
@@ -97,7 +110,7 @@ or alert sends a chat command, queues one or triggers anything.
 
 | | Choice | Section |
 |---|---|---|
-| Upload | the last reading's missing forms (raw names) and `read_at`, by a new endpoint `/upload_alt_dex`, Bearer only; sent only while the category is on for that profile on this phone | *a* |
+| Upload | the last reading's missing forms (raw names) and `read_at`, by a new endpoint `/upload_alt_dex`, Bearer only; sent only while the category is on for that profile on this phone, and after the server has acknowledged it; refused with 409 `alt_dex_alerts_off` while the server has it off (decision 15) | *a* |
 | Server storage | `alt_dex_lists/<profile_id>.json`, its own file and lock, written atomically; never touched by `/upload_dex_list`; deleted by profile data deletion and when the category is off on every device | *b* |
 | Matching | exact: the chat's name against the page's names, then, only without an exact match, the long regional prefixes made short and matched exactly again (decision 14); a log line for a form-like name that matches nothing; the 371 page names generated from the app's asset into a table both sides test against | *c* |
 | Category | a per-profile boolean in the device record, `profile_alt_dex_form_alerts`, default false, beside `profile_event_spawn_alerts`; one target per profile and device, as today | *d* |
@@ -190,6 +203,11 @@ independent.
 - Names are **not** checked against a catalogue. Most Wanted refuses unknown names
   (`pcg_custom_watchlist_store.py:253-290`), but the alt dex is exactly where PCG adds forms the
   catalogue does not know: 22 already.
+- **409 `alt_dex_alerts_off`** unless at least one device record has the category on for that
+  profile (decision 15). The check and the write both run under `REGISTRY_LOCK`, the lock every
+  write of the category takes. An upload racing a switch-off therefore either is refused or
+  lands before the switch-off, whose cleanup then deletes it (*b*). It never leaves behind a
+  list that no device wants. Nothing is stored.
 - Answer 200 `{"ok": true, "count": <n>, "read_at": "<read_at>"}`.
 - Log one line with no names: `[ALT_DEX] saved profile_ref=<ref> missing_count=<n>`.
 
@@ -198,8 +216,17 @@ independent.
 **Recommended: only while the category is on for that profile on this phone.** Two moments:
 
 1. **After each accepted "Update Alt Dex"**, if the category is on for the reading's profile.
-2. **Once when the user turns the category on**, after the server has acknowledged the change,
-   if store 3 holds a reading for that profile. The user does not have to read the page again.
+2. **Once when the user turns the category on**, if store 3 holds a reading for that profile.
+   The user does not have to read the page again. **The order is fixed (decision 15):**
+   1. the selection first: `set_spawn_alert_mode` with `alt_dex_form_alerts_enabled: true`;
+   2. the upload only after that request succeeds, which is the moment the app records the
+      acknowledgement (`FcmRegistrationUploader.kt:315-332`);
+   3. if the selection fails, no upload is sent.
+
+   Sent the other way round, the upload would meet a server that still has the category off and
+   get a 409 every time. In the bell menu's handler this is one more step after the delivery
+   step, and the handler already stops at the first step that fails
+   (`ChatFragment.kt:4208-4247`) (*f*).
 
 Why not always:
 
@@ -216,6 +243,35 @@ A failed upload is not retried by itself: the toast says it failed, and the next
 next time the category is turned on sends it again. This is not a gameplay command, so the rule
 against queues does not forbid a retry, but nothing gains from one: no alert can be owed for a
 spawn that has not happened yet.
+
+### When the server refuses: 409 `alt_dex_alerts_off`
+
+**What it means:** the server has the category off for that profile on every device record, so
+it stored nothing. The phone may still have the category on. Two ways to get there:
+
+- the server removed this device's record after Firebase reported its token dead
+  (`remove_registered_device_by_token`), and the record a later registration creates starts
+  with the category off;
+- an upload raced a switch-off on this phone.
+
+**What the app does:**
+
+- **Shows it with its own string,** never with the generic failure:
+  `pcg_alt_dex_alert_upload_alerts_off`, "Alt Dex saved on this phone, but the server did not
+  store it: Missing Alt Dex form alerts are off there for this account. Reopen TMC, then press
+  Update Alt Dex again." Each of the two moments of *When* can show it.
+- **Never retries it automatically:** no second upload, no queue, no entry in the owed-work
+  store.
+- **Changes nothing on the phone:** neither the local category nor the acknowledgement. Changing
+  either would amount to a retry by another route.
+- **Logs** the result code and the profile reference only.
+
+**Why "reopen TMC":** the boot registration pass sends the complete local selection of every
+profile that needs delivery, this category included, and puts the server's flag back
+(`MainActivity.kt:509-526`, `PcgProfileRegistrationSyncPlanner`). The next "Update Alt Dex"
+then stores the list. Pressing OK in the bell menu would not help: an unchanged selection makes
+an empty plan and sends nothing (`ChatFragment.kt:4189-4194`). Read in code at `2eef763`; not
+observed.
 
 ## b) Server storage
 
@@ -488,11 +544,22 @@ missing dex, and list `event_spawn` among the reasons. `build_token_targets_for_
     if the category is on for the reading's profile;
   - by the bell menu's handler, after the backend acknowledged a selection that turned the
     category on, if store 3 has a reading for that profile.
+- **The order, in the planner** (decision 15): `PcgProfileAlertSyncStep` gains
+  `ALT_DEX_UPLOAD`. `PcgProfileAlertSyncPlanner.buildPlan` (`PcgProfileAlertSelection.kt:152-199`)
+  adds it as the plan's last step, after `FIREBASE_DELIVERY`, only when the category goes from
+  off to on. The plan always holds `FIREBASE_DELIVERY` then, because the selection changed.
+  - The handler runs the upload step only if a reading is stored, and only if every earlier step
+    succeeded: it already breaks on the first failure (`ChatFragment.kt:4243-4246`).
+  - The upload's result does not count as part of the selection: the selection's toast stays as
+    today, and the upload's own toast follows it.
+  - The order is a pure function, so a unit test can hold it (*j*).
 - **What the user sees:**
   - after a reading, with the category on: `pcg_alt_dex_updated_and_sent`, "Alt Dex saved and sent
     for alerts. Forms not obtained: %d.", in place of today's `pcg_alt_dex_updated`;
   - if the upload fails: `pcg_alt_dex_alert_upload_failed`, "Alt Dex saved on this phone, but it
     could not be sent for alerts. Press Update Alt Dex again later.";
+  - if the server answers 409 `alt_dex_alerts_off`: `pcg_alt_dex_alert_upload_alerts_off`, the
+    string of *a* (*When the server refuses*), never the generic failure, and never retried;
   - with the category off: today's toast, unchanged.
 - **The category on, no reading on this phone** (decision 3):
   - under the checkbox, while it is ticked and store 3 has no reading for the profile:
@@ -728,7 +795,8 @@ needs the app to change first, and is planned after Christmas.
   not page names; never for a page name or for "Hisuian Zorua"; never for "Pikachu"; the record
   holds the name only; no more lines once 2000 names are held.
 - **The upload:** 401 with no session; the legacy key refused; 403 for another profile; 400 for a
-  wrong type, too many names, too long a name, a bad `read_at`; 200 writes the file atomically
+  wrong type, too many names, too long a name, a bad `read_at`; 409 `alt_dex_alerts_off`, with no
+  file written, while no device record has the category on (decision 15); 200 writes the file atomically
   (an exception in the write leaves the old file); a second upload replaces it;
   `/upload_dex_list` leaves it as it was, and its own behaviour is unchanged (wanted list rewritten,
   missing `wanted_pokemon` still an empty list).
@@ -770,6 +838,16 @@ needs the app to change first, and is planned after Christmas.
   `readAtMs`; nothing sent with the category off, nor with the session missing or unusable.
 - The upload is called after an accepted reading only with the category on, and after an
   acknowledged turn-on only with a reading stored.
+- **The turn-on order** (decision 15), in `PcgProfileAlertSyncPlanner`:
+  - turning the category on gives a plan whose last step is `ALT_DEX_UPLOAD`, after
+    `FIREBASE_DELIVERY`;
+  - with Most Wanted turned on in the same confirmation, `ALT_DEX_UPLOAD` still comes last;
+  - turning it off, or leaving it as it was, gives no `ALT_DEX_UPLOAD`;
+  - a failed delivery step means no upload is sent.
+- **A 409 `alt_dex_alerts_off`:**
+  - it maps to `pcg_alt_dex_alert_upload_alerts_off`, distinct from the other failures;
+  - one call sends one request;
+  - nothing is queued, and the local category and the acknowledgement stay as they were.
 - Every new string is in `strings.xml`; `PrivacySafeLoggingSourceTest` passes; `TermsVersionTest`
   at 4.
 - The repository baseline: unit tests, lint and both assemble tasks, for stable and dev.
@@ -816,7 +894,7 @@ decision is on 2026-12-11, 16 days after this note.
 | Part | Size | Depends on |
 |---|---|---|
 | *Open question 1*, the precondition | answered on 2026-11-25 from the production logs (decision 14) | done |
-| Backend pull request (*a* to *e*, *i*) with its tests | the larger half: a new endpoint, a store, the exact match and its generated table, the selection in both pipelines, payload text, two deletions, three fixes | target: merged by 2026-12-02, deployed by 2026-12-03 (the deploy needs the owner's yes) |
+| Backend pull request (*a* to *e*, *i*) with its tests | the larger half: a new endpoint, a store, the exact match and its generated table, the selection in both pipelines, payload text, two deletions, three fixes | merged on 2026-11-25 (tmc-backend#9, `53fe1b4`); target for the deploy: 2026-12-03 (it needs the owner's yes) |
 | Deploy and live check | the owner, on the production machine | the backend merge |
 | App pull request (*f*, *g*'s bundled copy, terms version) with its tests | medium: a checkbox, a store field, a request field, an uploader, strings, policies | the backend live, for its device step |
 | Policy web copy | small | the final wording |
