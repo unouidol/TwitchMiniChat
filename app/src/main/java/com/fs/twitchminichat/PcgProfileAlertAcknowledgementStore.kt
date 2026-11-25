@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 
 /**
@@ -46,10 +47,19 @@ object PcgProfileAlertAcknowledgementStore {
         profileId: String,
         selection: PcgProfileAlertSelection
     ) {
+        record(preferences(context), profileId, selection)
+    }
+
+    /** [record] over the store's file, which a local test can supply (#117, F3). */
+    internal fun record(
+        preferences: SharedPreferences,
+        profileId: String,
+        selection: PcgProfileAlertSelection
+    ) {
         val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
         if (normalizedProfileId.isBlank()) return
 
-        preferences(context).edit(commit = true) {
+        preferences.edit(commit = true) {
             putInt(
                 KEY_PREFIX_REGULAR_MODE + normalizedProfileId,
                 selection.spawnSettings.regularMode.id
@@ -72,10 +82,17 @@ object PcgProfileAlertAcknowledgementStore {
      * anything for this profile, so nothing can be deduced about what it holds.
      */
     fun read(context: Context, profileId: String): PcgProfileAlertSelection? {
+        return read(preferences(context), profileId)
+    }
+
+    /** [read] over the store's file. */
+    internal fun read(
+        preferences: SharedPreferences,
+        profileId: String
+    ): PcgProfileAlertSelection? {
         val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
         if (normalizedProfileId.isBlank()) return null
 
-        val preferences = preferences(context)
         val modeKey = KEY_PREFIX_REGULAR_MODE + normalizedProfileId
         if (!preferences.contains(modeKey)) return null
 
@@ -105,7 +122,12 @@ object PcgProfileAlertAcknowledgementStore {
      * alerts the server may be delivering.
      */
     fun knownProfileIds(context: Context): Set<String> {
-        return preferences(context).all.keys
+        return knownProfileIds(preferences(context))
+    }
+
+    /** [knownProfileIds] over the store's file. */
+    internal fun knownProfileIds(preferences: SharedPreferences): Set<String> {
+        return preferences.all.keys
             .asSequence()
             .filter { it.startsWith(KEY_PREFIX_REGULAR_MODE) }
             .map { it.removePrefix(KEY_PREFIX_REGULAR_MODE) }
@@ -125,7 +147,8 @@ object PcgProfileAlertAcknowledgementStore {
         }
     }
 
-    private fun preferences(context: Context) =
+    /** The store's file, [PREFERENCES_NAME]. */
+    internal fun preferences(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(
             PREFERENCES_NAME,
             Context.MODE_PRIVATE

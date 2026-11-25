@@ -295,11 +295,13 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
      * operation it exists to outlive.
      */
     private fun recordOwedTokenDeletionIfNeeded(logTag: String, tokenDeletionOk: Boolean) {
-        if (!DeviceEraseOutcomePolicy.tokenDeletionOwed(tokenDeletionOk)) return
-
         val ctx = requireContext()
-        OwedServerOperationStore.recordFirebaseTokenDeletion(ctx)
-        OwedServerOperationWorker.enqueue(ctx)
+        val recorded = DeviceEraseOwedWork.recordIfNeeded(
+            tokenDeletionOk = tokenDeletionOk,
+            owedRecords = OwedServerOperationStore.preferences(ctx),
+            enqueueOwedWork = { OwedServerOperationWorker.enqueue(ctx) }
+        )
+        if (!recorded) return
 
         Log.d(logTag, "Firebase token deletion recorded as owed")
     }

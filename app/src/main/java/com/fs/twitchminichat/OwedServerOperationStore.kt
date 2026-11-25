@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 
 /**
@@ -31,6 +32,10 @@ import androidx.core.content.edit
  * file, so a record written before it would be erased by it - and it is kept by the
  * keep-accounts reset (see [LocalDataCleaner.keepAccountsExclusions]) so a later reset
  * cannot silently drop work the user already asked for.
+ *
+ * Each operation exists twice: over a [Context], which every caller in the application
+ * uses, and over the [SharedPreferences] file itself, which the first delegates to and a
+ * local test can supply (#117, F3).
  */
 object OwedServerOperationStore {
 
@@ -56,14 +61,24 @@ object OwedServerOperationStore {
      * anywhere saying so.
      */
     fun recordFirebaseTokenDeletion(context: Context) {
-        preferences(context).edit(commit = true) {
+        recordFirebaseTokenDeletion(preferences(context))
+    }
+
+    /** [recordFirebaseTokenDeletion] over the store's file. */
+    internal fun recordFirebaseTokenDeletion(preferences: SharedPreferences) {
+        preferences.edit(commit = true) {
             putBoolean(KEY_FIREBASE_TOKEN_DELETION, true)
         }
     }
 
     /** Whether a Firebase Cloud Messaging token deletion is still owed. */
     fun isFirebaseTokenDeletionOwed(context: Context): Boolean {
-        return preferences(context).getBoolean(KEY_FIREBASE_TOKEN_DELETION, false)
+        return isFirebaseTokenDeletionOwed(preferences(context))
+    }
+
+    /** [isFirebaseTokenDeletionOwed] over the store's file. */
+    internal fun isFirebaseTokenDeletionOwed(preferences: SharedPreferences): Boolean {
+        return preferences.getBoolean(KEY_FIREBASE_TOKEN_DELETION, false)
     }
 
     /**
@@ -73,7 +88,12 @@ object OwedServerOperationStore {
      * [OwedTokenDeletionPolicy] for why a new account voids it rather than delaying it.
      */
     fun clearFirebaseTokenDeletion(context: Context) {
-        preferences(context).edit(commit = true) {
+        clearFirebaseTokenDeletion(preferences(context))
+    }
+
+    /** [clearFirebaseTokenDeletion] over the store's file. */
+    internal fun clearFirebaseTokenDeletion(preferences: SharedPreferences) {
+        preferences.edit(commit = true) {
             remove(KEY_FIREBASE_TOKEN_DELETION)
         }
     }
@@ -88,20 +108,30 @@ object OwedServerOperationStore {
      * [OwedProfileDisablePolicy].
      */
     fun recordOwedProfileDisable(context: Context, profileId: String) {
+        recordOwedProfileDisable(preferences(context), profileId)
+    }
+
+    /** [recordOwedProfileDisable] over the store's file. */
+    internal fun recordOwedProfileDisable(preferences: SharedPreferences, profileId: String) {
         val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
         if (normalizedProfileId.isBlank()) return
 
-        val updated = owedProfileDisables(context) + normalizedProfileId
-        preferences(context).edit(commit = true) {
+        val updated = owedProfileDisables(preferences) + normalizedProfileId
+        preferences.edit(commit = true) {
             putStringSet(KEY_OWED_PROFILE_DISABLES, updated)
         }
     }
 
     /** Whether [profileId] is on record as owing an alert disable. */
     fun isProfileDisableOwed(context: Context, profileId: String): Boolean {
+        return isProfileDisableOwed(preferences(context), profileId)
+    }
+
+    /** [isProfileDisableOwed] over the store's file. */
+    internal fun isProfileDisableOwed(preferences: SharedPreferences, profileId: String): Boolean {
         val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
         return normalizedProfileId.isNotBlank() &&
-            normalizedProfileId in owedProfileDisables(context)
+            normalizedProfileId in owedProfileDisables(preferences)
     }
 
     /**
@@ -111,7 +141,12 @@ object OwedServerOperationStore {
      * list can name a profile the other does not.
      */
     fun owedProfileDisables(context: Context): Set<String> {
-        return preferences(context)
+        return owedProfileDisables(preferences(context))
+    }
+
+    /** [owedProfileDisables] over the store's file. */
+    internal fun owedProfileDisables(preferences: SharedPreferences): Set<String> {
+        return preferences
             .getStringSet(KEY_OWED_PROFILE_DISABLES, emptySet())
             .orEmpty()
     }
@@ -124,16 +159,22 @@ object OwedServerOperationStore {
      * than delaying it.
      */
     fun clearOwedProfileDisable(context: Context, profileId: String) {
+        clearOwedProfileDisable(preferences(context), profileId)
+    }
+
+    /** [clearOwedProfileDisable] over the store's file. */
+    internal fun clearOwedProfileDisable(preferences: SharedPreferences, profileId: String) {
         val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
         if (normalizedProfileId.isBlank()) return
 
-        val updated = owedProfileDisables(context) - normalizedProfileId
-        preferences(context).edit(commit = true) {
+        val updated = owedProfileDisables(preferences) - normalizedProfileId
+        preferences.edit(commit = true) {
             putStringSet(KEY_OWED_PROFILE_DISABLES, updated)
         }
     }
 
-    private fun preferences(context: Context) =
+    /** The store's file, [PREFERENCES_NAME]. */
+    internal fun preferences(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(
             PREFERENCES_NAME,
             Context.MODE_PRIVATE

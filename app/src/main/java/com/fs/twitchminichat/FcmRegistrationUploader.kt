@@ -7,19 +7,10 @@ import androidx.annotation.StringRes
 import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStream
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.messaging.FirebaseMessaging
 
 object FcmRegistrationUploader {
 
@@ -46,6 +37,24 @@ object FcmRegistrationUploader {
      * queue exists exactly so a failure here costs nothing.
      */
     private const val FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS = 20L
+
+    /**
+     * Firebase Cloud Messaging's token calls.
+     *
+     * A seam for local tests (#117, F3): the application never assigns it, so it is
+     * always Google Play services, as the direct calls it replaces were.
+     */
+    @Volatile
+    internal var firebaseTokens: FirebaseTokenOperations = PlayServicesFirebaseTokens
+
+    /**
+     * The transport of every backend request this object sends.
+     *
+     * A seam for local tests (#117, F3): the application never assigns it, so it is
+     * always [HttpBackendJsonTransport], the code `postJson` ran before.
+     */
+    @Volatile
+    internal var jsonTransport: BackendJsonTransport = HttpBackendJsonTransport
 
     /** UI-facing deletion outcome that deliberately excludes raw backend metadata. */
     data class DeleteServerDataResult(
@@ -224,22 +233,22 @@ object FcmRegistrationUploader {
 
         Log.d(TAG, "No cached Firebase Cloud Messaging token; fetching one for spawn mode")
 
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
+        firebaseTokens.fetchToken { successful, token, error ->
+            if (!successful) {
                 Log.w(
                     TAG,
                     "Unable to fetch a Firebase Cloud Messaging token for spawn mode " +
-                        "errorType=${DiagnosticError.typeOf(task.exception)}"
+                        "errorType=${DiagnosticError.typeOf(error)}"
                 )
                 finish(false)
-                return@addOnCompleteListener
+                return@fetchToken
             }
 
-            val freshToken = task.result?.trim().orEmpty()
+            val freshToken = token?.trim().orEmpty()
             if (freshToken.isBlank()) {
                 Log.w(TAG, "Fresh Firebase Cloud Messaging token is blank for spawn mode")
                 finish(false)
-                return@addOnCompleteListener
+                return@fetchToken
             }
 
             prefs.edit {
@@ -640,43 +649,16 @@ object FcmRegistrationUploader {
      * is now gone.
      */
     fun deleteFirebaseTokenBlocking(context: Context): Boolean {
-        val appContext = context.applicationContext
-
-        val deleted = runCatching {
-            Tasks.await(
-                FirebaseMessaging.getInstance().deleteToken(),
-                FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS,
-                TimeUnit.SECONDS
-            )
-            true
-        }.getOrElse { error ->
-            Log.w(
-                TAG,
-                "delete_firebase_token failed " +
-                    "errorType=${DiagnosticError.typeOf(error)}"
-            )
-            false
-        }
-
-        if (deleted) {
-            /*
-             * The cached copy is what every other path reuses instead of asking
-             * Firebase again, so leaving it behind would hand a deleted token to the
-             * next registration.
-             */
-            appContext
-                .getSharedPreferences(
-                    DeviceCredentialStore.PREFERENCES_NAME,
-                    Context.MODE_PRIVATE
-                )
-                .edit(commit = true) {
-                    remove(KEY_LATEST_FCM_TOKEN)
-                }
-
-            Log.d(TAG, "delete_firebase_token completed ok=true")
-        }
-
-        return deleted
+        return FirebaseTokenDeletion.deleteBlocking(
+            tokens = firebaseTokens,
+            timeoutSeconds = FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS,
+            tokenCache = context.applicationContext.getSharedPreferences(
+                DeviceCredentialStore.PREFERENCES_NAME,
+                Context.MODE_PRIVATE
+            ),
+            cachedTokenKey = KEY_LATEST_FCM_TOKEN,
+            log = AndroidOwedWorkLog(TAG)
+        )
     }
 
     /** Delivers one deletion result on the Android main thread. */
@@ -876,14 +858,9 @@ object FcmRegistrationUploader {
         }
     }
 
-    private data class PostJsonResult(
-        val responseCode: Int,
-        val responseBody: String
-    )
-
     /**
      * Sends one JavaScript Object Notation (JSON) request with a mandatory,
-     * prevalidated Authorization header.
+     * prevalidated Authorization header, through [jsonTransport].
      */
     private fun postJson(
         urlString: String,
@@ -891,46 +868,12 @@ object FcmRegistrationUploader {
         logLabel: String,
         authorizationHeader: String
     ): PostJsonResult? {
-        var conn: HttpURLConnection? = null
-
-        return try {
-            val url = URL(urlString)
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 10000
-                readTimeout = 10000
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                setRequestProperty("Accept", "application/json")
-
-                setRequestProperty("Authorization", authorizationHeader)
-            }
-
-            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(payload.toString())
-                writer.flush()
-            }
-
-            val responseCode = conn.responseCode
-            val responseText = readStream(
-                if (responseCode in 200..299) {
-                    conn.inputStream
-                } else {
-                    conn.errorStream
-                }
-            )
-
-            Log.d(TAG, "$logLabel responseCode=$responseCode")
-            PostJsonResult(responseCode, responseText)
-        } catch (t: Throwable) {
-            Log.e(
-                TAG,
-                "$logLabel failed errorType=${DiagnosticError.typeOf(t)}"
-            )
-            null
-        } finally {
-            conn?.disconnect()
-        }
+        return jsonTransport.post(
+            urlString = urlString,
+            payload = payload,
+            logLabel = logLabel,
+            authorizationHeader = authorizationHeader
+        )
     }
 
     private fun buildDeviceName(context: Context): String {
@@ -946,13 +889,6 @@ object FcmRegistrationUploader {
             .ifBlank { "android-device" }
 
         return "$humanPart [$installId]"
-    }
-
-    private fun readStream(stream: InputStream?): String {
-        if (stream == null) return ""
-        return BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { reader ->
-            reader.readText()
-        }
     }
 
     private fun showToast(context: Context, text: String) {

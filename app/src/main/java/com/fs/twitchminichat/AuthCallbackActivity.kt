@@ -81,7 +81,6 @@ class AuthCallbackActivity : AppCompatActivity() {
         finalProfileId: String
     ) {
         val accountId = UUID.randomUUID().toString()
-        val repo = AccountRepository(this)
 
         val account = AccountConfig(
             id = accountId,
@@ -90,41 +89,30 @@ class AuthCallbackActivity : AppCompatActivity() {
             accessToken = result.accessToken,
             profileId = finalProfileId
         )
-        if (!repo.addAccount(account)) {
-            /*
-             * The stored list could not be read or could not be replaced, so nothing
-             * was written. Saying so is what keeps the other accounts recoverable:
-             * the user retries instead of discovering later that they are gone.
-             */
-            finishWithToast(R.string.account_add_failed)
-            return
-        }
-
-        if (!persistBackendSession(result, finalProfileId)) {
-            repo.removeById(accountId)
-            finishWithToast(R.string.backend_session_persist_failed)
-            return
-        }
-
         /*
-         * An erase that could not delete the Firebase Cloud Messaging token leaves that
-         * deletion owed. Signing in again makes it void rather than pending: the next
-         * registration creates a new token, and deleting it afterwards would cut the
-         * alerts of a registration the user has just recreated, silently. See
-         * OwedTokenDeletionPolicy.
+         * The account, its session and the owed work a sign-in voids: see
+         * NewAccountLocalCommit, which explains each step.
          */
-        OwedServerOperationStore.clearFirebaseTokenDeletion(applicationContext)
-
-        /*
-         * Same reasoning for an alert disable owed by an earlier removal of this profile:
-         * sending it now would switch off the registration this sign-in is about to
-         * create. The queue re-checks as well, so this is the earlier of two guards, not
-         * the only one. See OwedProfileDisablePolicy.
-         */
-        OwedServerOperationStore.clearOwedProfileDisable(
-            context = applicationContext,
-            profileId = finalProfileId
+        val outcome = NewAccountLocalCommit.commit(
+            accounts = AccountRepository(this),
+            account = account,
+            persistSession = { persistBackendSession(result, finalProfileId) },
+            owedRecords = OwedServerOperationStore.preferences(applicationContext)
         )
+
+        when (outcome) {
+            NewAccountLocalCommit.Outcome.ACCOUNT_NOT_SAVED -> {
+                finishWithToast(R.string.account_add_failed)
+                return
+            }
+
+            NewAccountLocalCommit.Outcome.SESSION_NOT_SAVED -> {
+                finishWithToast(R.string.backend_session_persist_failed)
+                return
+            }
+
+            NewAccountLocalCommit.Outcome.ADDED -> Unit
+        }
 
         openAccount(
             accountId = accountId,

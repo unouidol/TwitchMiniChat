@@ -1,7 +1,6 @@
 package com.fs.twitchminichat
 
 import android.content.Context
-import android.util.Log
 import kotlin.concurrent.thread
 
 /**
@@ -15,11 +14,13 @@ import kotlin.concurrent.thread
  * by an erase, and an alert disable owed by an account removal. They are attempted in
  * that order, both are attempted even when the other fails, and one failure anywhere
  * makes the whole pass a failure so the queue retries.
+ *
+ * Everything a pass reads and calls comes from one [OwedWorkEnvironment], so that a
+ * local test can run the same pass against its own (#117, F3). The application always
+ * passes [ProductionOwedWorkEnvironment], which logs under `OWED_SERVER_OP`, the tag
+ * [OwedServerOperationWorker] shares.
  */
 object OwedServerOperationRunner {
-
-    /** Logcat tag shared with [OwedServerOperationWorker]. */
-    private const val TAG = "OWED_SERVER_OP"
 
     /** How one pass over the owed work ended. */
     enum class Attempt {
@@ -46,35 +47,38 @@ object OwedServerOperationRunner {
      * that cannot reach Firebase may still reach the backend.
      */
     fun runOwedWorkBlocking(context: Context): Attempt {
-        val appContext = context.applicationContext
+        return runOwedWorkBlocking(ProductionOwedWorkEnvironment(context.applicationContext))
+    }
 
-        val tokenAttempt = runOwedTokenDeletion(appContext)
-        val disableAttempt = runOwedProfileDisables(appContext)
+    /** [runOwedWorkBlocking] against [env]; the application's own call passes the real one. */
+    internal fun runOwedWorkBlocking(env: OwedWorkEnvironment): Attempt {
+        val tokenAttempt = runOwedTokenDeletion(env)
+        val disableAttempt = runOwedProfileDisables(env)
 
         return combine(tokenAttempt, disableAttempt)
     }
 
     /** Deletes the Firebase Cloud Messaging token an erase could not delete. */
-    private fun runOwedTokenDeletion(appContext: Context): Attempt {
+    private fun runOwedTokenDeletion(env: OwedWorkEnvironment): Attempt {
         val decision = OwedTokenDeletionPolicy.decide(
             tokenDeletionOwed = OwedServerOperationStore
-                .isFirebaseTokenDeletionOwed(appContext),
-            signedInAccountCount = AccountRepository(appContext).loadAccounts().size
+                .isFirebaseTokenDeletionOwed(env.owedRecords),
+            signedInAccountCount = env.accounts.loadAccounts().size
         )
 
-        Log.d(TAG, "owed token deletion decision=$decision")
+        env.log.debug("owed token deletion decision=$decision")
 
         return when (decision) {
             OwedTokenDeletionDecision.NOTHING_OWED -> Attempt.NOTHING_TO_DO
 
             OwedTokenDeletionDecision.VOID_SIGNED_IN -> {
-                OwedServerOperationStore.clearFirebaseTokenDeletion(appContext)
+                OwedServerOperationStore.clearFirebaseTokenDeletion(env.owedRecords)
                 Attempt.NOTHING_TO_DO
             }
 
             OwedTokenDeletionDecision.RUN -> {
-                if (FcmRegistrationUploader.deleteFirebaseTokenBlocking(appContext)) {
-                    OwedServerOperationStore.clearFirebaseTokenDeletion(appContext)
+                if (env.deleteFirebaseToken()) {
+                    OwedServerOperationStore.clearFirebaseTokenDeletion(env.owedRecords)
                     Attempt.COMPLETED
                 } else {
                     Attempt.FAILED
@@ -94,14 +98,14 @@ object OwedServerOperationRunner {
      * account removal clears those, and reading them afterwards returns an *active*
      * default mode, so a removed profile would look as if it wanted alerts.
      */
-    private fun runOwedProfileDisables(appContext: Context): Attempt {
+    private fun runOwedProfileDisables(env: OwedWorkEnvironment): Attempt {
         val candidateProfileIds =
-            PcgProfileAlertAcknowledgementStore.knownProfileIds(appContext) +
-                OwedServerOperationStore.owedProfileDisables(appContext)
+            PcgProfileAlertAcknowledgementStore.knownProfileIds(env.acknowledgements) +
+                OwedServerOperationStore.owedProfileDisables(env.owedRecords)
 
         if (candidateProfileIds.isEmpty()) return Attempt.NOTHING_TO_DO
 
-        val signedInProfileIds = AccountRepository(appContext)
+        val signedInProfileIds = env.accounts
             .loadAccounts()
             .map(AccountProfileIdResolver::resolve)
             .filter(String::isNotBlank)
@@ -112,22 +116,20 @@ object OwedServerOperationRunner {
 
         for (profileId in candidateProfileIds) {
             val local = if (profileId in signedInProfileIds) {
-                PcgProfileLocalSelection.Present(
-                    PcgProfileAlertSelectionStore.read(appContext, profileId)
-                )
+                PcgProfileLocalSelection.Present(env.readSelection(profileId))
             } else {
                 PcgProfileLocalSelection.Removed
             }
 
             val decision = OwedProfileDisablePolicy.decide(
                 acknowledged = PcgProfileAlertAcknowledgementStore
-                    .read(appContext, profileId),
+                    .read(env.acknowledgements, profileId),
                 explicitlyOwed = OwedServerOperationStore
-                    .isProfileDisableOwed(appContext, profileId),
+                    .isProfileDisableOwed(env.owedRecords, profileId),
                 local = local
             )
 
-            Log.d(TAG, "owed profile disable decision=$decision")
+            env.log.debug("owed profile disable decision=$decision")
 
             when (decision) {
                 OwedProfileDisableDecision.NOTHING_OWED -> Unit
@@ -139,29 +141,26 @@ object OwedServerOperationRunner {
                      * recreated selection and records the new acknowledgement.
                      */
                     OwedServerOperationStore
-                        .clearOwedProfileDisable(appContext, profileId)
+                        .clearOwedProfileDisable(env.owedRecords, profileId)
                 }
 
                 OwedProfileDisableDecision.DISABLE -> {
-                    val ok = FcmRegistrationUploader
-                        .sendProfileAlertDisableBlocking(appContext, profileId)
+                    val ok = env.sendProfileAlertDisable(profileId)
 
-                    Log.d(TAG, "owed profile disable sent ok=$ok")
+                    env.log.debug("owed profile disable sent ok=$ok")
 
                     if (ok) {
                         OwedServerOperationStore
-                            .clearOwedProfileDisable(appContext, profileId)
+                            .clearOwedProfileDisable(env.owedRecords, profileId)
 
                         /*
                          * Only now is the session removed. It is the credential the
                          * request authenticates with, so removing it at the account's
                          * removal - as this used to - made the retry impossible.
                          */
-                        val sessionRemoved =
-                            BackendSessionStore(appContext).removeProfile(profileId)
+                        val sessionRemoved = env.sessions.removeProfile(profileId)
 
-                        Log.d(
-                            TAG,
+                        env.log.debug(
                             "owed profile disable acknowledged " +
                                 "backendSessionRemoved=$sessionRemoved"
                         )
