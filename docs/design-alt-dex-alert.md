@@ -6,8 +6,9 @@ the decisions below, and answered its open questions the same day. It covers the
 fixes of tmc-backend#5, and the deletion of Most Wanted watchlists, all three to ship in the same
 backend pull request.
 
-**No code starts, in either repository, before *Open question 1* is answered** (decision 7): how
-PCG's chat names each form, against the alt-dex page's names.
+***Open question 1* is answered** (decision 14, the same day): how PCG's chat names each form,
+from the production backend's logs, and the matching rule that follows. It was the precondition
+of decision 7, so the backend pull request may start.
 
 Provenance is marked throughout:
 
@@ -36,10 +37,10 @@ Provenance is marked throughout:
 **The answers to this note's open questions, the same day:**
 
 7. **How the chat names forms is a precondition:** no code before it is answered (*Open question
-   1*). The evidence already points to a mismatch for regional forms (*c*, *The chat's names*).
-   Once the evidence is in, this note states how `alt_dex_form_key` maps the chat's name to the
-   page's for every form class: a form-preserving mapping for long regional prefixes, never
-   `registration_key`'s merges of genders or seasons.
+   1*). The evidence pointed to a mismatch for regional forms. Once it was in, the note was to
+   state how the chat's name maps to the page's for every form class: a form-preserving mapping
+   for long regional prefixes, never `registration_key`'s merges of genders or seasons. Answered
+   by decision 14.
 8. **Event spawns, Christmas ones included, are covered** (*d*).
 9. **The stored alt-dex list is deleted when the category is off on every device** (*b*).
 10. **`CURRENT_TERMS_VERSION` goes from 3 to 4** (*g*).
@@ -49,6 +50,31 @@ Provenance is marked throughout:
 12. **F3 lands before the next app release:** the owner's decision of 2026-11-20, recorded on #117.
 13. **The correction to #5's fix 1 is accepted:** its condition reads the record's `profile_ids`,
     not `registered_device_profile_ids` (*i*).
+
+**The answer to *Open question 1*, the same day:**
+
+14. **The chat names an alt-dex form exactly as the page does, so the match is exact** (*c*).
+    - **What the owner read:** the production backend's logs from 2026-10-18 to 2026-11-25, 3638
+      spawns under 841 distinct names. Every alt-dex form that spawned, 116 names (80 "(F)" and
+      36 other "(…)" forms), appears in the chat with exactly the page's name, character for
+      character: case, parentheses, hyphens, accents, the curly apostrophe of "Farfetch’d". Forms
+      are about 6% of spawns, almost all of them "(F)" and "(…)" forms.
+    - **Not alt-dex names:** base and main-dex forms also appear with a suffix ("Shellos (West)",
+      "Palafin (Zero)"). They are not on the alt-dex page and must not match.
+    - **Not seen:** no prefixed form spawned in the period: His or Hisuian, Alo or Alolan, Gal or
+      Galarian, Pal or Paldean, Mega, PCG, Sin, Clone, the typed Arceus and Silvally, Eternal
+      Floette. Their chat spelling is unknown.
+    - **The rule:**
+      1. an exact match of the chat's name against the alt-dex page's names;
+      2. only when there is no exact match, the long regional prefixes become the short ones
+         ("Hisuian " → "His ", "Alolan " → "Alo ", "Galarian " → "Gal ", "Paldean " → "Pal "),
+         and the result is matched exactly again. The backend's alias map is the evidence that
+         the chat once used the long names;
+      3. one log line per process and name when a spawn's name looks like a form (a form prefix,
+         or a trailing "(…)") and matches no alt-dex name. It holds no user data, so the first
+         event with regional forms shows their spelling.
+
+      No apostrophe or accent is substituted.
 
 ## What stays exactly as it is
 
@@ -73,12 +99,12 @@ or alert sends a chat command, queues one or triggers anything.
 |---|---|---|
 | Upload | the last reading's missing forms (raw names) and `read_at`, by a new endpoint `/upload_alt_dex`, Bearer only; sent only while the category is on for that profile on this phone | *a* |
 | Server storage | `alt_dex_lists/<profile_id>.json`, its own file and lock, written atomically; never touched by `/upload_dex_list`; deleted by profile data deletion and when the category is off on every device | *b* |
-| Matching | a new `alt_dex_form_key`: the app's `PcgPokemonNameNormalizer` ported exactly, then a form-preserving mapping of the chat's spellings to the page's, class by class, fixed once *Open question 1* is answered; checked against all 371 names by a shared fixture | *c* |
+| Matching | exact: the chat's name against the page's names, then, only without an exact match, the long regional prefixes made short and matched exactly again (decision 14); a log line for a form-like name that matches nothing; the 371 page names generated from the app's asset into a table both sides test against | *c* |
 | Category | a per-profile boolean in the device record, `profile_alt_dex_form_alerts`, default false, beside `profile_event_spawn_alerts`; one target per profile and device, as today | *d* |
 | Notification | its own title and body, in the existing four channels; no new channel | *e* |
 | App | one checkbox in the bell menu, a hint when no reading exists, the upload after an accepted reading and when the category is turned on | *f* |
 | Privacy | new sentences in privacy and data deletion, both copies; `CURRENT_TERMS_VERSION` 3 → 4, because data is newly collected | *g* |
-| Order | *Open question 1* answered first; then the backend (with #5's fixes and the watchlist deletion), the policy web copy, the app release | *h* |
+| Order | the backend (with #5's fixes and the watchlist deletion), the policy web copy, the app release | *h* |
 | Most Wanted deletion | profile data deletion deletes the profiles' watchlists on every device; no other path changes | *i*, fix 3 |
 
 ## Facts the design rests on
@@ -90,7 +116,8 @@ or alert sends a chat command, queues one or triggers anything.
 | The alt dex has 371 forms: 349 are catalogue names, 22 are not (11 Mega, 4 PCG, 2 Clone and 5 others). 46 carry 🔒. | Observed on 2026-11-23; the counts read again from `pcg_alt_dex_forms.json` (blob `651a8fd`) and computed |
 | The spawn name the backend sees is what PCG's chat message carries between "A wild" and "appears" (`spawn_message_classifier.py:13-16`, `SpawnMessageParser.kt`). | Read in code |
 | The Smart Catch panel matches the Form line by the catalogue's name for the spawn first, then by the chat's name (`QuickCatchProfileSpawnContext.kt:120-140`). The catalogue's name comes from `PokemonTypeDexCatalog.find`: the exact name, else an alias owned by exactly one entry (`PokemonTypeDexCatalog.kt:32-38, 124-139`). | Read in code |
-| Whether PCG's chat prints a form exactly as the alt-dex page names it ("Alo Vulpix") or otherwise ("Alolan Vulpix") was never checked. | Not observed (*Open question 1*) |
+| PCG's chat prints every alt-dex form that spawned from 2026-10-18 to 2026-11-25 exactly as the page names it: 116 names, 80 "(F)" and 36 other "(…)" forms. No prefixed form spawned, so how the chat prints "Alo Vulpix" is unknown. | Observed by the owner in the production backend's logs (decision 14); not seen by whoever wrote this note |
+| The page's 371 names carry no 🔒 or 🎊 in the asset (the lock is a separate `locked` field), no leading, trailing or doubled spaces, and are distinct. The backend collapses whitespace in a chat message before it cuts out the name (`spawn_message_classifier.py:27-34, 37-45`). | Computed from `pcg_alt_dex_forms.json` (blob `651a8fd`); read in code |
 | `/upload_dex_list` accepts the legacy key (`twitch_cache_bot_v10_token_safety.py:2222-2226`), stores a missing `wanted_pokemon` as an empty list (`:2235`) and rewrites the profile's file with four fields, with a plain `open(path, "w")`, outside `DEX_LOCK` (`:971-1006`, write at `:1002`). A field it does not know is dropped and the answer is still 200. | Read in code |
 | A Bearer session is bound to its profile: any `profile_id` in the payload that differs from the session's is refused with 403 `profile_mismatch` (`backend_auth_policy.py:117-133`). | Read in code |
 | Missing-dex matching reads every file in `dex_lists/` at each spawn and compares by `main_dex_key`, which merges every form of a species (`fcm_sender.py:1079-1099, 1161-1186`; `dex_interest_store.py:45-171`). | Read in code |
@@ -125,8 +152,8 @@ After an accepted "Update Alt Dex", and only while the category is on (*When*):
 - **`profile_label`:** as `/upload_dex_list` sends it today (`FcmRegistrationUploader.kt:806-810`),
   because the notification body names the account by it (*e*).
 - **Not sent:** the obtained forms, the sprite numbers, the normalized keys and the device
-  identifier. The server needs only the missing names to match a spawn, and computes the keys
-  itself. Less leaves the phone, and the server cannot drift from a key the app computed.
+  identifier. The server needs only the missing names to match a spawn, and matches them
+  exactly (*c*). Less leaves the phone, and the server cannot drift from a key the app computed.
 
 **What "missing" means on the server.** It is the last reading's list, exactly as store 3 keeps
 it. So, as for the main dex today:
@@ -157,7 +184,7 @@ independent.
 - Bearer session required; the payload's `profile_id` is bound to it by `authorize_backend_request`.
 - `missing_forms` must be a list of strings: at most 1000 names (371 today, with room for new
   forms), each at most 120 characters (the limit Most Wanted uses,
-  `pcg_custom_watchlist_store.py:17`). Blank names and repeated keys are dropped. An empty list
+  `pcg_custom_watchlist_store.py:17`). Names are trimmed; blank and repeated names are dropped. An empty list
   is accepted: it means nothing is missing.
 - `read_at` must parse as UTC ISO-8601 and not lie more than a day in the future; otherwise 400.
 - Names are **not** checked against a catalogue. Most Wanted refuses unknown names
@@ -237,127 +264,103 @@ spawn that has not happened yet.
 
 ## c) Matching
 
-### The key
+### The rule (decision 14)
 
-A new function, `alt_dex_form_key(name)`, in its own module, used only for this alert. It is not
-`main_dex_key`, which merges every form of a species, and not `registration_key`, which merges
-genders and seasons (*Facts*). It is the app's `PcgPokemonNameNormalizer.normalize`
-(`PcgPokemonNameNormalizer.kt:10-28`) ported step for step, after the page's two prefixes:
+The owner read the chat's names in the production backend's logs (decision 14): every alt-dex
+form that spawned appears with exactly the page's name. So the match is exact, and nothing is
+normalized. There is no case folding, no Unicode normalization, and no apostrophe or accent
+substitution.
 
-1. Remove 🔒 and 🎊.
-2. Decompose to NFKD.
-3. Remove every code point of Unicode general category M (Mn, Mc, Me), as Kotlin's `\p{M}`
-   does. Not `unicodedata.combining`, which tests the combining class and misses marks of class 0.
-4. Lowercase.
-5. Replace each run of characters outside `a-z`, `0-9`, ♀ (U+2640) and ♂ (U+2642) with one space.
-6. Trim, and collapse repeated spaces.
+A new module, `alt_dex_form_names.py`, used only for this alert, holds `alt_dex_form_key(name)`,
+which is the name with surrounding whitespace trimmed and nothing else, and resolves a spawn's
+name in two steps:
 
-Steps 1 to 6 give the **page key**. The spawn's name then goes through one more step, the chat's
-spellings mapped to the page's (*The chat's names*, below). A spawn alerts when the result is a
-key of the profile's missing names: the exact form, as decided, under whichever spelling the chat
-uses for it.
+1. **Exact.** If the chat's name is one of the page's names, as the generated table lists them
+   (*Keeping the list in step*), that name alone is the candidate.
+2. **Long regional prefixes, only without an exact match.** Each whole word "Hisuian", "Alolan",
+   "Galarian" or "Paldean" followed by a space becomes "His", "Alo", "Gal" or "Pal". If that
+   changes the name, the result is a second candidate, matched exactly too. The words are
+   matched as the chat would print them, capitalised, and wherever they stand before a word, so
+   "Sin Alolan Marowak" gives "Sin Alo Marowak" as well as "Hisuian Zorua" giving "His Zorua".
+   - **Evidence:** the backend's alias map, which turns 58 long regional names into the page's
+     short ones (`variant_alias_maps_for_bot.json`, `combined_aliases`; computed), shows that the
+     chat once used the long names (decision 14). No regional form spawned in the logs the owner
+     read, so neither spelling has been seen since.
+   - **No page name contains those four words** (computed over the 371), so step 2 can never turn
+     one page name into another.
 
-- **Computed over all 371 alt-dex names:** this function and the app's normalizer give the same
-  key for every name, the 22 the catalogue does not know included, and the 371 keys are distinct.
-  `pcg_custom_watchlist_store.py:42-56` gives the same 371 keys too, but it keeps any Unicode
-  letter and casefolds, so it would split from the app on names the app reduces to ASCII. That
-  is why the port is exact rather than a reuse.
-- **Why not the app's catalogue aliases.** The panel resolves a chat name through
-  `PokemonTypeDexCatalog`'s unique aliases (*Facts*), so it would follow a chat name such as
-  "Alolan Vulpix" to "Alo Vulpix". Those aliases serve the stats lookup, not form identity, and
-  some point across forms: the entry for "Frillish (F)" carries the alias "frillish male", the same
-  as plain "Frillish" (read in `pokemon_type_dex.json`). The app is safe because it uses an alias
-  only when one entry owns it. A server table copied from them would carry those crossings with
-  it, so the mapping below is written class by class instead.
+A profile is a target when one of the candidates is, exactly, a name of its uploaded list. A name
+the generated table does not hold still matches exactly in step 1, so a form PCG adds before the
+backend's table is regenerated still alerts the profiles whose reading lists it.
 
-### The chat's names
+**What this rule never does:** it never maps a form to its base species or to another form. It
+never calls `registration_key`, which merges genders and seasons, `main_dex_key`, which merges
+every form of a species, or `a_tier_key`. "Venusaur (F)" matches only "Venusaur (F)", "Deerling
+(Autumn)" only "Deerling (Autumn)", "Unown (F)" only "Unown (F)". The main-dex forms the chat also
+prints with a suffix, such as "Shellos (West)" and "Palafin (Zero)", are on no alt-dex page,
+appear in no uploaded list, and so match nothing (decision 14).
 
-**The evidence so far points to a mismatch for regional forms** (decision 7). None of it is a
-chat message observed for this note:
+**The uploaded names are stored as sent**, trimmed of surrounding whitespace. The app sends them
+as the page shows them, without 🔒 or 🎊 (*a*), and the asset holds them that way (*Facts*).
 
-- the backend's alias map turns 58 long regional names into the page's short ones, among them
-  "hisuian zorua" into "his zorua" and "paldean wooper" into "pal wooper"
-  (`variant_alias_maps_for_bot.json`, `combined_aliases`; the 58 computed), and
-  `main_dex_species.py:161` names "Hisuian Zorua" → "his zorua" as the reason for its first step;
-- a backend test uses "Paldean Wooper" and "Hisuian Zorua" as spawn names
-  (`tests/test_main_dex_species_key.py:107-109`);
-- the page itself writes "His", "Pal", "Alo" and "Gal" (observed 2026-11-23).
+### A log line for names that look like forms (decision 14)
 
-So the chat may print "Hisuian Zorua" where the page lists "His Zorua". Where the map's long names
-came from is not recorded in it. **What the chat prints for each class is *Open question 1*, a
-precondition: no code before it is answered.**
+When a spawn's name looks like a form and resolves to no name of the generated table, the backend
+logs, once per process and name:
 
-**The rules every mapping obeys:**
+```
+[ALT_DEX] form-like spawn name matches no alt-dex form name='<name>'
+```
 
-1. **It preserves the form.** It maps one spelling of a form to the page's spelling of the same
-   form. It never maps a name to its base species or to another form, so it never does what
-   `registration_key` does to genders and seasons, or `main_dex_key` to every form. Neither of
-   them, nor `a_tier_key`, is called.
-2. **It is added only for a spelling the evidence shows.** No mapping is added because a spelling
-   is plausible.
-3. **It changes no page key.** Applied to the 371 page names, the step leaves every key as it is,
-   and no two of the 371 become equal. A test pins both.
-4. **It agrees with the panel.** For each mapped spelling that the app's catalogue resolves, it
-   resolves to the same form. A test, over the app's assets, pins it.
-
-**Class by class.** The 371 forms, by the shape of the page's name (counts computed from
-`pcg_alt_dex_forms.json`). "Decided" is the owner's decision 7; every other row waits for the
-evidence and, until then, matches the page's spelling only.
-
-| Class | Forms | Page spelling | Mapping of the chat's spelling |
-|---|---|---|---|
-| Regional | 58: Alo 18, Gal 19, His 17, Pal 4 | "His Zorua", "Gal Farfetch’d", "Pal Tauros (Aqua)", "His Sneasel (F)" | **Decided:** the whole words "alolan", "galarian", "hisuian" and "paldean" become "alo", "gal", "his" and "pal", wherever they stand, so "Sin Alolan Marowak" becomes "sin alo marowak". No page key contains those words (computed), so rule 3 holds. A suffix spelling ("Vulpix (Alola)", "Zorua Hisuian") is mapped to the prefix form only if the evidence shows it. |
-| Sin | 6 | "Sin Gengar", "Sin Alo Marowak" | none. "Sin" is one of PCG's own form classes, not a region, so `a_tier_key`'s "sinnoh" → "sin" is not adopted without evidence. The regional row covers the "Alo" inside "Sin Alo Marowak". |
-| Gender | 102, plus Unown (F) and Unown (M) | "Venusaur (F)", "Unown (M)" | if the chat writes "(Female)" or "(Male)", those words become "f" and "m". The token is never dropped: that would merge the form with its base species, and "Unown (F)" and "Unown (M)" are letters, not genders. |
-| Tauros breeds | inside the regional row | "Pal Tauros", "Pal Tauros (Aqua)", "Pal Tauros (Blaze)" | if the chat writes "(Aqua Breed)", "(Blaze Breed)" or "(Combat Breed)", they become "(Aqua)", "(Blaze)" and no suffix: the page's "Pal Tauros" is the combat breed. |
-| Other parenthesised forms | 122: Unown letters, Vivillon patterns, seasons, Pikachu caps and others | "Deerling (Autumn)", "Toxtricity (Lowkey)" | none, unless the evidence shows another spelling of the same form ("Low Key"). Seasons and patterns are never merged. |
-| Mega | 18 | "Mega Charizard X" | none. The X or Y is part of the form and is kept. |
-| PCG | 25 | "PCG Absol" | none |
-| Clone | 3 | "Charizard (Clone)" | none |
-| Arceus and Silvally types | 34 | "Bug Arceus" | none, unless the chat writes "Arceus (Bug)": then the type moves in front. |
-| Eternal Floette | 1 | "Eternal Floette" | none, unless the chat writes "Floette (Eternal)". |
-
-When the evidence is in, this table is updated with what it showed, row by row, before the backend
-code is written.
-
-**A diagnostic, to catch what the evidence missed.** For each spawn whose name contains "(" or starts
-with Alo, Gal, His, Pal, Sin, Mega or PCG, and whose key is not one of the generated table's keys
-(*Keeping the list in step*), the backend logs once per process
-`[ALT_DEX] spawn name not a known form key=<key>`. It records no profile. The value that
-separates the cases is whether the logged key is one of the 371: the line never fires for a name
-the page also uses, and fires for a form name the page spells differently.
+- **"Looks like a form":** it ends in "(…)", or its first word is one of the page's form prefixes
+  or their long regional spellings: Alo, Alolan, Gal, Galarian, His, Hisuian, Pal, Paldean, Mega,
+  PCG, Sin, Eternal. A name of two words ending in "Arceus" or "Silvally" counts too, for the typed
+  forms. Every one of the 371 page names passes this test (computed), so a form whose chat
+  spelling differs from the page's still looks like a form, unless the chat drops its prefix and
+  its parentheses together.
+- **What it records:** the spawn's name only, which is public chat text. No profile, device or
+  user.
+- **Bound:** the names already logged are kept in memory, at most 2000, so that a spawn name
+  already logged is not logged again. When the set is full, nothing more is logged until the
+  process restarts.
+- **The value that separates the cases** is the name itself: it never fires for a page name, nor
+  for a long regional spelling of one (step 2 resolves those). It fires once for each suffixed
+  main-dex form such as "Shellos (West)", which is expected, and for any spelling of a form that
+  the rule misses. The first event with regional forms shows their spelling.
 
 ### Matching at a spawn
 
 `load_alt_dex_interested_profiles(pokemon_name)`, beside `load_interested_profiles`
 (`fcm_sender.py:1161-1186`):
 
-- computes the spawn's key once;
+- resolves the spawn's candidates once;
 - reads each file in `alt_dex_lists/`, skipping a malformed file on its own, as
   `DexInterestStore` does (`dex_interest_store.py:81-99`);
-- returns `{profile_id: profile_label}` for each list holding that key.
+- returns `{profile_id: profile_label}` for each list holding a candidate.
 
-Keys are computed from the stored names at match time, as `DexInterestStore` does today, so a
-correction to the function applies to lists already stored. Every spawn reads the directory, as
-`dex_lists/` is read today; at today's scale that is the existing cost, once more.
+Every spawn reads the directory, as `dex_lists/` is read today; at today's scale that is the
+existing cost, once more.
 
 ### Keeping the list in step
 
-The server does not need the list of forms to match: it matches the names each profile uploaded,
-and a name it has never seen works the same. The list is needed for two checks only:
+The server matches the names each profile uploaded, so it does not need the page's list to alert.
+The table of the page's names serves the exact-first step, the log line and the tests:
 
-- **That both sides compute the same key.** The app commits
-  `app/src/test/resources/pcg_alt_dex/pcg_alt_dex_form_keys.json`: every form of the bundled
-  asset, as `name` and `key`. A Kotlin test checks that the file lists exactly the asset's forms,
-  and that `PcgPokemonNameNormalizer` gives each its key.
-- **On the backend,** a generator, `generate_alt_dex_form_keys.py`, copies that file from git at
-  a given app commit (`git show <commit>:<path>`) into `alt_dex_form_keys_v1.json`, recording the
-  commit and the blobs of the fixture and of `pcg_alt_dex_forms.json`, with a `--check` mode. It
-  follows `generate_main_dex_species_table.py`, which does the same for the species table. A
-  backend test checks that `alt_dex_form_key` gives each name its key.
-- **When PCG adds forms,** the app's asset and fixture change in one app pull request, and the
-  backend regenerates its copy in the next backend change. Until it does, nothing breaks: only
-  the diagnostic line fires for the new names.
+- **On the backend,** a generator, `generate_alt_dex_forms_table.py`, reads
+  `app/src/main/assets/pcg_alt_dex/pcg_alt_dex_forms.json` from git at a given app commit
+  (`git show <commit>:<path>`). It writes `alt_dex_forms_v1.json`: the 371 names in the asset's
+  order, the app commit, and the asset's blob. Its `--check` mode fails when the committed table
+  differs from what the generator would write. It follows `generate_main_dex_species_table.py`,
+  which does the same for the species table. A backend test checks that each table name resolves
+  to itself, exactly, in step 1.
+- **Shared with the app:** the app's pull request commits the same file, byte for byte, as
+  `app/src/test/resources/pcg_alt_dex/pcg_alt_dex_forms_v1.json`. A Kotlin test checks that it
+  lists exactly the bundled asset's names, in order, and that the uploader sends each of them
+  unchanged. The two sides then test against one list, and a change to the asset that the other
+  side has not taken fails a test.
+- **When PCG adds forms,** the app's asset and its copy of the table change in one app pull
+  request, and the backend regenerates its table in the next backend change. Until then nothing
+  breaks: the new names still match exactly in step 1, and only the log line fires for them.
 
 ## d) The alert category
 
@@ -583,11 +586,10 @@ category on, was put to the owner, who decided for 4.
 `AGENTS.md`: backward-compatible server behaviour before the app depends on it; the policy web copy
 before the release that bundles the new text.
 
-0. **The precondition:** *Open question 1* answered, and the class table of *c* updated with what
-   the evidence showed. No code before this, in either repository (decision 7).
+0. **The precondition:** *Open question 1* answered, which it is (decision 14). Code may start.
 1. **Backend pull request**, deployed and checked before any app build sends anything:
-   - `/upload_alt_dex`, the store, `alt_dex_form_key` with its chat-name mapping, the generated
-     key table and the diagnostic;
+   - `/upload_alt_dex`, the store, the exact match with its regional step, the generated table
+     of the page's names and the log line;
    - the category field, its default and its old-app rule;
    - the selection in both pipelines, ordinary and event, and the payload's text;
    - deletion, and the removal when the category is off on every device;
@@ -708,14 +710,23 @@ needs the app to change first, and is planned after Christmas.
 
 ### Backend tests (characterization, offline)
 
-- **The key:** all 371 names of the generated table give their key; the step order of *c* (a mark
-  of class 0, a non-ASCII letter, ♀ and ♂, 🔒 and 🎊, "Farfetch’d" with its curly apostrophe);
-  `--check` fails on a hand-edited table.
-- **The chat-name mapping** (*c*): applied to the 371 page names it changes no key and makes none
-  equal; "Hisuian Zorua", "Paldean Wooper" and "Sin Alolan Marowak" give "his zorua", "pal wooper"
-  and "sin alo marowak"; every mapping the evidence adds gets its own case; for each mapped
-  spelling the app's catalogue resolves, it resolves to the same form; "Unown (F)" and "Venusaur
-  (F)" never lose their "f", and no name maps to its base species.
+- **The match** (*c*, decision 14):
+  - each of the 371 table names resolves to itself in step 1, and matches a list holding it;
+  - exact means exact: "venusaur (F)", "Venusaur (f)", "Venusaur  (F)" with two spaces, and
+    "Gal Farfetch'd" with a straight apostrophe for "Gal Farfetch’d" match nothing; "Meganium (F)"
+    is a page name, and its first word is not the prefix "Mega";
+  - "Venusaur (F)" never matches "Venusaur", "Deerling (Autumn)" never "Deerling (Summer)",
+    "Unown (F)" never "Unown (M)", and "Shellos (West)" or "Palafin (Zero)" match no list of
+    page names;
+  - step 2: "Hisuian Zorua", "Paldean Wooper" and "Sin Alolan Marowak" match lists holding
+    "His Zorua", "Pal Wooper" and "Sin Alo Marowak"; it runs only without an exact match, and it
+    changes none of the 371;
+  - a name absent from the table still matches exactly, a new form PCG adds;
+  - `--check` fails on a hand-edited table, and the table equals the asset at the recorded app
+    commit.
+- **The log line:** once per name for "Shellos (West)", "Mega Rayquaza" and "Arceus (Bug)" when
+  not page names; never for a page name or for "Hisuian Zorua"; never for "Pikachu"; the record
+  holds the name only; no more lines once 2000 names are held.
 - **The upload:** 401 with no session; the legacy key refused; 403 for another profile; 400 for a
   wrong type, too many names, too long a name, a bad `read_at`; 200 writes the file atomically
   (an exception in the write leaves the old file); a second upload replaces it;
@@ -749,7 +760,8 @@ needs the app to change first, and is planned after Christmas.
 
 ### App tests (unit)
 
-- The fixture lists exactly the bundled asset's forms, and the normalizer gives each its key.
+- The shared table (`pcg_alt_dex_forms_v1.json`) lists exactly the bundled asset's names, in
+  order, and the uploader sends each of them unchanged.
 - `PcgProfileAlertSelection`: equality with the new field; `DISABLED` has it false;
   `requiresFirebaseDelivery` is true with only this category on.
 - The acknowledgement store: a round trip, and an old entry without the key reads false.
@@ -787,8 +799,9 @@ the focus and `zen_mode` is not 0 (`AGENTS.md`, ruling of 2026-11-23). "Update I
   the backend watches, and the phone shows the title and body of *e*, on the channel matching its
   settings, with one reminder if reminders are on. Spawns cannot be made: a test never sends a
   chat command.
-- **Whether the chat names forms as the page does** (*Open question 1*): every form spawn that
-  alerts confirms its name; the diagnostic line shows those that do not.
+- **How the chat names the forms no one has seen spawn** (decision 14): the regional, Mega,
+  PCG, Sin, Clone, typed and Eternal forms. Each one that alerts confirms its name, and the log
+  line shows those that do not.
 - **During the Christmas event:** whether event forms arrive as event spawns or ordinary ones,
   and whether a reading after the event starts lists them.
 - **Device check 8 of the readings note** is unrelated and stays as it is.
@@ -802,8 +815,8 @@ decision is on 2026-12-11, 16 days after this note.
 
 | Part | Size | Depends on |
 |---|---|---|
-| *Open question 1*, the precondition | reading recent form spawn names on the production machine, then the class table updated | the owner |
-| Backend pull request (*a* to *e*, *i*) with its tests | the larger half: a new endpoint, a store, a key with its chat-name mapping and generator, the selection in both pipelines, payload text, two deletions, three fixes | question 1 answered |
+| *Open question 1*, the precondition | answered on 2026-11-25 from the production logs (decision 14) | done |
+| Backend pull request (*a* to *e*, *i*) with its tests | the larger half: a new endpoint, a store, the exact match and its generated table, the selection in both pipelines, payload text, two deletions, three fixes | target: merged by 2026-12-02, deployed by 2026-12-03 (the deploy needs the owner's yes) |
 | Deploy and live check | the owner, on the production machine | the backend merge |
 | App pull request (*f*, *g*'s bundled copy, terms version) with its tests | medium: a checkbox, a store field, a request field, an uploader, strings, policies | the backend live, for its device step |
 | Policy web copy | small | the final wording |
@@ -816,14 +829,13 @@ app is merged by about 2026-12-09.** Three things compete for the same window:
   #117 (decision 12).
 - **The end-to-end check needs a real form spawn,** which no one can schedule. Forms spawn often
   (the owner's account misses 61 of 371), so one sitting is likely enough, not certain.
-- **Question 1 gates everything.** No code starts until it is answered (decision 7). Every day it
-  stays open comes off the backend's time first.
+- **Question 1 no longer gates anything:** answered on 2026-11-25 (decision 14).
 
 **What can be cut, in this order, without breaking a decision:**
 
 1. **The hint under the checkbox:** a toast after OK alone.
-2. **The diagnostic line** and the generated key table, keeping only the app's fixture and a
-   backend test over a copy of it.
+2. **The log line** for form-like names. The generated table stays: the exact-first step and
+   the tests on both sides depend on it.
 
 **What is not cut,** because the owner decided it or the rules require it: event spawns
 (decision 8), the removal when the category is off everywhere (decision 9), the watchlist deletion
@@ -856,22 +868,14 @@ Recorded only. None of these is changed by this note.
 
 ## Open questions
 
-1. **How does PCG's chat name each form, against the alt-dex page?** Open, and a precondition: no
-   code before it is answered (decision 7).
-   - **What to answer:** for each class of *c*'s table, the chat's spelling of at least one form of
-     the class, or that none of the class was seen. For example "His Zorua" or "Hisuian Zorua",
-     "Toxtricity (Lowkey)" or "Toxtricity (Low Key)", "Venusaur (F)" or "Venusaur (Female)",
-     "Bug Arceus" or "Arceus (Bug)".
-   - **Why it matters:** the alert matches the exact form. A spelling the mapping does not cover
-     never alerts, and nothing reports it but the diagnostic line.
-   - **How to settle it cheaply:** the backend already logs each spawn's name
-     (`[FCM_METRIC] ... pokemon='<name>'`, `fcm_sender.py:1606-1611`). The owner reads on the
-     production machine the names of recent form spawns and compares them with the page's names
-     in `pcg_alt_dex_forms.json`. Only names, no profile data.
-   - **When answered:** the class table of *c* is updated with what was seen, row by row, in a
-     documentation change of its own, before any code.
+None is open.
 
-**Answered on 2026-11-25** (decisions 8 to 13): event spawns are included; the list is deleted
+1. **How does PCG's chat name each form, against the alt-dex page?** Answered on 2026-11-25 from
+   the production backend's logs (decision 14): exactly as the page, for the 116 forms that
+   spawned. The prefixed classes did not spawn in the period, so their spelling stays unseen;
+   step 2 of *c* covers the long regional spellings, and the log line shows any other.
+
+**Also answered on 2026-11-25** (decisions 8 to 13): event spawns are included; the list is deleted
 when the category is off on every device; `CURRENT_TERMS_VERSION` goes to 4; profile data deletion
 deletes the Most Wanted watchlists, in the same backend pull request; F3 comes before the next
 release; the correction to #5's fix 1 stands.
