@@ -301,6 +301,8 @@ project:
 - it needs a new alert kind;
 - it needs the policy pages updated, both copies, before any form data leaves the phone.
 
+That project is designed in `docs/design-alt-dex-alert.md` (2026-11-25), not yet implemented.
+
 Authentication stays the backend session's Bearer, as for today's upload.
 
 ## The panel
