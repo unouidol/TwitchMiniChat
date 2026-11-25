@@ -1,9 +1,13 @@
 # Design: an alert for missing alt dex forms
 
 **Status: design note. Nothing here is implemented.** The owner asked for it on 2026-11-25, with
-the decisions below. It covers the app (`unouidol/TwitchMiniChat`) and the backend
-(`unouidol/tmc-backend`, private), and the two backend fixes of tmc-backend#5, which are to ship
-in the same backend pull request.
+the decisions below, and answered its open questions the same day. It covers the app
+(`unouidol/TwitchMiniChat`) and the backend (`unouidol/tmc-backend`, private), the two backend
+fixes of tmc-backend#5, and the deletion of Most Wanted watchlists, all three to ship in the same
+backend pull request.
+
+**No code starts, in either repository, before *Open question 1* is answered** (decision 7): how
+PCG's chat names each form, against the alt-dex page's names.
 
 Provenance is marked throughout:
 
@@ -29,6 +33,23 @@ Provenance is marked throughout:
 6. The privacy policy is updated, both copies (bundled in the APK and the web copy), before any
    alt-dex data leaves the phone.
 
+**The answers to this note's open questions, the same day:**
+
+7. **How the chat names forms is a precondition:** no code before it is answered (*Open question
+   1*). The evidence already points to a mismatch for regional forms (*c*, *The chat's names*).
+   Once the evidence is in, this note states how `alt_dex_form_key` maps the chat's name to the
+   page's for every form class: a form-preserving mapping for long regional prefixes, never
+   `registration_key`'s merges of genders or seasons.
+8. **Event spawns, Christmas ones included, are covered** (*d*).
+9. **The stored alt-dex list is deleted when the category is off on every device** (*b*).
+10. **`CURRENT_TERMS_VERSION` goes from 3 to 4** (*g*).
+11. **Most Wanted watchlists are deleted by profile data deletion,** in the same backend pull
+    request, with a test: the code is made to do what `data_deletion.html` promises, and the page
+    is not weakened (*i*, fix 3).
+12. **F3 lands before the next app release:** the owner's decision of 2026-11-20, recorded on #117.
+13. **The correction to #5's fix 1 is accepted:** its condition reads the record's `profile_ids`,
+    not `registered_device_profile_ids` (*i*).
+
 ## What stays exactly as it is
 
 - **Reading 3 itself:** "Update Alt Dex", `PcgAltDexReadingGate`, `pcg_dex_reader.js` and store 3
@@ -51,13 +72,14 @@ or alert sends a chat command, queues one or triggers anything.
 | | Choice | Section |
 |---|---|---|
 | Upload | the last reading's missing forms (raw names) and `read_at`, by a new endpoint `/upload_alt_dex`, Bearer only; sent only while the category is on for that profile on this phone | *a* |
-| Server storage | `alt_dex_lists/<profile_id>.json`, its own file and lock, written atomically; never touched by `/upload_dex_list`; deleted by profile data deletion and, recommended, when the category is off on every device | *b* |
-| Matching | a new `alt_dex_form_key`, the app's `PcgPokemonNameNormalizer` ported exactly, with no alias step; checked against all 371 names by a shared fixture | *c* |
+| Server storage | `alt_dex_lists/<profile_id>.json`, its own file and lock, written atomically; never touched by `/upload_dex_list`; deleted by profile data deletion and when the category is off on every device | *b* |
+| Matching | a new `alt_dex_form_key`: the app's `PcgPokemonNameNormalizer` ported exactly, then a form-preserving mapping of the chat's spellings to the page's, class by class, fixed once *Open question 1* is answered; checked against all 371 names by a shared fixture | *c* |
 | Category | a per-profile boolean in the device record, `profile_alt_dex_form_alerts`, default false, beside `profile_event_spawn_alerts`; one target per profile and device, as today | *d* |
 | Notification | its own title and body, in the existing four channels; no new channel | *e* |
 | App | one checkbox in the bell menu, a hint when no reading exists, the upload after an accepted reading and when the category is turned on | *f* |
 | Privacy | new sentences in privacy and data deletion, both copies; `CURRENT_TERMS_VERSION` 3 → 4, because data is newly collected | *g* |
-| Order | backend first (with #5's fixes), then the policy web copy, then the app release | *h* |
+| Order | *Open question 1* answered first; then the backend (with #5's fixes and the watchlist deletion), the policy web copy, the app release | *h* |
+| Most Wanted deletion | profile data deletion deletes the profiles' watchlists on every device; no other path changes | *i*, fix 3 |
 
 ## Facts the design rests on
 
@@ -200,16 +222,18 @@ spawn that has not happened yet.
 - **Removed by profile data deletion:** `delete_server_app_data` deletes `alt_dex_lists/<id>.json`
   for each profile in scope, beside the `dex_lists` files (`:681-692`). A failure joins `errors`,
   so no deletion notice is recorded (`:735-747`), and the payload gains `deleted_alt_dex_count`.
-- **Recommended: also removed when no device has the category on for that profile.** The upload
-  is sent only while the category is on (*a*), so the list should not outlive it. After any write
+- **Also removed when no device has the category on for that profile** (decision 9). The upload
+  is sent only while the category is on (*a*), so the list does not outlive it. After any write
   that can turn the last flag off, the server deletes the list of each affected profile that no
   device record still has on:
   - `set_spawn_alert_mode` (the user turns it off, or the app removes the account);
   - `delete_device_server_data` (`:758`), "Erase everything and remove this device";
   - the removal of a device whose token Firebase reports dead (`fcm_sender.py:1124-1158`).
 
-  If this is cut to save time, the list is kept until a new upload replaces it or the profile's
-  data is deleted, and the privacy text must say that instead (*g* gives both versions).
+  The check and the deletion run while `REGISTRY_LOCK` is held, taking `ALT_DEX_LOCK` inside it,
+  always in that order, so that an upload racing a switch-off cannot leave a list behind for a
+  profile no device has on. A failed deletion is logged with the profile's reference only, and is
+  retried by the next of these writes for that profile.
 
 ## c) Matching
 
@@ -228,8 +252,10 @@ genders and seasons (*Facts*). It is the app's `PcgPokemonNameNormalizer.normali
 5. Replace each run of characters outside `a-z`, `0-9`, ♀ (U+2640) and ♂ (U+2642) with one space.
 6. Trim, and collapse repeated spaces.
 
-There is **no alias step.** A spawn alerts when its own name's key is a key of the profile's
-missing names: exact form name, as decided.
+Steps 1 to 6 give the **page key**. The spawn's name then goes through one more step, the chat's
+spellings mapped to the page's (*The chat's names*, below). A spawn alerts when the result is a
+key of the profile's missing names: the exact form, as decided, under whichever spelling the chat
+uses for it.
 
 - **Computed over all 371 alt-dex names:** this function and the app's normalizer give the same
   key for every name, the 22 the catalogue does not know included, and the 371 keys are distinct.
@@ -241,15 +267,60 @@ missing names: exact form name, as decided.
   "Alolan Vulpix" to "Alo Vulpix". Those aliases serve the stats lookup, not form identity, and
   some point across forms: the entry for "Frillish (F)" carries the alias "frillish male", the same
   as plain "Frillish" (read in `pokemon_type_dex.json`). The app is safe because it uses an alias
-  only when one entry owns it. A server table derived from them would need the same care, and
-  would be built before anyone has seen what the chat actually prints.
-- **What the exact match costs, if the chat names a form otherwise than the page:** that form
-  never alerts, and nothing reports it. *Open question 1* asks the owner to settle it from the
-  backend's own log before implementation. If it shows differences, the remedy is a small,
-  reviewed alias table, generated from the app's assets like the species table and limited to
-  aliases owned by one entry, and this note is updated first.
+  only when one entry owns it. A server table copied from them would carry those crossings with
+  it, so the mapping below is written class by class instead.
 
-**A diagnostic, chosen to settle that question.** For each spawn whose name contains "(" or starts
+### The chat's names
+
+**The evidence so far points to a mismatch for regional forms** (decision 7). None of it is a
+chat message observed for this note:
+
+- the backend's alias map turns 58 long regional names into the page's short ones, among them
+  "hisuian zorua" into "his zorua" and "paldean wooper" into "pal wooper"
+  (`variant_alias_maps_for_bot.json`, `combined_aliases`; the 58 computed), and
+  `main_dex_species.py:161` names "Hisuian Zorua" → "his zorua" as the reason for its first step;
+- a backend test uses "Paldean Wooper" and "Hisuian Zorua" as spawn names
+  (`tests/test_main_dex_species_key.py:107-109`);
+- the page itself writes "His", "Pal", "Alo" and "Gal" (observed 2026-11-23).
+
+So the chat may print "Hisuian Zorua" where the page lists "His Zorua". Where the map's long names
+came from is not recorded in it. **What the chat prints for each class is *Open question 1*, a
+precondition: no code before it is answered.**
+
+**The rules every mapping obeys:**
+
+1. **It preserves the form.** It maps one spelling of a form to the page's spelling of the same
+   form. It never maps a name to its base species or to another form, so it never does what
+   `registration_key` does to genders and seasons, or `main_dex_key` to every form. Neither of
+   them, nor `a_tier_key`, is called.
+2. **It is added only for a spelling the evidence shows.** No mapping is added because a spelling
+   is plausible.
+3. **It changes no page key.** Applied to the 371 page names, the step leaves every key as it is,
+   and no two of the 371 become equal. A test pins both.
+4. **It agrees with the panel.** For each mapped spelling that the app's catalogue resolves, it
+   resolves to the same form. A test, over the app's assets, pins it.
+
+**Class by class.** The 371 forms, by the shape of the page's name (counts computed from
+`pcg_alt_dex_forms.json`). "Decided" is the owner's decision 7; every other row waits for the
+evidence and, until then, matches the page's spelling only.
+
+| Class | Forms | Page spelling | Mapping of the chat's spelling |
+|---|---|---|---|
+| Regional | 58: Alo 18, Gal 19, His 17, Pal 4 | "His Zorua", "Gal Farfetch’d", "Pal Tauros (Aqua)", "His Sneasel (F)" | **Decided:** the whole words "alolan", "galarian", "hisuian" and "paldean" become "alo", "gal", "his" and "pal", wherever they stand, so "Sin Alolan Marowak" becomes "sin alo marowak". No page key contains those words (computed), so rule 3 holds. A suffix spelling ("Vulpix (Alola)", "Zorua Hisuian") is mapped to the prefix form only if the evidence shows it. |
+| Sin | 6 | "Sin Gengar", "Sin Alo Marowak" | none. "Sin" is one of PCG's own form classes, not a region, so `a_tier_key`'s "sinnoh" → "sin" is not adopted without evidence. The regional row covers the "Alo" inside "Sin Alo Marowak". |
+| Gender | 102, plus Unown (F) and Unown (M) | "Venusaur (F)", "Unown (M)" | if the chat writes "(Female)" or "(Male)", those words become "f" and "m". The token is never dropped: that would merge the form with its base species, and "Unown (F)" and "Unown (M)" are letters, not genders. |
+| Tauros breeds | inside the regional row | "Pal Tauros", "Pal Tauros (Aqua)", "Pal Tauros (Blaze)" | if the chat writes "(Aqua Breed)", "(Blaze Breed)" or "(Combat Breed)", they become "(Aqua)", "(Blaze)" and no suffix: the page's "Pal Tauros" is the combat breed. |
+| Other parenthesised forms | 122: Unown letters, Vivillon patterns, seasons, Pikachu caps and others | "Deerling (Autumn)", "Toxtricity (Lowkey)" | none, unless the evidence shows another spelling of the same form ("Low Key"). Seasons and patterns are never merged. |
+| Mega | 18 | "Mega Charizard X" | none. The X or Y is part of the form and is kept. |
+| PCG | 25 | "PCG Absol" | none |
+| Clone | 3 | "Charizard (Clone)" | none |
+| Arceus and Silvally types | 34 | "Bug Arceus" | none, unless the chat writes "Arceus (Bug)": then the type moves in front. |
+| Eternal Floette | 1 | "Eternal Floette" | none, unless the chat writes "Floette (Eternal)". |
+
+When the evidence is in, this table is updated with what it showed, row by row, before the backend
+code is written.
+
+**A diagnostic, to catch what the evidence missed.** For each spawn whose name contains "(" or starts
 with Alo, Gal, His, Pal, Sin, Mega or PCG, and whose key is not one of the generated table's keys
 (*Keeping the list in step*), the backend logs once per process
 `[ALT_DEX] spawn name not a known form key=<key>`. It records no profile. The value that
@@ -352,13 +423,16 @@ leaves one target per profile on each token.
 - **A device with two profiles** gets one alert per profile, as today. "One" is per profile and
   device.
 
-**Event spawns: recommended to include them.** The event pipeline (*Facts*) is separate, and Most
+**Event spawns are included** (decision 8). The event pipeline (*Facts*) is separate, and Most
 Wanted does not reach it. If PCG's Christmas spawns arrive as event spawns, under the configured
 event rule, a form alert limited to ordinary spawns would miss exactly the forms the owner wants
 for the event. In `select_token_targets_for_event_spawn` (`fcm_target_selector.py:253-428`) the
-form condition would join the missing-dex branch: one target per profile, which also suppresses
-the token's event-only target, as missing dex does today (`:398-413`). *Open question 2* asks the
-owner.
+form condition joins the missing-dex branch: one target per profile, which also suppresses the
+token's event-only target, as missing dex does today (`:398-413`). The target keeps
+`is_event_spawn`, so the payload builder's event handling (`fcm_notification_payload.py:177-201`)
+must give `alt_dex_form` precedence over `event` for the title and body, as it already gives
+missing dex, and list `event_spawn` among the reasons. `build_token_targets_for_event_spawn`
+(`spawn_notification_router.py:19-37`) loads the alt-dex profiles beside the missing-dex ones.
 
 ## e) The notification
 
@@ -457,18 +531,11 @@ stays on your phone, with one exception", becomes:
 > choose. When Missing Alt Dex form alerts are on for an account, the list of forms missing from
 > its Alt Dex is sent the same way, after each Update Alt Dex.
 
-**Section 5, a new item:**
+**Section 5, a new item** (with the removal of *b*, decision 9):
 
-- with the removal-when-off rule of *b*:
-
-  > The Alt Dex list sent for Missing Alt Dex form alerts is replaced by each new one. It is
-  > deleted when these alerts are off for that account on every device, and by "Delete app
-  > account and all data".
-
-- without it:
-
-  > The Alt Dex list sent for Missing Alt Dex form alerts is replaced by each new one, and kept
-  > until "Delete app account and all data" deletes it.
+> The Alt Dex list sent for Missing Alt Dex form alerts is replaced by each new one. It is
+> deleted when these alerts are off for that account on every device, and by "Delete app
+> account and all data".
 
 **Section 6, a new item:**
 
@@ -478,17 +545,19 @@ stays on your phone, with one exception", becomes:
 **`data_deletion.html`, coherence:**
 
 - "Delete app account and all data" (line 89): "the Pokédex lists uploaded for those accounts"
-  becomes "the Pokédex and Alt Dex lists uploaded for those accounts".
-- With the removal-when-off rule only, a sentence after "Removing one account", *On the server*
-  (line 118): "The Alt Dex list uploaded for that account is deleted once no device has its
-  Missing Alt Dex form alerts on." Without the rule, the existing "uploaded Pokédex lists ... are
-  kept" already covers it once it reads "uploaded Pokédex and Alt Dex lists".
-- "Erase everything and remove this device" (line 52) the same way.
+  becomes "the Pokédex and Alt Dex lists and the Most Wanted watchlists uploaded for those
+  accounts". The watchlists are named there because fix 3 (*i*) makes the code delete them, which
+  line 52 already promises; nothing is withdrawn from the page.
+- "Removing one account", *On the server* (line 118), a sentence after the existing ones: "The
+  Alt Dex list uploaded for that account is deleted once no device has its Missing Alt Dex form
+  alerts on."
+- "Erase everything and remove this device" (line 52), the same sentence after "your other
+  devices are not affected".
 
 ### The acceptance gate
 
-**`CURRENT_TERMS_VERSION` goes from 3 to 4** (`TermsPrefs.kt:23`), by the criterion recorded in
-`RELEASE-STATE.md` on 2026-09-26:
+**`CURRENT_TERMS_VERSION` goes from 3 to 4** (`TermsPrefs.kt:23`; decision 10), by the
+criterion recorded in `RELEASE-STATE.md` on 2026-09-26:
 
 > The gate is raised for a **material** change: data newly collected, a new recipient, or a new
 > purpose.
@@ -506,23 +575,27 @@ server the list of forms missing from your Alt Dex, so it can alert you when one
 off unless you turn them on." `TermsVersionTest` is updated to 4.
 
 The opt-in does not change the verdict: the criterion asks what is collected, not how many users
-choose it. *Open question 4* records the argument the other way, for the owner.
+choose it. The argument the other way, that nothing is collected until the user turns the
+category on, was put to the owner, who decided for 4.
 
 ## h) Order of shipping
 
 `AGENTS.md`: backward-compatible server behaviour before the app depends on it; the policy web copy
 before the release that bundles the new text.
 
+0. **The precondition:** *Open question 1* answered, and the class table of *c* updated with what
+   the evidence showed. No code before this, in either repository (decision 7).
 1. **Backend pull request**, deployed and checked before any app build sends anything:
-   - `/upload_alt_dex`, the store, `alt_dex_form_key`, the generated key table and the diagnostic;
+   - `/upload_alt_dex`, the store, `alt_dex_form_key` with its chat-name mapping, the generated
+     key table and the diagnostic;
    - the category field, its default and its old-app rule;
-   - the selection in both pipelines (the event one if *Open question 2* says so), and the
-     payload's text;
-   - deletion (and, if kept, the removal-when-off rule);
-   - #5's two fixes (*i*).
+   - the selection in both pipelines, ordinary and event, and the payload's text;
+   - deletion, and the removal when the category is off on every device;
+   - #5's two fixes and the watchlist deletion (*i*).
 
    All of it is backward compatible: no client sends the new field or calls the new endpoint, the
-   default is off, and the #5 fixes turn a 403 into a 200 and stop writing a record no one reads.
+   default is off, the #5 fixes turn a 403 into a 200 and stop writing a record no one reads, and
+   the watchlist deletion only makes an existing request delete what the page says it deletes.
    The owner deploys it on the production machine; this note never touches it.
 2. **Check it live**, by the owner on the production machine: the new route answers 401 without a
    session, `set_spawn_alert_mode` echoes the new field, and the registry and dex files are as
@@ -535,9 +608,10 @@ before the release that bundles the new text.
 The app may merge to `main-v5` before step 3, since nothing is published by a merge; the release
 may not be published before it.
 
-## i) The two backend fixes of tmc-backend#5
+## i) The backend fixes: tmc-backend#5's two, and the Most Wanted watchlists
 
-**Fix 1: a registration may complete a record with no credential and no active profile.**
+**Fix 1: a registration may complete a record with no credential and no active profile.** The
+correction below to #5's wording is accepted (decision 13).
 
 - **The change,** in `preflight_enrollment` (`device_credential_service.py:129-191`): when the
   record has no `device_secret_sha256`, the request carries a valid Bearer session and a
@@ -589,6 +663,37 @@ changes.
 - **Records already in that state** are completed by fix 1 at their next registration. No
   migration.
 
+**Fix 3: profile data deletion deletes the Most Wanted watchlists** (decision 11).
+
+- **What is wrong today** (read in code at `8ccf210`): `PcgCustomWatchlistStore` has
+  `delete_profile`, which removes one profile from every device, and `delete_device`
+  (`pcg_custom_watchlist_store.py:205-235`). Nothing outside the tests calls either, and
+  `delete_server_app_data` does not open the store (`twitch_cache_bot_v10_token_safety.py:625-756`).
+  `data_deletion.html` (line 52) lists watchlists among "the data belonging to your accounts" and
+  sends the reader to "Delete app account and all data" to delete it. The production store was
+  not read.
+- **The deletion paths, from the code.** The backend has two, each with one caller:
+  - `delete_server_app_data`, called only by `/delete_server_data` (`:1978`): "Delete app account
+    and all data". **It must call `delete_profile`** for each profile in its scope, the profiles
+    the server's own record of the device lists (`:1948-1957`). Per profile, on every device,
+    because the page deletes "the data belonging to your accounts", as it deletes their dex lists
+    whichever phone uploaded them.
+  - `delete_device_server_data`, called only by `/delete_device_data` (`:2110`): "Erase everything
+    and remove this device". **It must not call either method.** Its docstring keeps profile data
+    (`:758-769`), and the page says the accounts' data, watchlists included, "is **not** deleted"
+    (line 52). A watchlist whose device record is gone sends nothing: a target needs a device
+    record with a token (`fcm_target_selector.py:500-520`).
+  - "Removing one account" only sends `set_spawn_alert_mode`, and the page keeps watchlists there
+    (line 118). Unchanged.
+  - Nothing else in the backend deletes profile data: `delete_oauth_app_data` is called only from
+    `delete_server_app_data` (`:694`), and the Control Center has no deletion of its own (read by
+    search).
+- **How it fails safely:** a `PcgCustomWatchlistError` from the store joins `errors`, so no
+  deletion notice is recorded and the request can be retried (`:735-747`). The payload and the
+  audit event gain `deleted_watchlist_count`. The log line carries counts only.
+- **No app change is needed:** the request, its scope and its answer's existing fields stay as they
+  are.
+
 **What stays out.** #5 records a wider gap in how alert preferences are written. Its details stay
 in that issue, in the private backend repository, because this repository is public. Closing it
 needs the app to change first, and is planned after Christmas.
@@ -606,6 +711,11 @@ needs the app to change first, and is planned after Christmas.
 - **The key:** all 371 names of the generated table give their key; the step order of *c* (a mark
   of class 0, a non-ASCII letter, ♀ and ♂, 🔒 and 🎊, "Farfetch’d" with its curly apostrophe);
   `--check` fails on a hand-edited table.
+- **The chat-name mapping** (*c*): applied to the 371 page names it changes no key and makes none
+  equal; "Hisuian Zorua", "Paldean Wooper" and "Sin Alolan Marowak" give "his zorua", "pal wooper"
+  and "sin alo marowak"; every mapping the evidence adds gets its own case; for each mapped
+  spelling the app's catalogue resolves, it resolves to the same form; "Unown (F)" and "Venusaur
+  (F)" never lose their "f", and no name maps to its base species.
 - **The upload:** 401 with no session; the legacy key refused; 403 for another profile; 400 for a
   wrong type, too many names, too long a name, a bad `read_at`; 200 writes the file atomically
   (an exception in the write leaves the old file); a second upload replaces it;
@@ -622,11 +732,16 @@ needs the app to change first, and is planned after Christmas.
   - a base name ("Vivillon") never matches a form ("Vivillon (Fancy)"), and "Deerling (Autumn)"
     never matches "Deerling (Summer)";
   - two profiles on one device: two targets; the reminder gives the same targets;
-  - event spawns, as *Open question 2* decides.
+  - an event spawn of a missing form: one target per profile, `alt_dex_form`, the token's
+    event-only target suppressed, and `event_spawn` among the reasons (decision 8).
 - **The payload:** title and body of *e*, initial and reminder; `alert_kind` not folded into
   `wanted`; `is_missing_alt_dex_form` survives `dedupe_targets`.
 - **Deletion:** `delete_server_data` removes the list and counts it; a failure to remove it
-  withholds the deletion notice; the removal-when-off rule, if kept, at each of its three points.
+  withholds the deletion notice; the removal when the category is off on every device, at each of
+  its three points, and not while another device still has it on.
+- **The watchlists (fix 3):** `delete_server_data` removes the scoped profiles' watchlists on
+  every device and leaves other profiles' alone; a store error withholds the deletion notice;
+  `delete_device_data` and an account removal leave watchlists as they are.
 - **#5:** an empty, credential-less record lets the registration pass and enrolls the hash; one
   whose maps hold another profile, disabled, does too (the case of *i*); one listing another
   profile in `profile_ids` still gets 403; a hash mismatch still gets 401; a disabled selection
@@ -661,8 +776,8 @@ the focus and `zen_mode` is not 0 (`AGENTS.md`, ruling of 2026-11-23). "Update I
    2026-11-23), turning it on gives one `upload_alt_dex responseCode=200` line; on the server, the
    owner reads `[ALT_DEX] saved ... missing_count=61`.
 4. **A reading with it on:** "Update Alt Dex" gives the new toast and one upload.
-5. **Off:** turning it off sends the field false; with the removal-when-off rule, the server's
-   file is gone (read by the owner).
+5. **Off:** turning it off sends the field false, and the server's file is gone when no other
+   device has it on (read by the owner).
 6. **Account removal and the data reset:** as today, and the server's list follows *b*.
 7. **Reading 1 unchanged:** not pressed in this step, and its code untouched (read in the diff).
 
@@ -687,7 +802,8 @@ decision is on 2026-12-11, 16 days after this note.
 
 | Part | Size | Depends on |
 |---|---|---|
-| Backend pull request (*a* to *e*, *i*) with its tests | the larger half: a new endpoint, a store, a key and its generator, the selection in one or two pipelines, payload text, deletion, two fixes | the owner's answers to questions 1 and 2 |
+| *Open question 1*, the precondition | reading recent form spawn names on the production machine, then the class table updated | the owner |
+| Backend pull request (*a* to *e*, *i*) with its tests | the larger half: a new endpoint, a store, a key with its chat-name mapping and generator, the selection in both pipelines, payload text, two deletions, three fixes | question 1 answered |
 | Deploy and live check | the owner, on the production machine | the backend merge |
 | App pull request (*f*, *g*'s bundled copy, terms version) with its tests | medium: a checkbox, a store field, a request field, an uploader, strings, policies | the backend live, for its device step |
 | Policy web copy | small | the final wording |
@@ -696,24 +812,23 @@ decision is on 2026-12-11, 16 days after this note.
 **Verdict: it fits, with little slack, if the backend is merged and live by about 2026-12-03 and the
 app is merged by about 2026-12-09.** Three things compete for the same window:
 
-- **F3** (#117): by the owner's ruling of 2026-11-20, it lands before the next app release. That
-  ruling comes from a note of an earlier session, not from a file in this repository; to be
-  confirmed.
+- **F3** (#117) lands before the next app release: the owner's decision of 2026-11-20, recorded on
+  #117 (decision 12).
 - **The end-to-end check needs a real form spawn,** which no one can schedule. Forms spawn often
   (the owner's account misses 61 of 371), so one sitting is likely enough, not certain.
-- **Question 1 is unanswered.** If the chat names forms otherwise, an alias table is added first.
+- **Question 1 gates everything.** No code starts until it is answered (decision 7). Every day it
+  stays open comes off the backend's time first.
 
 **What can be cut, in this order, without breaking a decision:**
 
-1. **Event spawns,** if the owner says Christmas spawns arrive as ordinary spawns (*Open question 2*).
-2. **The removal-when-off rule** (*b*): the list is then kept until profile data deletion, and the
-   privacy text takes its second version.
-3. **The hint under the checkbox:** a toast after OK alone.
-4. **The diagnostic line** and the generated key table, keeping only the app's fixture and a
+1. **The hint under the checkbox:** a toast after OK alone.
+2. **The diagnostic line** and the generated key table, keeping only the app's fixture and a
    backend test over a copy of it.
 
-**What should not be cut:** the policy before any data leaves the phone (decision 6), the backend
-before the app, and the deletion of the list with the profile's data.
+**What is not cut,** because the owner decided it or the rules require it: event spawns
+(decision 8), the removal when the category is off everywhere (decision 9), the watchlist deletion
+(decision 11), the policy before any data leaves the phone (decision 6), and the backend before
+the app.
 
 **"Panel and upload in 5.7.0, alert later" is not recommended.** The Form line is already merged
 (#138) and ships in 5.7.0 whatever is decided here. An upload without the alert would send data
@@ -725,12 +840,8 @@ worth having anyway), and the app part moves to 5.7.1 if it misses 2026-12-11.
 
 Recorded only. None of these is changed by this note.
 
-- **Most Wanted watchlists are not deleted by any server path.** `PcgCustomWatchlistStore` has
-  `delete_device` and `delete_profile` (`pcg_custom_watchlist_store.py:205, 218`), and nothing
-  outside the tests calls them; `delete_server_app_data` does not touch the store
-  (`twitch_cache_bot_v10_token_safety.py:625-756`). `data_deletion.html` (line 52) presents
-  watchlists among the data that "Delete app account and all data" deletes. Read in code at
-  `8ccf210`; the production store was not read. *Open question 5.*
+- **Most Wanted watchlists were not deleted by any server path.** Found while reading for this
+  note, and since decided: fix 3 of *i* (decision 11).
 - **`save_profile_dex_list` writes in place**, with `open(path, "w")`, and does not take `DEX_LOCK`
   (`twitch_cache_bot_v10_token_safety.py:971-1006`), while `delete_server_app_data` removes the same
   files under it (`:681-692`) and every spawn reads them. A crash during the write leaves a
@@ -745,22 +856,22 @@ Recorded only. None of these is changed by this note.
 
 ## Open questions
 
-1. **Does PCG's chat name a form exactly as the alt-dex page does?** For example "Alo Vulpix" or
-   "Alolan Vulpix", "Toxtricity (Lowkey)" or "Toxtricity (Low Key)", "Unown (B)" or "Unown".
-   - **Why it matters:** the alert matches by exact name. A form the chat spells otherwise never
-     alerts, and nothing reports it.
-   - **How to settle it cheaply, before implementation:** the backend already logs each spawn's
-     name (`[FCM_METRIC] ... pokemon='<name>'`, `fcm_sender.py:1606-1611`). The owner can read on
-     the production machine the names of recent form spawns and compare them with the page's
-     names in `pcg_alt_dex_forms.json`. Only names, no profile data.
-2. **Do PCG's Christmas spawns arrive as event spawns** (matched by `event_spawn_rule.json`) or as
-   ordinary "A wild … appears"? This note recommends including event spawns either way; the
-   owner may cut it if they are ordinary.
-3. **The removal-when-off rule** (*b*): keep it (recommended), or keep the list until profile data
-   deletion, with the second privacy text?
-4. **`CURRENT_TERMS_VERSION` to 4.** The criterion says yes: data newly collected. The argument the
-   other way is that nothing is collected until the user turns the category on in a menu that
-   says what it does, and that the gate was raised to 3 for 5.6.0. This note follows the
-   criterion; the owner decides.
-5. **The Most Wanted watchlists** (*Found while reading*): deletion code, or a correction to
-   `data_deletion.html`? Outside this design, and a coordinated privacy question of its own.
+1. **How does PCG's chat name each form, against the alt-dex page?** Open, and a precondition: no
+   code before it is answered (decision 7).
+   - **What to answer:** for each class of *c*'s table, the chat's spelling of at least one form of
+     the class, or that none of the class was seen. For example "His Zorua" or "Hisuian Zorua",
+     "Toxtricity (Lowkey)" or "Toxtricity (Low Key)", "Venusaur (F)" or "Venusaur (Female)",
+     "Bug Arceus" or "Arceus (Bug)".
+   - **Why it matters:** the alert matches the exact form. A spelling the mapping does not cover
+     never alerts, and nothing reports it but the diagnostic line.
+   - **How to settle it cheaply:** the backend already logs each spawn's name
+     (`[FCM_METRIC] ... pokemon='<name>'`, `fcm_sender.py:1606-1611`). The owner reads on the
+     production machine the names of recent form spawns and compares them with the page's names
+     in `pcg_alt_dex_forms.json`. Only names, no profile data.
+   - **When answered:** the class table of *c* is updated with what was seen, row by row, in a
+     documentation change of its own, before any code.
+
+**Answered on 2026-11-25** (decisions 8 to 13): event spawns are included; the list is deleted
+when the category is off on every device; `CURRENT_TERMS_VERSION` goes to 4; profile data deletion
+deletes the Most Wanted watchlists, in the same backend pull request; F3 comes before the next
+release; the correction to #5's fix 1 stands.
