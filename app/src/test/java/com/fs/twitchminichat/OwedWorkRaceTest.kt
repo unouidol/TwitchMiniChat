@@ -478,6 +478,38 @@ class OwedWorkRaceTest {
     }
 
     /**
+     * T3c: the deletion's end wakes the waiting registration, rather than the end of its wait.
+     *
+     * The gate's bound here is an hour, so the registration cannot get through on its bound
+     * before the liveness guard ends the test: it gets through only if releasing the claim
+     * signals the gate. Without that signal it stays parked, and the guard fails the test, on
+     * every run. No duration is asserted.
+     */
+    @Test
+    fun t3cTheDeletionsEndWakesTheWaitingRegistration() {
+        val (pass1, hold) = passWithItsDeletionInFlight()
+
+        val registration = Racer("registration") {
+            registrationToken(
+                env,
+                TestOwedWorkEnvironment.ACTIVE_SELECTION,
+                callerToken = "tok-1",
+                maxWaitNanos = TimeUnit.HOURS.toNanos(1)
+            )
+        }
+        registration.awaitFinishedOrParked()
+        hold.release()
+        pass1.join()
+
+        assertEquals("tok-2", registration.join())
+        assertTrue(
+            env.log.lines.contains(
+                "D token gate passed for registration after a token deletion in flight outcome=WAITED"
+            )
+        )
+    }
+
+    /**
      * T3b: the gate waits no longer than the deletion itself may block, counted from its claim.
      * With that time gone, a registration goes through while the deletion is still held.
      */

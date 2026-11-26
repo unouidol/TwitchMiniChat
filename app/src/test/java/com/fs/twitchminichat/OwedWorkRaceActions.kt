@@ -64,12 +64,15 @@ internal object OwedWorkRaceActions {
 
     /**
      * The token a request for [selection] sends, given [callerToken]: what a registration or a
-     * bell-menu request obtains (PR-3). Blocking while the gate holds it.
+     * bell-menu request obtains (PR-3). Blocking while the gate holds it, for at most
+     * [maxWaitNanos] from the deletion's claim: by default the deletion's own timeout, as in the
+     * application.
      */
     fun registrationToken(
         env: TestOwedWorkEnvironment,
         selection: PcgProfileAlertSelection,
-        callerToken: String
+        callerToken: String,
+        maxWaitNanos: Long = TimeUnit.SECONDS.toNanos(TestOwedWorkEnvironment.TOKEN_DELETION_TIMEOUT_SECONDS)
     ): String? {
         var obtained: String? = null
         RegistrationTokenGate.obtain(
@@ -79,7 +82,7 @@ internal object OwedWorkRaceActions {
             tokens = env.firebase,
             tokenCache = env.tokenCache,
             cachedTokenKey = TestOwedWorkEnvironment.CACHED_TOKEN_KEY,
-            maxWaitNanos = TimeUnit.SECONDS.toNanos(TestOwedWorkEnvironment.TOKEN_DELETION_TIMEOUT_SECONDS),
+            maxWaitNanos = maxWaitNanos,
             purpose = "registration",
             log = env.log
         ) { token -> obtained = token }
