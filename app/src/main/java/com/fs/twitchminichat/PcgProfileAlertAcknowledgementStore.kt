@@ -34,6 +34,7 @@ object PcgProfileAlertAcknowledgementStore {
     private const val KEY_PREFIX_REGULAR_MODE = "regular_mode_"
     private const val KEY_PREFIX_EVENT_SPAWNS = "event_spawns_"
     private const val KEY_PREFIX_MOST_WANTED = "most_wanted_"
+    private const val KEY_PREFIX_ALT_DEX_FORM_ALERTS = "alt_dex_form_alerts_"
 
     /**
      * Records that the backend has accepted [selection] for [profileId].
@@ -41,6 +42,13 @@ object PcgProfileAlertAcknowledgementStore {
      * Written synchronously: the caller is a background request thread that may be
      * followed immediately by a session removal, and an acknowledgement that lost the
      * race would leave the profile looking as if it still owed a disable.
+     *
+     * **The alt-dex category is never raised here.** A selection with it on keeps whatever was
+     * acknowledged before, and one with it off records it off. The alert needs the list on the
+     * server as well as the category, and only the bell menu's upload step confirms that, through
+     * [setAltDexFormAlertsConfirmed]. So after a 409 `alt_dex_alerts_off` the category stays
+     * unconfirmed until the upload is stored, not merely until a delivery request succeeds (the
+     * owner's decision of 2026-11-25).
      */
     fun record(
         context: Context,
@@ -59,6 +67,10 @@ object PcgProfileAlertAcknowledgementStore {
         val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
         if (normalizedProfileId.isBlank()) return
 
+        val altDexKey = KEY_PREFIX_ALT_DEX_FORM_ALERTS + normalizedProfileId
+        val altDexConfirmed =
+            selection.altDexFormAlertsEnabled && preferences.getBoolean(altDexKey, false)
+
         preferences.edit(commit = true) {
             putInt(
                 KEY_PREFIX_REGULAR_MODE + normalizedProfileId,
@@ -72,7 +84,33 @@ object PcgProfileAlertAcknowledgementStore {
                 KEY_PREFIX_MOST_WANTED + normalizedProfileId,
                 selection.mostWantedEnabled
             )
+            putBoolean(altDexKey, altDexConfirmed)
         }
+    }
+
+    /**
+     * Sets the acknowledged alt-dex category of [profileId] to [confirmed], and nothing else.
+     *
+     * Written only when an acknowledgement already exists for the profile: without one the
+     * confirmed baseline is already off, and a lone key would claim an acknowledgement the
+     * backend never gave. Callers are [PcgAltDexAlertSync]: confirmed after the bell menu's
+     * upload step is stored or finds no reading, unconfirmed after a 409 `alt_dex_alerts_off`.
+     *
+     * @return whether anything was written.
+     */
+    internal fun setAltDexFormAlertsConfirmed(
+        preferences: SharedPreferences,
+        profileId: String,
+        confirmed: Boolean
+    ): Boolean {
+        val normalizedProfileId = AccountProfileIdResolver.normalize(profileId)
+        if (normalizedProfileId.isBlank()) return false
+        if (!preferences.contains(KEY_PREFIX_REGULAR_MODE + normalizedProfileId)) return false
+
+        preferences.edit(commit = true) {
+            putBoolean(KEY_PREFIX_ALT_DEX_FORM_ALERTS + normalizedProfileId, confirmed)
+        }
+        return true
     }
 
     /**
@@ -109,6 +147,11 @@ object PcgProfileAlertAcknowledgementStore {
             mostWantedEnabled = preferences.getBoolean(
                 KEY_PREFIX_MOST_WANTED + normalizedProfileId,
                 false
+            ),
+            // Absent in an entry written before the category existed: off, the server's default.
+            altDexFormAlertsEnabled = preferences.getBoolean(
+                KEY_PREFIX_ALT_DEX_FORM_ALERTS + normalizedProfileId,
+                false
             )
         )
     }
@@ -144,6 +187,7 @@ object PcgProfileAlertAcknowledgementStore {
             remove(KEY_PREFIX_REGULAR_MODE + normalizedProfileId)
             remove(KEY_PREFIX_EVENT_SPAWNS + normalizedProfileId)
             remove(KEY_PREFIX_MOST_WANTED + normalizedProfileId)
+            remove(KEY_PREFIX_ALT_DEX_FORM_ALERTS + normalizedProfileId)
         }
     }
 

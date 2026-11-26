@@ -269,6 +269,9 @@
     <string name="pcg_register_alt_dex">Update Alt Dex</string>
     <string name="pcg_register_alt_dex_checking">Checking Alt Dex…</string>
     <string name="pcg_alt_dex_updated">Alt Dex saved on this phone. Forms not obtained: %1$d.</string>
+    <string name="pcg_alt_dex_updated_and_sent">Alt Dex saved and sent for alerts. Forms not obtained: %1$d.</string>
+    <string name="pcg_alt_dex_alert_upload_failed">Alt Dex saved on this phone, but it could not be sent for alerts. Press Update Alt Dex again later.</string>
+    <string name="pcg_alt_dex_alert_upload_alerts_off">Alt Dex saved on this phone, but not sent for alerts: the server has not confirmed Missing Alt Dex form alerts for this account. Open PCG notifications and press OK to send them again.</string>
     <string name="pcg_alt_dex_wrong_tab">Open the Pokédex tab and switch it to Alt Dex, then press Update Alt Dex.</string>
     <string name="pcg_alt_dex_not_alt_dex">Switch the Pokédex to Alt Dex, then press Update Alt Dex.</string>
     <string name="pcg_alt_dex_obtained_on">Turn off the Obtained filter, then press Update Alt Dex.</string>

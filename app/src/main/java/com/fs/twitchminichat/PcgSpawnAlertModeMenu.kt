@@ -24,10 +24,17 @@ object PcgSpawnAlertModeMenu {
      *
      * Most Wanted is independent from ordinary and event spawn alerts. All
      * changed values are applied only after the explicit OK tap.
+     *
+     * @param currentSelection what this phone holds, which the menu shows.
+     * @param confirmedSelection [currentSelection] as the backend has confirmed it
+     *   ([PcgProfileAlertSelection.confirmedBy]). OK calls back when the selection differs
+     *   from this one, so a Missing Alt Dex form category the server refused is sent again
+     *   although its checkbox still shows it on.
      */
     fun show(
         anchor: View,
         currentSelection: PcgProfileAlertSelection,
+        confirmedSelection: PcgProfileAlertSelection,
         onMostWantedRequested: () -> Unit,
         onSelectionSelected: (PcgProfileAlertSelection) -> Unit
     ) {
@@ -150,10 +157,13 @@ object PcgSpawnAlertModeMenu {
                         eventSpawnsEnabled =
                             eventSpawnCheckBox.isChecked
                     ),
-                    mostWantedEnabled = mostWantedCheckBox.isChecked
+                    mostWantedEnabled = mostWantedCheckBox.isChecked,
+                    // No checkbox for it yet (A2): what this phone holds is kept as it is.
+                    altDexFormAlertsEnabled =
+                        currentSelection.altDexFormAlertsEnabled
                 )
 
-                if (selectedSelection != currentSelection) {
+                if (selectedSelection != confirmedSelection) {
                     onSelectionSelected(selectedSelection)
                 }
 

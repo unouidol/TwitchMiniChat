@@ -17,7 +17,8 @@ class OwedProfileDisablePolicyTest {
             regularMode = PcgSpawnAlertMode.DEX_AND_TIER_A,
             eventSpawnsEnabled = false
         ),
-        mostWantedEnabled = false
+        mostWantedEnabled = false,
+        altDexFormAlertsEnabled = false
     )
 
     /**

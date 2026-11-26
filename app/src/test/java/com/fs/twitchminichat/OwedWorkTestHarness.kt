@@ -286,7 +286,8 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
                 regularMode = PcgSpawnAlertMode.DEFAULT,
                 eventSpawnsEnabled = false
             ),
-            mostWantedEnabled = false
+            mostWantedEnabled = false,
+            altDexFormAlertsEnabled = false
         )
 
         /** An active selection: ordinary alerts on. */
@@ -295,7 +296,8 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
                 regularMode = PcgSpawnAlertMode.DEX_ONLY,
                 eventSpawnsEnabled = false
             ),
-            mostWantedEnabled = false
+            mostWantedEnabled = false,
+            altDexFormAlertsEnabled = false
         )
 
         fun accountId(profileId: String) = "account-$profileId"

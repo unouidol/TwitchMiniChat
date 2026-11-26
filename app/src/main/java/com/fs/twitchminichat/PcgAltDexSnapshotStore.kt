@@ -87,8 +87,10 @@ data class PcgAltDexSnapshot(
  * Persists, per PCG profile, what the user's accepted "Update Alt Dex" readings established.
  *
  * Store 3 of `docs/design-pcg-dex-readings.md`: its own preferences file and schema, never
- * merged with [PcgPokedexSnapshotStore], which holds the main dex's Spawnable reading. Nothing
- * here leaves the phone. It is cleared when its profile is removed, and by every local-data
+ * merged with [PcgPokedexSnapshotStore], which holds the main dex's Spawnable reading. Only the
+ * last reading's missing names and its time leave the phone, through [PcgAltDexAlertSync], and
+ * only while Missing Alt Dex form alerts are on for the profile; the obtained forms, keys and
+ * sprite numbers never do. It is cleared when its profile is removed, and by every local-data
  * reset, which deletes every preferences file it does not explicitly keep.
  */
 object PcgAltDexSnapshotStore {

@@ -42,7 +42,6 @@ import com.bumptech.glide.Glide
 import com.fs.twitchminichat.pcg.GeckoSessionManager
 import com.fs.twitchminichat.pcg.PcgActivity
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedActivity
-import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedToggleController
 import com.fs.twitchminichat.chat.ChannelBoundPage
 import com.fs.twitchminichat.chat.ChatChannelBinding
@@ -4150,6 +4149,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         PcgSpawnAlertModeMenu.show(
             anchor = btnTogglePush,
             currentSelection = currentSelection,
+            confirmedSelection = readConfirmedProfileAlertSelection(profileId),
             onMostWantedRequested = {
                 mostWantedActivityLauncher.launch(
                     PcgMostWantedActivity.createIntent(
@@ -4172,6 +4172,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
      * Most Wanted registration and ordinary/event delivery share one backend
      * profile record. Serializing their requests prevents the previous race in
      * which an all-off ordinary mode could unregister a just-enabled watchlist.
+     *
+     * The plan, and the toast after it, compare confirmed selections
+     * ([PcgProfileAlertSelectionStore.readConfirmedBaseline]): a Missing Alt Dex form
+     * category the server refused is sent again, delivery first and then the upload, and
+     * counts as saved only once the upload step has confirmed it.
      */
     private fun applyProfileAlertSelection(
         profileId: String,
@@ -4186,7 +4191,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             return
         }
 
-        val current = readProfileAlertSelection(profileId)
+        val current = readConfirmedProfileAlertSelection(profileId)
         val plan = PcgProfileAlertSyncPlanner.buildPlan(
             current = current,
             requested = requested
@@ -4196,17 +4201,18 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         val appContext = requireContext().applicationContext
         val mostWantedController =
             PcgMostWantedToggleController(appContext)
+        val profileLabel = cfg?.username?.trim().orEmpty().ifBlank { profileId }
 
         profileAlertSyncInProgress = true
         btnTogglePush.isEnabled = false
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                var failed = false
                 var temporaryDeliveryActivated = false
+                var altDexOutcome: PcgAltDexAlertSyncOutcome? = null
 
-                for (step in plan) {
-                    val ok = when (step) {
+                val failed = !PcgProfileAlertSyncRunner.runInOrder(plan) { step ->
+                    when (step) {
                         PcgProfileAlertSyncStep.FIREBASE_DELIVERY -> {
                             val deliveryOk =
                                 syncProfileFirebaseDelivery(
@@ -4216,15 +4222,16 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                                 )
 
                             if (deliveryOk) {
-                                persistSpawnAlertSettings(
+                                persistDeliverySelection(
                                     profileId = profileId,
-                                    settings = requested.spawnSettings
+                                    selection = requested
                                 )
                                 temporaryDeliveryActivated =
                                     !current.requiresFirebaseDelivery &&
                                     requested.mostWantedEnabled &&
                                     !requested.spawnSettings
-                                        .hasOrdinaryOrEventAlerts
+                                        .hasOrdinaryOrEventAlerts &&
+                                    !requested.altDexFormAlertsEnabled
                             }
                             deliveryOk
                         }
@@ -4238,11 +4245,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                                 ).ok
                             }
                         }
-                    }
 
-                    if (!ok) {
-                        failed = true
-                        break
+                        PcgProfileAlertSyncStep.ALT_DEX_UPLOAD -> {
+                            val outcome = withContext(Dispatchers.IO) {
+                                PcgAltDexAlertSync.forContext(appContext)
+                                    .uploadAfterTurnOn(profileId, profileLabel)
+                            }
+                            altDexOutcome = outcome
+                            outcome.completesTurnOn
+                        }
                     }
                 }
 
@@ -4266,7 +4277,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
                 if (isAdded && view != null) {
                     val effective =
-                        readProfileAlertSelection(profileId)
+                        readConfirmedProfileAlertSelection(profileId)
                     updateSpawnAlertBellUi(profileId)
                     val fullyApplied =
                         !failed && effective == requested
@@ -4291,6 +4302,15 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                             Toast.LENGTH_LONG
                         }
                     ).show()
+
+                    // A 409 gets its own string after the selection's, never only the generic one.
+                    if (altDexOutcome == PcgAltDexAlertSyncOutcome.ALERTS_OFF) {
+                        Toast.makeText(
+                            requireContext(),
+                            PcgAltDexAlertSync.notConfirmedMessage,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             } finally {
                 profileAlertSyncInProgress = false
@@ -4311,20 +4331,38 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         )
     }
 
-    /** Persists ordinary/event settings only after backend confirmation. */
-    private fun persistSpawnAlertSettings(
+    /** Reads the bell menu's baseline: the local selection as the backend confirmed it. */
+    private fun readConfirmedProfileAlertSelection(
+        profileId: String
+    ): PcgProfileAlertSelection {
+        return PcgProfileAlertSelectionStore.readConfirmedBaseline(
+            requireContext(),
+            profileId
+        )
+    }
+
+    /**
+     * Persists the categories the delivery request carries - ordinary, event and Missing
+     * Alt Dex forms - only after backend confirmation.
+     */
+    private fun persistDeliverySelection(
         profileId: String,
-        settings: PcgSpawnAlertSettings
+        selection: PcgProfileAlertSelection
     ) {
         PcgSpawnAlertModeStore.setMode(
             requireContext(),
             profileId,
-            settings.regularMode
+            selection.spawnSettings.regularMode
         )
         PcgEventSpawnAlertStore.setEnabled(
             requireContext(),
             profileId,
-            settings.eventSpawnsEnabled
+            selection.spawnSettings.eventSpawnsEnabled
+        )
+        PcgAltDexFormAlertStore.setEnabled(
+            requireContext(),
+            profileId,
+            selection.altDexFormAlertsEnabled
         )
     }
 
@@ -4356,25 +4394,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
     private fun updateSpawnAlertBellUi(profileId: String) {
         if (!this::btnTogglePush.isInitialized) return
 
-        val settings = PcgSpawnAlertSettings(
-            regularMode = PcgSpawnAlertModeStore.getMode(
-                requireContext(),
-                profileId
-            ),
-            eventSpawnsEnabled = PcgEventSpawnAlertStore.isEnabled(
-                requireContext(),
-                profileId
-            )
-        )
-
-        val mostWantedEnabled = PcgMostWantedStore(
-            requireContext()
-        ).isEnabled(profileId)
-
-        val selection = PcgProfileAlertSelection(
-            spawnSettings = settings,
-            mostWantedEnabled = mostWantedEnabled
-        )
+        val selection = readProfileAlertSelection(profileId)
+        val settings = selection.spawnSettings
+        val mostWantedEnabled = selection.mostWantedEnabled
 
         btnTogglePush.alpha = if (selection.requiresFirebaseDelivery) {
             1.0f

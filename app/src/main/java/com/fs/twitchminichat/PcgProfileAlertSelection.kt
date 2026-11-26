@@ -6,17 +6,39 @@ import com.fs.twitchminichat.pcg.mostwanted.PcgMostWantedStore
 /**
  * Complete profile-scoped PCG alert selection.
  *
- * Ordinary, event and Most Wanted alerts remain independently selectable.
- * Firebase delivery must stay registered while any one of them is enabled.
+ * Ordinary, event, Most Wanted and Missing Alt Dex form alerts remain independently
+ * selectable. Firebase delivery must stay registered while any one of them is enabled.
+ *
+ * @property altDexFormAlertsEnabled Missing Alt Dex form alerts (`docs/design-alt-dex-alert.md`),
+ *   off by default.
  */
 data class PcgProfileAlertSelection(
     val spawnSettings: PcgSpawnAlertSettings,
-    val mostWantedEnabled: Boolean
+    val mostWantedEnabled: Boolean,
+    val altDexFormAlertsEnabled: Boolean
 ) {
     /** Whether this profile still needs Firebase Cloud Messaging delivery. */
     val requiresFirebaseDelivery: Boolean
         get() =
-            spawnSettings.hasOrdinaryOrEventAlerts || mostWantedEnabled
+            spawnSettings.hasOrdinaryOrEventAlerts ||
+                mostWantedEnabled ||
+                altDexFormAlertsEnabled
+
+    /**
+     * This selection as far as the backend has confirmed it: the alt-dex category counts as on
+     * only when it is on here *and* [acknowledged] has it on.
+     *
+     * The bell menu compares against this, not against the local selection, so that a category
+     * the server refused (409 `alt_dex_alerts_off`) is sent again by the next OK, delivery first
+     * and then the upload, while the checkbox keeps showing what the user chose. Only the alt-dex
+     * category is masked: the owner's decision of 2026-11-25 covers that category alone.
+     */
+    fun confirmedBy(acknowledged: PcgProfileAlertSelection?): PcgProfileAlertSelection {
+        return copy(
+            altDexFormAlertsEnabled =
+                altDexFormAlertsEnabled && acknowledged?.altDexFormAlertsEnabled == true
+        )
+    }
 
     companion object {
 
@@ -29,7 +51,8 @@ data class PcgProfileAlertSelection(
          */
         val DISABLED = PcgProfileAlertSelection(
             spawnSettings = PcgSpawnAlertSettings.DISABLED,
-            mostWantedEnabled = false
+            mostWantedEnabled = false,
+            altDexFormAlertsEnabled = false
         )
     }
 }
@@ -37,7 +60,7 @@ data class PcgProfileAlertSelection(
 /** Reads the complete locally persisted alert selection for one profile. */
 object PcgProfileAlertSelectionStore {
 
-    /** Combines the three independent local category stores. */
+    /** Combines the four independent local category stores. */
     fun read(
         context: Context,
         profileId: String
@@ -55,7 +78,24 @@ object PcgProfileAlertSelectionStore {
                 )
             ),
             mostWantedEnabled = PcgMostWantedStore(appContext)
-                .isEnabled(profileId)
+                .isEnabled(profileId),
+            altDexFormAlertsEnabled = PcgAltDexFormAlertStore.isEnabled(
+                appContext,
+                profileId
+            )
+        )
+    }
+
+    /**
+     * The local selection of [profileId] as the backend has confirmed it, the bell menu's
+     * baseline: see [PcgProfileAlertSelection.confirmedBy].
+     */
+    fun readConfirmedBaseline(
+        context: Context,
+        profileId: String
+    ): PcgProfileAlertSelection {
+        return read(context, profileId).confirmedBy(
+            PcgProfileAlertAcknowledgementStore.read(context, profileId)
         )
     }
 }
@@ -139,7 +179,15 @@ object PcgProfileRegistrationSyncPlanner {
 /** One backend synchronization operation for an alert selection change. */
 enum class PcgProfileAlertSyncStep {
     FIREBASE_DELIVERY,
-    MOST_WANTED
+    MOST_WANTED,
+
+    /**
+     * Upload the profile's stored alt-dex reading to `/upload_alt_dex`, if there is one.
+     *
+     * Always after [FIREBASE_DELIVERY]: the server refuses the upload while the category is off
+     * there, so the selection has to be acknowledged first (decision 15).
+     */
+    ALT_DEX_UPLOAD
 }
 
 /**
@@ -148,6 +196,11 @@ enum class PcgProfileAlertSyncStep {
  * Enabling Most Wanted on an inactive profile first restores Firebase delivery,
  * because the watchlist endpoint accepts only registered profiles. Disabling it
  * happens before the final delivery request so the profile can then be removed.
+ *
+ * Turning Missing Alt Dex form alerts on adds [PcgProfileAlertSyncStep.ALT_DEX_UPLOAD] as the
+ * last step, after the delivery step that tells the server the category is on. `current` is
+ * the confirmed baseline ([PcgProfileAlertSelection.confirmedBy]), so a category the server
+ * refused counts as off and is turned on again.
  */
 object PcgProfileAlertSyncPlanner {
 
@@ -157,8 +210,26 @@ object PcgProfileAlertSyncPlanner {
     ): List<PcgProfileAlertSyncStep> {
         if (current == requested) return emptyList()
 
+        val steps = orderDeliveryAndWatchlist(current, requested)
+        return if (
+            !current.altDexFormAlertsEnabled &&
+            requested.altDexFormAlertsEnabled
+        ) {
+            steps + PcgProfileAlertSyncStep.ALT_DEX_UPLOAD
+        } else {
+            steps
+        }
+    }
+
+    /** The delivery and Most Wanted steps, in the order their endpoints need. */
+    private fun orderDeliveryAndWatchlist(
+        current: PcgProfileAlertSelection,
+        requested: PcgProfileAlertSelection
+    ): List<PcgProfileAlertSyncStep> {
+        // The alt-dex category travels in the delivery request, like the ordinary and event ones.
         val spawnSettingsChanged =
-            current.spawnSettings != requested.spawnSettings
+            current.spawnSettings != requested.spawnSettings ||
+                current.altDexFormAlertsEnabled != requested.altDexFormAlertsEnabled
         val mostWantedChanged =
             current.mostWantedEnabled != requested.mostWantedEnabled
 
@@ -196,5 +267,27 @@ object PcgProfileAlertSyncPlanner {
                 add(PcgProfileAlertSyncStep.FIREBASE_DELIVERY)
             }
         }
+    }
+}
+
+/** Runs one alert-menu confirmation's plan. */
+object PcgProfileAlertSyncRunner {
+
+    /**
+     * Runs [plan] in order and stops at the first step that fails, so that no step runs after
+     * a failed one: an upload is never sent after a delivery step that failed (decision 15).
+     *
+     * Inline so that [runStep] may suspend in the bell menu's coroutine.
+     *
+     * @return whether every step succeeded.
+     */
+    inline fun runInOrder(
+        plan: List<PcgProfileAlertSyncStep>,
+        runStep: (PcgProfileAlertSyncStep) -> Boolean
+    ): Boolean {
+        for (step in plan) {
+            if (!runStep(step)) return false
+        }
+        return true
     }
 }
