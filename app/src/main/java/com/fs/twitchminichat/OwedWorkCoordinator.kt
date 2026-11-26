@@ -37,6 +37,10 @@ import kotlin.concurrent.withLock
  * the file would not work: the erase deletes the file, and the counter would start again at the
  * value an earlier entry had.
  *
+ * Claims in memory are also what makes a crash harmless: a process that dies with a request in
+ * flight takes its claim with it, and the next process starts with every claim free. A claim
+ * stored anywhere would block that entry for good after one crash.
+ *
  * One instance per process, [PROCESS]: the application is one process (no `android:process`).
  * Local tests make their own.
  */
@@ -45,13 +49,17 @@ internal class OwedWorkCoordinator {
     /**
      * Lock L. Public so a test can check that no network call is made while it is held.
      *
-     * Fair: a thread waiting for L gets it before the holder can take it again. A pass takes
-     * L once per profile, so without fairness a sign-in waiting behind one section could be
-     * overtaken by the next, and the pass would decide on the profile before the sign-in that
-     * voids its debt (T9 on #117). Fairness also keeps the wait of a sign-in, a removal or an
-     * erase to the sections already queued ahead of it.
+     * Not fair, on purpose: nothing here depends on the order in which waiting threads get L.
+     * A pass takes L once per profile, so a sign-in waiting for L may come in before the pass
+     * decides on its profile or after. Before, the pass finds the account and sends nothing.
+     * After, the pass sends the disable, and the sign-in has changed the profile's stamp, so
+     * the answer leaves the new session and the record alone and asks for one registration
+     * (R5). The same happens, whatever the lock, when the sign-in simply starts a moment
+     * later. Either way nothing owed is lost and nothing is sent twice (T9 and T9b on #117).
+     * A fair lock would only pick the first outcome in the one case where the sign-in is
+     * already waiting, which no test can observe deterministically.
      */
-    val lock = ReentrantLock(true)
+    val lock = ReentrantLock()
 
     /**
      * Which version of an owed entry an attempt is acting on.

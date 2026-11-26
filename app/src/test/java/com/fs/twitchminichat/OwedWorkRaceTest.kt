@@ -30,6 +30,10 @@ import org.junit.rules.TemporaryFolder
  * wait is on a latch or on a thread's state, with a liveness guard that fails a broken test
  * instead of hanging it. The guard is never asserted.
  *
+ * No verdict depends on which thread the scheduler runs first. Each test either forces one
+ * order, by holding a party outside lock L while the other completes, or, where two threads
+ * both wait for L and either may get it (T6, T9), asserts only what holds in both orders.
+ *
  * The production sections are reached only through [OwedWorkRaceActions], so this file runs
  * unchanged on the base commit with a base version of that file, where each test here but T15
  * fails.
@@ -198,8 +202,15 @@ class OwedWorkRaceTest {
     }
 
     /**
-     * T9, with the plan's assertions (3), (4) and (5) unchanged, and (1) and (2) replaced by "no
-     * commit made after the sign-in's clear names pp".
+     * T9: the sign-in of a profile whose marker a pass is rewriting waits for the rewrite, and
+     * the marker never comes back.
+     *
+     * Assertions (4) and (5) of the plan carry over; (1) and (2) are replaced by "no commit
+     * made after the sign-in's clear names pp". Assertion (3), no disable sent for pp, does not:
+     * once the rewrite ends, the sign-in and the pass's decision on pp both wait for lock L,
+     * and which goes first is the scheduler's choice. If the sign-in goes first, nothing is sent;
+     * if the pass does, it sends pp's disable, and T9b pins what follows. Every assertion here
+     * holds in both orders, so the verdict does not depend on which one ran.
      */
     @Test
     fun t9AMarkerClearedBySignInNeverComesBack() {
@@ -217,7 +228,7 @@ class OwedWorkRaceTest {
         pass1.join()
         assertEquals(NewAccountLocalCommit.Outcome.ADDED, signIn.join())
 
-        assertTrue(env.sentDisables.none { it == "pp" }) // (3)
+        assertTrue(env.sentDisables.count { it == "pp" } <= 1)
         assertTrue(owedDisables().isEmpty()) // (4)
         assertEquals("session-new", env.sessionToken("pp")) // (5)
 
@@ -231,6 +242,33 @@ class OwedWorkRaceTest {
                 commit.changes.values.any { it is Set<*> && "pp" in it }
             }
         )
+    }
+
+    /**
+     * T9b: the other order of T9, forced. The pass decides on pp before the sign-in, so it sends
+     * pp's disable; the sign-in completes while that request is out. The answer then leaves the
+     * new session and the record alone, and asks for one registration, so the profile's own
+     * selection is the server's last word (R5).
+     */
+    @Test
+    fun t9bWhenThePassDecidesFirstItsAnswerLeavesTheSignInAlone() {
+        removedProfile("pp")
+        recordOwedDisable("pp")
+        val hold = holdDisableRequestOf("pass-1")
+
+        val pass1 = Racer("pass-1") { pass(env) }
+        hold.awaitReached()
+        assertEquals(
+            NewAccountLocalCommit.Outcome.ADDED,
+            Racer("sign-in") { signIn(env, "pp", "session-new") }.join()
+        )
+        hold.release()
+        pass1.join()
+
+        assertEquals(listOf("pp"), env.sentDisables)
+        assertEquals("session-new", env.sessionToken("pp"))
+        assertTrue(owedDisables().isEmpty())
+        assertEquals(listOf("pp"), env.requestedRegistrations)
     }
 
     /** T10: a profile signed in again during another profile's disable is read afresh. */

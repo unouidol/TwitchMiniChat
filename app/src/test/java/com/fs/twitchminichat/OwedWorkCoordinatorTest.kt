@@ -101,6 +101,48 @@ class OwedWorkCoordinatorTest {
         }
     }
 
+    /**
+     * Claims live in the coordinator's memory and nowhere else, so a process that dies holding
+     * one - a crash during a request - leaves nothing behind: the next process starts with a new
+     * coordinator, and every claim free. A claim held by one coordinator says nothing to another.
+     */
+    @Test
+    fun aNewProcessStartsWithEveryClaimFree() {
+        val crashed = OwedWorkCoordinator()
+        crashed.locked {
+            assertTrue(crashed.claimToken())
+            assertTrue(crashed.claimProfile("pa"))
+        }
+
+        val next = OwedWorkCoordinator()
+        next.locked {
+            assertTrue(next.claimToken())
+            assertTrue(next.claimProfile("pa"))
+            assertTrue(next.claimProfile("pb"))
+        }
+        assertFalse(crashed.lock.isLocked)
+        assertFalse(next.lock.isLocked)
+    }
+
+    /**
+     * Nothing about a claim is stored: the claim functions touch only the coordinator's own
+     * fields, and no part of the coordinator opens a file or preferences of its own.
+     */
+    @Test
+    fun claimsAreNeverStored() {
+        val source = checkNotNull(mainSources().toMap()["OwedWorkCoordinator.kt"])
+        val claims = source
+            .substringAfter("// --- Claims")
+            .substringBefore("// --- The owed records")
+
+        listOf("Store", "preferences", "edit", "put", "SharedPreferences", "File").forEach { word ->
+            assertFalse(word, word in claims)
+        }
+        listOf("getSharedPreferences", "Context", "File(", "openFileOutput").forEach { word ->
+            assertFalse(word, word in source)
+        }
+    }
+
     @Test
     fun anEraseDeletesItsFilesUnderTheLockAndForgetsTheEntries() {
         val before = coordinator.locked { coordinator.tokenStamp() }
