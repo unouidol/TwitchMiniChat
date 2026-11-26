@@ -4,10 +4,11 @@
 merged on 2026-11-25; deployed in production by the owner's account of 2026-11-26, not checked
 from this repository. **The app half is in two pull requests.** A1, the model and the upload
 (the category in the selection, its stores and request field, `/upload_alt_dex`'s client, the
-planner's `ALT_DEX_UPLOAD` step and the handling of a 409), is the pull request that adds this
-sentence; with no checkbox, nothing in it can turn the category on. A2, the checkbox, the bell
-menu's strings, the bundled policies and `CURRENT_TERMS_VERSION` 4, is not implemented. The
-owner asked for this note on 2026-11-25, with
+planner's `ALT_DEX_UPLOAD` step and the handling of a 409), merged as #146 (`b44c830`). A2,
+the checkbox and its hint, the bell menu's message after OK, the final strings, the bundled
+policies and `CURRENT_TERMS_VERSION` 4, is the pull request that adds this sentence. The web
+copy of the two policy pages waits on `prepare/policies-5.7.0` in `unouidol/unouidol.github.io`,
+to be published at the release (`RELEASE-STATE.md`). The owner asked for this note on 2026-11-25, with
 the decisions below, and answered its open questions the same day. It covers the app
 (`unouidol/TwitchMiniChat`) and the backend (`unouidol/tmc-backend`, private), the two backend
 fixes of tmc-backend#5, and the deletion of Most Wanted watchlists, all three to ship in the same
@@ -264,8 +265,10 @@ it stored nothing. The phone may still have the category on. Two ways to get the
 
 - **Shows it with its own string,** never with the generic failure:
   `pcg_alt_dex_alert_upload_alerts_off`. Each of the two moments of *When* can show it. The
-  string sends the user to "PCG notifications" to press OK; "Reopen TMC" is gone. A1 words it
-  for the "Update Alt Dex" path; A2 sets the final wording.
+  string sends the user to "PCG notifications" to press OK; "Reopen TMC" is gone. A2's final
+  wording serves both moments: "Alt Dex saved on this phone, but not sent for alerts: the server
+  has not confirmed Missing Alt Dex form alerts for this account. Open PCG notifications and press
+  OK to try again." After the bell menu's OK it follows the selection's own toast.
 - **Marks the category unconfirmed:** it writes the acknowledged alt-dex flag false in
   `PcgProfileAlertAcknowledgementStore`, and only when an acknowledgement already exists for the
   profile. Without one the baseline below is already unconfirmed, so nothing is written. The
@@ -555,8 +558,11 @@ missing dex, and list `event_spawn` among the reasons. `build_token_targets_for_
 ## f) The app
 
 - **The bell menu** ("PCG notifications", `PcgSpawnAlertModeMenu.kt`) gets one checkbox after
-  "Enable Most Wanted alerts" (`:92-97`): `pcg_alt_dex_form_alert_label`, "Notify missing Alt Dex
-  forms". It is applied, like the others, only on OK (`:146-158`).
+  "Enable Most Wanted alerts" (`:92-97`): `pcg_alt_dex_form_alert_label`, "Enable Missing Alt Dex
+  form alerts". The bell button's description names it `pcg_alt_dex_form_alerts_name`, "Missing
+  Alt Dex form alerts", as it names Most Wanted. One name everywhere: the owner's review of #148
+  replaced the earlier "Notify missing Alt Dex forms". It is applied, like the others, only on OK
+  (`:146-158`).
 - **The selection:** `PcgProfileAlertSelection` gains `altDexFormAlertsEnabled`
   (`PcgProfileAlertSelection.kt:12-33`):
   - `requiresFirebaseDelivery` counts it;
@@ -591,7 +597,12 @@ missing dex, and list `event_spawn` among the reasons. `build_token_targets_for_
     could not be sent for alerts. Press Update Alt Dex again later.";
   - if the server answers 409 `alt_dex_alerts_off`: `pcg_alt_dex_alert_upload_alerts_off`, the
     string of *a* (*When the server refuses*), never the generic failure, and never retried;
-  - with the category off: today's toast, unchanged.
+  - with the category off: today's toast, unchanged;
+  - after the bell menu's OK, a turn-on upload that fails adds no toast of its own: the selection's
+    "Only some alert settings were updated" already says it, and the category stays unconfirmed,
+    so the next OK sends it again. `pcg_alt_dex_alert_upload_failed` would be wrong there, since
+    it sends the user to "Update Alt Dex", which sends nothing while the category is unconfirmed
+    (A2, `PcgAltDexAlertSync.messageAfterTurnOn`).
 - **The category on, no reading on this phone** (decision 3):
   - under the checkbox, while it is ticked and store 3 has no reading for the profile:
     `pcg_alt_dex_form_alert_no_reading`, "No Alt Dex reading on this phone yet. In the PCG

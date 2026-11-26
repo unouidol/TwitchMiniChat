@@ -6,21 +6,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pins the terms version that 5.6.0 raises, and that raising it re-shows the gate.
+ * Pins the terms version that 5.7.0 raises, and that raising it re-shows the gate.
  *
- * Version 3 names GitHub as a recipient. By the criterion recorded on 2026-09-26 a new
- * recipient is a material change, so an acceptance of version 2 must no longer count.
+ * Version 4 says that the server receives the list of forms missing from an account's Alt Dex
+ * while Missing Alt Dex form alerts are on: data newly collected, so by the criterion recorded
+ * on 2026-09-26 an acceptance of version 3 must no longer count. Version 3 named GitHub as a
+ * recipient, by the same criterion.
  */
 class TermsVersionTest {
 
     @Test
-    fun theCurrentTermsAreVersion3() {
-        assertEquals(3, TermsPrefs.CURRENT_TERMS_VERSION)
+    fun theCurrentTermsAreVersion4() {
+        assertEquals(4, TermsPrefs.CURRENT_TERMS_VERSION)
     }
 
-    /** Every user of 5.5.1 accepted version 2, so each sees the gate once on 5.6.0. */
+    /** Every user of 5.6.x accepted version 3, so each sees the gate once on 5.7.0. */
     @Test
-    fun anAcceptanceOfVersion2_noLongerCounts() {
+    fun anAcceptanceOfVersion3_noLongerCounts() {
+        assertFalse(TermsPrefs.isAccepted(3))
         assertFalse(TermsPrefs.isAccepted(2))
         assertFalse(TermsPrefs.isAccepted(1))
     }
@@ -32,7 +35,7 @@ class TermsVersionTest {
     }
 
     @Test
-    fun anAcceptanceOfVersion3_counts() {
-        assertTrue(TermsPrefs.isAccepted(3))
+    fun anAcceptanceOfVersion4_counts() {
+        assertTrue(TermsPrefs.isAccepted(4))
     }
 }

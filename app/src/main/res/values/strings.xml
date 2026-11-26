@@ -228,6 +228,7 @@
     <string name="terms_gate_decline">Decline and close</string>
     <string name="terms_gate_accept_checkbox">I have read and agree to the Terms of Use and Privacy Policy.</string>
     <string name="terms_gate_crash_reporting">To find and fix problems, TMC sends anonymous crash and error reports: device model, Android version, app version and a technical stack trace. They never include your Twitch account, channels or chat messages. You can turn this off at any time in Safety &amp; Privacy.</string>
+    <string name="terms_gate_alt_dex">If you turn on Missing Alt Dex form alerts, TMC sends the TwitchMiniChat server the list of forms missing from your Alt Dex, so it can alert you when one spawns. They are off unless you turn them on.</string>
     <string name="terms_gate_github">TMC loads its stream player page from GitHub, and at most once a day asks GitHub whether a newer version exists. GitHub sees your IP address, and for the player the channel you open, but never your Twitch account.</string>
 
     <string name="blocked_users_title">Blocked users</string>
@@ -271,7 +272,7 @@
     <string name="pcg_alt_dex_updated">Alt Dex saved on this phone. Forms not obtained: %1$d.</string>
     <string name="pcg_alt_dex_updated_and_sent">Alt Dex saved and sent for alerts. Forms not obtained: %1$d.</string>
     <string name="pcg_alt_dex_alert_upload_failed">Alt Dex saved on this phone, but it could not be sent for alerts. Press Update Alt Dex again later.</string>
-    <string name="pcg_alt_dex_alert_upload_alerts_off">Alt Dex saved on this phone, but not sent for alerts: the server has not confirmed Missing Alt Dex form alerts for this account. Open PCG notifications and press OK to send them again.</string>
+    <string name="pcg_alt_dex_alert_upload_alerts_off">Alt Dex saved on this phone, but not sent for alerts: the server has not confirmed Missing Alt Dex form alerts for this account. Open PCG notifications and press OK to try again.</string>
     <string name="pcg_alt_dex_wrong_tab">Open the Pokédex tab and switch it to Alt Dex, then press Update Alt Dex.</string>
     <string name="pcg_alt_dex_not_alt_dex">Switch the Pokédex to Alt Dex, then press Update Alt Dex.</string>
     <string name="pcg_alt_dex_obtained_on">Turn off the Obtained filter, then press Update Alt Dex.</string>
@@ -402,6 +403,9 @@
     <string name="pcg_spawn_alert_dialog_title">PCG notifications</string>
     <string name="pcg_spawn_alert_modes_header">Standard spawn alerts</string>
     <string name="pcg_event_spawn_alert_label">Notify current PCG event spawns</string>
+    <string name="pcg_alt_dex_form_alert_label">Enable Missing Alt Dex form alerts</string>
+    <string name="pcg_alt_dex_form_alerts_name">Missing Alt Dex form alerts</string>
+    <string name="pcg_alt_dex_form_alert_no_reading">No Alt Dex reading on this phone yet. In the PCG Pokédex, switch to Alt Dex, turn Obtained off and press Update Alt Dex.</string>
     <string name="pcg_spawn_alert_bell_mode_and_event">%1$s; event spawns enabled</string>
     <string name="pcg_notification_delivery_header">Alert style</string>
     <string name="pcg_notification_sound_label">Sound</string>

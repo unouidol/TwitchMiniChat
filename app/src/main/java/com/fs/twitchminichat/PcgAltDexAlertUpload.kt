@@ -361,6 +361,29 @@ internal class PcgAltDexAlertSync(
         }
 
         /**
+         * The message the bell menu's `ALT_DEX_UPLOAD` step owes the user after the selection's
+         * own toast, or null when it owes none. [outcome] is null when the plan had no such step.
+         *
+         * - **No reading on this phone:** the hint under the checkbox, once more, as a toast
+         *   (decision 3). The category is saved; the first reading uploads.
+         * - **A 409:** its own string, never only the generic one.
+         * - **Stored, or failed:** none. The selection's toast already says saved, or that only
+         *   part of it was, and a failure leaves the category unconfirmed, so the next OK sends
+         *   it again. [R.string.pcg_alt_dex_alert_upload_failed] would be wrong here: it sends
+         *   the user to Update Alt Dex, which sends nothing while the category is unconfirmed.
+         */
+        @StringRes
+        fun messageAfterTurnOn(outcome: PcgAltDexAlertSyncOutcome?): Int? {
+            return when (outcome) {
+                PcgAltDexAlertSyncOutcome.NO_READING -> R.string.pcg_alt_dex_form_alert_no_reading
+                PcgAltDexAlertSyncOutcome.ALERTS_OFF -> notConfirmedMessage
+                PcgAltDexAlertSyncOutcome.STORED,
+                PcgAltDexAlertSyncOutcome.FAILED,
+                null -> null
+            }
+        }
+
+        /**
          * The message of [PcgAltDexAfterReadingDecision.NOT_CONFIRMED], and of a 409: the
          * category is on here and not confirmed by the server.
          */

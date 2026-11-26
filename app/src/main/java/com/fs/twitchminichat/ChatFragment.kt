@@ -4150,6 +4150,8 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             anchor = btnTogglePush,
             currentSelection = currentSelection,
             confirmedSelection = readConfirmedProfileAlertSelection(profileId),
+            altDexReadingStored =
+                PcgAltDexSnapshotStore.load(requireContext(), profileId) != null,
             onMostWantedRequested = {
                 mostWantedActivityLauncher.launch(
                     PcgMostWantedActivity.createIntent(
@@ -4303,11 +4305,11 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                         }
                     ).show()
 
-                    // A 409 gets its own string after the selection's, never only the generic one.
-                    if (altDexOutcome == PcgAltDexAlertSyncOutcome.ALERTS_OFF) {
+                    // The alt-dex step's own message, if it owes one, follows the selection's.
+                    PcgAltDexAlertSync.messageAfterTurnOn(altDexOutcome)?.let { altDexMessage ->
                         Toast.makeText(
                             requireContext(),
-                            PcgAltDexAlertSync.notConfirmedMessage,
+                            altDexMessage,
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -4413,6 +4415,9 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             }
             if (mostWantedEnabled) {
                 add(getString(R.string.pcg_most_wanted_alert_label))
+            }
+            if (selection.altDexFormAlertsEnabled) {
+                add(getString(R.string.pcg_alt_dex_form_alerts_name))
             }
         }
 

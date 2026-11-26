@@ -233,9 +233,30 @@ merge produces, which is a second edit this file kept needing.
 Until 5.6.1 was published this section read the log from `v5.6.0`, and before 5.6.0 from
 `v5.5.1`. Everything between `v5.6.0` and `v5.6.1` shipped in 5.6.1.
 
-Nothing waits on a branch behind a condition. The web copy of the data deletion page, which waited
-here until 2026-11-20, was published at the 5.6.1 release: see *Publication, in order* under the
-5.6.1 release.
+**One thing waits on a branch behind a condition: the web copy of two policy pages, for 5.7.0.**
+
+- **What:** `tmc/privacy.html` and `tmc/data-deletion.html`, on the branch
+  `prepare/policies-5.7.0` of `unouidol/unouidol.github.io`, head `49dd7e0`, one commit on that
+  repository's `main` at `f3a6793`. Pushed on 2026-11-26. No pull request, no merge: that
+  repository's `main` is served live by GitHub Pages (source `main`, `/`, read with
+  `gh api repos/unouidol/unouidol.github.io/pages` on 2026-11-26), so a merge there is the
+  publication.
+- **What they say:** Missing Alt Dex form alerts, what is sent while they are on, and when the
+  server deletes the list. Both pages are dated "Last updated: 2026-11-26", as their bundled copies
+  in A2's pull request are.
+- **How they were made:** derived from the bundled copies by the rule under *Two web copies are
+  written and must not be published yet* (LF, a trailing newline, the hyphenated link targets in
+  every `href`). The rule was checked on 2026-11-26 first: `main-v5`'s bundled copies at
+  `363f1b1` derive to the blobs on that repository's `main`, byte for byte, for both pages.
+- **The condition:** publish at the 5.7.0 release, immediately before the tag, as for 5.6.0 and
+  5.6.1 (owner's decision of 2026-11-25). Not before: the pages would describe alerts that no
+  published app has.
+- **At publication:** regenerate both pages from the bundled copies on `main-v5` and compare them
+  with the branch. If A2's text changed after 2026-11-26, the branch is stale, and the bundled
+  copies win. Then fetch each published page back and compare it with the copy in the APK.
+
+The web copy of the data deletion page, which waited here until 2026-11-20, was published at the
+5.6.1 release: see *Publication, in order* under the 5.6.1 release.
 
 ## What 5.5.1 shipped
 
