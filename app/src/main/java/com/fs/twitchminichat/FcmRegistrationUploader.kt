@@ -273,25 +273,17 @@ object FcmRegistrationUploader {
             return false
         }
 
-        val settings = selection.spawnSettings
         val authDecision = BackendAuthHeaderProvider(
             sessionReader = BackendSessionStore(context)
         ).resolve(normalizedProfileId)
 
-        val payload = JSONObject().apply {
-            put("device_id", DeviceCredentialStore.getOrCreateDeviceId(context))
-            put("device_name", buildDeviceName(context))
-            put("fcm_token", token)
-            put("profile_id", normalizedProfileId)
-            put("spawn_alert_mode", settings.regularMode.id)
-            put("event_spawn_enabled", settings.eventSpawnsEnabled)
-
-            /*
-             * Compatibility bridge for the old registration model. The server
-             * keeps Firebase delivery while any independent category is active.
-             */
-            put("enabled", selection.requiresFirebaseDelivery)
-        }
+        val payload = alertSelectionPayload(
+            deviceId = DeviceCredentialStore.getOrCreateDeviceId(context),
+            deviceName = buildDeviceName(context),
+            token = token,
+            profileId = normalizedProfileId,
+            selection = selection
+        )
 
         val authorizationHeader = when (authDecision) {
             BackendSessionAuthDecision.Missing -> {
@@ -339,6 +331,38 @@ object FcmRegistrationUploader {
         }
 
         return acknowledged
+    }
+
+    /**
+     * The body of one `set_spawn_alert_mode` request for [selection].
+     *
+     * `alt_dex_form_alerts_enabled` is always sent, false included: an absent field keeps what
+     * the server holds, and with `enabled` false stores false, the rule for apps that predate the
+     * category (`docs/design-alt-dex-alert.md`, *d*). This app always says which it wants.
+     */
+    internal fun alertSelectionPayload(
+        deviceId: String,
+        deviceName: String,
+        token: String,
+        profileId: String,
+        selection: PcgProfileAlertSelection
+    ): JSONObject {
+        val settings = selection.spawnSettings
+        return JSONObject().apply {
+            put("device_id", deviceId)
+            put("device_name", deviceName)
+            put("fcm_token", token)
+            put("profile_id", profileId)
+            put("spawn_alert_mode", settings.regularMode.id)
+            put("event_spawn_enabled", settings.eventSpawnsEnabled)
+            put("alt_dex_form_alerts_enabled", selection.altDexFormAlertsEnabled)
+
+            /*
+             * Compatibility bridge for the old registration model. The server
+             * keeps Firebase delivery while any independent category is active.
+             */
+            put("enabled", selection.requiresFirebaseDelivery)
+        }
     }
 
     /**

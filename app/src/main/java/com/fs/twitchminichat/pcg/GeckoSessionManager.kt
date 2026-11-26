@@ -12,6 +12,9 @@ import com.fs.twitchminichat.DiagnosticError
 import com.fs.twitchminichat.FcmRegistrationUploader
 import com.fs.twitchminichat.InventoryBallItem
 import com.fs.twitchminichat.InventoryBallStore
+import com.fs.twitchminichat.PcgAltDexAfterReadingDecision
+import com.fs.twitchminichat.PcgAltDexAlertSync
+import com.fs.twitchminichat.PcgAltDexAlertUpload
 import com.fs.twitchminichat.PcgAltDexForm
 import com.fs.twitchminichat.PcgAltDexSnapshotStore
 import com.fs.twitchminichat.PcgPokedexSnapshotStore
@@ -29,6 +32,7 @@ import org.mozilla.geckoview.GeckoView
 import org.mozilla.geckoview.StorageController
 import org.mozilla.geckoview.WebExtension
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 
 
 @Suppress("unused")
@@ -237,7 +241,9 @@ object GeckoSessionManager {
     private data class DexPageReads(
         val latest: PcgDexPageRead,
         val previous: PcgDexPageRead?,
-        val profileId: String
+        val profileId: String,
+        /** The session's label, sent with an alt-dex upload as `profile_label`. */
+        val profileLabel: String
     )
 
     /**
@@ -775,12 +781,13 @@ object GeckoSessionManager {
      * them.
      *
      * A read is never stored or sent anywhere by itself: only an accepted tap stores what the
-     * page showed, and only on this phone.
+     * page showed, and uploads it only as [saveManualAltDexReading] describes.
      */
     private fun handleDexPageRead(
         appContext: Context,
         accountId: String,
         profileId: String,
+        profileLabel: String,
         payload: JSONObject
     ) {
         val sessionKey = pcgSessionKey(accountId)
@@ -793,7 +800,8 @@ object GeckoSessionManager {
         lastDexPageReads[sessionKey] = DexPageReads(
             latest = read,
             previous = before?.latest,
-            profileId = profileId
+            profileId = profileId,
+            profileLabel = profileLabel
         )
 
         // Logged when the dex shown changes, not once a second.
@@ -858,6 +866,7 @@ object GeckoSessionManager {
                     saveManualAltDexReading(
                         appContext = appContext,
                         profileId = reads.profileId,
+                        profileLabel = reads.profileLabel,
                         forms = decision.forms,
                         requestedAtMs = pending.requestedAtMs
                     )
@@ -890,13 +899,19 @@ object GeckoSessionManager {
     }
 
     /**
-     * Stores one accepted alt-dex reading for [profileId], on this phone only.
+     * Stores one accepted alt-dex reading for [profileId], then uploads its missing forms when
+     * Missing Alt Dex form alerts are on for the profile and confirmed by the backend
+     * (`docs/design-alt-dex-alert.md`, *a* and *f*).
      *
-     * Nothing is uploaded: the alt dex never leaves the phone in this design.
+     * With the category off nothing leaves the phone and the toast is today's. With it on but
+     * not confirmed - after a 409 `alt_dex_alerts_off`, say - nothing is sent and the user is
+     * sent to the bell menu, whose OK sends the selection and then the upload. One reading sends
+     * at most one upload, never retried and never queued.
      */
     private fun saveManualAltDexReading(
         appContext: Context,
         profileId: String,
+        profileLabel: String,
         forms: List<PcgAltDexForm>,
         requestedAtMs: Long
     ) {
@@ -939,12 +954,41 @@ object GeckoSessionManager {
                     "obtainedListedAgain=${forms.count { it.key in obtainedKeys }}"
         )
 
-        showManualUpdateResultTextToastOnMain(
-            appContext = appContext,
-            requestedAtMs = requestedAtMs,
-            text = appContext.getString(R.string.pcg_alt_dex_updated, forms.size),
-            debugLabel = "alt_dex_accepted"
-        )
+        val altDexAlerts = PcgAltDexAlertSync.forContext(appContext)
+        when (altDexAlerts.decideAfterReading(profileId)) {
+            PcgAltDexAfterReadingDecision.CATEGORY_OFF ->
+                showManualUpdateResultTextToastOnMain(
+                    appContext = appContext,
+                    requestedAtMs = requestedAtMs,
+                    text = appContext.getString(R.string.pcg_alt_dex_updated, forms.size),
+                    debugLabel = "alt_dex_accepted"
+                )
+
+            PcgAltDexAfterReadingDecision.NOT_CONFIRMED -> {
+                Log.d("PCG_PROBE", "alt dex upload skipped: alerts not confirmed by the server")
+                showManualUpdateResultToastOnMain(
+                    appContext = appContext,
+                    requestedAtMs = requestedAtMs,
+                    messageRes = PcgAltDexAlertSync.notConfirmedMessage,
+                    debugLabel = "alt_dex_alerts_not_confirmed"
+                )
+            }
+
+            PcgAltDexAfterReadingDecision.UPLOAD -> {
+                val upload = PcgAltDexAlertUpload.of(profileId, profileLabel, snapshot)
+                thread(start = true, name = "alt-dex-upload") {
+                    val outcome = altDexAlerts.uploadAfterReading(upload)
+                    val messageRes = PcgAltDexAlertSync.messageFor(outcome)
+                        ?: R.string.pcg_alt_dex_updated
+                    showManualUpdateResultTextToastOnMain(
+                        appContext = appContext,
+                        requestedAtMs = requestedAtMs,
+                        text = appContext.getString(messageRes, forms.size),
+                        debugLabel = "alt_dex_upload_${outcome.name.lowercase()}"
+                    )
+                }
+            }
+        }
     }
 
     /**
@@ -1866,6 +1910,7 @@ object GeckoSessionManager {
                                                     appContext = appContext,
                                                     accountId = accountId,
                                                     profileId = profileId,
+                                                    profileLabel = profileLabel,
                                                     payload = payload
                                                 )
                                             }
@@ -2256,7 +2301,9 @@ object GeckoSessionManager {
      * ([PcgAltDexReadingGate]). It is accepted at once when they already pass, refused at
      * once when only the user can fix the page, and otherwise waits at most
      * [MANUAL_PCG_UPDATE_TIMEOUT_MS] for the page to settle. One tap takes at most one
-     * reading, stores it on this phone only, and sends nothing to chat, PCG or the server.
+     * reading and stores it on this phone. It sends nothing to chat or PCG, and sends the
+     * server the reading's missing forms only while Missing Alt Dex form alerts are on and
+     * confirmed for the profile (see [saveManualAltDexReading]).
      */
     fun requestManualAltDexUpdate(
         context: Context,

@@ -1,8 +1,13 @@
 # Design: an alert for missing alt dex forms
 
-**Status: design note. The backend half is merged, not deployed:** tmc-backend#9, `53fe1b4`, on
-2026-11-25. Its deploy needs the owner's yes, after tmc-backend#8's. **The app half is not
-implemented.** The owner asked for this note on 2026-11-25, with
+**Status: design note. The backend half is merged and deployed:** tmc-backend#9, `53fe1b4`,
+merged on 2026-11-25; deployed in production by the owner's account of 2026-11-26, not checked
+from this repository. **The app half is in two pull requests.** A1, the model and the upload
+(the category in the selection, its stores and request field, `/upload_alt_dex`'s client, the
+planner's `ALT_DEX_UPLOAD` step and the handling of a 409), is the pull request that adds this
+sentence; with no checkbox, nothing in it can turn the category on. A2, the checkbox, the bell
+menu's strings, the bundled policies and `CURRENT_TERMS_VERSION` 4, is not implemented. The
+owner asked for this note on 2026-11-25, with
 the decisions below, and answered its open questions the same day. It covers the app
 (`unouidol/TwitchMiniChat`) and the backend (`unouidol/tmc-backend`, private), the two backend
 fixes of tmc-backend#5, and the deletion of Most Wanted watchlists, all three to ship in the same
@@ -254,24 +259,47 @@ it stored nothing. The phone may still have the category on. Two ways to get the
   with the category off;
 - an upload raced a switch-off on this phone.
 
-**What the app does:**
+**What the app does** (decided by the owner on 2026-11-25, after this note first proposed
+"reopen TMC" and no change on the phone; implemented in A1):
 
 - **Shows it with its own string,** never with the generic failure:
-  `pcg_alt_dex_alert_upload_alerts_off`, "Alt Dex saved on this phone, but the server did not
-  store it: Missing Alt Dex form alerts are off there for this account. Reopen TMC, then press
-  Update Alt Dex again." Each of the two moments of *When* can show it.
+  `pcg_alt_dex_alert_upload_alerts_off`. Each of the two moments of *When* can show it. The
+  string sends the user to "PCG notifications" to press OK; "Reopen TMC" is gone. A1 words it
+  for the "Update Alt Dex" path; A2 sets the final wording.
+- **Marks the category unconfirmed:** it writes the acknowledged alt-dex flag false in
+  `PcgProfileAlertAcknowledgementStore`, and only when an acknowledgement already exists for the
+  profile. Without one the baseline below is already unconfirmed, so nothing is written. The
+  local category is not touched, so the checkbox keeps showing it on.
+- **The bell menu compares against the confirmed baseline,** the local selection with the
+  category counted on only when it is on here *and* acknowledged on
+  (`PcgProfileAlertSelection.confirmedBy`). The menu's OK, and the handler's plan and toast, use
+  it. So the next OK sends `FIREBASE_DELIVERY`, then `ALT_DEX_UPLOAD`, although nothing visible
+  changed.
+- **A delivery answer alone never confirms the category again.**
+  `PcgProfileAlertAcknowledgementStore.record` keeps the flag as it was for a selection with the
+  category on, and lowers it for one with it off. Only the turn-on's upload step raises it: when
+  the list is stored, or when there is no reading to send.
+- **"Update Alt Dex" with the category on but unconfirmed** stores the reading, sends nothing and
+  shows the same string.
 - **Never retries it automatically:** no second upload, no queue, no entry in the owed-work
-  store.
-- **Changes nothing on the phone:** neither the local category nor the acknowledgement. Changing
-  either would amount to a retry by another route.
-- **Logs** the result code and the profile reference only.
+  store. The flag only decides what the user's next OK sends.
+- **Logs** the result only: no name, label or profile identifier.
 
-**Why "reopen TMC":** the boot registration pass sends the complete local selection of every
-profile that needs delivery, this category included, and puts the server's flag back
-(`MainActivity.kt:509-526`, `PcgProfileRegistrationSyncPlanner`). The next "Update Alt Dex"
-then stores the list. Pressing OK in the bell menu would not help: an unchanged selection makes
-an empty plan and sends nothing (`ChatFragment.kt:4189-4194`). Read in code at `2eef763`; not
-observed.
+**Why the boot pass and the owed-work policy stay correct** (reasoned from the code, and pinned
+by unit tests):
+
+- The boot pass registers and restores every profile whose selection needs delivery whatever
+  its acknowledgement (`PcgProfileRegistrationSyncPlanner`), and the category on makes delivery
+  needed. A lowered flag therefore changes nothing there. The boot pass does not upload, and its
+  answer does not raise the flag.
+- For a removed profile, `OwedProfileDisablePolicy` still owes a disable while any other category
+  is acknowledged on. An acknowledgement whose only active category was this one reads as
+  `DISABLED` after a 409, and then owes nothing by itself. That is the server's own answer: the
+  category is off on every device record, and the others were acknowledged off. A failed
+  disable is still owed through its marker. A delivery whose answer was lost leaves the
+  acknowledgement stale in the same way for every category, today as before.
+- In F3's PR-2 (#117), the two new writes, raise and lower, go under lock L with the existing
+  acknowledgement write (R3).
 
 ## b) Server storage
 
@@ -550,8 +578,10 @@ missing dex, and list `event_spawn` among the reasons. `build_token_targets_for_
   off to on. The plan always holds `FIREBASE_DELIVERY` then, because the selection changed.
   - The handler runs the upload step only if a reading is stored, and only if every earlier step
     succeeded: it already breaks on the first failure (`ChatFragment.kt:4243-4246`).
-  - The upload's result does not count as part of the selection: the selection's toast stays as
-    today, and the upload's own toast follows it.
+  - The selection's toast compares confirmed selections, so the category counts as saved only
+    once the upload step has confirmed it. A 409's own string follows that toast (*When the
+    server refuses*). This replaces "the upload's result does not count as part of the
+    selection", by the owner's decision of 2026-11-25.
   - The order is a pure function, so a unit test can hold it (*j*).
 - **What the user sees:**
   - after a reading, with the category on: `pcg_alt_dex_updated_and_sent`, "Alt Dex saved and sent
@@ -847,7 +877,11 @@ needs the app to change first, and is planned after Christmas.
 - **A 409 `alt_dex_alerts_off`:**
   - it maps to `pcg_alt_dex_alert_upload_alerts_off`, distinct from the other failures;
   - one call sends one request;
-  - nothing is queued, and the local category and the acknowledgement stay as they were.
+  - nothing is queued, and the local category stays as it was;
+  - the acknowledged flag goes false only where an acknowledgement exists; with none, nothing is
+    written and the baseline is already unconfirmed, so the next OK resends;
+  - after it, the flag returns to true only when `ALT_DEX_UPLOAD` stores the list, not on
+    `FIREBASE_DELIVERY` success alone.
 - Every new string is in `strings.xml`; `PrivacySafeLoggingSourceTest` passes; `TermsVersionTest`
   at 4.
 - The repository baseline: unit tests, lint and both assemble tasks, for stable and dev.

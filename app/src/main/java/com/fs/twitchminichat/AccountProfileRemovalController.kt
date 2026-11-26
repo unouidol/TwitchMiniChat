@@ -143,6 +143,7 @@ object AccountProfileRemovalController {
         BuddyInfoStore.clearProfile(context, profileId)
         PcgSpawnAlertModeStore.clearProfile(context, profileId)
         PcgEventSpawnAlertStore.clearProfile(context, profileId)
+        PcgAltDexFormAlertStore.clearProfile(context, profileId)
         PushSettingsStore.clearProfile(context, profileId)
         PcgMostWantedStore(context).clearProfile(profileId)
     }

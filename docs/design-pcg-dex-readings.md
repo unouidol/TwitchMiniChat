@@ -301,7 +301,9 @@ project:
 - it needs a new alert kind;
 - it needs the policy pages updated, both copies, before any form data leaves the phone.
 
-That project is designed in `docs/design-alt-dex-alert.md` (2026-11-25), not yet implemented.
+That project is designed in `docs/design-alt-dex-alert.md` (2026-11-25). Its upload is
+implemented by its A1 pull request; the checkbox that turns it on, and the policy pages, come
+with A2.
 
 Authentication stays the backend session's Bearer, as for today's upload.
 
@@ -394,7 +396,10 @@ examined. Reading 1 stays as it is; this is only recorded.
   name and sprite number, and `readAtMs`.
 - Cleared by the profile's removal (`AccountProfileRemovalController`) and by both local-data
   resets: `LocalDataCleaner` keeps no file by that name.
-- Nothing in it leaves the phone.
+- Nothing in it left the phone until the Missing Alt Dex form alert. Now the last reading's
+  missing names and its `read_at` are sent to `/upload_alt_dex`, only while that alert is on and
+  confirmed for the profile (`docs/design-alt-dex-alert.md`, *a*). The obtained forms, the keys
+  and the sprite numbers never are.
 
 **The panel's Form line.**
 

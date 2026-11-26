@@ -24,6 +24,15 @@ class PcgAltDexStoreClearingTest {
         assertTrue(clearing.contains("PcgAltDexSnapshotStore.clearProfile(context, profileId)"))
     }
 
+    /** The Missing Alt Dex form alert flag goes with its profile, like the event flag. */
+    @Test
+    fun removingAProfileClearsItsAltDexFormAlertFlag() {
+        val removal = readProductionSource("AccountProfileRemovalController.kt")
+        val clearing = removal.substringAfter("private fun clearKnownLocalProfileData(")
+
+        assertTrue(clearing.contains("PcgAltDexFormAlertStore.clearProfile(context, profileId)"))
+    }
+
     /** The keep-accounts reset deletes every preferences file it does not keep by name. */
     @Test
     fun theKeepAccountsResetDeletesTheAltDexFile() {

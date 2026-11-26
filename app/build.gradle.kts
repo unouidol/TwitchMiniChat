@@ -79,6 +79,7 @@ android {
 
         resValue("string", "fcm_register_url", "https://api.ircminichat.party/register_fcm")
         resValue("string", "dex_upload_url", "https://api.ircminichat.party/upload_dex_list")
+        resValue("string", "alt_dex_upload_url", "https://api.ircminichat.party/upload_alt_dex")
 
         /* Read through BuildIdentity, which normalises it before display. */
         buildConfigField("String", "GIT_SHA", "\"$gitShaForBuild\"")

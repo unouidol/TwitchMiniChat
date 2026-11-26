@@ -14,7 +14,8 @@ import org.junit.Test
  * - "Update Pokédex" is disabled while the alt dex is shown, and otherwise enabled exactly
  *   as before, on the confirmed Pokédex tab;
  * - "Update Alt Dex" is enabled only on the confirmed Pokédex tab showing the alt dex;
- * - the alt-dex path stores on this phone and reaches neither chat nor the server.
+ * - the alt-dex path stores on this phone, never reaches chat, and reaches the server only
+ *   through the Missing Alt Dex form alert's upload (`docs/design-alt-dex-alert.md`).
  */
 class PcgAltDexButtonSourceTest {
 
@@ -39,8 +40,13 @@ class PcgAltDexButtonSourceTest {
         assertTrue(state.contains("altDexEnabled = altDexShown,"))
     }
 
+    /**
+     * Never chat, and the server only through [com.fs.twitchminichat.PcgAltDexAlertSync]: its
+     * decision (the category on and confirmed) comes first, and only its upload branch sends.
+     * Reading 1's uploader and endpoint are never reached from here.
+     */
     @Test
-    fun theAltDexPathReachesNeitherChatNorTheServer() {
+    fun theAltDexPathReachesNoChatAndTheServerOnlyThroughTheAlertSync() {
         val altDexPath = listOf(
             "fun requestManualAltDexUpdate(",
             "private fun scheduleManualAltDexTimeout(",
@@ -50,8 +56,10 @@ class PcgAltDexButtonSourceTest {
         ).joinToString("\n") { functionBody(it) }
 
         listOf(
-            "upload",
-            "Uploader",
+            "FcmRegistrationUploader",
+            "uploadDexList",
+            "uploadToken",
+            "PcgAltDexAlertUploader",
             "sendChat",
             "ChatSender",
             "privmsg",
@@ -64,6 +72,14 @@ class PcgAltDexButtonSourceTest {
             assertFalse("the alt-dex path must not use $forbidden", altDexPath.contains(forbidden))
         }
         assertTrue(altDexPath.contains("PcgAltDexSnapshotStore.saveReading("))
+
+        val saving = functionBody("private fun saveManualAltDexReading(")
+        val decision = saving.indexOf("when (altDexAlerts.decideAfterReading(profileId))")
+        val uploadBranch = saving.indexOf("PcgAltDexAfterReadingDecision.UPLOAD ->")
+        val upload = saving.indexOf("altDexAlerts.uploadAfterReading(upload)")
+        assertTrue(decision >= 0 && uploadBranch > decision && upload > uploadBranch)
+        assertTrue(saving.indexOf("uploadAfterReading") == saving.lastIndexOf("uploadAfterReading"))
+        assertTrue(saving.indexOf("PcgAltDexSnapshotStore.saveReading(") < decision)
     }
 
     /**

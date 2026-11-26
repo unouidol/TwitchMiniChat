@@ -255,7 +255,8 @@ class PcgProfileAlertSelectionTest {
                 regularMode = regularMode,
                 eventSpawnsEnabled = eventSpawnsEnabled
             ),
-            mostWantedEnabled = mostWantedEnabled
+            mostWantedEnabled = mostWantedEnabled,
+            altDexFormAlertsEnabled = false
         )
     }
 

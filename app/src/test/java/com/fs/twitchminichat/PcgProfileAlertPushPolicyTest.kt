@@ -16,7 +16,8 @@ class PcgProfileAlertPushPolicyTest {
             regularMode = PcgSpawnAlertMode.DEX_AND_TIER_A,
             eventSpawnsEnabled = false
         ),
-        mostWantedEnabled = false
+        mostWantedEnabled = false,
+        altDexFormAlertsEnabled = false
     )
 
     private val otherActive = PcgProfileAlertSelection(
@@ -24,7 +25,8 @@ class PcgProfileAlertPushPolicyTest {
             regularMode = PcgSpawnAlertMode.ALL_SPAWNS,
             eventSpawnsEnabled = true
         ),
-        mostWantedEnabled = true
+        mostWantedEnabled = true,
+        altDexFormAlertsEnabled = false
     )
 
     /** Nothing to say when the backend has already confirmed exactly this. */

@@ -43,7 +43,8 @@ class PcgManualDataUpdateController(
         fun requestManualInventoryUpdate(): Boolean
 
         /**
-         * Requests one alt-dex reading ("Update Alt Dex"), stored on this phone only.
+         * Requests one alt-dex reading ("Update Alt Dex"), stored on this phone, and uploaded
+         * only while Missing Alt Dex form alerts are on and confirmed for the profile.
          *
          * Returns false when the request cannot even be armed, for example
          * because the Activity has no account ID yet or the PCG session is not ready.
