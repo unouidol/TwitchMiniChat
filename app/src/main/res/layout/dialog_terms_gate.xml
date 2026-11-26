@@ -41,6 +41,15 @@
             android:text="@string/terms_gate_github"
             android:textSize="14sp" />
 
+        <!-- Terms version 4: the Alt Dex list, sent while Missing Alt Dex form alerts are on. -->
+        <TextView
+            android:id="@+id/textTermsAltDex"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/terms_gate_alt_dex"
+            android:textSize="14sp" />
+
         <Button
             android:id="@+id/btnOpenTermsFromGate"
             android:layout_width="match_parent"

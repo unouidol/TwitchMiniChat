@@ -17,7 +17,7 @@
 </div>
 
 <h1>TwitchMiniChat Privacy Policy</h1>
-<p class="small">Last updated: 2026-11-13</p>
+<p class="small">Last updated: 2026-11-26</p>
 
 <div class="card">
     <p>
@@ -39,7 +39,8 @@
     <li>Authentication and session data needed to connect to Twitch chat.</li>
     <li>Selected Twitch channels and account preferences stored by the app.</li>
     <li>Push notification registration data, such as FCM token and app/device registration identifiers. Each registration also carries the phone's manufacturer and model name, as Android reports them.</li>
-    <li>The alert settings and Most Wanted watchlists of each account, sent to the TwitchMiniChat server so that it can send the alerts you choose: which spawn alerts are on, including whether event spawns are, and, when you use Most Wanted, whether it is on and the Pokémon you picked for it. Alert settings are sent when you change them, and again when the app starts until the server has confirmed them. A Most Wanted watchlist is sent only when you save it or switch it on or off.</li>
+    <li>The alert settings and Most Wanted watchlists of each account, sent to the TwitchMiniChat server so that it can send the alerts you choose: which spawn alerts are on, including whether event spawns and Missing Alt Dex form alerts are, and, when you use Most Wanted, whether it is on and the Pokémon you picked for it. Alert settings are sent when you change them, and again when the app starts until the server has confirmed them. A Most Wanted watchlist is sent only when you save it or switch it on or off.</li>
+    <li>When you turn on Missing Alt Dex form alerts for an account: the list of forms missing from that account’s Alt Dex, as the last Update Alt Dex on this phone read it, with the time it was read, the account’s identifier and its Twitch username. It is sent to the TwitchMiniChat server after each Update Alt Dex, and once when you turn these alerts on, so that the server can tell you when a missing form spawns. Nothing about your Alt Dex is sent while these alerts are off on this phone.</li>
     <li>Public Twitch chat content shown inside the app and cached chat history needed for app functionality.</li>
     <li>Message report data submitted by users, which may include message text, username, channel, message ID, and timestamp.</li>
     <li>Blocked users lists and other local app settings stored on the device.</li>
@@ -63,7 +64,7 @@
 <h2>4. Who data may be shared with</h2>
 <ul>
     <li>Twitch, to provide Twitch authentication and chat-related functionality.</li>
-    <li>The Pokémon Community Game extension, when you choose to open it. It is a Twitch extension operated by a third party, not by TMC. It runs inside the app's built-in browser and communicates with its own operator's servers, under that operator's terms. TMC only reads what the extension shows on your phone, such as your Poké Ball counts and the Pokémon missing from your Pokédex, to offer its helpers; it does not change the extension or what the extension sends. What TMC reads stays on your phone, with one exception: when you tap Update Pokédex, the list of spawnable Pokémon missing from your Pokédex is sent to the TwitchMiniChat server, with your account's identifier and Twitch username, so that the server can send the spawn alerts you choose.</li>
+    <li>The Pokémon Community Game extension, when you choose to open it. It is a Twitch extension operated by a third party, not by TMC. It runs inside the app's built-in browser and communicates with its own operator's servers, under that operator's terms. TMC only reads what the extension shows on your phone, such as your Poké Ball counts and the Pokémon missing from your Pokédex, to offer its helpers; it does not change the extension or what the extension sends. What TMC reads stays on your phone, with two exceptions. When you tap Update Pokédex, the list of spawnable Pokémon missing from your Pokédex is sent to the TwitchMiniChat server, with your account's identifier and Twitch username, so that the server can send the spawn alerts you choose. When Missing Alt Dex form alerts are on for an account, the list of forms missing from its Alt Dex is sent the same way, after each Update Alt Dex.</li>
     <li>Google / Firebase services used for push notifications and, when crash reporting is enabled, for crash and error diagnostics (Firebase Crashlytics).</li>
     <li>Hosting or infrastructure providers used to operate the app backend.</li>
     <li>Cloudflare, which publishes the TwitchMiniChat server on the internet. Every request between the app and that server passes through Cloudflare's infrastructure, and so do the sign-in pages your browser opens on that server. Cloudflare therefore handles your IP address, the requests themselves and the server's answers, under Cloudflare's own privacy policy.</li>
@@ -82,6 +83,7 @@
     <li>The local diagnostic record is limited in size: older entries are discarded as new ones are written. It is erased by every data reset in Safety &amp; Privacy, and by uninstalling the app.</li>
     <li>Some server-side records may be retained for a limited time for operational integrity, audit, abuse prevention, fraud prevention, or legal compliance.</li>
     <li>Cached chat history may be retained only for a limited period needed for service functionality.</li>
+    <li>The Alt Dex list sent for Missing Alt Dex form alerts is replaced by each new one. It is deleted when these alerts are off for that account on every device, and by "Delete app account and all data".</li>
 </ul>
 
 <h2>6. User controls</h2>
@@ -89,6 +91,7 @@
     <li>Users can report messages in-app.</li>
     <li>Users can block users in-app.</li>
     <li>Users can manage privacy and data controls from the app’s Safety &amp; Privacy section.</li>
+    <li>Missing Alt Dex form alerts are off unless you turn them on, for each account, in the PCG notifications menu.</li>
     <li>Users can turn crash reporting off at any time in Safety &amp; Privacy. Once turned off, no further crash or error reports are sent from that device, and any report still waiting to be sent is discarded.</li>
     <li>Users can request deletion of app-related data. See <a href="data_deletion.html">Data Deletion</a>.</li>
 </ul>

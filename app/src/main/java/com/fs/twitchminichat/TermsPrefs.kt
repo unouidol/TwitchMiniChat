@@ -19,8 +19,14 @@ object TermsPrefs {
     //    So is section 2's naming of the alert settings, the Most Wanted watchlists and the
     //    phone's model in each registration: v5.4.1 already sent all three, before version 2
     //    existed, so naming them corrects an omission and collects nothing new.
+    // 4: Missing Alt Dex form alerts. When they are on, the server receives the list of forms
+    //    missing from an account's Alt Dex, which nothing sent before: data newly collected, a
+    //    material change by the same criterion, so every user who accepted version 3 sees the
+    //    gate once more, on first opening 5.7.0. The alerts being opt-in does not change that:
+    //    the criterion asks what is collected, not how many choose it (owner's decision 10 of
+    //    2026-11-25, docs/design-alt-dex-alert.md).
     /** The terms version a stored acceptance must reach; see [isAccepted]. */
-    internal const val CURRENT_TERMS_VERSION = 3
+    internal const val CURRENT_TERMS_VERSION = 4
 
     /**
      * Whether an acceptance stored as [acceptedVersion] covers the current terms.

@@ -14,27 +14,32 @@ import com.fs.twitchminichat.pcg.PcgNotificationChannelManager
 /**
  * Dialog anchored conceptually to the bell button.
  *
- * It exposes spawn alert modes, Most Wanted alerts and local notification
- * delivery preferences. It never sends chat or gameplay commands.
+ * It exposes spawn alert modes, Most Wanted alerts, Missing Alt Dex form alerts and
+ * local notification delivery preferences. It never sends chat or gameplay commands.
  */
 object PcgSpawnAlertModeMenu {
 
     /**
      * Shows the complete informative alert menu.
      *
-     * Most Wanted is independent from ordinary and event spawn alerts. All
-     * changed values are applied only after the explicit OK tap.
+     * Most Wanted and Missing Alt Dex form alerts are independent from ordinary and
+     * event spawn alerts and from each other. All changed values are applied only after
+     * the explicit OK tap.
      *
      * @param currentSelection what this phone holds, which the menu shows.
      * @param confirmedSelection [currentSelection] as the backend has confirmed it
      *   ([PcgProfileAlertSelection.confirmedBy]). OK calls back when the selection differs
      *   from this one, so a Missing Alt Dex form category the server refused is sent again
      *   although its checkbox still shows it on.
+     * @param altDexReadingStored whether this phone holds an accepted alt-dex reading for
+     *   the profile. Without one, the ticked Missing Alt Dex form checkbox shows a hint on
+     *   how to make one (decision 3 of `docs/design-alt-dex-alert.md`).
      */
     fun show(
         anchor: View,
         currentSelection: PcgProfileAlertSelection,
         confirmedSelection: PcgProfileAlertSelection,
+        altDexReadingStored: Boolean,
         onMostWantedRequested: () -> Unit,
         onSelectionSelected: (PcgProfileAlertSelection) -> Unit
     ) {
@@ -103,6 +108,31 @@ object PcgSpawnAlertModeMenu {
         }
         root.addView(mostWantedCheckBox)
 
+        val altDexCheckBox = CheckBox(context).apply {
+            text = context.getString(R.string.pcg_alt_dex_form_alert_label)
+            isChecked = currentSelection.altDexFormAlertsEnabled
+            setPadding(0, dp(context, 2), 0, dp(context, 2))
+        }
+        root.addView(altDexCheckBox)
+
+        val altDexNoReadingHint = TextView(context).apply {
+            text = context.getString(R.string.pcg_alt_dex_form_alert_no_reading)
+            textSize = 12f
+            setPadding(dp(context, 32), 0, 0, dp(context, 4))
+        }
+        root.addView(altDexNoReadingHint)
+
+        fun updateAltDexNoReadingHint() {
+            altDexNoReadingHint.visibility =
+                if (showsNoAltDexReadingHint(altDexCheckBox.isChecked, altDexReadingStored)) {
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
+        }
+        updateAltDexNoReadingHint()
+        altDexCheckBox.setOnCheckedChangeListener { _, _ -> updateAltDexNoReadingHint() }
+
         val divider = View(context).apply {
             setPadding(0, dp(context, 8), 0, dp(context, 8))
         }
@@ -158,9 +188,7 @@ object PcgSpawnAlertModeMenu {
                             eventSpawnCheckBox.isChecked
                     ),
                     mostWantedEnabled = mostWantedCheckBox.isChecked,
-                    // No checkbox for it yet (A2): what this phone holds is kept as it is.
-                    altDexFormAlertsEnabled =
-                        currentSelection.altDexFormAlertsEnabled
+                    altDexFormAlertsEnabled = altDexCheckBox.isChecked
                 )
 
                 if (selectedSelection != confirmedSelection) {
@@ -192,6 +220,15 @@ object PcgSpawnAlertModeMenu {
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
+
+    /**
+     * Whether the hint under the Missing Alt Dex form checkbox is shown: while the box is
+     * ticked and this phone holds no alt-dex reading for the profile. It is the same
+     * condition under which the bell menu's turn-on has nothing to upload
+     * ([PcgAltDexAlertSyncOutcome.NO_READING]), whose toast repeats the hint once after OK.
+     */
+    internal fun showsNoAltDexReadingHint(checked: Boolean, readingStored: Boolean): Boolean =
+        checked && !readingStored
 
     /** Converts density-independent pixels to raw pixels. */
     private fun dp(

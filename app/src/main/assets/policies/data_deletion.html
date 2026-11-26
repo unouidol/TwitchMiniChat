@@ -17,7 +17,7 @@
 </div>
 
 <h1>Data Deletion</h1>
-<p class="small">Last updated: 2026-11-18</p>
+<p class="small">Last updated: 2026-11-26</p>
 
 <div class="card">
     <p>
@@ -51,7 +51,9 @@
     <li><strong>On the server:</strong> removes this phone's registration for alerts. The data
         belonging to your accounts — uploaded Pokédex lists, watchlists, and the sign-in
         records TwitchMiniChat keeps — is <strong>not</strong> deleted, and your other devices
-        are not affected. To delete that data, use "Delete app account and all data" instead.
+        are not affected. The Alt Dex list uploaded for one of your accounts is deleted once no
+        device has that account’s Missing Alt Dex form alerts on. To delete that data, use
+        "Delete app account and all data" instead.
     </li>
     <li><strong>The push notification token is deleted from this phone.</strong> Without it the
         phone can receive no alert at all, and the server drops this phone's registration the
@@ -86,8 +88,9 @@
 <h2>Delete app account and all data</h2>
 <ul>
     <li><strong>On the server, first:</strong> for the accounts registered on this phone,
-        removes this phone's registration for alerts, the Pokédex lists uploaded for those
-        accounts, and the sign-in records TwitchMiniChat keeps for them. The server decides
+        removes this phone's registration for alerts, the Pokédex and Alt Dex lists and the
+        Most Wanted watchlists uploaded for those accounts, and the sign-in records
+        TwitchMiniChat keeps for them. The server decides
         which accounts are covered from its own record of this phone, not from what the app
         sends. When every step succeeds, the server keeps a deletion notice for those accounts.
         The notice is removed when one of those accounts signs in to TwitchMiniChat again, and
@@ -116,7 +119,8 @@
     <li><strong>On the server:</strong> asks the server to switch that account's alerts off for
         this phone, which makes the server drop that account from this phone's list. It does
         <strong>not</strong> delete that account's data: uploaded Pokédex lists, watchlists and
-        sign-in records are kept.</li>
+        sign-in records are kept. The Alt Dex list uploaded for that account is deleted once
+        no device has its Missing Alt Dex form alerts on.</li>
     <li><strong>If that request fails:</strong> the account is removed from the phone anyway,
         the app says that alerts for it may keep arriving for a while, and it keeps trying on
         its own. Until it succeeds the phone keeps that account's sign-in with the
