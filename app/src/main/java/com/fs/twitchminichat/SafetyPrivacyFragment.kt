@@ -297,8 +297,9 @@ class SafetyPrivacyFragment : Fragment(R.layout.fragment_safety_privacy) {
     private fun recordOwedTokenDeletionIfNeeded(logTag: String, tokenDeletionOk: Boolean) {
         val ctx = requireContext()
         val recorded = DeviceEraseOwedWork.recordIfNeeded(
+            coordinator = OwedWorkCoordinator.PROCESS,
             tokenDeletionOk = tokenDeletionOk,
-            owedRecords = OwedServerOperationStore.preferences(ctx),
+            owedRecords = { OwedServerOperationStore.preferences(ctx) },
             enqueueOwedWork = { OwedServerOperationWorker.enqueue(ctx) }
         )
         if (!recorded) return

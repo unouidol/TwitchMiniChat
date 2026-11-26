@@ -94,10 +94,11 @@ class AuthCallbackActivity : AppCompatActivity() {
          * NewAccountLocalCommit, which explains each step.
          */
         val outcome = NewAccountLocalCommit.commit(
+            coordinator = OwedWorkCoordinator.PROCESS,
             accounts = AccountRepository(this),
             account = account,
             persistSession = { persistBackendSession(result, finalProfileId) },
-            owedRecords = OwedServerOperationStore.preferences(applicationContext)
+            owedRecords = { OwedServerOperationStore.preferences(applicationContext) }
         )
 
         when (outcome) {

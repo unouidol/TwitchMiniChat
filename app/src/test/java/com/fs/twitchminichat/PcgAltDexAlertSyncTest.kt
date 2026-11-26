@@ -27,8 +27,17 @@ class PcgAltDexAlertSyncTest {
     private var answer: PcgAltDexAlertUploadResult = PcgAltDexAlertUploadResult.Stored(count = 1)
     private val sent = mutableListOf<PcgAltDexAlertUpload>()
 
+    private val coordinator = OwedWorkCoordinator()
+
+    /** Whether lock L was held each time the sync obtained the acknowledgement file. */
+    private val fileObtainedUnderLock = mutableListOf<Boolean>()
+
     private val sync = PcgAltDexAlertSync(
-        acknowledgements = acknowledgements,
+        coordinator = coordinator,
+        acknowledgements = {
+            fileObtainedUnderLock += coordinator.lock.isHeldByCurrentThread
+            acknowledgements
+        },
         categoryEnabled = { localCategory[it] == true },
         loadReading = { reading },
         sender = { upload -> sent += upload; answer }
@@ -221,6 +230,29 @@ class PcgAltDexAlertSyncTest {
             setOf(PcgAltDexAlertSyncOutcome.STORED, PcgAltDexAlertSyncOutcome.NO_READING),
             PcgAltDexAlertSyncOutcome.entries.filter { it.completesTurnOn }.toSet()
         )
+    }
+
+    /**
+     * R3 on #117: both moves of the acknowledged category, the turn-on's and a 409's, commit
+     * under lock L, through a file obtained under it. An erase deletes that file under L, and a
+     * commit through an instance taken before the erase would write the whole old map back.
+     */
+    @Test
+    fun bothMovesOfTheCategoryAreMadeUnderLockL() {
+        acknowledge(local)
+        val lockHeldAtCommit = mutableListOf<Boolean>()
+        acknowledgements.beforeCommit = { lockHeldAtCommit += coordinator.lock.isHeldByCurrentThread }
+
+        assertEquals(PcgAltDexAlertSyncOutcome.STORED, sync.uploadAfterTurnOn(profileId, "label-a"))
+        answer = PcgAltDexAlertUploadResult.AlertsOff
+        assertEquals(
+            PcgAltDexAlertSyncOutcome.ALERTS_OFF,
+            sync.uploadAfterReading(PcgAltDexAlertUpload.of(profileId, "label-a", checkNotNull(reading)))
+        )
+
+        assertEquals(listOf(true, true), lockHeldAtCommit)
+        assertEquals(listOf(true, true), fileObtainedUnderLock)
+        assertFalse(coordinator.lock.isLocked)
     }
 
     // What the user is told.

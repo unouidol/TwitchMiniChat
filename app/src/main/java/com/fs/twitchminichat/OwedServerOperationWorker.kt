@@ -51,21 +51,19 @@ class OwedServerOperationWorker(
             return Result.failure()
         }
 
-        return when (val attempt = OwedServerOperationRunner.runOwedWorkBlocking(applicationContext)) {
-            OwedServerOperationRunner.Attempt.NOTHING_TO_DO,
-            OwedServerOperationRunner.Attempt.COMPLETED -> {
-                Log.d(TAG, "worker finished attempt=$attempt")
-                Result.success()
-            }
+        val attempt = OwedServerOperationRunner.runOwedWorkBlocking(applicationContext)
 
-            OwedServerOperationRunner.Attempt.FAILED -> {
-                Log.d(
-                    TAG,
-                    "worker attempt failed runAttemptCount=$runAttemptCount; retrying"
-                )
-                Result.retry()
-            }
+        if (!retries(attempt)) {
+            Log.d(TAG, "worker finished attempt=$attempt")
+            return Result.success()
         }
+
+        Log.d(
+            TAG,
+            "worker attempt not finished attempt=$attempt " +
+                "runAttemptCount=$runAttemptCount; retrying"
+        )
+        return Result.retry()
     }
 
     companion object {
@@ -83,6 +81,23 @@ class OwedServerOperationWorker(
          * Attempts per enqueue before the chain stops and the next start re-enqueues.
          */
         internal const val MAX_RUN_ATTEMPTS = 8
+
+        /**
+         * Whether a pass that ended with [attempt] is retried.
+         *
+         * A failure is, and so is work left to another attempt in flight
+         * ([OwedServerOperationRunner.Attempt.DEFERRED]): that attempt may still fail, and
+         * the start-up attempt, one of those it can be left to, never retries.
+         */
+        internal fun retries(attempt: OwedServerOperationRunner.Attempt): Boolean {
+            return when (attempt) {
+                OwedServerOperationRunner.Attempt.NOTHING_TO_DO,
+                OwedServerOperationRunner.Attempt.COMPLETED -> false
+
+                OwedServerOperationRunner.Attempt.DEFERRED,
+                OwedServerOperationRunner.Attempt.FAILED -> true
+            }
+        }
 
         /**
          * Queues the owed work, keeping an existing chain rather than restarting it.

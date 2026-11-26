@@ -78,7 +78,22 @@ object AccountProfileRemovalController {
             Log.w(TAG, "Profile id is blank; removing account without profile-scoped cleanup")
         }
 
-        val removedAccount = AccountRepository(appContext).removeById(account.id) != null
+        /*
+         * Under lock L with a claim on the profile's disable, when there is a profile: see
+         * AccountRemovalDisableAnswer.removeAccount.
+         */
+        val removal = if (profileId.isNotBlank()) {
+            AccountRemovalDisableAnswer.removeAccount(
+                coordinator = OwedWorkCoordinator.PROCESS,
+                profileId = profileId
+            ) {
+                AccountRepository(appContext).removeById(account.id) != null
+            }
+        } else {
+            null
+        }
+        val removedAccount = removal?.removedAccount
+            ?: (AccountRepository(appContext).removeById(account.id) != null)
         TwitchEmoteCatalogStore(appContext).clearAccount(account.id)
         TwitchEmoteRecentStore(appContext).clearAccount(account.id)
         TwitchIrcSessionMetadataStore.remove(account.id)
@@ -95,7 +110,7 @@ object AccountProfileRemovalController {
             )
         )
 
-        if (profileId.isBlank()) {
+        if (removal == null) {
             BackendSessionStore(appContext).removeProfile(profileId)
             return
         }
@@ -112,14 +127,20 @@ object AccountProfileRemovalController {
         ) { backendOk ->
             /*
              * Session removal on success, the owed record on failure: see
-             * AccountRemovalDisableAnswer, which explains why the session is kept.
+             * AccountRemovalDisableAnswer, which explains why the session is kept, and
+             * when a success keeps it too.
              */
             val disableOwed = AccountRemovalDisableAnswer.apply(
+                coordinator = OwedWorkCoordinator.PROCESS,
+                ticket = removal.ticket,
                 backendOk = backendOk,
-                profileId = profileId,
+                accounts = AccountRepository(appContext),
                 sessions = BackendSessionStore(appContext),
-                owedRecords = OwedServerOperationStore.preferences(appContext),
+                owedRecords = { OwedServerOperationStore.preferences(appContext) },
                 enqueueOwedWork = { OwedServerOperationWorker.enqueue(appContext) },
+                requestRegistration = { removedProfileId ->
+                    FcmRegistrationUploader.requestProfileRegistration(appContext, removedProfileId)
+                },
                 log = AndroidOwedWorkLog(TAG)
             )
 
