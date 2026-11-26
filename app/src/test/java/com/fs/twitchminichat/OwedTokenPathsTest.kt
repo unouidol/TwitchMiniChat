@@ -98,16 +98,30 @@ class OwedTokenPathsTest {
         assertEquals(1, Regex("""RegistrationTokenGate\.obtain\(""").findAll(uploader).count())
     }
 
-    /** R1: the application's token deletion hands a late completion to [LateTokenDeletion]. */
+    /**
+     * R1: the owed pass's token deletion hands a late completion to [LateTokenDeletion]; the
+     * erase's own, made before its wipe while the accounts are still on the phone, hands it to
+     * nothing, so that it never registers the phone being erased.
+     */
     @Test
     fun theApplicationsDeletionHandsALateCompletionOn() {
         val uploader = checkNotNull(mainSources().toMap()["FcmRegistrationUploader.kt"])
         val deletion = uploader
-            .substringAfter("fun deleteFirebaseTokenBlocking(context: Context): Boolean {")
+            .substringAfter("fun deleteOwedFirebaseTokenBlocking(context: Context): Boolean {")
             .substringBefore("/** Delivers one deletion result on the Android main thread. */")
 
         assertTrue(deletion.contains("onLateSuccess = {\n                LateTokenDeletion.completed(\n                    coordinator = OwedWorkCoordinator.PROCESS,"))
         assertTrue(deletion.contains("requestProfileRegistration(appContext, profileId)"))
+
+        val erase = uploader
+            .substringAfter("fun deleteFirebaseToken(")
+            .substringBefore("Deletes the Firebase Cloud Messaging token an erase left owed")
+        assertTrue(erase.contains("onLateSuccess = {}"))
+        assertFalse(erase.contains("LateTokenDeletion"))
+        assertEquals(1, Regex("""LateTokenDeletion\.completed\(""").findAll(uploader).count())
+
+        val seams = checkNotNull(mainSources().toMap()["OwedWorkSeams.kt"])
+        assertTrue(seams.contains("return FcmRegistrationUploader.deleteOwedFirebaseTokenBlocking(appContext)"))
     }
 
     /** Every Kotlin file of the application, by name, with line ends as LF. */

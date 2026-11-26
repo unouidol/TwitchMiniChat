@@ -126,7 +126,7 @@ internal object PlayServicesFirebaseTokens : FirebaseTokenOperations {
 /**
  * Deletes the Firebase Cloud Messaging token and its cached copy, blocking.
  *
- * The body of `FcmRegistrationUploader.deleteFirebaseTokenBlocking`, with its collaborators
+ * The body of the two token deletions of `FcmRegistrationUploader`, with their collaborators
  * passed in. PR-3 adds [deleteBlocking]'s `onLateSuccess` (R1 on #117).
  */
 internal object FirebaseTokenDeletion {
@@ -136,7 +136,8 @@ internal object FirebaseTokenDeletion {
      *
      * A wait that times out does not cancel the deletion. If it completes after all, the token a
      * registration obtained in between is gone, and [onLateSuccess] runs, on the thread the
-     * deletion completes on; in the application it registers the signed-in profiles again (R1).
+     * deletion completes on. The owed pass's registers the signed-in profiles again (R1); the
+     * erase's, made before its wipe, does nothing.
      *
      * @param tokenCache the preferences file holding [cachedTokenKey].
      */
@@ -248,7 +249,7 @@ internal class ProductionOwedWorkEnvironment(
     }
 
     override fun deleteFirebaseToken(): Boolean {
-        return FcmRegistrationUploader.deleteFirebaseTokenBlocking(appContext)
+        return FcmRegistrationUploader.deleteOwedFirebaseTokenBlocking(appContext)
     }
 
     override fun sendProfileAlertDisable(profileId: String): Boolean {

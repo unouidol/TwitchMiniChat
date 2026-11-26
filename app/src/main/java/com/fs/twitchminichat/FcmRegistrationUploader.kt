@@ -725,7 +725,20 @@ object FcmRegistrationUploader {
         val appContext = context.applicationContext
 
         thread(start = true, name = "delete-firebase-token") {
-            val ok = deleteFirebaseTokenBlocking(appContext)
+            /*
+             * No late-completion handler here. This deletion runs before the erase's wipe,
+             * with the accounts still on the phone; a deletion that timed out and completed
+             * before the wipe would then register the phone being erased again. A failure here
+             * is recorded as owed after the wipe, and the owed pass's deletion has the handler.
+             */
+            val ok = FirebaseTokenDeletion.deleteBlocking(
+                tokens = firebaseTokens,
+                timeoutSeconds = FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS,
+                tokenCache = tokenCache(appContext),
+                cachedTokenKey = KEY_LATEST_FCM_TOKEN,
+                log = AndroidOwedWorkLog(TAG),
+                onLateSuccess = {}
+            )
             Handler(Looper.getMainLooper()).post {
                 onComplete(ok)
             }
@@ -733,12 +746,14 @@ object FcmRegistrationUploader {
     }
 
     /**
-     * Deletes the Firebase Cloud Messaging token and the cached copy of it.
+     * Deletes the Firebase Cloud Messaging token an erase left owed, and the cached copy of it:
+     * the owed-work pass's deletion.
      *
      * Blocking: callers must already be off the main thread. Returns whether the token
-     * is now gone.
+     * is now gone. A deletion whose wait timed out and that completes later goes to
+     * [LateTokenDeletion], which registers the signed-in profiles again (R1 on #117).
      */
-    fun deleteFirebaseTokenBlocking(context: Context): Boolean {
+    fun deleteOwedFirebaseTokenBlocking(context: Context): Boolean {
         val appContext = context.applicationContext
         val log = AndroidOwedWorkLog(TAG)
 
