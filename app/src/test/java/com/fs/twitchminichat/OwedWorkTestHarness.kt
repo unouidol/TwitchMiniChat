@@ -11,8 +11,17 @@ import java.util.concurrent.TimeoutException
  * stores' logic over in-memory or temporary storage: [AccountRepository] over a fake
  * account store, [BackendSessionStore] over a temporary directory, and the owed-work and
  * acknowledgement stores over [ThreadSafeTestSharedPreferences]. Firebase and the
- * backend are modelled. PR-2 and PR-3 extend it with the concurrency they test.
+ * backend are modelled. PR-2 adds what its races need: a hook inside each commit, the log of
+ * commits, a hook inside each modelled disable request, and the count of network calls made
+ * while lock L was held.
  */
+
+/** One commit applied to a [ThreadSafeTestSharedPreferences]: who made it, and what it wrote. */
+internal data class TestCommit(
+    val thread: String,
+    /** Each key the commit wrote, with its new value; null for a removal. */
+    val changes: Map<String, Any?>
+)
 
 /**
  * A [SharedPreferences] in memory whose every call is atomic.
@@ -26,6 +35,17 @@ internal class ThreadSafeTestSharedPreferences : SharedPreferences {
 
     private val lock = Any()
     private val values = LinkedHashMap<String, Any?>()
+
+    /**
+     * Runs at the start of every commit, on the committing thread, before anything is
+     * written and outside this file's own lock. A test holds a store between its read and its
+     * write by blocking here; empty by default.
+     */
+    @Volatile
+    var beforeCommit: () -> Unit = {}
+
+    /** Every commit applied, in the order applied. */
+    val commits: MutableList<TestCommit> = java.util.Collections.synchronizedList(mutableListOf())
 
     override fun getAll(): Map<String, *> = synchronized(lock) { values.toMap() }
 
@@ -86,12 +106,17 @@ internal class ThreadSafeTestSharedPreferences : SharedPreferences {
         override fun clear() = apply { clear = true }
 
         override fun commit(): Boolean {
+            beforeCommit()
             synchronized(lock) {
                 if (clear) values.clear()
                 removals.forEach(values::remove)
                 changes.forEach { (key, value) ->
                     if (value == null) values.remove(key) else values[key] = value
                 }
+                commits += TestCommit(
+                    thread = Thread.currentThread().name,
+                    changes = removals.associateWith { null } + changes
+                )
             }
             return true
         }
@@ -198,11 +223,31 @@ internal class RecordingOwedWorkLog : OwedWorkLog {
 /**
  * The whole environment of one owed-work pass, for a local test.
  *
- * The disable sender models the backend: it records each request and, when the backend
- * acknowledges it, records the disabled selection as acknowledged, exactly as
+ * The disable sender models the backend: it records each request, fails without a backend
+ * session as the real one does, and, when the backend acknowledges it, records the disabled
+ * selection as acknowledged under lock L, exactly as
  * `FcmRegistrationUploader.setProfileSpawnAlertModeBlocking` does on a 2xx answer.
+ *
+ * Each modelled network call counts itself in [networkCallsUnderLock] if it is made while the
+ * calling thread holds lock L, which the design forbids (T15 on #117).
  */
 internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnvironment {
+
+    override val coordinator = OwedWorkCoordinator()
+
+    /** Network calls made while lock L was held; zero is the only correct value. */
+    val networkCallsUnderLock = java.util.concurrent.atomic.AtomicInteger()
+
+    /** Profiles a registration was requested for, in order (R5). */
+    val requestedRegistrations = java.util.Collections.synchronizedList(mutableListOf<String>())
+
+    /**
+     * Runs inside each modelled disable request, after it is counted in [sentDisables] and
+     * before the backend reads the session. A test holds a request in flight by blocking
+     * here; empty by default.
+     */
+    @Volatile
+    var beforeDisableAnswered: (profileId: String) -> Unit = {}
 
     override val owedRecords = ThreadSafeTestSharedPreferences()
     override val acknowledgements = ThreadSafeTestSharedPreferences()
@@ -235,6 +280,7 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
     }
 
     override fun deleteFirebaseToken(): Boolean {
+        countIfUnderLock()
         return FirebaseTokenDeletion.deleteBlocking(
             tokens = firebase,
             timeoutSeconds = TOKEN_DELETION_TIMEOUT_SECONDS,
@@ -245,16 +291,31 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
     }
 
     override fun sendProfileAlertDisable(profileId: String): Boolean {
+        countIfUnderLock()
         sentDisables += profileId
+        beforeDisableAnswered(profileId)
+        if (sessions.lookup(profileId) !is BackendSessionLookup.Present) return false
+
         val acknowledged = backendAcknowledges(profileId)
         if (acknowledged) {
-            PcgProfileAlertAcknowledgementStore.record(
-                acknowledgements,
-                profileId,
-                PcgProfileAlertSelection.DISABLED
-            )
+            coordinator.locked {
+                PcgProfileAlertAcknowledgementStore.record(
+                    acknowledgements,
+                    profileId,
+                    PcgProfileAlertSelection.DISABLED
+                )
+            }
         }
         return acknowledged
+    }
+
+    override fun requestProfileRegistration(profileId: String) {
+        countIfUnderLock()
+        requestedRegistrations += profileId
+    }
+
+    private fun countIfUnderLock() {
+        if (coordinator.lock.isHeldByCurrentThread) networkCallsUnderLock.incrementAndGet()
     }
 
     /** Signs an account in for [profileId], as a completed sign-in leaves it. */
@@ -270,8 +331,14 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
 
     /** Records [selection] as acknowledged by the backend for [profileId]. */
     fun acknowledge(profileId: String, selection: PcgProfileAlertSelection) {
-        PcgProfileAlertAcknowledgementStore.record(acknowledgements, profileId, selection)
+        coordinator.locked {
+            PcgProfileAlertAcknowledgementStore.record(acknowledgements, profileId, selection)
+        }
     }
+
+    /** The session stored for [profileId], or null. */
+    fun sessionToken(profileId: String): String? =
+        (sessions.lookup(profileId) as? BackendSessionLookup.Present)?.token
 
     fun hasSession(profileId: String): Boolean =
         sessions.lookup(profileId) is BackendSessionLookup.Present

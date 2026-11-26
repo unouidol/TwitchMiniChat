@@ -187,6 +187,17 @@ internal interface OwedWorkEnvironment {
     /** Sends one profile's disabled selection; whether the backend acknowledged it. */
     fun sendProfileAlertDisable(profileId: String): Boolean
 
+    /**
+     * Starts one registration pass for [profileId], and returns at once.
+     *
+     * Requested when a disable was acknowledged for a profile that had signed in again
+     * while the disable was in flight, so the server's last word for it is the disable (R5).
+     */
+    fun requestProfileRegistration(profileId: String)
+
+    /** Lock L and the state it guards. */
+    val coordinator: OwedWorkCoordinator
+
     /** The runner's diagnostic lines. */
     val log: OwedWorkLog
 }
@@ -219,6 +230,12 @@ internal class ProductionOwedWorkEnvironment(
     override fun sendProfileAlertDisable(profileId: String): Boolean {
         return FcmRegistrationUploader.sendProfileAlertDisableBlocking(appContext, profileId)
     }
+
+    override fun requestProfileRegistration(profileId: String) {
+        FcmRegistrationUploader.requestProfileRegistration(appContext, profileId)
+    }
+
+    override val coordinator: OwedWorkCoordinator = OwedWorkCoordinator.PROCESS
 
     override val log: OwedWorkLog = AndroidOwedWorkLog("OWED_SERVER_OP")
 }

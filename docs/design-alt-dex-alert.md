@@ -298,8 +298,9 @@ by unit tests):
   category is off on every device record, and the others were acknowledged off. A failed
   disable is still owed through its marker. A delivery whose answer was lost leaves the
   acknowledgement stale in the same way for every category, today as before.
-- In F3's PR-2 (#117), the two new writes, raise and lower, go under lock L with the existing
-  acknowledgement write (R3).
+- Since F3's PR-2 (#117), the two writes, raise and lower, are made under lock L with the
+  acknowledgement write after a delivery, each through a file obtained inside L (R3; see
+  `OwedWorkCoordinator`).
 
 ## b) Server storage
 

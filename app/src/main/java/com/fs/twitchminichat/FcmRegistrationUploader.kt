@@ -322,12 +322,19 @@ object FcmRegistrationUploader {
              * between "the backend already knows this" and "the backend was never
              * told", and until it was written down neither could be distinguished, so
              * a failed request could be neither retried nor skipped.
+             *
+             * Under lock L, with the file obtained inside it: an erase deletes this file
+             * under L, and a commit through an instance taken before it would write the
+             * whole old map back (R3 on #117). record() also reads the alt-dex flag before
+             * writing it, which makes it a read-modify-write.
              */
-            PcgProfileAlertAcknowledgementStore.record(
-                context = context,
-                profileId = normalizedProfileId,
-                selection = selection
-            )
+            OwedWorkCoordinator.PROCESS.locked {
+                PcgProfileAlertAcknowledgementStore.record(
+                    context = context,
+                    profileId = normalizedProfileId,
+                    selection = selection
+                )
+            }
         }
 
         return acknowledged
@@ -363,6 +370,29 @@ object FcmRegistrationUploader {
              */
             put("enabled", selection.requiresFirebaseDelivery)
         }
+    }
+
+    /**
+     * Starts one registration pass for [profileId] with the cached token, as the start-up
+     * registration does, and returns at once.
+     *
+     * Requested by the owed-work paths when a disable was acknowledged for a profile that
+     * had signed in again while the disable was in flight (R5 on #117): the server's last
+     * word for it is then the disable, and the pass sends the profile's own selection after
+     * it. With no cached token nothing is sent here, and the start-up registration covers it.
+     */
+    fun requestProfileRegistration(context: Context, profileId: String) {
+        val appContext = context.applicationContext
+        val cachedToken = appContext
+            .getSharedPreferences(
+                DeviceCredentialStore.PREFERENCES_NAME,
+                Context.MODE_PRIVATE
+            )
+            .getString(KEY_LATEST_FCM_TOKEN, null)
+            .orEmpty()
+
+        Log.d(TAG, "registration requested after a disable for a profile signed in again")
+        uploadToken(appContext, cachedToken, profileId)
     }
 
     /**

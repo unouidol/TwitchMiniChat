@@ -235,11 +235,17 @@ internal enum class PcgAltDexAlertSyncOutcome {
  * write is a retry: nothing here sends a second request, queues one, or touches the owed-work
  * store.
  *
- * Owner's decision of 2026-11-25. In F3's PR-2 (#117) both writes go under lock L, as the
- * acknowledgement write of `setProfileSpawnAlertModeBlocking` does (R3).
+ * Owner's decision of 2026-11-25. Both writes are made under lock L ([OwedWorkCoordinator]),
+ * with the file obtained inside it, as the acknowledgement write of
+ * `setProfileSpawnAlertModeBlocking` is: an erase deletes the file under L, and a commit
+ * through an instance taken before it would write the whole old map back (R3 on #117).
+ *
+ * @param acknowledgements the file of [PcgProfileAlertAcknowledgementStore], obtained on each
+ *   use rather than once, for the reason above.
  */
 internal class PcgAltDexAlertSync(
-    private val acknowledgements: SharedPreferences,
+    private val coordinator: OwedWorkCoordinator,
+    private val acknowledgements: () -> SharedPreferences,
     private val categoryEnabled: (profileId: String) -> Boolean,
     private val loadReading: (profileId: String) -> PcgAltDexSnapshot?,
     private val sender: PcgAltDexAlertSender
@@ -249,7 +255,7 @@ internal class PcgAltDexAlertSync(
     fun decideAfterReading(profileId: String): PcgAltDexAfterReadingDecision {
         if (!categoryEnabled(profileId)) return PcgAltDexAfterReadingDecision.CATEGORY_OFF
 
-        val acknowledged = PcgProfileAlertAcknowledgementStore.read(acknowledgements, profileId)
+        val acknowledged = PcgProfileAlertAcknowledgementStore.read(acknowledgements(), profileId)
         return if (acknowledged?.altDexFormAlertsEnabled == true) {
             PcgAltDexAfterReadingDecision.UPLOAD
         } else {
@@ -264,11 +270,7 @@ internal class PcgAltDexAlertSync(
     fun uploadAfterReading(upload: PcgAltDexAlertUpload): PcgAltDexAlertSyncOutcome {
         val outcome = outcomeOf(sender.send(upload))
         if (outcome == PcgAltDexAlertSyncOutcome.ALERTS_OFF) {
-            PcgProfileAlertAcknowledgementStore.setAltDexFormAlertsConfirmed(
-                acknowledgements,
-                upload.profileId,
-                confirmed = false
-            )
+            setConfirmed(upload.profileId, confirmed = false)
         }
         return outcome
     }
@@ -288,24 +290,25 @@ internal class PcgAltDexAlertSync(
 
         when (outcome) {
             PcgAltDexAlertSyncOutcome.STORED,
-            PcgAltDexAlertSyncOutcome.NO_READING ->
-                PcgProfileAlertAcknowledgementStore.setAltDexFormAlertsConfirmed(
-                    acknowledgements,
-                    profileId,
-                    confirmed = true
-                )
+            PcgAltDexAlertSyncOutcome.NO_READING -> setConfirmed(profileId, confirmed = true)
 
-            PcgAltDexAlertSyncOutcome.ALERTS_OFF ->
-                PcgProfileAlertAcknowledgementStore.setAltDexFormAlertsConfirmed(
-                    acknowledgements,
-                    profileId,
-                    confirmed = false
-                )
+            PcgAltDexAlertSyncOutcome.ALERTS_OFF -> setConfirmed(profileId, confirmed = false)
 
             // A failure leaves the category unconfirmed, as the delivery step recorded it.
             PcgAltDexAlertSyncOutcome.FAILED -> Unit
         }
         return outcome
+    }
+
+    /** Moves the acknowledged alt-dex category, under L. */
+    private fun setConfirmed(profileId: String, confirmed: Boolean) {
+        coordinator.locked {
+            PcgProfileAlertAcknowledgementStore.setAltDexFormAlertsConfirmed(
+                acknowledgements(),
+                profileId,
+                confirmed
+            )
+        }
     }
 
     private fun outcomeOf(result: PcgAltDexAlertUploadResult): PcgAltDexAlertSyncOutcome {
@@ -325,7 +328,8 @@ internal class PcgAltDexAlertSync(
         fun forContext(context: Context): PcgAltDexAlertSync {
             val appContext = context.applicationContext
             return PcgAltDexAlertSync(
-                acknowledgements = PcgProfileAlertAcknowledgementStore.preferences(appContext),
+                coordinator = OwedWorkCoordinator.PROCESS,
+                acknowledgements = { PcgProfileAlertAcknowledgementStore.preferences(appContext) },
                 categoryEnabled = { profileId ->
                     PcgAltDexFormAlertStore.isEnabled(appContext, profileId)
                 },

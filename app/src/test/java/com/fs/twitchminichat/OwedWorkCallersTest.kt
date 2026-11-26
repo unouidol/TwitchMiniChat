@@ -13,7 +13,9 @@ import org.junit.rules.TemporaryFolder
  * (#117, F3, PR-1): the sign-in's, the account removal's answer, and the erase's record.
  *
  * Each was extracted from its Activity or Fragment unchanged. These tests record what
- * it does, so that PR-2 can put it under the coordinator's lock without changing it.
+ * it does, so that PR-2 can put it under the coordinator's lock without changing it. PR-2
+ * changed how they are called (lock L, the owed file obtained under it, the removal's
+ * ticket), not what they assert.
  */
 class OwedWorkCallersTest {
 
@@ -33,10 +35,11 @@ class OwedWorkCallersTest {
         profileId: String,
         persistSession: () -> Boolean = { env.sessions.putSession(profileId, "new-session") }
     ) = NewAccountLocalCommit.commit(
+        coordinator = env.coordinator,
         accounts = env.accounts,
         account = TestOwedWorkEnvironment.account(profileId),
         persistSession = persistSession,
-        owedRecords = env.owedRecords
+        owedRecords = { env.owedRecords }
     )
 
     @Test
@@ -88,22 +91,34 @@ class OwedWorkCallersTest {
 
     private var enqueued = 0
 
-    private fun removalAnswer(profileId: String, backendOk: Boolean) =
+    /** The account removal's own removal of the account, which starts its ticket. */
+    private fun removeAccount(profileId: String): AccountRemovalDisableAnswer.Ticket {
+        val removal = AccountRemovalDisableAnswer.removeAccount(env.coordinator, profileId) {
+            env.accounts.removeById(TestOwedWorkEnvironment.accountId(profileId)) != null
+        }
+        assertTrue(removal.removedAccount)
+        return removal.ticket
+    }
+
+    private fun removalAnswer(ticket: AccountRemovalDisableAnswer.Ticket, backendOk: Boolean) =
         AccountRemovalDisableAnswer.apply(
+            coordinator = env.coordinator,
+            ticket = ticket,
             backendOk = backendOk,
-            profileId = profileId,
+            accounts = env.accounts,
             sessions = env.sessions,
-            owedRecords = env.owedRecords,
+            owedRecords = { env.owedRecords },
             enqueueOwedWork = { enqueued += 1 },
+            requestRegistration = env::requestProfileRegistration,
             log = env.log
         )
 
     @Test
     fun anAcknowledgedRemovalDisableRemovesTheSessionAndOwesNothing() {
         env.signIn("pa")
-        env.removeAccount("pa")
+        val ticket = removeAccount("pa")
 
-        assertFalse(removalAnswer("pa", backendOk = true))
+        assertFalse(removalAnswer(ticket, backendOk = true))
 
         assertFalse(env.hasSession("pa"))
         assertFalse(OwedServerOperationStore.isProfileDisableOwed(env.owedRecords, "pa"))
@@ -117,9 +132,9 @@ class OwedWorkCallersTest {
     @Test
     fun aFailedRemovalDisableIsRecordedQueuedAndKeepsTheSession() {
         env.signIn("pa")
-        env.removeAccount("pa")
+        val ticket = removeAccount("pa")
 
-        assertTrue(removalAnswer("pa", backendOk = false))
+        assertTrue(removalAnswer(ticket, backendOk = false))
 
         assertTrue(env.hasSession("pa"))
         assertTrue(OwedServerOperationStore.isProfileDisableOwed(env.owedRecords, "pa"))
@@ -133,8 +148,9 @@ class OwedWorkCallersTest {
     fun anEraseWhoseTokenDeletionFailedRecordsItAndQueuesTheWork() {
         assertTrue(
             DeviceEraseOwedWork.recordIfNeeded(
+                coordinator = env.coordinator,
                 tokenDeletionOk = false,
-                owedRecords = env.owedRecords,
+                owedRecords = { env.owedRecords },
                 enqueueOwedWork = { enqueued += 1 }
             )
         )
@@ -147,8 +163,9 @@ class OwedWorkCallersTest {
     fun anEraseWhoseTokenDeletionSucceededRecordsNothing() {
         assertFalse(
             DeviceEraseOwedWork.recordIfNeeded(
+                coordinator = env.coordinator,
                 tokenDeletionOk = true,
-                owedRecords = env.owedRecords,
+                owedRecords = { env.owedRecords },
                 enqueueOwedWork = { enqueued += 1 }
             )
         )

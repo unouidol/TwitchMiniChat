@@ -125,22 +125,34 @@ object LocalDataCleaner {
         var skippedSharedPrefs = 0
         var failedSharedPrefs = 0
 
-        for (name in prefNames) {
-            if (name in excludedSharedPrefs) {
-                skippedSharedPrefs++
-                continue
-            }
+        /*
+         * Under lock L (#117, F3, R3). deleteSharedPreferences evicts the cached instance
+         * and deletes the file, and a commit through an instance taken earlier would write
+         * the whole old map back. Every write to the owed records and the acknowledgements
+         * obtains its instance under L, so none can straddle this deletion. Local file
+         * deletions only; the cache directories below stay outside L.
+         */
+        DeviceEraseOwedWork.deletePreferences(
+            coordinator = OwedWorkCoordinator.PROCESS,
+            forgetOwedEntries = OwedServerOperationStore.PREFERENCES_NAME !in excludedSharedPrefs
+        ) {
+            for (name in prefNames) {
+                if (name in excludedSharedPrefs) {
+                    skippedSharedPrefs++
+                    continue
+                }
 
-            val deleted = runCatching {
-                appContext.deleteSharedPreferences(name)
-            }.getOrElse {
-                false
-            }
+                val deleted = runCatching {
+                    appContext.deleteSharedPreferences(name)
+                }.getOrElse {
+                    false
+                }
 
-            if (deleted) {
-                deletedSharedPrefs++
-            } else {
-                failedSharedPrefs++
+                if (deleted) {
+                    deletedSharedPrefs++
+                } else {
+                    failedSharedPrefs++
+                }
             }
         }
 
