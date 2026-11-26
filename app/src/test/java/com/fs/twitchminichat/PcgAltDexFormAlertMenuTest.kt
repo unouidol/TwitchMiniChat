@@ -69,7 +69,7 @@ class PcgAltDexFormAlertMenuTest {
         assertTrue(
             fragment.contains(
                 "if (selection.altDexFormAlertsEnabled) {\n" +
-                    "                add(getString(R.string.pcg_alt_dex_form_alert_label))"
+                    "                add(getString(R.string.pcg_alt_dex_form_alerts_name))"
             )
         )
     }
@@ -105,7 +105,24 @@ class PcgAltDexFormAlertMenuTest {
         val hint = checkNotNull(strings["pcg_alt_dex_form_alert_no_reading"])
         assertTrue(hint.contains("press $button."))
         assertTrue(checkNotNull(strings["pcg_alt_dex_alert_upload_failed"]).contains("Press $button"))
-        assertTrue(checkNotNull(strings["pcg_alt_dex_form_alert_label"]).isNotBlank())
+    }
+
+    /**
+     * One name for the category everywhere (owner's review of #148): the checkbox reads
+     * "Enable" and the name, as "Enable Most Wanted alerts" does; the bell's description reads
+     * the name alone, as it reads "Most Wanted alerts"; the 409's string and the terms gate use
+     * the same name.
+     */
+    @Test
+    fun theCategoryHasOneNameEverywhere() {
+        val strings = strings()
+        val name = checkNotNull(strings["pcg_alt_dex_form_alerts_name"])
+
+        assertEquals("Missing Alt Dex form alerts", name)
+        assertEquals("Enable $name", strings["pcg_alt_dex_form_alert_label"])
+        assertEquals("Enable ${strings["pcg_most_wanted_alert_label"]}", strings["pcg_most_wanted_enabled"])
+        assertTrue(checkNotNull(strings["pcg_alt_dex_alert_upload_alerts_off"]).contains(name))
+        assertTrue(checkNotNull(strings["terms_gate_alt_dex"]).contains(name))
     }
 
     private fun mainSource(name: String): String {

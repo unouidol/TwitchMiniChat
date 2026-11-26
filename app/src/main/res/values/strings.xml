@@ -403,7 +403,8 @@
     <string name="pcg_spawn_alert_dialog_title">PCG notifications</string>
     <string name="pcg_spawn_alert_modes_header">Standard spawn alerts</string>
     <string name="pcg_event_spawn_alert_label">Notify current PCG event spawns</string>
-    <string name="pcg_alt_dex_form_alert_label">Notify missing Alt Dex forms</string>
+    <string name="pcg_alt_dex_form_alert_label">Enable Missing Alt Dex form alerts</string>
+    <string name="pcg_alt_dex_form_alerts_name">Missing Alt Dex form alerts</string>
     <string name="pcg_alt_dex_form_alert_no_reading">No Alt Dex reading on this phone yet. In the PCG Pokédex, switch to Alt Dex, turn Obtained off and press Update Alt Dex.</string>
     <string name="pcg_spawn_alert_bell_mode_and_event">%1$s; event spawns enabled</string>
     <string name="pcg_notification_delivery_header">Alert style</string>

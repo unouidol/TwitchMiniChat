@@ -558,8 +558,11 @@ missing dex, and list `event_spawn` among the reasons. `build_token_targets_for_
 ## f) The app
 
 - **The bell menu** ("PCG notifications", `PcgSpawnAlertModeMenu.kt`) gets one checkbox after
-  "Enable Most Wanted alerts" (`:92-97`): `pcg_alt_dex_form_alert_label`, "Notify missing Alt Dex
-  forms". It is applied, like the others, only on OK (`:146-158`).
+  "Enable Most Wanted alerts" (`:92-97`): `pcg_alt_dex_form_alert_label`, "Enable Missing Alt Dex
+  form alerts". The bell button's description names it `pcg_alt_dex_form_alerts_name`, "Missing
+  Alt Dex form alerts", as it names Most Wanted. One name everywhere: the owner's review of #148
+  replaced the earlier "Notify missing Alt Dex forms". It is applied, like the others, only on OK
+  (`:146-158`).
 - **The selection:** `PcgProfileAlertSelection` gains `altDexFormAlertsEnabled`
   (`PcgProfileAlertSelection.kt:12-33`):
   - `requiresFirebaseDelivery` counts it;

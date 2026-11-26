@@ -4417,7 +4417,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
                 add(getString(R.string.pcg_most_wanted_alert_label))
             }
             if (selection.altDexFormAlertsEnabled) {
-                add(getString(R.string.pcg_alt_dex_form_alert_label))
+                add(getString(R.string.pcg_alt_dex_form_alerts_name))
             }
         }
 
