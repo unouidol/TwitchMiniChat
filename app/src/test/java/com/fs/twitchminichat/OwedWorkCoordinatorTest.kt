@@ -58,7 +58,7 @@ class OwedWorkCoordinatorTest {
         coordinator.locked {
             val token = coordinator.tokenStamp()
             val untouched = coordinator.profileStamp("pz")
-            coordinator.profileChanged("pa")
+            coordinator.recordProfileDisable(owedRecords, "pa")
             val pa = coordinator.profileStamp("pa")
 
             coordinator.erased()

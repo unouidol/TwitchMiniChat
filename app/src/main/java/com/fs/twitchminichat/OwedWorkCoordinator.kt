@@ -87,10 +87,16 @@ internal class OwedWorkCoordinator {
     }
 
     /**
-     * Marks that [profileId]'s account appeared or disappeared on this phone, or that its owed
-     * record changed. Every attempt in flight for it then leaves its answer unapplied. Under L.
+     * Marks that [profileId]'s owed record changed: recorded by a failed removal, or cleared by a
+     * sign-in, a void decision or an acknowledged disable. Every attempt in flight for it then
+     * leaves its answer unapplied. Under L.
+     *
+     * A sign-in always clears the record, so signing a profile in again always changes its
+     * stamp; that is what an attempt in flight relies on to leave the new sign-in's session
+     * alone. Removing an account need not change it: a profile can be removed again only after
+     * signing in again.
      */
-    fun profileChanged(profileId: String) {
+    private fun profileChanged(profileId: String) {
         checkLocked()
         val normalized = key(profileId)
         if (normalized.isBlank()) return

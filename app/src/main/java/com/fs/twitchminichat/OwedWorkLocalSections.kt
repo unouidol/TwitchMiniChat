@@ -128,7 +128,6 @@ internal object AccountRemovalDisableAnswer {
         removeFromList: () -> Boolean
     ): Removal = coordinator.locked {
         val removedAccount = removeFromList()
-        coordinator.profileChanged(profileId)
 
         Removal(
             removedAccount = removedAccount,
