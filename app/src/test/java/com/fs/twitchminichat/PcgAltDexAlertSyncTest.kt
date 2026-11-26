@@ -27,7 +27,7 @@ class PcgAltDexAlertSyncTest {
     private var answer: PcgAltDexAlertUploadResult = PcgAltDexAlertUploadResult.Stored(count = 1)
     private val sent = mutableListOf<PcgAltDexAlertUpload>()
 
-    private val coordinator = OwedWorkCoordinator()
+    private val coordinator = testCoordinator()
 
     /** Whether lock L was held each time the sync obtained the acknowledgement file. */
     private val fileObtainedUnderLock = mutableListOf<Boolean>()

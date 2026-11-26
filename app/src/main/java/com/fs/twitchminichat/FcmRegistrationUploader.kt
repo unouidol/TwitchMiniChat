@@ -7,6 +7,7 @@ import androidx.annotation.StringRes
 import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import android.os.Handler
 import android.os.Looper
@@ -37,6 +38,14 @@ object FcmRegistrationUploader {
      * queue exists exactly so a failure here costs nothing.
      */
     private const val FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS = 20L
+
+    /**
+     * How long a request that needs delivery waits for an owed token deletion in flight,
+     * counted from when that deletion was claimed: as long as the deletion itself may block,
+     * so the wait never outlasts it (the plan on #117, section 2).
+     */
+    private val TOKEN_GATE_MAX_WAIT_NANOS =
+        TimeUnit.SECONDS.toNanos(FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS)
 
     /**
      * Firebase Cloud Messaging's token calls.
@@ -89,14 +98,13 @@ object FcmRegistrationUploader {
      * before. For a profile with no category active it is the disabled selection alone,
      * which is what stops a server that still holds an active mode from sending - see
      * [PcgProfileRegistrationSyncPlanner].
+     *
+     * [token] is sent only for a selection that needs no delivery. One that needs delivery
+     * obtains its token behind the token gate, after any owed token deletion in flight, and
+     * ignores [token], which may be the token being deleted (case (a) on #117).
      */
     fun uploadToken(context: Context, token: String, profileId: String) {
         val appContext = context.applicationContext
-        val trimmedToken = token.trim()
-        if (trimmedToken.isEmpty()) {
-            Log.w(TAG, "Empty token, skip upload")
-            return
-        }
 
         thread(start = true, name = "fcm-register-upload") {
             val selection = PcgProfileAlertSelectionStore.read(
@@ -119,47 +127,71 @@ object FcmRegistrationUploader {
                 return@thread
             }
 
-            /*
-             * Whether this pass registers a token at all. The alert step used to refuse
-             * to run unless a registration had just succeeded, which for the
-             * disabled-selection plan - the one with no registration in it - would have
-             * made the step unreachable: a planner producing a step nobody runs is worse
-             * than the defect it was written for.
-             */
-            val tokenRegistrationPlanned =
-                PcgProfileRegistrationSyncStep.REGISTER_TOKEN in plan
+            withDeliveryToken(
+                appContext = appContext,
+                selection = selection,
+                callerToken = token,
+                threadName = "fcm-register-upload",
+                purpose = "registration"
+            ) { passToken ->
+                val trimmedToken = passToken?.trim().orEmpty()
+                if (trimmedToken.isEmpty()) {
+                    Log.w(TAG, "Empty token, skip upload")
+                } else {
+                    runRegistrationPlan(appContext, profileId, selection, plan, trimmedToken)
+                }
+            }
+        }
+    }
 
-            var registrationSucceeded = false
+    /** Runs the steps of [plan] for [profileId], with [trimmedToken]. Blocking. */
+    private fun runRegistrationPlan(
+        appContext: Context,
+        profileId: String,
+        selection: PcgProfileAlertSelection,
+        plan: List<PcgProfileRegistrationSyncStep>,
+        trimmedToken: String
+    ) {
+        /*
+         * Whether this pass registers a token at all. The alert step used to refuse
+         * to run unless a registration had just succeeded, which for the
+         * disabled-selection plan - the one with no registration in it - would have
+         * made the step unreachable: a planner producing a step nobody runs is worse
+         * than the defect it was written for.
+         */
+        val tokenRegistrationPlanned =
+            PcgProfileRegistrationSyncStep.REGISTER_TOKEN in plan
 
-            for (step in plan) {
-                when (step) {
-                    PcgProfileRegistrationSyncStep.REGISTER_TOKEN -> {
-                        registrationSucceeded = uploadTokenBlocking(
-                            appContext,
-                            trimmedToken,
-                            profileId
-                        )
-                        if (!registrationSucceeded) {
-                            break
-                        }
+        var registrationSucceeded = false
+
+        for (step in plan) {
+            when (step) {
+                PcgProfileRegistrationSyncStep.REGISTER_TOKEN -> {
+                    registrationSucceeded = uploadTokenBlocking(
+                        appContext,
+                        trimmedToken,
+                        profileId
+                    )
+                    if (!registrationSucceeded) {
+                        return
                     }
+                }
 
-                    PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION -> {
-                        if (tokenRegistrationPlanned && !registrationSucceeded) break
+                PcgProfileRegistrationSyncStep.RESTORE_ALERT_SELECTION -> {
+                    if (tokenRegistrationPlanned && !registrationSucceeded) return
 
-                        val sent = setProfileSpawnAlertModeBlocking(
-                            context = appContext,
-                            profileId = profileId,
-                            selection = selection,
-                            token = trimmedToken
-                        )
-                        Log.d(
-                            TAG,
-                            "Alert selection sent ok=$sent " +
-                                "deliveryRequired=${selection.requiresFirebaseDelivery} " +
-                                "afterRegistration=$tokenRegistrationPlanned"
-                        )
-                    }
+                    val sent = setProfileSpawnAlertModeBlocking(
+                        context = appContext,
+                        profileId = profileId,
+                        selection = selection,
+                        token = trimmedToken
+                    )
+                    Log.d(
+                        TAG,
+                        "Alert selection sent ok=$sent " +
+                            "deliveryRequired=${selection.requiresFirebaseDelivery} " +
+                            "afterRegistration=$tokenRegistrationPlanned"
+                    )
                 }
             }
         }
@@ -187,7 +219,6 @@ object FcmRegistrationUploader {
         onComplete: (Boolean) -> Unit
     ) {
         val appContext = context.applicationContext
-        val prefs = appContext.getSharedPreferences("fcm_registration", Context.MODE_PRIVATE)
         val normalizedProfileId = normalizeProfileId(profileId)
 
         fun finish(ok: Boolean) {
@@ -202,61 +233,77 @@ object FcmRegistrationUploader {
             return
         }
 
-        fun sendRequest(token: String) {
-            thread(start = true, name = "spawn-alert-mode") {
-                val ok = setProfileSpawnAlertModeBlocking(
-                    context = appContext,
-                    profileId = normalizedProfileId,
-                    selection = selection,
-                    token = token
-                )
-                finish(ok)
+        thread(start = true, name = "spawn-alert-mode") {
+            /*
+             * When every category is disabled, the request is sent with whatever token is
+             * cached, without fetching one and without waiting. Any enabled category requires a
+             * usable token because the backend must be able to deliver its notification, so it
+             * is obtained behind the token gate.
+             */
+            withDeliveryToken(
+                appContext = appContext,
+                selection = selection,
+                callerToken = cachedToken(appContext),
+                threadName = "spawn-alert-mode",
+                purpose = "spawn mode"
+            ) { token ->
+                if (token == null) {
+                    finish(false)
+                } else {
+                    finish(
+                        setProfileSpawnAlertModeBlocking(
+                            context = appContext,
+                            profileId = normalizedProfileId,
+                            selection = selection,
+                            token = token
+                        )
+                    )
+                }
             }
         }
+    }
 
-        val cachedToken = prefs.getString(KEY_LATEST_FCM_TOKEN, null).orEmpty()
+    /** The cached Firebase Cloud Messaging token, or an empty string. */
+    private fun cachedToken(appContext: Context): String {
+        return tokenCache(appContext).getString(KEY_LATEST_FCM_TOKEN, null).orEmpty()
+    }
 
-        /*
-         * When every category is disabled, the request can be sent without
-         * forcing a fresh token fetch. Any enabled category requires a usable
-         * token because the backend must be able to deliver its notification.
-         */
-        if (!selection.requiresFirebaseDelivery) {
-            sendRequest(cachedToken)
-            return
-        }
+    /** The preferences file holding [KEY_LATEST_FCM_TOKEN]. */
+    private fun tokenCache(appContext: Context) =
+        appContext.getSharedPreferences(DeviceCredentialStore.PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-        if (cachedToken.isNotBlank()) {
-            sendRequest(cachedToken)
-            return
-        }
-
-        Log.d(TAG, "No cached Firebase Cloud Messaging token; fetching one for spawn mode")
-
-        firebaseTokens.fetchToken { successful, token, error ->
-            if (!successful) {
-                Log.w(
-                    TAG,
-                    "Unable to fetch a Firebase Cloud Messaging token for spawn mode " +
-                        "errorType=${DiagnosticError.typeOf(error)}"
-                )
-                finish(false)
-                return@fetchToken
+    /**
+     * Runs [onToken] with the token a request for [selection] sends, through
+     * [RegistrationTokenGate.obtain]: [callerToken] when no delivery is needed, otherwise the
+     * token obtained behind the gate; null when none could be obtained.
+     *
+     * Call it off the main thread. Firebase answers a token request on the main thread, so
+     * [onToken] then runs on a new thread named [threadName], since it sends a request.
+     */
+    private fun withDeliveryToken(
+        appContext: Context,
+        selection: PcgProfileAlertSelection,
+        callerToken: String,
+        threadName: String,
+        purpose: String,
+        onToken: (String?) -> Unit
+    ) {
+        RegistrationTokenGate.obtain(
+            selection = selection,
+            callerToken = callerToken,
+            coordinator = OwedWorkCoordinator.PROCESS,
+            tokens = firebaseTokens,
+            tokenCache = tokenCache(appContext),
+            cachedTokenKey = KEY_LATEST_FCM_TOKEN,
+            maxWaitNanos = TOKEN_GATE_MAX_WAIT_NANOS,
+            purpose = purpose,
+            log = AndroidOwedWorkLog(TAG)
+        ) { token ->
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                thread(start = true, name = threadName) { onToken(token) }
+            } else {
+                onToken(token)
             }
-
-            val freshToken = token?.trim().orEmpty()
-            if (freshToken.isBlank()) {
-                Log.w(TAG, "Fresh Firebase Cloud Messaging token is blank for spawn mode")
-                finish(false)
-                return@fetchToken
-            }
-
-            prefs.edit {
-                putString(KEY_LATEST_FCM_TOKEN, freshToken)
-            }
-
-            Log.d(TAG, "Fetched a Firebase Cloud Messaging token for spawn mode")
-            sendRequest(freshToken)
         }
     }
 
@@ -328,7 +375,7 @@ object FcmRegistrationUploader {
              * whole old map back (R3 on #117). record() also reads the alt-dex flag before
              * writing it, which makes it a read-modify-write.
              */
-            OwedWorkCoordinator.PROCESS.locked {
+            OwedWorkCoordinator.PROCESS.locked("delivery.acknowledgement") {
                 PcgProfileAlertAcknowledgementStore.record(
                     context = context,
                     profileId = normalizedProfileId,
@@ -379,20 +426,16 @@ object FcmRegistrationUploader {
      * Requested by the owed-work paths when a disable was acknowledged for a profile that
      * had signed in again while the disable was in flight (R5 on #117): the server's last
      * word for it is then the disable, and the pass sends the profile's own selection after
-     * it. With no cached token nothing is sent here, and the start-up registration covers it.
+     * it. Requested too after a token deletion that timed out and completed later (R1), for
+     * each signed-in profile: the pass obtains a new token behind the gate. With no cached
+     * token, a selection that needs no delivery is not sent here, and the start-up
+     * registration covers it.
      */
     fun requestProfileRegistration(context: Context, profileId: String) {
         val appContext = context.applicationContext
-        val cachedToken = appContext
-            .getSharedPreferences(
-                DeviceCredentialStore.PREFERENCES_NAME,
-                Context.MODE_PRIVATE
-            )
-            .getString(KEY_LATEST_FCM_TOKEN, null)
-            .orEmpty()
 
-        Log.d(TAG, "registration requested after a disable for a profile signed in again")
-        uploadToken(appContext, cachedToken, profileId)
+        Log.d(TAG, "registration requested for a profile whose token or selection was undone")
+        uploadToken(appContext, cachedToken(appContext), profileId)
     }
 
     /**
@@ -409,19 +452,12 @@ object FcmRegistrationUploader {
         profileId: String
     ): Boolean {
         val appContext = context.applicationContext
-        val cachedToken = appContext
-            .getSharedPreferences(
-                DeviceCredentialStore.PREFERENCES_NAME,
-                Context.MODE_PRIVATE
-            )
-            .getString(KEY_LATEST_FCM_TOKEN, null)
-            .orEmpty()
 
         return setProfileSpawnAlertModeBlocking(
             context = appContext,
             profileId = profileId,
             selection = PcgProfileAlertSelection.DISABLED,
-            token = cachedToken
+            token = cachedToken(appContext)
         )
     }
 
@@ -703,15 +739,27 @@ object FcmRegistrationUploader {
      * is now gone.
      */
     fun deleteFirebaseTokenBlocking(context: Context): Boolean {
+        val appContext = context.applicationContext
+        val log = AndroidOwedWorkLog(TAG)
+
         return FirebaseTokenDeletion.deleteBlocking(
             tokens = firebaseTokens,
             timeoutSeconds = FIREBASE_TOKEN_DELETION_TIMEOUT_SECONDS,
-            tokenCache = context.applicationContext.getSharedPreferences(
-                DeviceCredentialStore.PREFERENCES_NAME,
-                Context.MODE_PRIVATE
-            ),
+            tokenCache = tokenCache(appContext),
             cachedTokenKey = KEY_LATEST_FCM_TOKEN,
-            log = AndroidOwedWorkLog(TAG)
+            log = log,
+            onLateSuccess = {
+                LateTokenDeletion.completed(
+                    coordinator = OwedWorkCoordinator.PROCESS,
+                    accounts = AccountRepository(appContext),
+                    tokenCache = tokenCache(appContext),
+                    cachedTokenKey = KEY_LATEST_FCM_TOKEN,
+                    requestRegistration = { profileId ->
+                        requestProfileRegistration(appContext, profileId)
+                    },
+                    log = log
+                )
+            }
         )
     }
 

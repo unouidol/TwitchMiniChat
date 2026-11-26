@@ -1,5 +1,7 @@
 package com.fs.twitchminichat
 
+import java.util.concurrent.TimeUnit
+
 /**
  * What the race tests of #117 do to the owed work, in one place.
  *
@@ -59,6 +61,30 @@ internal object OwedWorkRaceActions {
         requestRegistration = env::requestProfileRegistration,
         log = env.log
     )
+
+    /**
+     * The token a request for [selection] sends, given [callerToken]: what a registration or a
+     * bell-menu request obtains (PR-3). Blocking while the gate holds it.
+     */
+    fun registrationToken(
+        env: TestOwedWorkEnvironment,
+        selection: PcgProfileAlertSelection,
+        callerToken: String
+    ): String? {
+        var obtained: String? = null
+        RegistrationTokenGate.obtain(
+            selection = selection,
+            callerToken = callerToken,
+            coordinator = env.coordinator,
+            tokens = env.firebase,
+            tokenCache = env.tokenCache,
+            cachedTokenKey = TestOwedWorkEnvironment.CACHED_TOKEN_KEY,
+            maxWaitNanos = TimeUnit.SECONDS.toNanos(TestOwedWorkEnvironment.TOKEN_DELETION_TIMEOUT_SECONDS),
+            purpose = "registration",
+            log = env.log
+        ) { token -> obtained = token }
+        return obtained
+    }
 
     /** An erase: its deletion of the two files, then the record it leaves. */
     fun erase(env: TestOwedWorkEnvironment, tokenDeletionOk: Boolean) {

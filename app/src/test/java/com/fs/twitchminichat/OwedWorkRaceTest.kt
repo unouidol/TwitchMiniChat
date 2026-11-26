@@ -2,6 +2,7 @@ package com.fs.twitchminichat
 
 import com.fs.twitchminichat.OwedWorkRaceActions.erase
 import com.fs.twitchminichat.OwedWorkRaceActions.pass
+import com.fs.twitchminichat.OwedWorkRaceActions.registrationToken
 import com.fs.twitchminichat.OwedWorkRaceActions.removalAnswer
 import com.fs.twitchminichat.OwedWorkRaceActions.removeAccount
 import com.fs.twitchminichat.OwedWorkRaceActions.signIn
@@ -12,6 +13,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -19,8 +21,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The regression tests of #117's races, cases (b)-(e) and R4-R6 (F3, PR-2; the plan's
- * section 4).
+ * The regression tests of #117's races (the plan's section 4): cases (b)-(e) and R4-R6 (F3,
+ * PR-2), and case (a) and R1, the token gate and the late deletion (PR-3).
  *
  * Each test holds one party at a chosen point - a request in flight, or a store between its
  * read and its write - and runs another against it on its own thread. The harness rule of the
@@ -35,8 +37,9 @@ import org.junit.rules.TemporaryFolder
  * both wait for L and either may get it (T6, T9), asserts only what holds in both orders.
  *
  * The production sections are reached only through [OwedWorkRaceActions], so this file runs
- * unchanged on the base commit with a base version of that file, where each test here but T15
- * fails.
+ * unchanged on the base commit with a base version of that file and of the harness. On PR-2's
+ * base each PR-2 test here but T15 fails; on PR-3's, T3, T12a and T12b fail, and T3b and T13,
+ * guards, pass.
  */
 class OwedWorkRaceTest {
 
@@ -435,6 +438,113 @@ class OwedWorkRaceTest {
         pass1.join()
 
         assertEquals(0, env.networkCallsUnderLock.get())
+    }
+
+    // --- The token gate and the late deletion (PR-3) ----------------------------------------
+
+    /** The pass holding its token deletion in flight; [Hold.release] lets the deletion answer. */
+    private fun passWithItsDeletionInFlight(): Pair<Racer<OwedServerOperationRunner.Attempt>, Hold> {
+        OwedServerOperationStore.recordFirebaseTokenDeletion(env.owedRecords)
+        val hold = Hold()
+        env.firebase.awaitHook = {
+            if (Thread.currentThread().name == "pass-1") hold.reachedAndWait()
+        }
+        val pass1 = Racer("pass-1") { pass(env) }
+        hold.awaitReached()
+        return pass1 to hold
+    }
+
+    /**
+     * T3, case (a): a pass deletes the owed token while a sign-in registers. The registration
+     * obtains its token after the deletion, so the token it registers is a new one, never the
+     * one deleted.
+     */
+    @Test
+    fun t3TheRegistrationObtainsItsTokenAfterTheDeletionInFlight() {
+        val (pass1, hold) = passWithItsDeletionInFlight()
+        assertEquals(NewAccountLocalCommit.Outcome.ADDED, signIn(env, "pa"))
+
+        val registration = Racer("registration") {
+            registrationToken(env, TestOwedWorkEnvironment.ACTIVE_SELECTION, callerToken = "tok-1")
+        }
+        registration.awaitFinishedOrParked()
+        hold.release()
+        pass1.join()
+        val registered = registration.join()
+
+        assertEquals(listOf("tok-1"), env.firebase.deletedTokens)
+        assertEquals("tok-2", registered)
+        assertFalse(tokenDeletionOwed())
+    }
+
+    /**
+     * T3b: the gate waits no longer than the deletion itself may block, counted from its claim.
+     * With that time gone, a registration goes through while the deletion is still held.
+     */
+    @Test
+    fun t3bTheGateOpensOnceTheDeletionsOwnTimeoutHasPassed() {
+        val (pass1, hold) = passWithItsDeletionInFlight()
+        env.clock.addAndGet(
+            TimeUnit.SECONDS.toNanos(TestOwedWorkEnvironment.TOKEN_DELETION_TIMEOUT_SECONDS)
+        )
+
+        val registered = Racer("registration") {
+            registrationToken(env, TestOwedWorkEnvironment.ACTIVE_SELECTION, callerToken = "tok-1")
+        }.join()
+        hold.release()
+        pass1.join()
+
+        assertEquals("tok-1", registered)
+    }
+
+    /** T13: a disabled selection does not wait for the gate, and sends the caller's token. */
+    @Test
+    fun t13ADisabledRequestDoesNotWaitForTheGate() {
+        val (pass1, hold) = passWithItsDeletionInFlight()
+
+        val sent = Racer("disable") {
+            registrationToken(env, PcgProfileAlertSelection.DISABLED, callerToken = "tok-1")
+        }.join()
+        hold.release()
+        pass1.join()
+
+        assertEquals("tok-1", sent)
+    }
+
+    /**
+     * T12a, R1: the deletion's wait times out, the gate opens, a sign-in follows, and Firebase
+     * then completes the deletion. The token a registration may have taken in between is gone, so
+     * the signed-in profile is registered again, and the deleted token is no longer cached for it.
+     */
+    @Test
+    fun t12aALateDeletionRequestsARegistrationForTheSignedInProfile() {
+        OwedServerOperationStore.recordFirebaseTokenDeletion(env.owedRecords)
+        env.firebase.deletionOutcomes += FakeTokenDeletionOutcome.TIMES_OUT
+        assertEquals(OwedServerOperationRunner.Attempt.FAILED, pass(env))
+        assertEquals(NewAccountLocalCommit.Outcome.ADDED, signIn(env, "pa"))
+
+        env.firebase.completeTimedOutDeletions()
+
+        assertEquals(listOf("pa"), env.requestedRegistrations)
+        assertNull(env.tokenCache.getString(TestOwedWorkEnvironment.CACHED_TOKEN_KEY, null))
+        assertEquals(
+            "tok-2",
+            registrationToken(env, TestOwedWorkEnvironment.ACTIVE_SELECTION, callerToken = "tok-1")
+        )
+    }
+
+    /** T12b, R1: with no account signed in, a late deletion requests nothing. */
+    @Test
+    fun t12bALateDeletionWithNoAccountRequestsNothing() {
+        OwedServerOperationStore.recordFirebaseTokenDeletion(env.owedRecords)
+        env.firebase.deletionOutcomes += FakeTokenDeletionOutcome.TIMES_OUT
+        assertEquals(OwedServerOperationRunner.Attempt.FAILED, pass(env))
+
+        env.firebase.completeTimedOutDeletions()
+
+        assertTrue(env.requestedRegistrations.isEmpty())
+        assertNull(env.tokenCache.getString(TestOwedWorkEnvironment.CACHED_TOKEN_KEY, null))
+        assertTrue(tokenDeletionOwed())
     }
 
     // --- Synchronization helpers --------------------------------------------------------

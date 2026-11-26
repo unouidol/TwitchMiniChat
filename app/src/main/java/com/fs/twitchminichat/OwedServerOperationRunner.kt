@@ -88,7 +88,7 @@ object OwedServerOperationRunner {
     private fun runOwedTokenDeletion(env: OwedWorkEnvironment): Attempt {
         val coordinator = env.coordinator
 
-        val start = coordinator.locked { startTokenDeletion(env) }
+        val start = coordinator.locked("pass.token.decide") { startTokenDeletion(env) }
         val stamp = when (start) {
             is TokenStart.Done -> return start.attempt
             is TokenStart.Delete -> start.stamp
@@ -98,7 +98,7 @@ object OwedServerOperationRunner {
         try {
             deleted = env.deleteFirebaseToken()
         } finally {
-            coordinator.locked {
+            coordinator.locked("pass.token.answer") {
                 coordinator.releaseToken()
 
                 if (deleted &&
@@ -176,7 +176,7 @@ object OwedServerOperationRunner {
     private fun runOwedProfileDisables(env: OwedWorkEnvironment): Attempt {
         val coordinator = env.coordinator
 
-        val candidateProfileIds = coordinator.locked {
+        val candidateProfileIds = coordinator.locked("pass.disable.candidates") {
             PcgProfileAlertAcknowledgementStore.knownProfileIds(env.acknowledgements) +
                 OwedServerOperationStore.owedProfileDisables(env.owedRecords)
         }
@@ -188,7 +188,7 @@ object OwedServerOperationRunner {
         var failed = false
 
         for (profileId in candidateProfileIds) {
-            val start = coordinator.locked { startProfileDisable(env, profileId) }
+            val start = coordinator.locked("pass.disable.decide") { startProfileDisable(env, profileId) }
 
             val stamp = when (start) {
                 ProfileStart.Done -> continue
@@ -205,7 +205,7 @@ object OwedServerOperationRunner {
                 ok = env.sendProfileAlertDisable(profileId)
                 env.log.debug("owed profile disable sent ok=$ok")
             } finally {
-                registrationOwed = coordinator.locked {
+                registrationOwed = coordinator.locked("pass.disable.answer") {
                     applyProfileDisableAnswer(env, profileId, stamp, ok)
                 }
             }

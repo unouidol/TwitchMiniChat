@@ -3,6 +3,7 @@ package com.fs.twitchminichat
 import android.content.SharedPreferences
 import java.io.File
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicLong
 
 /*
  * The local test harness of the owed-work paths (#117, F3).
@@ -13,8 +14,13 @@ import java.util.concurrent.TimeoutException
  * acknowledgement stores over [ThreadSafeTestSharedPreferences]. Firebase and the
  * backend are modelled. PR-2 adds what its races need: a hook inside each commit, the log of
  * commits, a hook inside each modelled disable request, and the count of network calls made
- * while lock L was held.
+ * while lock L was held. PR-3 adds the tokens that deletions remove, deletions that complete
+ * after their wait timed out, and the coordinator's clock, which only the test moves.
  */
+
+/** A coordinator for a test that needs neither its log nor its clock. */
+internal fun testCoordinator(): OwedWorkCoordinator =
+    OwedWorkCoordinator(log = RecordingOwedWorkLog(), nanoTime = { 0L })
 
 /** One commit applied to a [ThreadSafeTestSharedPreferences]: who made it, and what it wrote. */
 internal data class TestCommit(
@@ -162,6 +168,10 @@ internal enum class FakeTokenDeletionOutcome {
  *
  * Each deletion takes the next outcome from [deletionOutcomes], or succeeds when none is
  * left. A test that needs to hold a deletion in flight replaces [awaitHook].
+ *
+ * A deletion that succeeds removes [currentToken], which it adds to [deletedTokens], and the
+ * installation then has a new one, as Firebase issues after a deletion. One whose wait timed out
+ * is still in flight until [completeTimedOutDeletions], which is Firebase completing it later.
  */
 internal class FakeFirebaseTokens : FirebaseTokenOperations {
 
@@ -178,26 +188,75 @@ internal class FakeFirebaseTokens : FirebaseTokenOperations {
     @Volatile
     var awaitHook: () -> Unit = {}
 
-    /** What [fetchToken] answers. */
+    /** What [fetchToken] answers: the installation's token now. */
     @Volatile
     var currentToken: String? = "tok-1"
+
+    /** The tokens deletions removed, in order. */
+    val deletedTokens: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
+    private var issuedTokens = 1
+    private val timedOut = mutableListOf<Deletion>()
 
     override fun startTokenDeletion(): FirebaseTokenDeletionHandle {
         val outcome = synchronized(this) {
             startedDeletions += 1
             deletionOutcomes.removeFirstOrNull() ?: FakeTokenDeletionOutcome.SUCCEEDS
         }
+        return Deletion(outcome)
+    }
 
-        return object : FirebaseTokenDeletionHandle {
-            override fun await(timeoutSeconds: Long) {
-                synchronized(this@FakeFirebaseTokens) { awaitedTimeouts += timeoutSeconds }
-                awaitHook()
-                when (outcome) {
-                    FakeTokenDeletionOutcome.SUCCEEDS -> Unit
-                    FakeTokenDeletionOutcome.FAILS -> throw IllegalStateException("deletion failed")
-                    FakeTokenDeletionOutcome.TIMES_OUT -> throw TimeoutException("deletion timed out")
+    /** Completes, successfully, every deletion whose wait timed out, on the calling thread. */
+    fun completeTimedOutDeletions() {
+        val pending = synchronized(this) { timedOut.toList().also { timedOut.clear() } }
+        pending.forEach { it.complete(succeeded = true) }
+    }
+
+    private fun removeCurrentToken() = synchronized(this) {
+        currentToken?.let { deletedTokens += it }
+        issuedTokens += 1
+        currentToken = "tok-$issuedTokens"
+    }
+
+    /** One modelled deletion, and the listeners waiting for it to complete. */
+    private inner class Deletion(
+        private val outcome: FakeTokenDeletionOutcome
+    ) : FirebaseTokenDeletionHandle {
+
+        private var completed: Boolean? = null
+        private val listeners = mutableListOf<(Boolean) -> Unit>()
+
+        override fun await(timeoutSeconds: Long) {
+            synchronized(this@FakeFirebaseTokens) { awaitedTimeouts += timeoutSeconds }
+            awaitHook()
+            when (outcome) {
+                FakeTokenDeletionOutcome.SUCCEEDS -> complete(succeeded = true)
+                FakeTokenDeletionOutcome.FAILS -> {
+                    complete(succeeded = false)
+                    throw IllegalStateException("deletion failed")
+                }
+                FakeTokenDeletionOutcome.TIMES_OUT -> {
+                    synchronized(this@FakeFirebaseTokens) { timedOut += this }
+                    throw TimeoutException("deletion timed out")
                 }
             }
+        }
+
+        override fun onCompletion(listener: (succeeded: Boolean) -> Unit) {
+            val done = synchronized(this) {
+                if (completed == null) listeners += listener
+                completed
+            }
+            if (done != null) listener(done)
+        }
+
+        fun complete(succeeded: Boolean) {
+            if (succeeded) removeCurrentToken()
+            val waiting = synchronized(this) {
+                completed = succeeded
+                listeners.toList().also { listeners.clear() }
+            }
+            waiting.forEach { it(succeeded) }
         }
     }
 
@@ -233,7 +292,13 @@ internal class RecordingOwedWorkLog : OwedWorkLog {
  */
 internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnvironment {
 
-    override val coordinator = OwedWorkCoordinator()
+    /** The coordinator's clock, in nanoseconds; it moves only when the test moves it. */
+    val clock = AtomicLong(0L)
+
+    /** The coordinator's own lines: one per section under L. */
+    val lockLog = RecordingOwedWorkLog()
+
+    override val coordinator = OwedWorkCoordinator(log = lockLog, nanoTime = clock::get)
 
     /** Network calls made while lock L was held; zero is the only correct value. */
     val networkCallsUnderLock = java.util.concurrent.atomic.AtomicInteger()
@@ -286,7 +351,17 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
             timeoutSeconds = TOKEN_DELETION_TIMEOUT_SECONDS,
             tokenCache = tokenCache,
             cachedTokenKey = CACHED_TOKEN_KEY,
-            log = log
+            log = log,
+            onLateSuccess = {
+                LateTokenDeletion.completed(
+                    coordinator = coordinator,
+                    accounts = accounts,
+                    tokenCache = tokenCache,
+                    cachedTokenKey = CACHED_TOKEN_KEY,
+                    requestRegistration = ::requestProfileRegistration,
+                    log = log
+                )
+            }
         )
     }
 
@@ -298,7 +373,7 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
 
         val acknowledged = backendAcknowledges(profileId)
         if (acknowledged) {
-            coordinator.locked {
+            coordinator.locked("test.backend-acknowledgement") {
                 PcgProfileAlertAcknowledgementStore.record(
                     acknowledgements,
                     profileId,
@@ -331,7 +406,7 @@ internal class TestOwedWorkEnvironment(sessionDirectory: File) : OwedWorkEnviron
 
     /** Records [selection] as acknowledged by the backend for [profileId]. */
     fun acknowledge(profileId: String, selection: PcgProfileAlertSelection) {
-        coordinator.locked {
+        coordinator.locked("test.acknowledge") {
             PcgProfileAlertAcknowledgementStore.record(acknowledgements, profileId, selection)
         }
     }
