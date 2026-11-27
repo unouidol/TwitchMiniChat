@@ -1467,25 +1467,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!this::btnTogglePush.isInitialized) return
         if (!isAdded) return
 
-        val profileId = currentProfileId()
-        val enabled = profileId.isNotBlank() &&
-                PushSettingsStore.isPushEnabled(requireContext(), profileId)
-
-        btnTogglePush.setImageResource(
-            if (enabled) {
-                R.drawable.ic_bell_on
-            } else {
-                R.drawable.ic_bell_off
-            }
-        )
-
-        btnTogglePush.setColorFilter(
-            if (enabled) 0xFF66FF99.toInt() else 0xFFFF6666.toInt()
-        )
-
-        btnTogglePush.alpha = 1f
-
-        updateBellContentDescription(profileId)
+        updateBellUi(currentProfileId())
     }
 
 
@@ -4383,40 +4365,32 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         }
     }
 
-    /**
-     * Updates the bell button to reflect the locally selected spawn alert mode.
-     *
-     * The icon remains the same for now; the important feedback is the checked item
-     * inside the bell menu. NONE is dimmed to make the disabled state visible.
-     */
+    /** Updates the bell button after the bell menu's OK: see [updateBellUi]. */
     private fun updateSpawnAlertBellUi(profileId: String) {
         if (!this::btnTogglePush.isInitialized) return
 
-        val selection = readProfileAlertSelection(profileId)
-
-        btnTogglePush.alpha = if (selection.requiresFirebaseDelivery) {
-            1.0f
-        } else {
-            0.45f
-        }
-
-        updateBellContentDescription(profileId)
+        updateBellUi(profileId)
     }
 
     /**
-     * Writes the bell button's accessibility description from [profileId]'s local alert
-     * selection.
+     * Writes the bell button's icon, tint, alpha and accessibility description from
+     * [profileId]'s local alert selection, read once.
      *
-     * The only place it is written: the start-up path ([refreshPushToggleUi]) and the
-     * bell menu's OK ([updateSpawnAlertBellUi]) both call this, so the description after a
-     * restart is the one shown after OK. With no profile it names no category.
+     * The only place any of them is written: the start-up path ([refreshPushToggleUi]) and
+     * the bell menu's OK ([updateSpawnAlertBellUi]) both call this, so the bell looks and
+     * reads the same after a restart as after OK. With no profile it shows no category on.
      */
-    private fun updateBellContentDescription(profileId: String) {
+    private fun updateBellUi(profileId: String) {
         val selection = if (profileId.isBlank()) {
             PcgProfileAlertSelection.DISABLED
         } else {
             readProfileAlertSelection(profileId)
         }
+
+        val appearance = PcgAlertBellDescription.appearance(selection)
+        btnTogglePush.setImageResource(appearance.iconRes)
+        btnTogglePush.setColorFilter(appearance.tint)
+        btnTogglePush.alpha = appearance.alpha
 
         btnTogglePush.contentDescription = PcgAlertBellDescription.labelResIds(selection)
             .joinToString(PcgAlertBellDescription.SEPARATOR) { getString(it) }

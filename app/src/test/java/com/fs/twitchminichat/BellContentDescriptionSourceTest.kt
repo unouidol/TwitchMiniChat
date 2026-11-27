@@ -7,12 +7,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The bell button's accessibility description is written in one place, read from the sources.
+ * The bell button's look and accessibility description are written in one place, read from
+ * the sources.
  *
  * After a restart the chat used to describe the bell as "Alerts ON for this account", a
- * hard-coded string written by the start-up path, even when the active category was Most
- * Wanted or Missing Alt Dex form alerts; only the bell menu's OK wrote the category names.
- * These tests hold both paths to the one writer, so the two descriptions cannot differ again.
+ * hard-coded string written by the start-up path (#150), and drew its icon and tint from the
+ * legacy push setting, so the bell looked on with every category off. Only the bell menu's OK
+ * wrote the category names and the alpha. These tests hold both paths to the one writer, so
+ * the bell cannot look or read differently after a restart than after OK.
  */
 class BellContentDescriptionSourceTest {
 
@@ -22,10 +24,17 @@ class BellContentDescriptionSourceTest {
         String(Files.readAllBytes(path), Charsets.UTF_8).replace("\r\n", "\n")
     }
 
+    private val writerSignature = "private fun updateBellUi(profileId: String) {"
+
     @Test
     fun theHardCodedBellDescriptionsAreGone() {
         assertFalse(chatFragment.contains("Alerts ON for this account"))
         assertFalse(chatFragment.contains("Alerts OFF for this account"))
+    }
+
+    @Test
+    fun theLegacyPushSettingNoLongerDrawsTheBell() {
+        assertFalse(chatFragment.contains("PushSettingsStore"))
     }
 
     @Test
@@ -34,15 +43,28 @@ class BellContentDescriptionSourceTest {
             1,
             Regex("""btnTogglePush\.contentDescription\s*=""").findAll(chatFragment).count()
         )
-        val writer = body("private fun updateBellContentDescription(profileId: String) {")
+        val writer = body(writerSignature)
         assertTrue(writer.contains("btnTogglePush.contentDescription = PcgAlertBellDescription.labelResIds(selection)"))
         assertTrue(writer.contains(".joinToString(PcgAlertBellDescription.SEPARATOR) { getString(it) }"))
     }
 
     @Test
+    fun theIconTintAndAlphaAreWrittenOnlyByTheSharedWriterFromTheSameSelection() {
+        assertEquals(1, Regex("""btnTogglePush\.setImageResource\(""").findAll(chatFragment).count())
+        assertEquals(1, Regex("""btnTogglePush\.setColorFilter\(""").findAll(chatFragment).count())
+        assertEquals(1, Regex("""btnTogglePush\.alpha\s*=""").findAll(chatFragment).count())
+
+        val writer = body(writerSignature)
+        assertTrue(writer.contains("val appearance = PcgAlertBellDescription.appearance(selection)"))
+        assertTrue(writer.contains("btnTogglePush.setImageResource(appearance.iconRes)"))
+        assertTrue(writer.contains("btnTogglePush.setColorFilter(appearance.tint)"))
+        assertTrue(writer.contains("btnTogglePush.alpha = appearance.alpha"))
+    }
+
+    @Test
     fun theWriterReadsTheSelectionTheMenusOkShows() {
-        val writer = body("private fun updateBellContentDescription(profileId: String) {")
-        assertTrue(writer.contains("readProfileAlertSelection(profileId)"))
+        val writer = body(writerSignature)
+        assertEquals(1, Regex("""readProfileAlertSelection\(profileId\)""").findAll(writer).count())
         assertFalse(writer.contains("readConfirmedProfileAlertSelection"))
     }
 
@@ -50,11 +72,11 @@ class BellContentDescriptionSourceTest {
     fun theStartUpPathAndTheMenusOkBothUseTheWriter() {
         assertTrue(
             body("private fun refreshPushToggleUi() {")
-                .contains("updateBellContentDescription(profileId)")
+                .contains("updateBellUi(currentProfileId())")
         )
         assertTrue(
             body("private fun updateSpawnAlertBellUi(profileId: String) {")
-                .contains("updateBellContentDescription(profileId)")
+                .contains("updateBellUi(profileId)")
         )
     }
 
