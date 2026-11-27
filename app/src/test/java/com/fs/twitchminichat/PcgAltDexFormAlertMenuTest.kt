@@ -61,16 +61,21 @@ class PcgAltDexFormAlertMenuTest {
         assertTrue(fragment.contains("PcgAltDexAlertSync.messageAfterTurnOn(altDexOutcome)"))
     }
 
-    /** The bell button's description names the category while it is on, as it does the others. */
+    /**
+     * The bell button's description names the category while it is on, as it does the others.
+     * The description is built by [PcgAlertBellDescription]; that the chat writes it only from
+     * there is pinned by `BellContentDescriptionSourceTest`.
+     */
     @Test
     fun theBellsDescriptionNamesTheCategoryWhileOn() {
-        val fragment = mainSource("ChatFragment.kt")
+        val on = PcgProfileAlertSelection.DISABLED.copy(altDexFormAlertsEnabled = true)
 
         assertTrue(
-            fragment.contains(
-                "if (selection.altDexFormAlertsEnabled) {\n" +
-                    "                add(getString(R.string.pcg_alt_dex_form_alerts_name))"
-            )
+            R.string.pcg_alt_dex_form_alerts_name in PcgAlertBellDescription.labelResIds(on)
+        )
+        assertFalse(
+            R.string.pcg_alt_dex_form_alerts_name in
+                PcgAlertBellDescription.labelResIds(PcgProfileAlertSelection.DISABLED)
         )
     }
 
