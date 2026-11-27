@@ -49,7 +49,7 @@ internal object NewAccountLocalCommit {
         account: AccountConfig,
         persistSession: () -> Boolean,
         owedRecords: () -> SharedPreferences
-    ): Outcome = coordinator.locked {
+    ): Outcome = coordinator.locked("sign-in") {
         if (!accounts.addAccount(account)) {
             /*
              * The stored list could not be read or could not be replaced, so nothing
@@ -126,7 +126,7 @@ internal object AccountRemovalDisableAnswer {
         coordinator: OwedWorkCoordinator,
         profileId: String,
         removeFromList: () -> Boolean
-    ): Removal = coordinator.locked {
+    ): Removal = coordinator.locked("removal") {
         val removedAccount = removeFromList()
 
         Removal(
@@ -169,7 +169,7 @@ internal object AccountRemovalDisableAnswer {
     ): Boolean {
         val profileId = ticket.profileId
 
-        val answer = coordinator.locked {
+        val answer = coordinator.locked("removal.answer") {
             if (ticket.claimed) coordinator.releaseProfile(profileId)
 
             if (!backendOk) {
@@ -270,7 +270,7 @@ internal object DeviceEraseOwedWork {
         coordinator: OwedWorkCoordinator,
         forgetOwedEntries: Boolean,
         deletePreferences: () -> T
-    ): T = coordinator.locked {
+    ): T = coordinator.locked("erase.preferences") {
         if (forgetOwedEntries) coordinator.erased()
         deletePreferences()
     }
@@ -294,7 +294,7 @@ internal object DeviceEraseOwedWork {
     ): Boolean {
         if (!DeviceEraseOutcomePolicy.tokenDeletionOwed(tokenDeletionOk)) return false
 
-        coordinator.locked { coordinator.recordTokenDeletion(owedRecords()) }
+        coordinator.locked("erase.record") { coordinator.recordTokenDeletion(owedRecords()) }
         enqueueOwedWork()
         return true
     }

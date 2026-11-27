@@ -8,6 +8,7 @@ import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.messaging.FirebaseMessaging
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /*
  * Seams for the owed-work paths (#117, F3, PR-1).
@@ -62,6 +63,14 @@ internal interface FirebaseTokenDeletionHandle {
      * still complete later (as `Tasks.await` documents).
      */
     fun await(timeoutSeconds: Long)
+
+    /**
+     * Calls [listener] once the deletion completes, with whether it succeeded; at once if it
+     * already has. The thread it runs on is the one the deletion completes on.
+     *
+     * Used after a wait that timed out, for a deletion that completes later (R1 on #117).
+     */
+    fun onCompletion(listener: (succeeded: Boolean) -> Unit)
 }
 
 /** The two Firebase Cloud Messaging token calls the application makes. */
@@ -107,19 +116,28 @@ internal object PlayServicesFirebaseTokens : FirebaseTokenOperations {
         override fun await(timeoutSeconds: Long) {
             Tasks.await(task, timeoutSeconds, TimeUnit.SECONDS)
         }
+
+        override fun onCompletion(listener: (succeeded: Boolean) -> Unit) {
+            task.addOnCompleteListener { completed -> listener(completed.isSuccessful) }
+        }
     }
 }
 
 /**
  * Deletes the Firebase Cloud Messaging token and its cached copy, blocking.
  *
- * The body of `FcmRegistrationUploader.deleteFirebaseTokenBlocking`, unchanged, with its
- * collaborators passed in.
+ * The body of the two token deletions of `FcmRegistrationUploader`, with their collaborators
+ * passed in. PR-3 adds [deleteBlocking]'s `onLateSuccess` (R1 on #117).
  */
 internal object FirebaseTokenDeletion {
 
     /**
      * Returns whether the token is now gone.
+     *
+     * A wait that times out does not cancel the deletion. If it completes after all, the token a
+     * registration obtained in between is gone, and [onLateSuccess] runs, on the thread the
+     * deletion completes on. The owed pass's registers the signed-in profiles again (R1); the
+     * erase's, made before its wipe, does nothing.
      *
      * @param tokenCache the preferences file holding [cachedTokenKey].
      */
@@ -128,10 +146,17 @@ internal object FirebaseTokenDeletion {
         timeoutSeconds: Long,
         tokenCache: SharedPreferences,
         cachedTokenKey: String,
-        log: OwedWorkLog
+        log: OwedWorkLog,
+        onLateSuccess: () -> Unit
     ): Boolean {
         val deleted = runCatching {
-            tokens.startTokenDeletion().await(timeoutSeconds)
+            val deletion = tokens.startTokenDeletion()
+            try {
+                deletion.await(timeoutSeconds)
+            } catch (timeout: TimeoutException) {
+                deletion.onCompletion { succeeded -> if (succeeded) onLateSuccess() }
+                throw timeout
+            }
             true
         }.getOrElse { error ->
             log.warn(
@@ -224,7 +249,7 @@ internal class ProductionOwedWorkEnvironment(
     }
 
     override fun deleteFirebaseToken(): Boolean {
-        return FcmRegistrationUploader.deleteFirebaseTokenBlocking(appContext)
+        return FcmRegistrationUploader.deleteOwedFirebaseTokenBlocking(appContext)
     }
 
     override fun sendProfileAlertDisable(profileId: String): Boolean {

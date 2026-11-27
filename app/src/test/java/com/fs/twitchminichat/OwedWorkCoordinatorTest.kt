@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import java.nio.file.Files
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -9,14 +10,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Lock L's state on its own, and where the application uses it (#117, F3, PR-2).
+ * Lock L's state on its own, and where the application uses it (#117, F3, PR-2), with PR-3's
+ * line per section and the token gate's bound.
  *
  * The races it closes are in [OwedWorkRaceTest]; these check the pieces those tests rely on, and,
  * by reading the sources, the writers no local test can run because they need a device.
  */
 class OwedWorkCoordinatorTest {
 
-    private val coordinator = OwedWorkCoordinator()
+    private val coordinator = testCoordinator()
     private val owedRecords = ThreadSafeTestSharedPreferences()
 
     @Test
@@ -31,7 +33,7 @@ class OwedWorkCoordinatorTest {
 
     @Test
     fun everyWriteOfAnEntryChangesItsStampAndNoOtherProfiles() {
-        coordinator.locked {
+        coordinator.locked("test") {
             val token = coordinator.tokenStamp()
             val pa = coordinator.profileStamp("pa")
             val pb = coordinator.profileStamp("pb")
@@ -55,7 +57,7 @@ class OwedWorkCoordinatorTest {
 
     @Test
     fun anEraseChangesEveryStampEvenOfProfilesNeverWritten() {
-        coordinator.locked {
+        coordinator.locked("test") {
             val token = coordinator.tokenStamp()
             val untouched = coordinator.profileStamp("pz")
             coordinator.recordProfileDisable(owedRecords, "pa")
@@ -71,7 +73,7 @@ class OwedWorkCoordinatorTest {
 
     @Test
     fun aClearMatchesOnlyTheEntryItWasDecidedOn() {
-        coordinator.locked {
+        coordinator.locked("test") {
             coordinator.recordTokenDeletion(owedRecords)
             val decided = coordinator.tokenStamp()
             coordinator.recordTokenDeletion(owedRecords)
@@ -87,7 +89,7 @@ class OwedWorkCoordinatorTest {
 
     @Test
     fun aClaimIsHeldByOneAttemptUntilReleased() {
-        coordinator.locked {
+        coordinator.locked("test") {
             assertTrue(coordinator.claimToken())
             assertFalse(coordinator.claimToken())
             coordinator.releaseToken()
@@ -108,14 +110,14 @@ class OwedWorkCoordinatorTest {
      */
     @Test
     fun aNewProcessStartsWithEveryClaimFree() {
-        val crashed = OwedWorkCoordinator()
-        crashed.locked {
+        val crashed = testCoordinator()
+        crashed.locked("test") {
             assertTrue(crashed.claimToken())
             assertTrue(crashed.claimProfile("pa"))
         }
 
-        val next = OwedWorkCoordinator()
-        next.locked {
+        val next = testCoordinator()
+        next.locked("test") {
             assertTrue(next.claimToken())
             assertTrue(next.claimProfile("pa"))
             assertTrue(next.claimProfile("pb"))
@@ -145,17 +147,87 @@ class OwedWorkCoordinatorTest {
 
     @Test
     fun anEraseDeletesItsFilesUnderTheLockAndForgetsTheEntries() {
-        val before = coordinator.locked { coordinator.tokenStamp() }
+        val before = coordinator.locked("test") { coordinator.tokenStamp() }
         val heldInside = DeviceEraseOwedWork.deletePreferences(coordinator, forgetOwedEntries = true) {
             coordinator.lock.isHeldByCurrentThread
         }
 
         assertTrue(heldInside)
-        assertNotEquals(before, coordinator.locked { coordinator.tokenStamp() })
+        assertNotEquals(before, coordinator.locked("test") { coordinator.tokenStamp() })
 
-        val kept = coordinator.locked { coordinator.tokenStamp() }
+        val kept = coordinator.locked("test") { coordinator.tokenStamp() }
         DeviceEraseOwedWork.deletePreferences(coordinator, forgetOwedEntries = false) {}
-        assertEquals(kept, coordinator.locked { coordinator.tokenStamp() })
+        assertEquals(kept, coordinator.locked("test") { coordinator.tokenStamp() })
+    }
+
+    // --- One line per section, and the token gate's bound (PR-3) ---------------------------
+
+    /**
+     * A section logs its name, how long it waited for L and how long it held it, in
+     * microseconds, once, and only after L is free again (DV1 on #117).
+     */
+    @Test
+    fun aSectionLogsItsWaitAndItsHoldOnceLIsFree() {
+        val times = ArrayDeque(listOf(1_000L, 3_000L, 10_000L))
+        lateinit var timed: OwedWorkCoordinator
+        val heldWhileLogging = mutableListOf<Boolean>()
+        val log = object : OwedWorkLog {
+            val lines = mutableListOf<String>()
+            override fun debug(message: String) {
+                heldWhileLogging += timed.lock.isHeldByCurrentThread
+                lines += message
+            }
+            override fun warn(message: String) = throw AssertionError(message)
+        }
+        timed = OwedWorkCoordinator(log = log, nanoTime = { times.removeFirst() })
+
+        assertEquals("inside", timed.locked("pass.token.decide") { "inside" })
+
+        assertEquals(listOf("lock L section=pass.token.decide waitedUs=2 heldUs=7"), log.lines)
+        assertEquals(listOf(false), heldWhileLogging)
+        assertTrue(times.isEmpty())
+    }
+
+    /** A section entered under L belongs to the one around it, which alone logs. */
+    @Test
+    fun aSectionInsideAnotherLogsOnlyTheOuterOne() {
+        val log = RecordingOwedWorkLog()
+        val nested = OwedWorkCoordinator(log = log, nanoTime = { 0L })
+
+        nested.locked("outer") { nested.locked("inner") {} }
+
+        assertEquals(listOf("D lock L section=outer waitedUs=0 heldUs=0"), log.lines)
+    }
+
+    /**
+     * The gate is free with no deletion claimed, and with one claimed it gives up exactly when
+     * the bound has passed since the claim, not since the wait began. The test's timeout is a
+     * liveness guard only: a gate counting from the wait would otherwise block this test for good.
+     */
+    @Test(timeout = 60_000L)
+    fun theTokenGateIsBoundedFromTheClaim() {
+        val now = java.util.concurrent.atomic.AtomicLong(TimeUnit.SECONDS.toNanos(5))
+        val gate = OwedWorkCoordinator(log = RecordingOwedWorkLog(), nanoTime = now::get)
+        val bound = TimeUnit.SECONDS.toNanos(20)
+
+        assertEquals(OwedWorkCoordinator.TokenGate.FREE, gate.awaitTokenDeletionNotInFlight(bound))
+
+        gate.locked("test") { assertTrue(gate.claimToken()) }
+        now.addAndGet(bound)
+        assertEquals(OwedWorkCoordinator.TokenGate.DEADLINE, gate.awaitTokenDeletionNotInFlight(bound))
+
+        gate.locked("test") { gate.releaseToken() }
+        assertEquals(OwedWorkCoordinator.TokenGate.FREE, gate.awaitTokenDeletionNotInFlight(bound))
+    }
+
+    /** Waiting under L would hold up every section of the process: the gate refuses. */
+    @Test
+    fun theTokenGateIsNeverWaitedForUnderTheLock() {
+        coordinator.locked("test") {
+            assertThrows(IllegalStateException::class.java) {
+                coordinator.awaitTokenDeletionNotInFlight(TimeUnit.SECONDS.toNanos(20))
+            }
+        }
     }
 
     // --- Where the application takes L (read from the sources) -------------------------
@@ -163,10 +235,41 @@ class OwedWorkCoordinatorTest {
     /** One lock per process: no production code makes a coordinator but the process's own. */
     @Test
     fun theApplicationHasOneCoordinator() {
-        val constructions = mainSources().filter { (_, text) -> "OwedWorkCoordinator()" in text }
+        val construction = Regex("""= OwedWorkCoordinator\(""")
+        val constructions = mainSources().filter { (_, text) -> construction.containsMatchIn(text) }
 
         assertEquals(listOf("OwedWorkCoordinator.kt"), constructions.map { it.first })
-        assertEquals(1, Regex("""OwedWorkCoordinator\(\)""").findAll(constructions.single().second).count())
+        assertEquals(1, construction.findAll(constructions.single().second).count())
+    }
+
+    /**
+     * Every section of the application is named, each name once, so that a device log tells them
+     * apart (DV1 on #117).
+     */
+    @Test
+    fun everySectionOfTheApplicationHasItsOwnName() {
+        val names = mainSources()
+            .flatMap { (_, text) -> Regex("""\.locked\("([^"]+)"\)""").findAll(text).map { it.groupValues[1] } }
+
+        assertEquals(
+            listOf(
+                "alt-dex.confirmation",
+                "delivery.acknowledgement",
+                "erase.preferences",
+                "erase.record",
+                "pass.disable.answer",
+                "pass.disable.candidates",
+                "pass.disable.decide",
+                "pass.token.answer",
+                "pass.token.decide",
+                "removal",
+                "removal.answer",
+                "sign-in",
+                "token.late-deletion"
+            ),
+            names.sorted()
+        )
+        assertEquals(0, mainSources().sumOf { (_, text) -> Regex("""\.locked \{""").findAll(text).count() })
     }
 
     /** Each production caller of a section passes the process's coordinator. */
@@ -194,7 +297,7 @@ class OwedWorkCoordinatorTest {
     fun theAcknowledgementAfterADeliveryIsWrittenUnderTheLock() {
         val uploader = checkNotNull(mainSources().toMap()["FcmRegistrationUploader.kt"])
         val section = uploader
-            .substringAfter("OwedWorkCoordinator.PROCESS.locked {")
+            .substringAfter("OwedWorkCoordinator.PROCESS.locked(\"delivery.acknowledgement\") {")
             .substringBefore("\n            }\n")
 
         assertTrue(section.contains("PcgProfileAlertAcknowledgementStore.record(\n                    context = context,"))

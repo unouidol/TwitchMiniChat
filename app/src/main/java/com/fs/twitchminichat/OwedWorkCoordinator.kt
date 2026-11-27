@@ -1,6 +1,7 @@
 package com.fs.twitchminichat
 
 import android.content.SharedPreferences
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -41,10 +42,25 @@ import kotlin.concurrent.withLock
  * flight takes its claim with it, and the next process starts with every claim free. A claim
  * stored anywhere would block that entry for good after one crash.
  *
+ * **A registration waits for a claimed token deletion** before it obtains its token (PR-3, case
+ * (a)): [awaitTokenDeletionNotInFlight]. It is the only wait in the design, and it is bounded by
+ * the deletion's own timeout.
+ *
+ * **Each section under L logs how long it waited for L and how long it held it** ([locked]),
+ * so that a device run can compare the longest section with the shortest network call (DV1 on
+ * #117): a section as long as a network call would mean a network call under L.
+ *
  * One instance per process, [PROCESS]: the application is one process (no `android:process`).
  * Local tests make their own.
+ *
+ * @param log where each section's duration line goes.
+ * @param nanoTime the monotonic clock of those lines and of the gate's bound; a test passes its
+ *   own, so that no test reads the time.
  */
-internal class OwedWorkCoordinator {
+internal class OwedWorkCoordinator(
+    private val log: OwedWorkLog,
+    private val nanoTime: () -> Long
+) {
 
     /**
      * Lock L. Public so a test can check that no network call is made while it is held.
@@ -61,6 +77,9 @@ internal class OwedWorkCoordinator {
      */
     val lock = ReentrantLock()
 
+    /** Signalled when the token claim is released; the token gate waits on it. */
+    private val tokenReleased = lock.newCondition()
+
     /**
      * Which version of an owed entry an attempt is acting on.
      *
@@ -75,10 +94,35 @@ internal class OwedWorkCoordinator {
     private val profileChanges = HashMap<String, Long>()
 
     private var tokenClaimed = false
+    private var tokenClaimedAt = 0L
     private val claimedProfiles = HashSet<String>()
 
-    /** Runs [block] under L. */
-    fun <T> locked(block: () -> T): T = lock.withLock(block)
+    /**
+     * Runs [block] under L, then logs one line naming [section], with how long the thread waited
+     * for L and how long it held it, in microseconds.
+     *
+     * The line is written once L is free again, so the log itself is never under L. A section
+     * entered while the thread already holds L is part of the section around it, and only that
+     * outer one logs.
+     */
+    fun <T> locked(section: String, block: () -> T): T {
+        val outermost = !lock.isHeldByCurrentThread
+        val requested = nanoTime()
+        lock.lock()
+        val acquired = nanoTime()
+        try {
+            return block()
+        } finally {
+            val released = nanoTime()
+            lock.unlock()
+            if (outermost) {
+                log.debug(
+                    "lock L section=$section waitedUs=${micros(acquired - requested)} " +
+                        "heldUs=${micros(released - acquired)}"
+                )
+            }
+        }
+    }
 
     // --- Stamps -----------------------------------------------------------------------
 
@@ -134,13 +178,54 @@ internal class OwedWorkCoordinator {
         checkLocked()
         if (tokenClaimed) return false
         tokenClaimed = true
+        tokenClaimedAt = nanoTime()
         return true
     }
 
-    /** Releases the claim [claimToken] took. Under L. */
+    /** Releases the claim [claimToken] took, and lets the token gate through. Under L. */
     fun releaseToken() {
         checkLocked()
         tokenClaimed = false
+        tokenReleased.signalAll()
+    }
+
+    // --- The token gate (PR-3) ------------------------------------------------------------
+
+    /** How [awaitTokenDeletionNotInFlight] let a registration through. */
+    enum class TokenGate {
+
+        /** No owed token deletion was in flight. */
+        FREE,
+
+        /** One was in flight, and has ended. */
+        WAITED,
+
+        /** One is still in flight, and the bound has passed since it was claimed. */
+        DEADLINE
+    }
+
+    /**
+     * Returns once no owed token deletion is in flight, or once [maxWaitNanos] have passed since
+     * the deletion in flight was claimed (case (a) on #117).
+     *
+     * A registration that obtained its token while the deletion was out would register a token
+     * that the deletion then removes. Called with the deletion's own timeout as the bound, it
+     * waits at most what is left of that timeout. Takes L, and gives L up while it waits, so
+     * nothing else is held up meanwhile. Never call it on the main thread or under L.
+     */
+    fun awaitTokenDeletionNotInFlight(maxWaitNanos: Long): TokenGate {
+        check(!lock.isHeldByCurrentThread) { "the token gate waited for under lock L" }
+
+        lock.withLock {
+            if (!tokenClaimed) return TokenGate.FREE
+
+            while (tokenClaimed) {
+                val remaining = tokenClaimedAt + maxWaitNanos - nanoTime()
+                if (remaining <= 0L) return TokenGate.DEADLINE
+                tokenReleased.awaitNanos(remaining)
+            }
+            return TokenGate.WAITED
+        }
     }
 
     /** Claims [profileId]'s disable; false when another attempt holds it. Under L. */
@@ -201,9 +286,14 @@ internal class OwedWorkCoordinator {
 
     private fun key(profileId: String): String = AccountProfileIdResolver.normalize(profileId)
 
+    private fun micros(nanos: Long): Long = TimeUnit.NANOSECONDS.toMicros(nanos)
+
     companion object {
 
-        /** The application's coordinator. */
-        val PROCESS = OwedWorkCoordinator()
+        /** The application's coordinator, logging under the owed-work tag. */
+        val PROCESS = OwedWorkCoordinator(
+            log = AndroidOwedWorkLog("OWED_SERVER_OP"),
+            nanoTime = System::nanoTime
+        )
     }
 }

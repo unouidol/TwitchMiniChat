@@ -302,7 +302,7 @@ internal class PcgAltDexAlertSync(
 
     /** Moves the acknowledged alt-dex category, under L. */
     private fun setConfirmed(profileId: String, confirmed: Boolean) {
-        coordinator.locked {
+        coordinator.locked("alt-dex.confirmation") {
             PcgProfileAlertAcknowledgementStore.setAltDexFormAlertsConfirmed(
                 acknowledgements(),
                 profileId,
