@@ -607,7 +607,9 @@ missing dex, and list `event_spawn` among the reasons. `build_token_targets_for_
   - under the checkbox, while it is ticked and store 3 has no reading for the profile:
     `pcg_alt_dex_form_alert_no_reading`, "No Alt Dex reading on this phone yet. In the PCG
     Pokédex, switch to Alt Dex, turn Obtained off and press Update Alt Dex.";
-  - after OK, the same text as a toast, once.
+  - after OK, a short form of it as a toast, once: `pcg_alt_dex_form_alert_no_reading_toast`,
+    "No Alt Dex reading yet. Press Update Alt Dex in the PCG Pokédex." The full text was cut
+    to two lines in a toast (device round of 2026-11-27).
   - The setting is still saved: decision 3 makes it harmless, and the first reading then uploads.
 - **Text that says the alt dex never leaves the phone** must change in the same pull request: the
   KDoc of `saveManualAltDexReading` (`GeckoSessionManager.kt:895`) and of `PcgAltDexSnapshotStore`
@@ -907,7 +909,7 @@ the focus and `zen_mode` is not 0 (`AGENTS.md`, ruling of 2026-11-23). "Update I
 1. **Default:** after installing over the current dev build, the checkbox is off, for every
    account. `set_spawn_alert_mode`'s answer, as logged under `FCM_REGISTER`, shows it off.
 2. **On with no reading:** on an account with no alt-dex reading, the hint shows under the
-   checkbox and as a toast after OK; no `upload_alt_dex` line in Logcat.
+   checkbox, and its short form as a toast after OK; no `upload_alt_dex` line in Logcat.
 3. **On with a reading:** on the owner's account (store 3 holds 61 missing forms, observed
    2026-11-23), turning it on gives one `upload_alt_dex responseCode=200` line; on the server, the
    owner reads `[ALT_DEX] saved ... missing_count=61`.
