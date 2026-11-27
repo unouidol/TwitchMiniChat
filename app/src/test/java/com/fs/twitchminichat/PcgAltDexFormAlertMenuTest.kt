@@ -82,7 +82,7 @@ class PcgAltDexFormAlertMenuTest {
     @Test
     fun afterOkTheTurnOnOwesTheHintOrTheRefusalAndNothingElse() {
         assertEquals(
-            R.string.pcg_alt_dex_form_alert_no_reading,
+            R.string.pcg_alt_dex_form_alert_no_reading_toast,
             PcgAltDexAlertSync.messageAfterTurnOn(PcgAltDexAlertSyncOutcome.NO_READING)
         )
         assertEquals(
@@ -110,6 +110,33 @@ class PcgAltDexFormAlertMenuTest {
         val hint = checkNotNull(strings["pcg_alt_dex_form_alert_no_reading"])
         assertTrue(hint.contains("press $button."))
         assertTrue(checkNotNull(strings["pcg_alt_dex_alert_upload_failed"]).contains("Press $button"))
+        assertTrue(
+            checkNotNull(strings["pcg_alt_dex_form_alert_no_reading_toast"]).contains("Press $button")
+        )
+    }
+
+    /**
+     * The toast after OK with no reading is a short form of the hint: the hint's full text was
+     * cut to two lines in a toast (device round of 2026-11-27). The hint under the checkbox
+     * keeps the full text.
+     */
+    @Test
+    fun theNoReadingToastIsShortAndTheHintKeepsItsFullText() {
+        val strings = strings()
+
+        assertEquals(
+            "No Alt Dex reading yet. Press Update Alt Dex in the PCG Pokédex.",
+            strings["pcg_alt_dex_form_alert_no_reading_toast"]
+        )
+        assertEquals(
+            "No Alt Dex reading on this phone yet. In the PCG Pokédex, switch to Alt Dex, " +
+                "turn Obtained off and press Update Alt Dex.",
+            strings["pcg_alt_dex_form_alert_no_reading"]
+        )
+        assertTrue(
+            mainSource("PcgSpawnAlertModeMenu.kt")
+                .contains("text = context.getString(R.string.pcg_alt_dex_form_alert_no_reading)")
+        )
     }
 
     /**

@@ -364,8 +364,9 @@ internal class PcgAltDexAlertSync(
          * The message the bell menu's `ALT_DEX_UPLOAD` step owes the user after the selection's
          * own toast, or null when it owes none. [outcome] is null when the plan had no such step.
          *
-         * - **No reading on this phone:** the hint under the checkbox, once more, as a toast
-         *   (decision 3). The category is saved; the first reading uploads.
+         * - **No reading on this phone:** a short form of the hint under the checkbox, as a
+         *   toast (decision 3). The hint's full text was cut to two lines in a toast; the
+         *   hint itself stays as it is. The category is saved; the first reading uploads.
          * - **A 409:** its own string, never only the generic one.
          * - **Stored, or failed:** none. The selection's toast already says saved, or that only
          *   part of it was, and a failure leaves the category unconfirmed, so the next OK sends
@@ -375,7 +376,7 @@ internal class PcgAltDexAlertSync(
         @StringRes
         fun messageAfterTurnOn(outcome: PcgAltDexAlertSyncOutcome?): Int? {
             return when (outcome) {
-                PcgAltDexAlertSyncOutcome.NO_READING -> R.string.pcg_alt_dex_form_alert_no_reading
+                PcgAltDexAlertSyncOutcome.NO_READING -> R.string.pcg_alt_dex_form_alert_no_reading_toast
                 PcgAltDexAlertSyncOutcome.ALERTS_OFF -> notConfirmedMessage
                 PcgAltDexAlertSyncOutcome.STORED,
                 PcgAltDexAlertSyncOutcome.FAILED,

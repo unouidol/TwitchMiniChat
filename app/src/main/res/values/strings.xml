@@ -406,6 +406,7 @@
     <string name="pcg_alt_dex_form_alert_label">Enable Missing Alt Dex form alerts</string>
     <string name="pcg_alt_dex_form_alerts_name">Missing Alt Dex form alerts</string>
     <string name="pcg_alt_dex_form_alert_no_reading">No Alt Dex reading on this phone yet. In the PCG Pokédex, switch to Alt Dex, turn Obtained off and press Update Alt Dex.</string>
+    <string name="pcg_alt_dex_form_alert_no_reading_toast">No Alt Dex reading yet. Press Update Alt Dex in the PCG Pokédex.</string>
     <string name="pcg_spawn_alert_bell_mode_and_event">%1$s; event spawns enabled</string>
     <string name="pcg_notification_delivery_header">Alert style</string>
     <string name="pcg_notification_sound_label">Sound</string>

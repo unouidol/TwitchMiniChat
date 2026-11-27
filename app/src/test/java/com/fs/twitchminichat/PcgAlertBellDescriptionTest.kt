@@ -6,6 +6,7 @@ import org.junit.Test
 /**
  * The bell button's accessibility description names each active category by the menu's own
  * string resources, in the menu's order, and names "no standard spawn alerts" when none is on.
+ * Its icon, tint and alpha say on exactly when the description names a category.
  */
 class PcgAlertBellDescriptionTest {
 
@@ -69,6 +70,59 @@ class PcgAlertBellDescriptionTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun nothingOnDrawsTheBellOffRedAndDimmed() {
+        assertEquals(
+            PcgAlertBellDescription.Appearance(
+                iconRes = R.drawable.ic_bell_off,
+                tint = 0xFFFF6666.toInt(),
+                alpha = 0.45f
+            ),
+            PcgAlertBellDescription.appearance(PcgProfileAlertSelection.DISABLED)
+        )
+    }
+
+    @Test
+    fun anyCategoryOnAloneDrawsTheBellOnGreenAndOpaque() {
+        val on = PcgAlertBellDescription.Appearance(
+            iconRes = R.drawable.ic_bell_on,
+            tint = 0xFF66FF99.toInt(),
+            alpha = 1.0f
+        )
+        val onlyOne = listOf(
+            selection(altDex = true),
+            selection(mostWanted = true),
+            selection(event = true)
+        ) + PcgSpawnAlertMode.entries
+            .filter { it != PcgSpawnAlertMode.NONE }
+            .map { selection(mode = it) }
+
+        for (selection in onlyOne) {
+            assertEquals(on, PcgAlertBellDescription.appearance(selection))
+        }
+    }
+
+    /** The bell looks on exactly when its description names a category. */
+    @Test
+    fun theBellLooksOnExactlyWhenTheDescriptionNamesACategory() {
+        val none = R.string.spawn_alert_mode_none
+        for (mode in PcgSpawnAlertMode.entries) {
+            for (event in listOf(false, true)) {
+                for (mostWanted in listOf(false, true)) {
+                    for (altDex in listOf(false, true)) {
+                        val selection = selection(mode, event, mostWanted, altDex)
+                        val namesACategory =
+                            PcgAlertBellDescription.labelResIds(selection) != listOf(none)
+                        assertEquals(
+                            namesACategory,
+                            PcgAlertBellDescription.appearance(selection).iconRes == R.drawable.ic_bell_on
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private fun selection(
