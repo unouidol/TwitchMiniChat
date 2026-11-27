@@ -1485,11 +1485,7 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
 
         btnTogglePush.alpha = 1f
 
-        btnTogglePush.contentDescription = if (enabled) {
-            "Alerts ON for this account"
-        } else {
-            "Alerts OFF for this account"
-        }
+        updateBellContentDescription(profileId)
     }
 
 
@@ -4397,8 +4393,6 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
         if (!this::btnTogglePush.isInitialized) return
 
         val selection = readProfileAlertSelection(profileId)
-        val settings = selection.spawnSettings
-        val mostWantedEnabled = selection.mostWantedEnabled
 
         btnTogglePush.alpha = if (selection.requiresFirebaseDelivery) {
             1.0f
@@ -4406,26 +4400,25 @@ class ChatFragment : Fragment(R.layout.fragment_chat), CatchPresetSettingsBottom
             0.45f
         }
 
-        val activeDescriptions = buildList {
-            if (settings.regularMode != PcgSpawnAlertMode.NONE) {
-                add(getString(settings.regularMode.titleRes))
-            }
-            if (settings.eventSpawnsEnabled) {
-                add(getString(R.string.pcg_event_spawn_alert_label))
-            }
-            if (mostWantedEnabled) {
-                add(getString(R.string.pcg_most_wanted_alert_label))
-            }
-            if (selection.altDexFormAlertsEnabled) {
-                add(getString(R.string.pcg_alt_dex_form_alerts_name))
-            }
+        updateBellContentDescription(profileId)
+    }
+
+    /**
+     * Writes the bell button's accessibility description from [profileId]'s local alert
+     * selection.
+     *
+     * The only place it is written: the start-up path ([refreshPushToggleUi]) and the
+     * bell menu's OK ([updateSpawnAlertBellUi]) both call this, so the description after a
+     * restart is the one shown after OK. With no profile it names no category.
+     */
+    private fun updateBellContentDescription(profileId: String) {
+        val selection = if (profileId.isBlank()) {
+            PcgProfileAlertSelection.DISABLED
+        } else {
+            readProfileAlertSelection(profileId)
         }
 
-        btnTogglePush.contentDescription =
-            activeDescriptions.joinToString(separator = "; ")
-                .ifBlank {
-                    getString(PcgSpawnAlertMode.NONE.titleRes)
-                }
-
+        btnTogglePush.contentDescription = PcgAlertBellDescription.labelResIds(selection)
+            .joinToString(PcgAlertBellDescription.SEPARATOR) { getString(it) }
     }
 }
